@@ -1,17 +1,32 @@
 import React from 'react';
-import { AppProvider } from './context/AppContext';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import LoginPage from './pages/LoginPage';
 import MainPage from './pages/MainPage';
 import StudentDisplayPage from './pages/StudentDisplayPage';
 import { isSecondaryWindow } from './utils/windowUtils';
 
 function App() {
-  // Determine if this is the student display window or the main window
   const isStudentWindow = isSecondaryWindow();
 
+  if (isStudentWindow) {
+    return (
+      <AuthProvider>
+        <StudentDisplayPage />
+      </AuthProvider>
+    );
+  }
+
   return (
-    <AppProvider>
-      {isStudentWindow ? <StudentDisplayPage /> : <MainPage />}
-    </AppProvider>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/classroom/:sessionId" element={<MainPage />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
