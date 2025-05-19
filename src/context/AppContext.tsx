@@ -16,7 +16,7 @@ interface AppContextProps {
 }
 
 const initialState: AppState = {
-  currentSlide: 1,
+  currentSlide: 0,
   decisions: mockDecisions,
   slides: mockSlides,
   notes: '',
@@ -162,19 +162,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const nextSlide = () => {
-    if (state.currentSlide < state.slides.length) {
+    const currentIndex = state.slides.findIndex(slide => slide.id === state.currentSlide);
+    if (currentIndex < state.slides.length - 1) {
       broadcastState({
         ...state,
-        currentSlide: state.currentSlide + 1,
+        currentSlide: state.slides[currentIndex + 1].id,
       });
     }
   };
 
   const previousSlide = () => {
-    if (state.currentSlide > 1) {
+    const currentIndex = state.slides.findIndex(slide => slide.id === state.currentSlide);
+    if (currentIndex > 0) {
       broadcastState({
         ...state,
-        currentSlide: state.currentSlide - 1,
+        currentSlide: state.slides[currentIndex - 1].id,
       });
     }
   };

@@ -1,6 +1,7 @@
 import { Decision, Slide } from '../types';
 
 export const mockDecisions: Decision[] = [
+  { id: 'welcome', label: 'WELCOME', details: 'Start Here', slideNumber: 0 },
   { id: 'rd-1-invest', label: 'RD-1 INVEST', details: '15M', slideNumber: 62 },
   { id: 'ch-1', label: 'CH 1', details: '3M', slideNumber: 63 },
   { id: 'dd', label: 'DD', details: '5M', slideNumber: 64 },
@@ -13,6 +14,19 @@ export const mockDecisions: Decision[] = [
 ];
 
 export const mockSlides: Slide[] = [
+  {
+    id: 0,
+    title: 'WELCOME TO READY OR NOT 2.0',
+    content: {
+      main: 'HOW TO HOST GUIDE',
+      details: [
+        'Print the guide and follow instructions',
+        'Review game host controls',
+        'Set up your classroom space'
+      ],
+    },
+    background: 'bg-gradient-to-br from-green-600 to-green-900',
+  },
   {
     id: 62,
     title: 'INVESTMENT PAYOFF RD-1',
