@@ -18,6 +18,8 @@ const LoginPage: React.FC = () => {
     try {
       if (isSignUp) {
         await signUp(email, password);
+        // After successful registration, sign in automatically
+        await signIn(email, password);
       } else {
         await signIn(email, password);
       }
