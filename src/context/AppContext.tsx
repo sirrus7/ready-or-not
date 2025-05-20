@@ -1,15 +1,17 @@
 // src/context/AppContext.tsx
 import React, {createContext, useContext, useState, useEffect, useCallback, useMemo} from 'react';
-import {useParams, useNavigate} from 'react-router-dom';
+// REMOVED: import { useParams } from 'react-router-dom';
+import {useNavigate} from 'react-router-dom'; // Keep useNavigate
 import {
     AppState,
+    GameStructure,
     GamePhaseNode,
     Slide,
     Team,
     TeamDecision,
-    TeacherBroadcastPayload,
-    GameSession,
-    // KpiEffect // Not directly used in AppContext actions yet, but defined in types
+    TeamRoundData,
+    User,
+    TeacherBroadcastPayload, GameSession,
 } from '../types';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {supabase} from '../lib/supabase';
@@ -30,7 +32,7 @@ interface AppContextProps {
     fetchTeamsForSession: () => Promise<void>;
     clearTeacherAlert: () => void;
     resetTeamDecisionForPhase: (teamId: string, phaseId: string) => Promise<void>;
-    processPhaseDecisions: (phaseId: string) => Promise<void>; // Placeholder
+    processPhaseDecisions: (phaseId: string) => Promise<void>;
 }
 
 const initialAppState: AppState = {
@@ -44,7 +46,7 @@ const initialAppState: AppState = {
     teamDecisions: {},
     teamRoundData: {},
     isStudentWindowOpen: false,
-    isLoading: true, // Start with loading true
+    isLoading: true,
     error: null,
     currentTeacherAlert: null,
 };
@@ -61,10 +63,13 @@ export const useAppContext = () => {
 
 let broadcastChannel: BroadcastChannel | null = null;
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+interface AppProviderProps { // For accepting passedSessionId
+    children: React.ReactNode;
+    passedSessionId?: string | null;
+}
+
+export const AppProvider: React.FC<AppProviderProps> = ({children, passedSessionId}) => {
     const [state, setState] = useState<AppState>(initialAppState);
-    const params = useParams<{ sessionId: string | undefined }>();
-    const sessionIdFromUrl = params.sessionId;
     const {user, loading: authLoading} = useAuth();
     const navigate = useNavigate();
 
@@ -159,34 +164,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
     }, [allPhasesInOrder, gameStructureInstance]);
 
     useEffect(() => {
-        console.log("AppContext INIT EFFECT - URL SessionId:", sessionIdFromUrl, "AuthLoading:", authLoading, "User:", !!user, "Current AppContext SessionId:", state.currentSessionId);
+        const effectSessionId = passedSessionId; // Use the prop
+        console.log("AppContext INIT EFFECT - Prop passedSessionId:", effectSessionId, "AuthLoading:", authLoading, "User:", !!user, "Current AppState SessionId:", state.currentSessionId, "Is Loading:", state.isLoading);
+
         if (authLoading) {
-            console.log("AppContext: Auth is loading, setting isLoading: true and returning.");
-            setState(s => ({...s, isLoading: true, gameStructure: gameStructureInstance}));
-            return;
-        }
-        if (!sessionIdFromUrl) {
-            console.log("AppContext: No sessionIdFromUrl. AppContext is ready, but no active game session from URL.");
-            setState(s => ({
-                ...s,
-                isLoading: false,
-                gameStructure: gameStructureInstance,
-                currentSessionId: null,
-                currentPhaseId: null,
-                currentSlideIdInPhase: null,
-                error: null
-            }));
+            console.log("AppContext: Auth is loading. Setting app isLoading: true.");
+            if (!state.isLoading) setState(s => ({...s, isLoading: true, gameStructure: gameStructureInstance}));
             return;
         }
 
-        setState(prevState => ({...prevState, isLoading: true, gameStructure: gameStructureInstance, error: null}));
+        if (effectSessionId === undefined || effectSessionId === null) {
+            console.log("AppContext: No sessionId from prop (e.g. on /dashboard). isLoading: false.");
+            if (state.currentSessionId !== null || state.isLoading) {
+                setState(s => ({...initialAppState, isLoading: false, gameStructure: gameStructureInstance}));
+            }
+            return;
+        }
 
-        const initializeSession = async () => {
-            console.log(`AppContext: Starting initializeSession for URL sessionId: ${sessionIdFromUrl}`);
+        if (state.currentSessionId === effectSessionId && !state.isLoading && effectSessionId !== 'new') {
+            console.log(`AppContext: Session ${effectSessionId} already processed. No re-init.`);
+            return;
+        }
+
+        console.log(`AppContext: Proceeding with session initialization for: ${effectSessionId}`);
+        setState(prevState => ({
+            ...prevState,
+            isLoading: true,
+            gameStructure: gameStructureInstance,
+            error: null,
+            currentSessionId: effectSessionId
+        }));
+
+        const initializeActualSession = async (sessionIdToProcess: string) => {
+            console.log(`AppContext: Starting initializeActualSession for: ${sessionIdToProcess}`);
             try {
-                if (sessionIdFromUrl === 'new') {
-                    if (user && gameStructureInstance) {
-                        console.log("AppContext: Handling 'new' session for user:", user.id);
+                if (sessionIdToProcess === 'new') {
+                    if (user) {
+                        console.log("AppContext: [NEW SESSION PATH] Creating session...");
                         const initialPhase = gameStructureInstance.welcome_phases[0];
                         const {data: newSession, error: sessionError} = await supabase.from('sessions').insert({
                             name: `New Game - ${new Date().toLocaleDateString()}`,
@@ -198,96 +212,93 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
                             is_complete: false,
                             teacher_notes: {},
                         }).select().single();
-                        if (sessionError) throw sessionError;
+                        if (sessionError) {
+                            console.error("AppContext: [NEW] Supabase error:", JSON.stringify(sessionError, null, 2));
+                            throw sessionError;
+                        }
                         if (newSession?.id) {
-                            console.log("AppContext: New session CREATED, ID:", newSession.id, ". Navigating...");
+                            console.log("AppContext: [NEW] Session CREATED:", newSession.id, ". Navigating now...");
                             navigate(`/classroom/${newSession.id}`, {replace: true});
                             return;
                         } else {
-                            throw new Error("Failed to create session record or retrieve its ID.");
+                            console.error("AppContext: [NEW] No session data/ID returned.");
+                            throw new Error("Failed to create session.");
                         }
-                    } else if (!user) {
-                        console.warn("AppContext: User not authenticated for new session creation.");
-                        setState(prevState => ({
-                            ...prevState,
-                            isLoading: false,
-                            error: "Authentication required to create a new game."
-                        }));
-                        navigate('/login', {replace: true});
-                        return;
                     } else {
-                        console.error("AppContext: gameStructureInstance is unexpectedly null.");
-                        setState(prevState => ({
-                            ...prevState,
-                            isLoading: false,
-                            error: "Internal error: Game configuration missing."
-                        }));
-                        return;
+                        console.warn("AppContext: [NEW] User not auth'd. Navigating to login.");
+                        setState(s => ({...s, isLoading: false, error: "User auth needed."}));
+                        navigate('/login', {replace: true});
                     }
                 } else {
-                    console.log("AppContext: Fetching existing session:", sessionIdFromUrl);
+                    console.log("AppContext: [EXISTING] Loading session:", sessionIdToProcess);
                     const {
                         data: existingSession,
                         error: fetchError
-                    } = await supabase.from('sessions').select('*').eq('id', sessionIdFromUrl).single();
+                    } = await supabase.from('sessions').select('*').eq('id', sessionIdToProcess).single();
                     if (fetchError || !existingSession) {
-                        throw fetchError || new Error(`Session ${sessionIdFromUrl} not found.`);
+                        console.error("AppContext: [EXISTING] Fetch error or not found.", fetchError);
+                        throw fetchError || new Error(`Session ${sessionIdToProcess} not found.`);
                     }
-                    console.log("AppContext: Existing session FETCHED:", existingSession.id);
 
-                    const initialSyncState: AppState = { // Define the full state type here
-                        currentSessionId: existingSession.id,
-                        gameStructure: gameStructureInstance, // Already set from useMemo
+                    console.log("AppContext: [EXISTING] Session data loaded:", existingSession.id);
+                    setState(prevState => ({
+                        ...prevState, currentSessionId: existingSession.id,
                         currentPhaseId: existingSession.current_phase_id,
                         currentSlideIdInPhase: existingSession.current_slide_id_in_phase ?? 0,
-                        isPlaying: existingSession.is_playing,
-                        teacherNotes: existingSession.teacher_notes || {},
-                        teams: state.teams, // Preserve potentially fetched teams from previous state (if applicable)
-                        teamDecisions: state.teamDecisions,
-                        teamRoundData: state.teamRoundData,
-                        isStudentWindowOpen: state.isStudentWindowOpen,
+                        isPlaying: existingSession.is_playing, teacherNotes: existingSession.teacher_notes || {},
+                        teams: [], teamDecisions: {}, teamRoundData: {},
                         isLoading: false, error: null,
-                        currentTeacherAlert: null,
-                    };
-                    setState(initialSyncState);
+                    }));
 
-                    if (broadcastChannel) broadcastChannel.close();
-                    broadcastChannel = new BroadcastChannel(`classroom-${sessionIdFromUrl}`);
+                    if (broadcastChannel && broadcastChannel.name !== `classroom-${sessionIdToProcess}`) {
+                        broadcastChannel.close();
+                        broadcastChannel = null;
+                    }
+                    if (!broadcastChannel) {
+                        broadcastChannel = new BroadcastChannel(`classroom-${sessionIdToProcess}`);
+                        console.log("AppContext: BroadcastChannel initialized for", sessionIdToProcess);
+                    }
                     broadcastChannel.onmessage = (event) => {
                         if (event.data.type === 'STUDENT_DISPLAY_READY') {
-                            console.log('Student display is ready, sending current state for session:', sessionIdFromUrl);
+                            console.log('Student display ready for session:', sessionIdToProcess, 'Sending current state.');
                             setState(currentState => {
                                 syncStateToDbAndBroadcast(currentState, currentState);
                                 return currentState;
                             });
                         }
                     };
+                    setState(currentState => {
+                        syncStateToDbAndBroadcast(currentState, currentState);
+                        return currentState;
+                    });
                 }
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : "Failed to initialize session.";
-                console.error("AppContext: Catch block in initializeSession:", err, errorMessage);
+                console.error("AppContext: CATCH in initializeActualSession:", err, "SessionId was:", sessionIdToProcess);
                 setState(prevState => ({
                     ...prevState,
                     error: errorMessage,
                     isLoading: false,
-                    currentSessionId: sessionIdFromUrl
+                    currentSessionId: sessionIdToProcess
                 }));
-                if (sessionIdFromUrl !== 'new') {
+                if (sessionIdToProcess !== 'new') {
                     navigate('/dashboard', {replace: true});
                 }
             }
         };
-        if (sessionIdFromUrl) {
-            initializeSession();
-        } // Ensure initializeSession is called only if sessionIdFromUrl is truthy
+
+        if (effectSessionId) {
+            initializeActualSession(effectSessionId);
+        }
+
         return () => {
             if (broadcastChannel) {
-                console.log("AppContext: Cleanup - Closing broadcast channel for session:", state.currentSessionId || sessionIdFromUrl);
+                console.log("AppContext: useEffect cleanup for session:", effectSessionId, "- Closing broadcast channel.");
                 broadcastChannel.close();
                 broadcastChannel = null;
             }
         };
-    }, [sessionIdFromUrl, user, authLoading, navigate, gameStructureInstance, syncStateToDbAndBroadcast]); // Removed state.currentSessionId
+    }, [passedSessionId, user, authLoading, navigate, gameStructureInstance, syncStateToDbAndBroadcast, state.currentSessionId, state.isLoading]);
 
     useEffect(() => {
         if (!state.currentSessionId || state.currentSessionId === 'new' || authLoading) return;
@@ -301,8 +312,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
                 (payload) => {
                     const updatedSession = payload.new as GameSession;
                     if (updatedSession.current_phase_id !== state.currentPhaseId ||
-                        updatedSession.current_slide_id_in_phase !== state.currentSlideIdInPhase ||
-                        updatedSession.is_playing !== state.isPlaying) {
+                        (updatedSession.current_slide_id_in_phase ?? 0) !== (state.currentSlideIdInPhase ?? 0) ||
+                        updatedSession.is_playing !== state.isPlaying ||
+                        JSON.stringify(updatedSession.teacher_notes || {}) !== JSON.stringify(state.teacherNotes)) {
+                        console.log('Supabase session update received from external source:', payload.new);
                         setState(prevState => ({
                             ...prevState, currentPhaseId: updatedSession.current_phase_id,
                             currentSlideIdInPhase: updatedSession.current_slide_id_in_phase ?? 0,
@@ -319,6 +332,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
                     filter: `session_id=eq.${state.currentSessionId}`
                 },
                 (payload) => {
+                    console.log('Team decision change received:', payload);
                     const newDecision = payload.new as TeamDecision;
                     const oldDecision = payload.old as TeamDecision;
                     setState(prev => {
@@ -377,17 +391,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
         }
         if (currentPhase && state.currentSlideIdInPhase !== null) {
             if (handleTeacherAlert(currentSlideData)) return;
+
             const isLastSlideInPhase = state.currentSlideIdInPhase >= currentPhase.slide_ids.length - 1;
             if (isLastSlideInPhase) {
                 const currentPhaseIndex = allPhasesInOrder.findIndex(p => p.id === state.currentPhaseId);
                 if (currentPhaseIndex < allPhasesInOrder.length - 1) {
                     const nextPhaseNode = allPhasesInOrder[currentPhaseIndex + 1];
-                    syncStateToDbAndBroadcast({
-                        ...state,
-                        currentPhaseId: nextPhaseNode.id,
-                        currentSlideIdInPhase: 0,
-                        isPlaying: false,
-                    }, oldState);
+                    if (currentPhase.is_interactive_student_phase) {
+                        console.log(`Phase ${currentPhase.id} ended. Processing decisions before moving to ${nextPhaseNode.id}`);
+                        processPhaseDecisions(currentPhase.id).then(() => {
+                            syncStateToDbAndBroadcast({
+                                ...state,
+                                currentPhaseId: nextPhaseNode.id,
+                                currentSlideIdInPhase: 0,
+                                isPlaying: false,
+                            }, oldState);
+                        }).catch(err => console.error("Error processing phase decisions:", err));
+                    } else {
+                        syncStateToDbAndBroadcast({
+                            ...state,
+                            currentPhaseId: nextPhaseNode.id,
+                            currentSlideIdInPhase: 0,
+                            isPlaying: false,
+                        }, oldState);
+                    }
                 } else {
                     console.log("End of game.");
                 }
@@ -443,7 +470,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
 
     const resetGameProgress = async () => {
         if (state.currentSessionId && state.gameStructure) {
-            const confirmReset = window.confirm("Are you sure you want to reset all progress? This cannot be undone.");
+            const confirmReset = window.confirm("Are you sure you want to reset all progress for this game session? This action cannot be undone.");
             if (confirmReset) {
                 const oldState = {...state};
                 const initialPhaseId = state.gameStructure.welcome_phases[0]?.id || null;
@@ -451,17 +478,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
                     ...initialAppState, currentSessionId: state.currentSessionId,
                     gameStructure: state.gameStructure, currentPhaseId: initialPhaseId,
                     currentSlideIdInPhase: initialPhaseId ? 0 : null, isLoading: false,
-                    teams: state.teams, // Keep teams or refetch/recreate
+                    teams: state.teams,
                 };
                 try {
                     await supabase.from('team_decisions').delete().eq('session_id', state.currentSessionId);
                     await supabase.from('team_round_data').delete().eq('session_id', state.currentSessionId);
                     await supabase.from('permanent_kpi_adjustments').delete().eq('session_id', state.currentSessionId);
                     syncStateToDbAndBroadcast(newState, oldState);
-                    alert("Game progress reset.");
+                    alert("Game progress has been reset. Team data (decisions, KPIs) cleared.");
                 } catch (err) {
-                    console.error("Error resetting game:", err);
-                    alert("Failed to reset game.");
+                    console.error("Error during game reset:", err);
+                    alert("Failed to fully reset game. Check console.");
                 }
             }
         }
@@ -469,14 +496,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
 
     const fetchTeamsForSession = useCallback(async () => {
         if (!state.currentSessionId || state.currentSessionId === 'new') return;
-        setState(s => ({...s, isLoading: true}));
         const {data, error} = await supabase.from('teams').select('*').eq('session_id', state.currentSessionId);
         if (error) {
-            setState(s => ({...s, error: "Failed to fetch teams.", isLoading: false}));
+            console.error("Error fetching teams:", error);
+            setState(s => ({...s, error: "Failed to fetch teams."}));
         } else if (data) {
-            setState(s => ({...s, teams: data as Team[], isLoading: false, error: null}));
+            setState(s => ({...s, teams: data as Team[], error: null}));
         } else {
-            setState(s => ({...s, teams: [], isLoading: false, error: null}));
+            setState(s => ({...s, teams: [], error: null}));
         }
     }, [state.currentSessionId]);
 
@@ -488,15 +515,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
             const {error} = await supabase.from('team_decisions').delete()
                 .eq('session_id', state.currentSessionId).eq('team_id', teamId).eq('phase_id', phaseId);
             if (error) throw error;
-            // Real-time should update state.teamDecisions
+            console.log(`AppContext: Decision reset for team ${teamId}, phase ${phaseId} successful in DB.`);
         } catch (err) {
-            console.error("Error resetting team decision:", err);
+            console.error("Error in AppContext resetTeamDecisionForPhase (Supabase):", err);
             throw err;
         }
     };
 
     const processPhaseDecisions = async (phaseId: string) => {
-        console.log(`TODO: Implement processing for phase: ${phaseId}`);
+        console.log(`TODO: Implement all game logic for processing decisions for phase: ${phaseId}`);
+        alert(`Placeholder: Processing decisions for ${phaseId}. KPIs for teams would be updated.`);
+        console.log("Current Team Decisions for processing:", state.teamDecisions);
     };
 
     useEffect(() => {
@@ -519,20 +548,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({children})
                     <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
                     <p className="ml-4 text-lg font-semibold text-gray-700">
                         {authLoading ? "Authenticating..." :
-                            (sessionIdFromUrl === 'new' && state.currentSessionId !== sessionIdFromUrl && !state.error) ? "Creating New Session..." :
+                            (passedSessionId === 'new' && !state.error) ? "Creating New Session..." :  // Check passedSessionId for "Creating" message
                                 "Initializing Simulator..."}
                     </p>
                 </div>
-            ) : state.error && (sessionIdFromUrl === 'new' || (state.currentSessionId && !currentPhase && state.currentSessionId !== 'new')) ?
+            ) : state.error && (passedSessionId === 'new' || (state.currentSessionId && !currentPhase && state.currentSessionId !== 'new')) ?
                 <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-4 text-center">
                     <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
                         <h2 className="text-2xl font-bold text-red-600 mb-4">Initialization Error</h2>
-                        <p className="text-gray-700 mb-6">{state.error}</p>
+                        <p className="text-gray-700 mb-6">{state.error || "An unknown error occurred during initialization."}</p>
                         <button
                             onClick={() => {
-                                if (sessionIdFromUrl === 'new' || !state.currentSessionId) {
+                                if (passedSessionId === 'new' || !state.currentSessionId) {
                                     navigate('/dashboard', {replace: true});
-                                    setTimeout(() => window.location.reload(), 100);
                                 } else {
                                     navigate('/dashboard', {replace: true});
                                 }
