@@ -188,8 +188,8 @@ const DashboardPage: React.FC = () => {
                         Set up a new "Ready or Not" simulation for your class.
                     </p>
                     <Link
-                        to="/classroom/new"
-                        onClick={() => console.log("DashboardPage: 'Create Game' link clicked, navigating to /classroom/new")}
+                        to="/create-game"
+                        onClick={() => console.log("DashboardPage: 'Create Game' link clicked, navigating to /create-game")}
                         className="bg-white text-blue-700 font-semibold py-2.5 px-6 lg:py-3 lg:px-8 rounded-lg hover:bg-blue-50 transition-colors shadow-md text-sm lg:text-base"
                     >
                         Create Game

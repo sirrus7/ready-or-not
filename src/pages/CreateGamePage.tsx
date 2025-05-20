@@ -3,7 +3,7 @@ import React, {useState, useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useAuth} from '../context/AuthContext';
 import {supabase} from '../lib/supabase';
-// import {GameSession} from '../types'; // Assuming GameSession might be useful for type hints
+import {NewGameData} from '../types';
 
 import Step1GameDetails from '../components/TeacherHost/CreateGameWizard/Step1_GameDetails';
 import Step2PrintHandouts from '../components/TeacherHost/CreateGameWizard/Step2_PrintHandouts';
@@ -11,36 +11,24 @@ import Step3TeamSetup from '../components/TeacherHost/CreateGameWizard/Step3_Tea
 import Step4RoomSetup from '../components/TeacherHost/CreateGameWizard/Step4_RoomSetup';
 import Step5Finalize from '../components/TeacherHost/CreateGameWizard/Step5_Finalize';
 
-import {ArrowLeft, Settings, Zap, ListOrdered, Printer, Users, Rocket, CheckCircle, AlertTriangle} from 'lucide-react';
-import {readyOrNotGame_2_0_DD} from "../data/gameStructure.ts";
-
-// Define a type for the game data being collected through the wizard
-export interface NewGameData {
-    game_version: '2.0_dd' | '1.5_dd';
-    name: string;
-    class_name: string;
-    grade_level: string;
-    num_players: number;
-    num_teams: number; // Will be derived or confirmed
-    // Potentially add team names if configured in Step 3
-    teams_config?: Array<{ name: string, passcode?: string }>; // Passcodes generated server-side or on finalize
-    // Add any other fields collected during the wizard
-}
+import {ArrowLeft, Settings, Printer, Users, ListOrdered, Rocket, Zap, CheckCircle, AlertTriangle} from 'lucide-react';
+import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 
 const initialNewGameData: NewGameData = {
     game_version: '2.0_dd',
     name: '',
     class_name: '',
-    grade_level: 'Freshman', // Default value
+    grade_level: 'Freshman',
     num_players: 0,
     num_teams: 0,
+    teams_config: [], // Initialize as empty array of AppTeamConfig
 };
 
 const WIZARD_STEPS = [
     {id: 1, title: 'Game Details', component: Step1GameDetails, icon: Settings},
     {id: 2, title: 'Print Handouts', component: Step2PrintHandouts, icon: Printer},
     {id: 3, title: 'Team Setup', component: Step3TeamSetup, icon: Users},
-    {id: 4, title: 'Room & Screen Setup', component: Step4RoomSetup, icon: ListOrdered}, // Used ListOrdered as a placeholder
+    {id: 4, title: 'Room & Screen Setup', component: Step4RoomSetup, icon: ListOrdered},
     {id: 5, title: 'Finalize & Start', component: Step5Finalize, icon: Rocket},
 ];
 
@@ -53,191 +41,211 @@ const CreateGamePage: React.FC = () => {
     const {user} = useAuth();
     const navigate = useNavigate();
 
-    // Redirect if user is not logged in (though PrivateRoute should handle this for /create-game)
     useEffect(() => {
         if (!user) {
-            navigate('/login');
+            navigate('/login', {replace: true});
         }
     }, [user, navigate]);
 
     const handleNextStep = (dataFromStep?: Partial<NewGameData>) => {
+        setError(null);
         if (dataFromStep) {
+            console.log("CreateGamePage: Data from step", currentStep, dataFromStep);
             setGameData(prev => ({...prev, ...dataFromStep}));
         }
         if (currentStep < WIZARD_STEPS.length) {
             setCurrentStep(prev => prev + 1);
         } else {
-            // Final step - create the game session
             handleFinalizeGame();
         }
     };
 
     const handlePreviousStep = () => {
+        setError(null);
         if (currentStep > 1) {
             setCurrentStep(prev => prev - 1);
         } else {
-            navigate('/dashboard'); // Or to wherever they came from
+            navigate('/dashboard');
         }
     };
 
     const handleDataChange = (field: keyof NewGameData, value: any) => {
+        console.log(`CreateGamePage: handleDataChange - Field: ${field}, Value:`, value);
         setGameData(prev => ({...prev, [field]: value}));
-        // If num_players changes, num_teams might need recalculation or validation
-        if (field === 'num_players' && typeof value === 'number') {
-            // Logic from demo: 1-4 players = 1 team, 5-8 = 2 teams etc. or custom.
-            // This logic will primarily live in Step1_GameDetails.tsx
-            // But if it impacts num_teams directly, update it here or pass a setter down.
-            // For now, Step1 will manage its internal num_teams recommendation.
-        }
     };
 
     const handleFinalizeGame = async () => {
         if (!user) {
-            setError("User not authenticated.");
+            setError("User not authenticated. Please log in again.");
+            setIsSubmitting(false);
+            navigate('/login', {replace: true});
             return;
         }
         setIsSubmitting(true);
         setError(null);
+        console.log("CreateGamePage: Finalizing game with data:", gameData);
 
         try {
-            // 1. Create the Game Session in Supabase
+            const initialPhase = readyOrNotGame_2_0_DD.welcome_phases[0];
+            const sessionToInsert = {
+                name: gameData.name.trim() || `Game Session - ${new Date().toLocaleDateString()}`,
+                teacher_id: user.id,
+                class_name: gameData.class_name.trim() || null,
+                grade_level: gameData.grade_level || null,
+                game_version: gameData.game_version,
+                current_phase_id: initialPhase?.id || null,
+                current_slide_id_in_phase: initialPhase ? 0 : null,
+                is_playing: false,
+                is_complete: false,
+                teacher_notes: {},
+            };
+            console.log("CreateGamePage: Inserting session:", sessionToInsert);
             const {data: newSession, error: sessionError} = await supabase
                 .from('sessions')
-                .insert({
-                    name: gameData.name,
-                    teacher_id: user.id,
-                    class_name: gameData.class_name,
-                    grade_level: gameData.grade_level,
-                    game_version: gameData.game_version,
-                    // Initial state for a newly created game from wizard
-                    current_phase_id: readyOrNotGame_2_0_DD.welcome_phases[0]?.id || null, // Start with first welcome phase
-                    current_slide_id_in_phase: 0,
-                    is_playing: false,
-                    is_complete: false,
-                    teacher_notes: {},
-                    // Store num_players and num_teams if schema allows
-                    // num_players: gameData.num_players,
-                    // num_teams_configured: gameData.num_teams,
-                })
+                .insert(sessionToInsert)
                 .select()
                 .single();
 
-            if (sessionError) throw sessionError;
-            if (!newSession) throw new Error("Failed to create game session record.");
-
-            // 2. Create Teams for this session in Supabase
-            // This would use gameData.teams_config if Step 3 allows custom names,
-            // or generate default names based on gameData.num_teams.
-            // Passcodes should be generated here.
-            const teamPromises = [];
-            for (let i = 0; i < gameData.num_teams; i++) {
-                const teamName = gameData.teams_config?.[i]?.name || `Team ${String.fromCharCode(65 + i)}`; // Team A, B, C...
-                const passcode = Math.floor(100 + Math.random() * 900).toString(); // Simple 3-digit passcode
-                teamPromises.push(
-                    supabase.from('teams').insert({
-                        session_id: newSession.id,
-                        name: teamName,
-                        passcode: passcode,
-                    })
-                );
+            if (sessionError) {
+                console.error("CreateGamePage: Supabase error creating session:", JSON.stringify(sessionError, null, 2));
+                throw sessionError;
             }
-            const teamResults = await Promise.all(teamPromises);
-            teamResults.forEach(result => {
-                if (result.error) console.error("Error creating team:", result.error); // Log partial errors
-            });
-            // Check if any team creation failed critically if necessary
+            if (!newSession || !newSession.id) {
+                console.error("CreateGamePage: Failed to create game session record or ID is missing. Response:", newSession);
+                throw new Error("Failed to create game session record (no data/ID returned).");
+            }
+            console.log("CreateGamePage: Session created successfully, ID:", newSession.id);
 
-            // 3. Initialize TeamRoundData for Round 1 for each team (optional, can be lazy-loaded)
-            // This would set starting KPIs. For now, AppContext handles fetching/creating this on demand.
+            // Ensure teams_config is an array, even if empty
+            const teamsToCreate = gameData.teams_config && Array.isArray(gameData.teams_config) ? gameData.teams_config : [];
+
+            if (teamsToCreate.length > 0) {
+                console.log("CreateGamePage: Creating teams:", teamsToCreate);
+                const teamInsertData = teamsToCreate.map(teamConfig => ({
+                    session_id: newSession.id,
+                    name: teamConfig.name,
+                    passcode: teamConfig.passcode, // Assuming passcode is generated in Step3TeamSetup
+                }));
+
+                const {error: teamsError} = await supabase.from('teams').insert(teamInsertData);
+                if (teamsError) {
+                    console.error(`CreateGamePage: Error creating teams:`, JSON.stringify(teamsError, null, 2));
+                    // Decide if this is a critical failure or just log and continue
+                    // For now, we'll throw to indicate a problem with setup
+                    throw new Error(`Failed to create one or more teams: ${teamsError.message}`);
+                }
+                console.log(`CreateGamePage: ${teamsToCreate.length} teams created successfully.`);
+            } else {
+                console.warn("CreateGamePage: No teams configured in gameData.teams_config or num_teams was 0. Skipping team creation via teams_config.");
+                // Fallback to num_teams if teams_config is empty but num_teams is set (e.g. if Step3 was skipped or had issues)
+                if (gameData.num_teams > 0 && teamsToCreate.length === 0) {
+                    console.log(`CreateGamePage: Fallback - Creating ${gameData.num_teams} default teams.`);
+                    const defaultTeamPromises = [];
+                    for (let i = 0; i < gameData.num_teams; i++) {
+                        defaultTeamPromises.push(
+                            supabase.from('teams').insert({
+                                session_id: newSession.id,
+                                name: `Team ${String.fromCharCode(65 + i)}`,
+                                passcode: Math.floor(1000 + Math.random() * 9000).toString(),
+                            })
+                        );
+                    }
+                    await Promise.all(defaultTeamPromises); // Check for errors if needed
+                }
+            }
 
             setIsSubmitting(false);
-            // Navigate to the GameHostPage for the newly created session
+            console.log("CreateGamePage: Game setup complete. Navigating to classroom session:", newSession.id);
             navigate(`/classroom/${newSession.id}`);
 
         } catch (err) {
-            console.error("Error finalizing game:", err);
-            setError(err instanceof Error ? err.message : "An unexpected error occurred while creating the game.");
+            const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred while creating the game.";
+            console.error("CreateGamePage: Error in handleFinalizeGame:", err);
+            setError(errorMessage);
             setIsSubmitting(false);
         }
     };
-
 
     const CurrentStepComponent = WIZARD_STEPS[currentStep - 1].component;
     const CurrentStepIcon = WIZARD_STEPS[currentStep - 1].icon;
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center p-4 md:p-8">
-            <div className="w-full max-w-3xl">
-                {/* Header */}
-                <div className="mb-8 text-center">
-                    <Zap size={48} className="text-blue-600 mx-auto mb-3"/>
-                    <h1 className="text-3xl md:text-4xl font-bold text-gray-800">Create New Game Simulation</h1>
-                    <p className="text-gray-600 mt-1">Follow these steps to set up your "Ready or Not" session.</p>
+        <div className="min-h-screen bg-slate-100 flex flex-col items-center p-4 md:p-8">
+            <div className="w-full max-w-3xl bg-white rounded-xl shadow-2xl border border-gray-200">
+                <div className="p-6 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                            <Zap size={32} className="text-blue-600 mr-3"/>
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Create New Game</h1>
+                                <p className="text-gray-500 text-sm mt-0.5">Set up your "Ready or Not" simulation.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => navigate('/dashboard')}
+                            className="text-sm text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Back to Dashboard"
+                        >
+                            <ArrowLeft size={20} className="inline mr-1"/> Cancel & Back to Dashboard
+                        </button>
+                    </div>
                 </div>
 
-                {/* Progress Indicator (Simple Version) */}
-                <div className="mb-8 flex justify-center items-center space-x-2 sm:space-x-4">
-                    {WIZARD_STEPS.map((step, index) => (
-                        <React.Fragment key={step.id}>
-                            <div
-                                className={`flex flex-col items-center text-center ${currentStep >= step.id ? 'text-blue-600' : 'text-gray-400'}`}>
+                <div className="px-6 py-5 border-b border-gray-200 bg-slate-50 rounded-t-none">
+                    <div className="flex justify-around items-start">
+                        {WIZARD_STEPS.map((step, index) => (
+                            <React.Fragment key={step.id}>
                                 <div
-                                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300
+                                    className={`flex flex-col items-center text-center w-1/${WIZARD_STEPS.length} px-1`}>
+                                    <div
+                                        className={`w-10 h-10 rounded-full flex items-center justify-center border-2 mb-1.5 transition-all duration-300
                                 ${currentStep === step.id ? 'bg-blue-600 text-white border-blue-700 shadow-lg scale-110' :
-                                        currentStep > step.id ? 'bg-blue-500 text-white border-blue-600' :
-                                            'bg-white border-gray-300 group-hover:border-blue-400'}`}
-                                >
-                                    {currentStep > step.id ? <CheckCircle size={18}/> : <step.icon size={16}/>}
-                                </div>
-                                <span
-                                    className={`mt-1.5 text-xs sm:text-sm font-medium transition-colors duration-300 ${currentStep === step.id ? 'text-blue-700' : currentStep > step.id ? 'text-blue-600' : 'text-gray-500'}`}>
+                                            currentStep > step.id ? 'bg-green-500 text-white border-green-600' :
+                                                'bg-white border-gray-300 text-gray-400'}`}
+                                    >
+                                        {currentStep > step.id ? <CheckCircle size={20}/> : <step.icon size={18}/>}
+                                    </div>
+                                    <span className={`text-xs font-medium transition-colors duration-300 truncate w-full
+                                ${currentStep === step.id ? 'text-blue-700 font-semibold' :
+                                        currentStep > step.id ? 'text-green-700' :
+                                            'text-gray-500'}`}>
                   {step.title}
                 </span>
-                            </div>
-                            {index < WIZARD_STEPS.length - 1 && (
-                                <div
-                                    className={`flex-1 h-0.5 max-w-12 sm:max-w-16 ${currentStep > step.id ? 'bg-blue-500' : 'bg-gray-300'}`}/>
-                            )}
-                        </React.Fragment>
-                    ))}
+                                </div>
+                                {index < WIZARD_STEPS.length - 1 && (
+                                    <div
+                                        className={`flex-1 h-0.5 mt-5 ${currentStep > step.id ? 'bg-green-500' : (currentStep === step.id + 1 ? 'bg-blue-200' : 'bg-gray-300')}`}/>
+                                )}
+                            </React.Fragment>
+                        ))}
+                    </div>
                 </div>
 
-
-                {/* Step Content Area */}
-                <div className="bg-white p-6 md:p-8 rounded-xl shadow-2xl border border-gray-200">
-                    <div className="flex items-center mb-6">
-                        <CurrentStepIcon size={24} className="text-blue-600 mr-3"/>
-                        <h2 className="text-xl md:text-2xl font-semibold text-gray-700">
-                            Step {currentStep}: {WIZARD_STEPS[currentStep - 1].title}
+                <div className="p-6 md:p-8">
+                    <div className="flex items-center mb-6 text-gray-700">
+                        <CurrentStepIcon size={22} className="text-blue-600 mr-2.5 flex-shrink-0"/>
+                        <h2 className="text-xl md:text-2xl font-semibold">
+                            {WIZARD_STEPS[currentStep - 1].title}
                         </h2>
+                        <span className="ml-auto text-xs font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                Step {currentStep} of {WIZARD_STEPS.length}
+            </span>
                     </div>
 
                     {error && (
-                        <div className="mb-4 p-3 bg-red-100 text-red-700 border border-red-200 rounded-md text-sm">
-                            <AlertTriangle size={16} className="inline mr-2"/> {error}
+                        <div
+                            className="mb-4 p-3 bg-red-100 text-red-700 border border-red-200 rounded-md text-sm flex items-center">
+                            <AlertTriangle size={18} className="mr-2 flex-shrink-0"/> {error}
                         </div>
                     )}
 
                     <CurrentStepComponent
                         gameData={gameData}
-                        onDataChange={handleDataChange} // For controlled components within steps
+                        onDataChange={handleDataChange}
                         onNext={handleNextStep}
-                        onPrevious={handlePreviousStep} // Some steps might not show 'Previous'
+                        onPrevious={handlePreviousStep}
+                        {...(currentStep === WIZARD_STEPS.length && {isSubmitting, onFinalize: handleFinalizeGame})}
                     />
-                </div>
-
-                {/* Navigation Buttons (might be part of each step component for more control) */}
-                {/* For now, keeping basic navigation outside for simplicity if steps don't have their own nav */}
-                <div className="mt-8 flex justify-between items-center">
-                    <button
-                        onClick={handlePreviousStep}
-                        disabled={isSubmitting}
-                        className="flex items-center gap-2 text-gray-700 hover:text-blue-600 font-medium py-2 px-4 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-                    >
-                        <ArrowLeft size={18}/>
-                        {currentStep === 1 ? 'Back to Dashboard' : 'Previous'}
-                    </button>
-                    {/* Next/Finalize button is usually part of the step component itself */}
                 </div>
             </div>
         </div>

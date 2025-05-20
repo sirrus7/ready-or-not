@@ -96,6 +96,22 @@ export interface TeamDecision {
   submitted_at: string;
 }
 
+// --- Game Creation Wizard Specific Types ---
+export interface TeamConfig {
+  name: string;
+  passcode: string;
+}
+
+export interface NewGameData {
+  game_version: '2.0_dd' | '1.5_dd';
+  name: string;
+  class_name: string;
+  grade_level: string;
+  num_players: number;
+  num_teams: number;
+  teams_config?: TeamConfig[]; // Array of team configurations
+}
+
 // --- Consequences & Payoffs ---
 export type KpiKey = 'capacity' | 'orders' | 'cost' | 'asp' | 'revenue' | 'net_margin' | 'net_income';
 
