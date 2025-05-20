@@ -1,86 +1,64 @@
 // src/App.tsx
 import React from 'react';
-import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
+import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from './context/AuthContext';
 import {AppProvider} from './context/AppContext';
 import PrivateRoute from './components/PrivateRoute';
 import LoginPage from './pages/LoginPage';
-import GameHostPage from './pages/GameHostPage'; // Your main game hosting page
+import GameHostPage from './pages/GameHostPage';
 import StudentDisplayPage from './pages/StudentDisplayPage';
 import DashboardPage from './pages/DashboardPage';
 import CreateGamePage from './pages/CreateGamePage';
-
 // import CompletedGameReportPage from './pages/CompletedGameReportPage'; // Keep commented if not created
 
+// Wrapper component to extract sessionId and pass it to AppProvider
+const SessionAwareAppProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+    const {sessionId} = useParams<{ sessionId: string | undefined }>();
+    console.log("SessionAwareAppProvider: Rendering with sessionId from URL:", sessionId);
+    return <AppProvider passedSessionId={sessionId}>{children}</AppProvider>;
+};
+
 function App() {
+    console.log("App.tsx: Rendering");
     return (
         <BrowserRouter>
             <AuthProvider>
-                <AppProvider>
-                    <Routes>
-                        {/* Student Display Route - Publicly accessible via its specific URL */}
-                        <Route path="/student-display/:sessionId" element={<StudentDisplayPage/>}/>
+                {/* AppProvider is now used selectively or via SessionAwareAppProvider */}
+                <Routes>
+                    <Route path="/student-display/:sessionId" element={
+                        // StudentDisplayPage may or may not need AppProvider depending on how it gets slide data
+                        // For now, let's wrap it if it needs context for gameStructure for example
+                        <AppProvider>
+                            <StudentDisplayPage/>
+                        </AppProvider>
+                    }/>
 
-                        {/* Authentication Route */}
-                        <Route path="/login" element={<LoginPage/>}/>
+                    {/* Routes that DON'T have :sessionId in their path directly use AppProvider without passedSessionId */}
+                    <Route path="/login" element={<AppProvider><LoginPage/></AppProvider>}/>
+                    <Route path="/dashboard"
+                           element={<PrivateRoute><AppProvider><DashboardPage/></AppProvider></PrivateRoute>}/>
+                    <Route path="/create-game"
+                           element={<PrivateRoute><AppProvider><CreateGamePage/></AppProvider></PrivateRoute>}/>
 
-                        {/* Teacher Authenticated Routes */}
-                        <Route
-                            path="/dashboard"
-                            element={
-                                <PrivateRoute>
-                                    <DashboardPage/>
-                                </PrivateRoute>
-                            }
-                        />
-                        <Route
-                            path="/create-game"
-                            element={
-                                <PrivateRoute>
-                                    <CreateGamePage/>
-                                </PrivateRoute>
-                            }
-                        />
-                        <Route
-                            path="/classroom/:sessionId" // For active game or new game setup post-creation
-                            element={
-                                <PrivateRoute>
+                    {/* Route that DOES have :sessionId uses SessionAwareAppProvider */}
+                    <Route
+                        path="/classroom/:sessionId"
+                        element={
+                            <PrivateRoute>
+                                <SessionAwareAppProvider> {/* This wrapper extracts sessionId and passes it */}
                                     <GameHostPage/>
-                                </PrivateRoute>
-                            }
-                        />
-                        {/*
-              Route for completed game reports - Add when CompletedGameReportPage.tsx is created
-              <Route
-                path="/report/:sessionId"
-                element={
-                  <PrivateRoute>
-                    <CompletedGameReportPage />
-                  </PrivateRoute>
-                }
-              />
-            */}
+                                </SessionAwareAppProvider>
+                            </PrivateRoute>
+                        }
+                    />
 
-                        {/* Default authenticated route */}
-                        <Route
-                            path="/"
-                            element={
-                                <PrivateRoute>
-                                    <Navigate to="/dashboard" replace/>
-                                </PrivateRoute>
-                            }
-                        />
-                        {/* Fallback for any other unhandled authenticated routes */}
-                        <Route
-                            path="*"
-                            element={
-                                <PrivateRoute>
-                                    <Navigate to="/dashboard" replace/>
-                                </PrivateRoute>
-                            }
-                        />
-                    </Routes>
-                </AppProvider>
+                    {/* Default authenticated route */}
+                    <Route path="/" element={<PrivateRoute><AppProvider><Navigate to="/dashboard"
+                                                                                  replace/></AppProvider></PrivateRoute>}/>
+                    {/* Fallback */}
+                    <Route path="*" element={<PrivateRoute><AppProvider><Navigate to="/dashboard"
+                                                                                  replace/></AppProvider></PrivateRoute>}/>
+                </Routes>
             </AuthProvider>
         </BrowserRouter>
     );
