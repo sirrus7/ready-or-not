@@ -1,22 +1,34 @@
 // src/components/TeacherHost/CreateGameWizard/Step3_TeamSetup.tsx
 import React, {useState, useEffect} from 'react';
-import {NewGameData} from '../../../pages/CreateGamePage';
-import {ArrowLeft, ArrowRight, Edit2, Check, Printer as PrinterIcon, Mail} from 'lucide-react';
+import {NewGameData, TeamConfig} from '../../../types'; // Assuming TeamConfig is exported or defined in NewGameData
+import {
+    ArrowLeft,
+    ArrowRight,
+    Edit2,
+    Printer as PrinterIcon,
+    Mail,
+    Info,
+    Save, RefreshCw
+} from 'lucide-react';
 
-interface TeamConfig {
-    id: number; // Temporary ID for mapping
-    name: string;
-    passcode: string; // Will be generated
-}
+// If TeamConfig is not in CreateGamePage, define it here or in types.ts
+// export interface TeamConfig {
+//   id: number; // Temporary client-side ID for mapping/editing
+//   name: string;
+//   passcode: string;
+// }
+
+const generatePasscode = (): string => {
+    // Generates a 4-digit numeric passcode
+    return Math.floor(1000 + Math.random() * 9000).toString();
+};
 
 interface Step3Props {
     gameData: NewGameData;
-    onDataChange: (field: keyof NewGameData, value: any) => void;
+    onDataChange: (field: keyof NewGameData, value: any) => void; // To update teams_config
     onNext: (dataFromStep: Partial<NewGameData>) => void;
     onPrevious: () => void;
 }
-
-const generatePasscode = () => Math.floor(100 + Math.random() * 900).toString(); // Simple 3-digit
 
 const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, onPrevious}) => {
     const [teams, setTeams] = useState<TeamConfig[]>([]);
@@ -25,16 +37,24 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
 
     useEffect(() => {
         // Initialize teams based on gameData.num_teams
+        // If teams_config already exists (e.g., navigating back), use that.
+        const existingTeamsConfig = gameData.teams_config;
+        const numTeams = gameData.num_teams || 0;
         const initialTeams: TeamConfig[] = [];
-        for (let i = 0; i < (gameData.num_teams || 0); i++) {
+
+        for (let i = 0; i < numTeams; i++) {
             initialTeams.push({
-                id: i,
-                name: gameData.teams_config?.[i]?.name || `Team ${String.fromCharCode(65 + i)}`,
-                passcode: gameData.teams_config?.[i]?.passcode || generatePasscode(),
+                id: i, // Simple numeric ID for client-side list key and editing
+                name: existingTeamsConfig?.[i]?.name || `Team ${String.fromCharCode(65 + i)}`, // Default to Team A, B, C...
+                passcode: existingTeamsConfig?.[i]?.passcode || generatePasscode(),
             });
         }
         setTeams(initialTeams);
-    }, [gameData.num_teams, gameData.teams_config]);
+        // Update gameData with these initial/retrieved teams if not already set precisely
+        if (!existingTeamsConfig || existingTeamsConfig.length !== numTeams) {
+            onDataChange('teams_config', initialTeams.map(({id, ...rest}) => rest));
+        }
+    }, [gameData.num_teams]); // Rerun if num_teams changes from a previous step correction
 
     const handleEditName = (team: TeamConfig) => {
         setEditingTeamId(team.id);
@@ -42,114 +62,168 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
     };
 
     const handleSaveName = (teamId: number) => {
-        const updatedTeams = teams.map(t => t.id === teamId ? {...t, name: tempTeamName} : t);
+        const updatedTeams = teams.map(t =>
+            t.id === teamId ? {...t, name: tempTeamName.trim() || `Team ${String.fromCharCode(65 + t.id)}`} : t
+        );
         setTeams(updatedTeams);
-        onDataChange('teams_config', updatedTeams.map(({id, ...rest}) => rest)); // Save without temporary id
+        onDataChange('teams_config', updatedTeams.map(({id, ...rest}) => rest)); // Save to parent state
         setEditingTeamId(null);
     };
 
-    const handlePrintLogins = (multiplePerPage: boolean) => {
-        let content = teams.map(team =>
-            `<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: ${multiplePerPage ? '10px' : '50px'}; page-break-inside: avoid;">
-        <h2>Team Login: ${team.name}</h2>
-        <p><strong>Session URL:</strong> ${window.location.origin}/play/${"SESSION_ID_PLACEHOLDER"}</p> 
-        <p><em>(Scan QR Code or use URL)</em></p>
-        <div style="width:100px; height:100px; background: #eee; margin: 10px 0; display:flex; align-items:center; justify-content:center;">[QR Placeholder]</div>
-        <p><strong>Passcode:</strong> <strong style="font-size: 1.2em;">${team.passcode}</strong></p>
-        <p style="color:red; font-size:0.9em;">Keep your passcode secret!</p>
-       </div>`
-        ).join(multiplePerPage ? '' : '<div style="page-break-after: always;"></div>');
-
-        if (multiplePerPage) {
-            // Basic grouping for multiple per page (e.g., 2 or 4)
-            const groupedContent: string[] = [];
-            for (let i = 0; i < teams.length; i += 2) {
-                groupedContent.push(
-                    `<div style="display:flex; justify-content:space-around; margin-bottom:20px; page-break-inside: avoid;">
-                    ${teams[i] ? content[i] : '<div></div>'}
-                    ${teams[i + 1] ? content[i + 1] : '<div></div>'}
-                </div>`
-                );
-            }
-            content = `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">${teams.map(team =>
-                `<div style="border: 1px solid #ccc; padding: 10px; margin-bottom:10px; page-break-inside: avoid; font-size:0.8em;">
-              <h2>${team.name}</h2>
-              <p>URL: ${window.location.origin}/play/SESSION_ID</p>
-              <div style="width:80px; height:80px; background: #eee; margin: 5px 0;">[QR]</div>
-              <p>Passcode: <strong>${team.passcode}</strong></p>
-            </div>`).join('')}</div>`;
-        }
-
-
-        const printWindow = window.open('', '_blank');
-        printWindow?.document.write(`<html><head><title>Team Logins</title><style>body{font-family:sans-serif;} @media print { div {page-break-inside: avoid !important;}}</style></head><body>${content}</body></html>`);
-        printWindow?.document.close();
-        printWindow?.print();
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setTempTeamName(e.target.value);
     };
 
-    const handleEmailLogins = () => {
-        const subject = `Team Logins for Game: ${gameData.name}`;
-        const body = teams.map(team =>
-            `Team: ${team.name}\nSession URL: ${window.location.origin}/play/SESSION_ID_PLACEHOLDER\nPasscode: ${team.passcode}\nKeep your passcode secret!\n\n`
-        ).join('');
+    const regeneratePasscode = (teamId: number) => {
+        const updatedTeams = teams.map(t =>
+            t.id === teamId ? {...t, passcode: generatePasscode()} : t
+        );
+        setTeams(updatedTeams);
+        onDataChange('teams_config', updatedTeams.map(({id, ...rest}) => rest));
+    };
+
+    const printLogins = (multiplePerPage: boolean) => {
+        let printContent = `<style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .login-card { 
+            border: 1px solid #ddd; 
+            padding: 15px; 
+            margin-bottom: 15px; 
+            border-radius: 8px; 
+            page-break-inside: avoid;
+            width: ${multiplePerPage ? 'calc(50% - 10px)' : '100%'};
+            box-sizing: border-box;
+            display: inline-block;
+            vertical-align: top;
+        }
+        .login-card h3 { margin-top: 0; color: #333; }
+        .login-card p { margin: 5px 0; font-size: 0.9em; }
+        .login-card .passcode { font-size: 1.2em; color: #007bff; font-weight: bold; }
+        .qr-placeholder { width: 80px; height: 80px; background-color: #f0f0f0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.7em; color:#888; margin:10px auto; border:1px dashed #ccc;}
+        @media print { 
+            body { margin: 10mm; } 
+            .login-card { box-shadow: none; border: 1px dashed #999; }
+            .no-print { display: none; }
+        }
+        ${multiplePerPage ? '.page-container { display: flex; flex-wrap: wrap; gap: 10px; }' : ''}
+    </style>
+    <h2 class="no-print">Team Login Information (Session ID will be assigned upon game start)</h2>
+    <button class="no-print" onclick="window.print()">Print</button> <hr class="no-print"/>
+    <div class="${multiplePerPage ? 'page-container' : ''}">`;
+
+        teams.forEach(team => {
+            printContent += `
+        <div class="login-card">
+          <h3>Ready or Not Game</h3>
+          <p><strong>Team Name:</strong> ${team.name}</p>
+          <p><strong>Login URL:</strong> [To be provided with Session ID]</p>
+          <div class="qr-placeholder">QR Code <br/>(for Session URL)</div>
+          <p><strong>Team Passcode:</strong> <span class="passcode">${team.passcode}</span></p>
+          <p style="color:red; font-size:0.8em;">Keep your passcode secret!</p>
+        </div>
+      `;
+        });
+        printContent += `</div>`;
+
+        const printWindow = window.open('', '_blank');
+        printWindow?.document.write(printContent);
+        printWindow?.document.close();
+    };
+
+    const emailLogins = () => {
+        const subject = `Team Logins for "Ready or Not" Game: ${gameData.name || 'New Game'}`;
+        let body = `Hello,\n\nPlease find the team login details for your upcoming "Ready or Not" session.\nThe Session URL will be provided by the facilitator when the game starts.\n\n`;
+        teams.forEach(team => {
+            body += `-------------------------------------\n`;
+            body += `Team Name: ${team.name}\n`;
+            body += `Team Passcode: ${team.passcode}\n`;
+            body += `(Scan QR code or use Session URL provided by facilitator)\n`;
+            body += `-------------------------------------\n\n`;
+        });
+        body += `Remember to keep passcodes secret within your teams!\n\nBest regards,\nFacilitator`;
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
-
     return (
         <div className="space-y-6">
-            <p className="text-sm text-gray-600">
-                Each team needs a way to log into the student application. Below are the generated teams and their
-                passcodes.
-                You can rename teams if needed. Session ID will be available after game finalization.
-            </p>
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md">
+                <div className="flex">
+                    <div className="flex-shrink-0">
+                        <Info className="h-5 w-5 text-blue-700"/>
+                    </div>
+                    <div className="ml-3">
+                        <p className="text-sm text-blue-700">
+                            Below are the teams generated for your game based on <strong
+                            className="font-semibold">{gameData.num_teams} teams</strong>.
+                            You can rename teams if desired. Unique passcodes have been generated for each.
+                            The Session ID and specific Login URL/QR Code will be available once you finalize and start
+                            the game.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
 
             <div
-                className="space-y-3 max-h-80 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                className="space-y-3 max-h-72 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 border rounded-lg p-3 bg-white">
                 {teams.map((team) => (
                     <div key={team.id}
-                         className="flex items-center justify-between p-3 bg-gray-100 rounded-lg border border-gray-200">
-                        {editingTeamId === team.id ? (
-                            <input
-                                type="text"
-                                value={tempTeamName}
-                                onChange={(e) => setTempTeamName(e.target.value)}
-                                onBlur={() => handleSaveName(team.id)}
-                                onKeyPress={(e) => e.key === 'Enter' && handleSaveName(team.id)}
-                                className="text-sm font-medium text-gray-800 border-blue-500 border px-2 py-1 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                autoFocus
-                            />
-                        ) : (
-                            <span className="text-sm font-medium text-gray-800">{team.name}</span>
-                        )}
-                        <div className="flex items-center space-x-3">
+                         className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
+                        <div className="flex-grow mr-2">
+                            {editingTeamId === team.id ? (
+                                <input
+                                    type="text"
+                                    value={tempTeamName}
+                                    onChange={handleInputChange}
+                                    onBlur={() => handleSaveName(team.id)}
+                                    onKeyPress={(e) => e.key === 'Enter' && handleSaveName(team.id)}
+                                    className="w-full text-sm font-medium text-gray-800 border-blue-500 border px-2 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    autoFocus
+                                />
+                            ) : (
+                                <span className="text-sm font-semibold text-gray-800">{team.name}</span>
+                            )}
+                        </div>
+                        <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
                             <span
-                                className="text-sm text-blue-600 font-mono bg-blue-100 px-2 py-0.5 rounded-md">{team.passcode}</span>
+                                className="text-sm text-blue-700 font-mono bg-blue-100 px-2.5 py-1 rounded-md shadow-sm">{team.passcode}</span>
                             {editingTeamId === team.id ? (
                                 <button onClick={() => handleSaveName(team.id)}
-                                        className="p-1 text-green-600 hover:text-green-700"><Check size={18}/></button>
+                                        className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-100 rounded-full"
+                                        title="Save name"><Save size={16}/></button>
                             ) : (
                                 <button onClick={() => handleEditName(team)}
-                                        className="p-1 text-gray-500 hover:text-blue-600"><Edit2 size={16}/></button>
+                                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded-full"
+                                        title="Edit team name"><Edit2 size={16}/></button>
                             )}
+                            <button onClick={() => regeneratePasscode(team.id)}
+                                    className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-100 rounded-full"
+                                    title="Regenerate passcode">
+                                <RefreshCw size={16}/>
+                            </button>
                         </div>
                     </div>
                 ))}
             </div>
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <button onClick={() => handlePrintLogins(false)}
-                        className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                    <PrinterIcon size={16}/> Print 1/Page
-                </button>
-                <button onClick={() => handlePrintLogins(true)}
-                        className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                    <PrinterIcon size={16}/> Print Multiple/Page
-                </button>
-                <button onClick={handleEmailLogins}
-                        className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                    <Mail size={16}/> Email Logins
-                </button>
+            <div className="mt-4 pt-4 border-t">
+                <h4 className="text-sm font-medium text-gray-600 mb-2">Distribute Login Credentials:</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button onClick={() => printLogins(false)}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm">
+                        <PrinterIcon size={16}/> Print (1 per Page)
+                    </button>
+                    <button onClick={() => printLogins(true)}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm">
+                        <PrinterIcon size={16}/> Print (Multiple/Page)
+                    </button>
+                    <button onClick={emailLogins}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm">
+                        <Mail size={16}/> Compose Email
+                    </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">The actual Session ID and login URL/QR code will be generated
+                    and available after you finalize and start the game.</p>
             </div>
 
 
@@ -163,7 +237,8 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
                 </button>
                 <button
                     type="button"
-                    onClick={() => onNext({teams_config: teams.map(({id, ...rest}) => rest)})}
+                    // Data is updated in onDataChange, so just call onNext
+                    onClick={() => onNext(gameData)} // Ensure gameData is passed if it was modified here
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
                     Next: Room Setup <ArrowRight size={18}/>

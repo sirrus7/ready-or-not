@@ -1,137 +1,234 @@
 // src/components/TeacherHost/CreateGameWizard/Step2_PrintHandouts.tsx
-import React, {useState} from 'react';
-import {NewGameData} from '../../../pages/CreateGamePage';
-import {ArrowLeft, ArrowRight, Download, Printer as PrinterIcon, ShoppingCart, Mail} from 'lucide-react';
+import React, {useState, useMemo} from 'react';
+import {NewGameData} from '../../../types';
+import {
+    ArrowLeft,
+    ArrowRight,
+    Download,
+    Printer as PrinterIcon,
+    ShoppingCart,
+    Mail,
+    Info
+} from 'lucide-react';
 
 interface Step2Props {
     gameData: NewGameData;
-    onNext: (dataFromStep?: Partial<NewGameData>) => void;
+    onNext: () => void; // No data needs to be passed from this step
     onPrevious: () => void;
 }
 
 const Step2PrintHandouts: React.FC<Step2Props> = ({gameData, onNext, onPrevious}) => {
     const [selectedOption, setSelectedOption] = useState<'order' | 'diy'>('diy');
 
-    // Placeholder for dynamic handout quantities based on gameData.num_teams and gameData.num_players
-    // This would involve more complex logic to match the demo's detailed breakdown.
-    const getDIYInstructions = () => {
-        const teams = gameData.num_teams || 1;
-        const players = gameData.num_players || 2;
-        // Example:
+    const {num_players, num_teams, name: gameName, game_version} = gameData;
+
+    const calculatedMaterials = useMemo(() => {
+        // This logic should closely match the original game's handout requirements.
+        // The numbers here are examples and should be adjusted based on the actual game rules.
+        const teams = num_teams || 1;
+        const players = num_players || 2;
+
         const gameBoards = teams;
-        const briefingPackets = players;
-        // ... and so on for all materials listed in the demo's DIY section.
+        const briefingPackets = players; // 1 per player
+        const vocabSheets = teams; // 1 per team
+        const rd1PosSheets = teams;
+        const teamNameCards = teams; // Usually 1 per team
 
-        return (
-            <>
-                <p className="mb-2 text-sm">Based on {players} players and {teams} teams:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
-                    <li>{gameBoards}x Game Boards (12x18 or 11x17, Color, 1 per team)</li>
-                    <li>{briefingPackets}x Briefing Packets (Double-sided, color, 1 staple, 1 per player)</li>
-                    <li>{teams}x Sets of Vocabulary Definitions (Double-sided B&W, 1 staple, 1 per team)</li>
-                    <li>{teams}x Sets of RD-1 Position Sheets (Single-sided, Color, No staple, 1 set per team)</li>
-                    <li>{teams}x Sets of Team Name Cards (Print first 5 pages, Heavy Card Stock, Single-sided, color, 1
-                        per team)
-                    </li>
-                    <li className="font-semibold mt-2">Round 1 Folder:</li>
-                    <li>{teams}x Sets of RD-1 Investment Cards (Single-sided, color, 1 set per team)</li>
-                    <li>{teams}x RD-1 Team Summary Sheets (Single-sided, color, 1 per team)</li>
-                    <li className="font-semibold mt-2">Round 2 Folder:</li>
-                    <li>... (Similar for RD-2 materials)</li>
-                    <li className="font-semibold mt-2">Round 3 Folder:</li>
-                    <li>... (Similar for RD-3 materials)</li>
-                    <li className="font-semibold mt-2">Special Handouts Folder:</li>
-                    <li>3x Copies of Permanent KPI Impact card file (Single-sided, color)</li>
-                    <li>{teams}x Biz Growth Strategy Reports (Single-sided, B&W, 1 per team)</li>
-                </ul>
-                <p className="mt-3 text-xs text-gray-500">Note: Print everything on 8.5x11" unless indicated.
-                    Instructions adjust based on your game setup.</p>
-            </>
-        );
-    };
+        // Example: RD-1 Investment cards - often 1 set per team.
+        const rd1InvestCards = teams;
+        const rd1SummarySheets = teams;
 
-    const pioneerPressEmailBody = `Subject: Ready or Not ${gameData.game_version === '2.0_dd' ? '2.0' : '1.5'} Game Packet Order - ${gameData.name}\n
-Body:
-Please prepare a game packet order for our upcoming session.
-Game Name: ${gameData.name}
-Game Version: ${gameData.game_version}
-Number of Teams: ${gameData.num_teams}
-Number of Players: ${gameData.num_players}
+        // RD-2
+        const rd2PosSheets = teams;
+        const rd2InvestCards = teams;
+        const rd2SummarySheets = teams;
+
+        // RD-3
+        const rd3InvestCards = teams;
+        const rd3SummarySheets = teams;
+
+        // Special Handouts
+        const kpiImpactCards = Math.ceil(teams / 2); // Example: 3 for 5-6 teams, maybe based on game events
+        const bizGrowthReports = teams;
+
+        return {
+            gameBoards, briefingPackets, vocabSheets, rd1PosSheets, teamNameCards,
+            rd1InvestCards, rd1SummarySheets,
+            rd2PosSheets, rd2InvestCards, rd2SummarySheets,
+            rd3InvestCards, rd3SummarySheets,
+            kpiImpactCards, bizGrowthReports,
+            totalPlayers: players,
+            totalTeams: teams,
+        };
+    }, [num_players, num_teams]);
+
+    const pioneerPressEmailSubject = `Ready or Not ${game_version === '2.0_dd' ? '2.0' : '1.5'} Game Packet Order - "${gameName || 'Untitled Game'}"`;
+    const pioneerPressEmailBody = `
+Hello Pioneer Press,
+
+Please prepare a game packet order for our upcoming "Ready or Not" session with the following details:
+
+Game Name: ${gameName || 'N/A'}
+Game Version: ${game_version === '2.0_dd' ? '2.0 with Double Down' : '1.5 with Double Down'}
+Number of Teams: ${num_teams || 'N/A'}
+Number of Players: ${num_players || 'N/A'}
+
+We will need materials for approximately ${calculatedMaterials.totalTeams} teams and ${calculatedMaterials.totalPlayers} players.
+
+Please provide a quote and estimated delivery timeline.
 
 Contact Name: [Your Name]
 Contact Phone: [Your Phone]
-Shipping Address: [Your Address]
+School/Organization: [Your School/Organization]
+Shipping Address: 
+[Your Street Address]
+[City, State, Zip]
 
-Please confirm pricing and estimated delivery. We prefer to pay by [Credit Card/Check].
+Preferred Payment Method: [Credit Card / Check / PO#]
 
-Thank you!`;
+Thank you,
+[Your Name]
+  `.trim();
 
+    const handleDownloadAllPDFs = () => {
+        // In a real application, this would trigger a download of a ZIP file
+        // or provide links to individual PDFs hosted elsewhere.
+        alert("Placeholder: Download All Printable PDFs functionality to be implemented. This would typically provide links to or download actual PDF files for each handout type.");
+        // Example of opening a known PDF link (replace with your actual PDF URL)
+        // window.open('path_to_your_master_handout_guide.pdf', '_blank');
+    };
 
     return (
         <div className="space-y-6">
-            <p className="text-sm text-gray-600">
-                You have two options for getting the handouts required for the game.
-                The materials needed will adjust based on the number of players and teams from Step 1.
+            <p className="text-sm text-gray-600 mb-1">
+                To run the simulation, you'll need physical handouts for each team and player. You have two main options
+                to obtain these:
             </p>
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md mb-6">
+                <div className="flex">
+                    <div className="flex-shrink-0">
+                        <Info className="h-5 w-5 text-blue-700"/>
+                    </div>
+                    <div className="ml-3">
+                        <p className="text-sm text-blue-700">
+                            The quantities listed in the "DIY Printing" section are dynamically calculated based on the
+                            number of players and teams you entered in Step 1.
+                        </p>
+                    </div>
+                </div>
+            </div>
 
-            <div className="flex space-x-4 mb-6 border-b pb-4">
+
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 <button
                     onClick={() => setSelectedOption('order')}
-                    className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all
-                        ${selectedOption === 'order' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all border-2
+                        ${selectedOption === 'order' ? 'bg-blue-600 text-white border-blue-700 shadow-lg scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'}`}
                 >
                     <ShoppingCart size={18} className="inline mr-2"/> Order from Printing Partner
                 </button>
                 <button
                     onClick={() => setSelectedOption('diy')}
-                    className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all
-                        ${selectedOption === 'diy' ? 'bg-green-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all border-2
+                        ${selectedOption === 'diy' ? 'bg-green-600 text-white border-green-700 shadow-lg scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-green-400 hover:bg-green-50'}`}
                 >
-                    <PrinterIcon size={18} className="inline mr-2"/> DIY or Order from Own Printer
+                    <PrinterIcon size={18} className="inline mr-2"/> DIY or Print Locally
                 </button>
             </div>
 
             {selectedOption === 'order' && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 className="text-lg font-semibold text-blue-700 mb-2">Order from Pioneer Press (Fast, Easy &
-                        Pre-Sorted)</h3>
-                    <p className="text-sm text-gray-700 mb-3">
-                        One standard packet includes all materials needed for up to 5 Teams & 40 Players.
-                        (Pricing and packet contents adjust for larger games - this is a simplified example).
+                <div className="p-4 sm:p-6 bg-slate-50 border border-slate-200 rounded-lg shadow-sm animate-fadeIn">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-3">Order from Pioneer Press (Official
+                        Partner)</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Pioneer Press offers pre-sorted, professionally printed game packets. This is the easiest way to
+                        get high-quality, laminated materials ready for your game.
+                        Pricing varies based on the number of players and specific game components.
                     </p>
-                    <div className="text-xs text-gray-600 bg-white p-3 rounded border border-gray-300">
-                        <p className="font-semibold mb-1">Example: ONE STANDARD PACKET (adjusts based on your
-                            player/team count)</p>
-                        <ul className="list-disc list-inside ml-4 mb-2">
-                            <li>Professionally printed, color, laminated game boards.</li>
-                            <li>Sticky arrows for game boards.</li>
-                            <li>Handouts pre-sorted into files, labeled folders for players.</li>
+                    <div className="text-sm text-gray-700 bg-white p-4 rounded-md border border-gray-300">
+                        <p className="font-medium text-gray-800 mb-1">What's typically included (per standard packet,
+                            scales with game size):</p>
+                        <ul className="list-disc list-inside ml-4 mb-3 text-gray-600 text-xs">
+                            <li>Laminated Game Boards</li>
+                            <li>Pre-sorted Team Folders with all necessary cards and sheets</li>
+                            <li>Sticky Arrows, Team Name Tents, and other game pieces</li>
                         </ul>
-                        <p className="font-semibold mb-1">CONTACT PIONEER PRESS:</p>
-                        <p>Phone: (541) 265-5214</p>
-                        <p className="mb-2">Email: <a href="mailto:ppinfo@pioneerprinting.org"
-                                                      className="text-blue-600 hover:underline">ppinfo@pioneerprinting.org</a>
+                        <p className="font-medium text-gray-800 mb-1">Contact for Quote & Order:</p>
+                        <p className="text-gray-600">Phone: <a href="tel:5412655214"
+                                                               className="text-blue-600 hover:underline">(541)
+                            265-5214</a></p>
+                        <p className="text-gray-600 mb-3">Email: <a href="mailto:ppinfo@pioneerprinting.org"
+                                                                    className="text-blue-600 hover:underline">ppinfo@pioneerprinting.org</a>
                         </p>
                         <a
-                            href={`mailto:ppinfo@pioneerprinting.org?subject=${encodeURIComponent(`Ready or Not ${gameData.game_version === '2.0_dd' ? '2.0' : '1.5'} Game Packet Order - ${gameData.name}`)}&body=${encodeURIComponent(pioneerPressEmailBody)}`}
-                            className="inline-flex items-center gap-2 bg-blue-500 text-white text-xs font-medium py-2 px-3 rounded-md hover:bg-blue-600 transition-colors"
+                            href={`mailto:ppinfo@pioneerprinting.org?subject=${encodeURIComponent(pioneerPressEmailSubject)}&body=${encodeURIComponent(pioneerPressEmailBody)}`}
+                            className="inline-flex items-center gap-2 bg-blue-500 text-white text-xs font-semibold py-2.5 px-4 rounded-md hover:bg-blue-600 transition-colors shadow hover:shadow-md"
                         >
-                            <Mail size={14}/> Email Order Details
+                            <Mail size={15}/> Compose Order Email
                         </a>
+                        <p className="mt-3 text-xs text-gray-500">Mention you're using the "Ready or Not" simulation and
+                            provide your game setup details (players, teams) from Step 1.</p>
                     </div>
-                    <p className="mt-3 text-xs text-gray-500">Details like pricing per packet would be confirmed with
-                        Pioneer Press.</p>
                 </div>
             )}
 
             {selectedOption === 'diy' && (
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <h3 className="text-lg font-semibold text-green-700 mb-3">DIY Printing Instructions</h3>
-                    <div className="bg-white p-3 rounded border border-gray-300">
-                        {getDIYInstructions()}
+                <div className="p-4 sm:p-6 bg-slate-50 border border-slate-200 rounded-lg shadow-sm animate-fadeIn">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-3">DIY Printing Instructions</h3>
+                    <p className="text-sm text-gray-600 mb-1">
+                        If you prefer to print materials yourself, here's a list of components.
+                        Quantities are based on <strong
+                        className="text-slate-700">{calculatedMaterials.totalPlayers} players</strong> and <strong
+                        className="text-slate-700">{calculatedMaterials.totalTeams} teams</strong>.
+                    </p>
+                    <p className="text-xs text-gray-500 mb-4">
+                        All materials should be printed on standard 8.5" x 11" paper unless otherwise noted. Refer to
+                        the "How To Host Guide" PDF for detailed assembly instructions.
+                    </p>
+                    <div
+                        className="text-sm text-gray-700 bg-white p-4 rounded-md border border-gray-300 max-h-96 overflow-y-auto scrollbar-thin">
+                        <h4 className="font-medium text-gray-800 mb-2">Core Game Components:</h4>
+                        <ul className="list-disc list-inside space-y-1.5 pl-4 mb-3">
+                            <li>Game Boards: {calculatedMaterials.gameBoards} (Recommend 11x17 or 12x18, color,
+                                laminated if possible)
+                            </li>
+                            <li>Briefing Packets: {calculatedMaterials.briefingPackets} (1 per player, double-sided,
+                                color)
+                            </li>
+                            <li>Vocabulary Definitions: {calculatedMaterials.vocabSheets} (1 per team, double-sided
+                                B&W)
+                            </li>
+                            <li>Team Name Cards: {calculatedMaterials.teamNameCards} (1 per team, heavy card stock,
+                                color)
+                            </li>
+                        </ul>
+                        <h4 className="font-medium text-gray-800 mb-2 mt-3">Round 1 Materials:</h4>
+                        <ul className="list-disc list-inside space-y-1.5 pl-4 mb-3">
+                            <li>RD-1 Position Sheets: {calculatedMaterials.rd1PosSheets} sets (1 per team, single-sided,
+                                color)
+                            </li>
+                            <li>RD-1 Investment Cards: {calculatedMaterials.rd1InvestCards} sets (1 per team,
+                                single-sided, color)
+                            </li>
+                            <li>RD-1 Team Summary Sheets: {calculatedMaterials.rd1SummarySheets} (1 per team,
+                                single-sided, color)
+                            </li>
+                        </ul>
+                        {/* Add placeholders for RD-2 and RD-3 materials similarly */}
+                        <h4 className="font-medium text-gray-800 mb-2 mt-3">Special Handouts:</h4>
+                        <ul className="list-disc list-inside space-y-1.5 pl-4">
+                            <li>Permanent KPI Impact Cards: {calculatedMaterials.kpiImpactCards} (Print file multiple
+                                times as needed, single-sided, color)
+                            </li>
+                            <li>Biz Growth Strategy Reports: {calculatedMaterials.bizGrowthReports} (1 per team,
+                                single-sided, B&W)
+                            </li>
+                        </ul>
                     </div>
                     <button
-                        className="mt-4 flex items-center gap-2 bg-green-500 text-white text-sm font-medium py-2 px-3 rounded-md hover:bg-green-600 transition-colors">
+                        onClick={handleDownloadAllPDFs}
+                        className="mt-4 inline-flex items-center gap-2 bg-green-600 text-white text-sm font-semibold py-2.5 px-4 rounded-md hover:bg-green-700 transition-colors shadow hover:shadow-md"
+                    >
                         <Download size={16}/> Download All Printable PDFs (Placeholder)
                     </button>
                 </div>
@@ -147,7 +244,7 @@ Thank you!`;
                 </button>
                 <button
                     type="button"
-                    onClick={() => onNext()} // No specific data from this step, gameData already has player/team count
+                    onClick={onNext} // No data is passed from this step, gameData already has necessary info
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
                     Next: Team Setup <ArrowRight size={18}/>

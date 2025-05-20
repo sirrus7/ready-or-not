@@ -1,160 +1,220 @@
 // src/components/TeacherHost/CreateGameWizard/Step1_GameDetails.tsx
-import React, {useState, useEffect, useCallback} from 'react';
-import {NewGameData} from '../../../pages/CreateGamePage'; // Import the type
+import React, {useState, useEffect, useCallback, useRef} from 'react';
+import {NewGameData} from '../../../types'; // Corrected path assuming types is at src/types
 import {ArrowRight, AlertCircle} from 'lucide-react';
 
 interface Step1Props {
     gameData: NewGameData;
     onDataChange: (field: keyof NewGameData, value: any) => void;
     onNext: (dataFromStep: Partial<NewGameData>) => void;
-    onPrevious: () => void; // Although Step 1 might not use "onPrevious" to go further back
+    // onPrevious is not used in this step's UI, so it can be omitted from props if not needed by CreateGamePage for this step
 }
 
 const Step1GameDetails: React.FC<Step1Props> = ({gameData, onDataChange, onNext}) => {
-    const [localGameData, setLocalGameData] = useState<NewGameData>(gameData);
-    const [numPlayersStr, setNumPlayersStr] = useState<string>(gameData.num_players > 0 ? gameData.num_players.toString() : '');
-    const [numTeamsStr, setNumTeamsStr] = useState<string>(gameData.num_teams > 0 ? gameData.num_teams.toString() : ''); // Allow teacher to override
+    const [name, setName] = useState(gameData.name);
+    const [className, setClassName] = useState(gameData.class_name);
+    const [gameVersion, setGameVersion] = useState(gameData.game_version);
+    const [gradeLevel, setGradeLevel] = useState(gameData.grade_level);
+
+    const [numPlayersStr, setNumPlayersStr] = useState<string>(
+        gameData.num_players > 0 ? gameData.num_players.toString() : ''
+    );
+    const [numTeamsStr, setNumTeamsStr] = useState<string>(
+        gameData.num_teams > 0 ? gameData.num_teams.toString() : ''
+    );
+
     const [recommendation, setRecommendation] = useState<string>('');
     const [error, setError] = useState<string>('');
+    const userManuallySetTeams = useRef(false);
+    const isInitializingFromProps = useRef(true);
+    const previousPlayersRef = useRef<number>(gameData.num_players);
 
-    // Update local state if gameData prop changes (e.g., navigating back and forth)
     useEffect(() => {
-        setLocalGameData(gameData);
-        setNumPlayersStr(gameData.num_players > 0 ? gameData.num_players.toString() : '');
-        setNumTeamsStr(gameData.num_teams > 0 ? gameData.num_teams.toString() : '');
-    }, [gameData]);
+        console.log("Step1: gameData prop changed, syncing local state.", gameData);
+        isInitializingFromProps.current = true;
+        setName(gameData.name);
+        setClassName(gameData.class_name);
+        setGameVersion(gameData.game_version);
+        setGradeLevel(gameData.grade_level);
+
+        const newPlayersStr = gameData.num_players > 0 ? gameData.num_players.toString() : '';
+        if (newPlayersStr !== numPlayersStr) {
+            setNumPlayersStr(newPlayersStr);
+        }
+
+        const newTeamsStr = gameData.num_teams > 0 ? gameData.num_teams.toString() : '';
+        if (newTeamsStr !== numTeamsStr) {
+            setNumTeamsStr(newTeamsStr);
+        }
+        // If props provide num_teams > 0, consider it as if user has set it, unless num_players also changed warranting new recommendation
+        if (gameData.num_teams > 0 && gameData.num_players === previousPlayersRef.current) {
+            userManuallySetTeams.current = true;
+        } else {
+            userManuallySetTeams.current = false; // Allow recommendation if players changed or teams from prop is 0
+        }
+        previousPlayersRef.current = gameData.num_players;
+
+
+        const timer = setTimeout(() => {
+            isInitializingFromProps.current = false;
+            console.log("Step1: Finished initializing from props.");
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [gameData]); // Only run when gameData prop changes
+
 
     const calculateTeamRecommendation = useCallback((players: number): {
         teams: number;
         recommendationText: string
     } => {
         if (players <= 0) return {teams: 0, recommendationText: "Enter number of players."};
-        if (players < 2) return {teams: 0, recommendationText: "Minimum 2 players required."};
-
-        // Logic from demo: Teams of 2-5 are ideal.
-        // Calculate a reasonable number of teams.
-        // This is a simplified logic based on observation. The actual game might have more precise rules.
-        let recommendedTeams = Math.ceil(players / 4); // Aim for teams of ~4
-        if (players / recommendedTeams > 5 && players > 5) { // If average team size is > 5, increase teams
+        if (players < 2) return {teams: 0, recommendationText: "Minimum 2 players required for at least one team."};
+        let recommendedTeams = Math.ceil(players / 4);
+        if (recommendedTeams === 0 && players > 0) recommendedTeams = 1;
+        if (players / recommendedTeams > 5 && players > 5 && recommendedTeams > 0) {
             recommendedTeams = Math.ceil(players / 3);
         }
-        if (players / recommendedTeams < 2 && recommendedTeams > 1) { // If average team size < 2, decrease teams
+        if (players / recommendedTeams < 2 && recommendedTeams > 1) {
             recommendedTeams = Math.floor(players / 2);
         }
-        recommendedTeams = Math.max(1, recommendedTeams); // At least one team
-
-
-        const minPlayersPerTeam = 2;
-        const maxPlayersPerTeam = 5; // Ideal max for this game it seems
-
-        if (recommendedTeams * maxPlayersPerTeam < players) {
-            return {
-                teams: recommendedTeams,
-                recommendationText: `With ${players} players, consider increasing teams for optimal size (2-5 players/team).`
-            };
-        }
-        if (recommendedTeams * minPlayersPerTeam > players && recommendedTeams > 1) {
-            return {
-                teams: recommendedTeams,
-                recommendationText: `With ${players} players, consider decreasing teams for optimal size (2-5 players/team).`
-            };
-        }
-
-        // Example recommendations based on demo
-        if (players >= 2 && players <= 5) return {
-            teams: 1,
-            recommendationText: `Recommended: 1 team of ${players} players.`
-        };
-        if (players >= 6 && players <= 8) return {
-            teams: 2,
-            recommendationText: `Recommended: 2 teams (e.g., ${Math.floor(players / 2)} & ${Math.ceil(players / 2)} players).`
-        };
-        if (players >= 9 && players <= 12) return {
-            teams: 3,
-            recommendationText: `Recommended: 3 teams (e.g., average ${(players / 3).toFixed(1)} players/team).`
-        };
-
-        // General recommendation
-        return {
-            teams: recommendedTeams,
-            recommendationText: `Recommended: ${recommendedTeams} teams (avg ${(players / recommendedTeams).toFixed(1)} players/team). Adjust #Teams if needed.`
-        };
-
+        recommendedTeams = Math.max(1, recommendedTeams);
+        const avgPlayersPerTeam = players / recommendedTeams;
+        let recText = `Recommended: ${recommendedTeams} team${recommendedTeams > 1 ? 's' : ''}`;
+        if (recommendedTeams === 1) recText += ` of ${players} players.`;
+        else recText += ` (avg ${avgPlayersPerTeam.toFixed(1)} players/team). Adjust if needed.`;
+        if (recommendedTeams * 5 < players) recText = `With ${players} players, consider increasing teams for optimal size (2-5 players/team). Current recommendation: ${recommendedTeams} teams.`;
+        if (recommendedTeams * 2 > players && recommendedTeams > 1) recText = `With ${players} players, consider decreasing teams for optimal size (2-5 players/team). Current recommendation: ${recommendedTeams} teams.`;
+        return {teams: recommendedTeams, recommendationText: recText};
     }, []);
 
-
+    // Effect for num_players logic (reacts to numPlayersStr changes)
     useEffect(() => {
-        const players = parseInt(numPlayersStr, 10);
-        if (!isNaN(players) && players > 0) {
-            const {teams, recommendationText} = calculateTeamRecommendation(players);
-            setRecommendation(recommendationText);
-            if (numTeamsStr === '' || parseInt(numTeamsStr, 10) === 0 || parseInt(numTeamsStr, 10) !== teams) { // Auto-update teams if not manually set or if recommendation changes
-                // Only auto-update if the teams field hasn't been manually changed by the user to something different than the current recommendation for that player count.
-                // This needs a bit more sophisticated logic to detect if user *manually* changed numTeamsStr.
-                // For now, simple auto-update if it's 0 or different from new recommendation.
-                // A better way might be to only auto-update if the numTeams field was never touched by the user for the current player count.
-                const currentManualTeams = parseInt(numTeamsStr, 10);
-                const currentRecommendedForOldPlayers = calculateTeamRecommendation(localGameData.num_players).teams;
+        if (isInitializingFromProps.current) {
+            console.log("Step1 PlayersEffect: Skipping during prop initialization.");
+            return;
+        }
 
-                if (isNaN(currentManualTeams) || currentManualTeams === 0 || currentManualTeams === currentRecommendedForOldPlayers) {
-                    setNumTeamsStr(teams > 0 ? teams.toString() : '');
-                    onDataChange('num_teams', teams > 0 ? teams : 0);
+        const players = parseInt(numPlayersStr, 10);
+        console.log(`Step1 PlayersEffect: numPlayersStr="${numPlayersStr}", parsedPlayers=${players}, userManuallySetTeams=${userManuallySetTeams.current}`);
+
+        if (!isNaN(players) && players >= 0) {
+            if (gameData.num_players !== players) {
+                console.log(`Step1 PlayersEffect: Propagating num_players: ${players} to parent.`);
+                onDataChange('num_players', players);
+            }
+            if (players > 0) {
+                const {teams: recommendedNumTeams, recommendationText} = calculateTeamRecommendation(players);
+                setRecommendation(recommendationText);
+                if (!userManuallySetTeams.current && recommendedNumTeams > 0) {
+                    if (gameData.num_teams !== recommendedNumTeams || numTeamsStr !== recommendedNumTeams.toString()) {
+                        console.log(`Step1 PlayersEffect: Recommending teams: ${recommendedNumTeams}. Updating numTeamsStr and parent.`);
+                        setNumTeamsStr(recommendedNumTeams.toString()); // Update local state for input
+                        onDataChange('num_teams', recommendedNumTeams); // Update parent state
+                    }
+                }
+            } else { // players is 0
+                setRecommendation("Enter number of players.");
+                if (!userManuallySetTeams.current) {
+                    if (gameData.num_teams !== 0 || numTeamsStr !== '') {
+                        console.log(`Step1 PlayersEffect: Players is 0, resetting teams.`);
+                        setNumTeamsStr('');
+                        onDataChange('num_teams', 0);
+                    }
                 }
             }
-            onDataChange('num_players', players);
-        } else {
-            setRecommendation("Enter a valid number of players.");
-            if (numPlayersStr === '') { // If cleared, reset teams too
-                setNumTeamsStr('');
+        } else if (numPlayersStr === '') {
+            if (gameData.num_players !== 0) {
+                console.log(`Step1 PlayersEffect: numPlayersStr is empty. Resetting num_players in parent.`);
                 onDataChange('num_players', 0);
-                onDataChange('num_teams', 0);
             }
+            setRecommendation("Enter number of players.");
+            if (!userManuallySetTeams.current) {
+                if (gameData.num_teams !== 0 || numTeamsStr !== '') {
+                    console.log(`Step1 PlayersEffect: numPlayersStr is empty, resetting teams.`);
+                    setNumTeamsStr('');
+                    onDataChange('num_teams', 0);
+                }
+            }
+        } else {
+            setRecommendation("Please enter a valid number for players.");
         }
-    }, [numPlayersStr, calculateTeamRecommendation, onDataChange, localGameData.num_players]);
+    }, [numPlayersStr, calculateTeamRecommendation, onDataChange, gameData.num_players, gameData.num_teams]);
 
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleLocalInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const {name, value} = e.target;
-        setLocalGameData(prev => ({...prev, [name]: value}));
-        onDataChange(name as keyof NewGameData, value);
+        let processedValue: string | NewGameData['game_version'] = value;
+
+        if (name === 'name') setName(value);
+        else if (name === 'class_name') setClassName(value);
+        else if (name === 'game_version') {
+            setGameVersion(value as NewGameData['game_version']);
+            processedValue = value as NewGameData['game_version'];
+        } else if (name === 'grade_level') setGradeLevel(value);
+
+        if (gameData[name as keyof NewGameData] !== processedValue) {
+            console.log(`Step1: LocalInputChange for ${name} ("${value}"). Calling onDataChange.`);
+            onDataChange(name as keyof NewGameData, processedValue);
+        }
     };
 
-    const handleNumPlayersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value;
-        setNumPlayersStr(val); // Update string representation for input control
-        // Actual conversion and onDataChange call is in useEffect
+    const handleNumPlayersStrChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newPlayerStr = e.target.value;
+        console.log(`Step1: handleNumPlayersStrChange - new value: "${newPlayerStr}"`);
+        setNumPlayersStr(newPlayerStr);
+        const currentPlayersNumeric = parseInt(newPlayerStr, 10);
+        if (isNaN(currentPlayersNumeric) || currentPlayersNumeric !== previousPlayersRef.current) {
+            // Only reset userManuallySetTeams if the actual numeric value has changed, or input becomes invalid
+            userManuallySetTeams.current = false;
+        }
     };
 
-    const handleNumTeamsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleNumTeamsStrChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
+        console.log(`Step1: handleNumTeamsStrChange - new value: "${val}"`);
         setNumTeamsStr(val);
+        userManuallySetTeams.current = true;
         const teams = parseInt(val, 10);
-        onDataChange('num_teams', isNaN(teams) ? 0 : teams);
+        const newTeamNum = isNaN(teams) || teams < 0 ? 0 : teams;
+        if (gameData.num_teams !== newTeamNum) {
+            console.log(`Step1: Manual team change. Calling onDataChange for num_teams: ${newTeamNum}.`);
+            onDataChange('num_teams', newTeamNum);
+        }
     };
-
 
     const validateAndProceed = () => {
         setError('');
-        if (!localGameData.name.trim()) {
+        const currentPlayers = parseInt(numPlayersStr, 10);
+        const currentTeams = parseInt(numTeamsStr, 10);
+
+        const finalGameData: NewGameData = {
+            name: name.trim(),
+            class_name: className.trim(),
+            game_version: gameVersion,
+            grade_level: gradeLevel,
+            num_players: isNaN(currentPlayers) || currentPlayers < 0 ? 0 : currentPlayers,
+            num_teams: isNaN(currentTeams) || currentTeams < 0 ? 0 : currentTeams,
+            teams_config: gameData.teams_config
+        };
+
+        if (!finalGameData.name) {
             setError("Game Name is required.");
             return;
         }
-        const players = parseInt(numPlayersStr, 10);
-        if (isNaN(players) || players < 2) { // Assuming minimum 2 players for at least 1 team
+        if (finalGameData.num_players < 2) {
             setError("Number of players must be at least 2.");
             return;
         }
-        const teams = parseInt(numTeamsStr, 10);
-        if (isNaN(teams) || teams < 1) {
+        if (finalGameData.num_teams < 1) {
             setError("Number of teams must be at least 1.");
             return;
         }
-        if (players / teams < 1) { // Basic check
-            setError("Number of players cannot be less than the number of teams.")
+        if (finalGameData.num_players < finalGameData.num_teams) {
+            setError("Number of players cannot be less than the number of teams.");
             return;
         }
 
-        onNext({...localGameData, num_players: players, num_teams: teams});
+        onNext(finalGameData);
     };
 
     const gradeLevels = [
@@ -178,9 +238,9 @@ const Step1GameDetails: React.FC<Step1Props> = ({gameData, onDataChange, onNext}
                 <select
                     id="game_version"
                     name="game_version"
-                    value={localGameData.game_version}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={gameVersion}
+                    onChange={handleLocalInputChange}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
                     <option value="2.0_dd">2.0 with Double Down</option>
                     <option value="1.5_dd">1.5 with Double Down</option>
@@ -195,8 +255,8 @@ const Step1GameDetails: React.FC<Step1Props> = ({gameData, onDataChange, onNext}
                     type="text"
                     id="name"
                     name="name"
-                    value={localGameData.name}
-                    onChange={handleInputChange}
+                    value={name}
+                    onChange={handleLocalInputChange}
                     placeholder="e.g., Spring Semester Economics Challenge"
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -211,8 +271,8 @@ const Step1GameDetails: React.FC<Step1Props> = ({gameData, onDataChange, onNext}
                         type="text"
                         id="class_name"
                         name="class_name"
-                        value={localGameData.class_name}
-                        onChange={handleInputChange}
+                        value={className}
+                        onChange={handleLocalInputChange}
                         placeholder="e.g., Business 101, Math Club"
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -224,49 +284,50 @@ const Step1GameDetails: React.FC<Step1Props> = ({gameData, onDataChange, onNext}
                     <select
                         id="grade_level"
                         name="grade_level"
-                        value={localGameData.grade_level}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={gradeLevel}
+                        onChange={handleLocalInputChange}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                     >
                         {gradeLevels.map(level => <option key={level} value={level}>{level}</option>)}
                     </select>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                 <div>
-                    <label htmlFor="num_players" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="num_players_input" className="block text-sm font-medium text-gray-700 mb-1">
                         Number of Players <span className="text-red-500">*</span>
                     </label>
                     <input
                         type="number"
-                        id="num_players"
-                        name="num_players"
+                        id="num_players_input"
+                        name="num_players_str"
                         value={numPlayersStr}
-                        onChange={handleNumPlayersChange}
-                        min="2" // Minimum players
+                        onChange={handleNumPlayersStrChange}
+                        min="0"
                         placeholder="e.g., 15"
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
                 <div>
-                    <label htmlFor="num_teams" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="num_teams_input" className="block text-sm font-medium text-gray-700 mb-1">
                         Number of Teams <span className="text-red-500">*</span>
                     </label>
                     <input
                         type="number"
-                        id="num_teams"
-                        name="num_teams"
+                        id="num_teams_input"
+                        name="num_teams_str"
                         value={numTeamsStr}
-                        onChange={handleNumTeamsChange}
-                        min="1"
+                        onChange={handleNumTeamsStrChange}
+                        min="0"
                         placeholder="e.g., 3"
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
             </div>
             {recommendation && (
-                <div className="p-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-sm">
+                <div
+                    className={`p-3 rounded-md text-sm mt-2 ${error ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                     {recommendation}
                 </div>
             )}
