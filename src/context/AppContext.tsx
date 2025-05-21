@@ -341,7 +341,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         } finally {
             setLocalUiState(s => ({...s, isLoadingProcessing: false}));
         }
-    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, setTeamRoundDataDirectly, fetchTeamRoundDataFromHook, supabase]);
+    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, setTeamRoundDataDirectly, supabase]);
 
     const processDoubleDownPayoffInternal = useCallback(async () => {
         console.log("Processing Double Down Payoff...");
@@ -442,8 +442,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 decisionPhaseTimerEndTime = Date.now() + (gameController.currentSlideData.timer_duration_seconds * 1000);
             }
             const payload: TeacherBroadcastPayload = {
-                currentSlideId: gameController.currentSlideData?.id || null, currentPhaseId: gameController.currentPhaseNode?.id || null,
-                currentPhaseType: gameController.currentPhaseNode?.phase_type || null, currentRoundNumber: gameController.currentPhaseNode?.round_number || null,
+                currentSlideId: gameController.currentSlideData?.id || null,
+                currentPhaseId: gameController.currentPhaseNode?.id || null,
+                currentPhaseType: gameController.currentPhaseNode?.phase_type || null,
+                currentRoundNumber: gameController.currentPhaseNode?.round_number || null,
                 isPlayingVideo: gameController.isPlayingVideo,
                 videoCurrentTime: gameController.videoCurrentTime,
                 triggerVideoSeek: gameController.triggerVideoSeek,
@@ -451,7 +453,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 decisionOptionsKey: isStudentDecisionActive ? gameController.currentSlideData?.interactive_data_key : undefined,
                 decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
             };
-            broadcastChannel.postMessage({ type: 'TEACHER_STATE_UPDATE', payload });
+            broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
             if (gameController.triggerVideoSeek) {
                 gameController.setVideoPlaybackState(gameController.isPlayingVideo, gameController.videoCurrentTime, false);
             }
@@ -488,7 +490,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         if (currentDbSession?.id && currentDbSession.id !== 'new') {
             syncAndBroadcastAppState();
         }
-    }, [gameController.currentPhaseNode, gameController.currentSlideData, gameController.isPlayingVideo, syncAndBroadcastAppState, currentDbSession]);
+    }, [
+        gameController.currentPhaseNode,
+        gameController.currentSlideData,
+        gameController.isPlayingVideo,
+        gameController.videoCurrentTime,    // ADDED
+        gameController.triggerVideoSeek,    // ADDED
+        syncAndBroadcastAppState,
+        currentDbSession
+    ]);
 
     useEffect(() => { // Supabase Real-time Subscriptions (moved team_decisions to useTeamDataManager)
         if (!currentDbSession?.id || currentDbSession.id === 'new' || authLoading) return;
@@ -533,7 +543,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 }
             }
         }
-    }, [currentDbSession, gameStructureInstance, updateSessionInDb, fetchWrapperTeams, fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook]);
+    }, [currentDbSession, gameStructureInstance, updateSessionInDb, fetchWrapperTeams, fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook, supabase]);
+
 
     useEffect(() => {
         if (currentDbSession?.id && currentDbSession.id !== 'new' && !isLoadingSession && !authLoading) {
@@ -602,19 +613,22 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                                 "Initializing Simulator..."}
                     </p>
                 </div>
-            ) : contextValue.state.error && (passedSessionId === 'new' || (contextValue.state.currentSessionId && !gameController.currentPhaseNode && contextValue.state.currentSessionId !== 'new') ) ?
+            ) : contextValue.state.error && (passedSessionId === 'new' || (contextValue.state.currentSessionId && !gameController.currentPhaseNode && contextValue.state.currentSessionId !== 'new')) ?
                 <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-4 text-center">
                     <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
-                        <ServerCrash size={48} className="text-red-500 mx-auto mb-4" />
+                        <ServerCrash size={48} className="text-red-500 mx-auto mb-4"/>
                         <h2 className="text-2xl font-bold text-red-700 mb-2">Initialization Error</h2>
                         <p className="text-gray-600 mb-6">{contextValue.state.error || "An unknown error occurred."}</p>
-                        <button onClick={() => {clearSessionError(); navigate('/dashboard', { replace: true });}}
+                        <button onClick={() => {
+                            clearSessionError();
+                            navigate('/dashboard', {replace: true});
+                        }}
                                 className="bg-blue-600 text-white font-medium py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
                             Back to Dashboard
                         </button>
                     </div>
                 </div>
-                : ( children )}
+                : (children)}
         </AppContext.Provider>
     );
 };
