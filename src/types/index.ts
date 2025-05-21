@@ -124,6 +124,17 @@ export interface KpiEffect {
   applies_to_rounds?: (1 | 2 | 3)[]; // For permanent effects that apply to specific future rounds
 }
 
+export interface PermanentKpiAdjustment {
+  id?: string; // Optional: if you want to give it a DB ID
+  session_id: string;
+  team_id: string;
+  applies_to_round_start: 1 | 2 | 3;
+  kpi_key: KpiKey;
+  change_value: number;
+  is_percentage?: boolean; // Match KpiEffect
+  description?: string;
+}
+
 export interface Consequence {
   id: string; // e.g., "ch1_consequence_a"
   challenge_option_id: string; // Links to the specific option chosen

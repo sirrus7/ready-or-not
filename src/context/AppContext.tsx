@@ -2,9 +2,9 @@
 import React, {createContext, useContext, useState, useEffect, useCallback, useMemo} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {
-    AppState, GameStructure, GamePhaseNode, Slide, Team, TeamDecision,
-    TeamRoundData, User, TeacherBroadcastPayload, KpiEffect, KpiKey,
-    PermanentKpiAdjustment, InvestmentPayoff, Consequence
+    AppState, GamePhaseNode, Slide, Team, TeamDecision,
+    TeamRoundData, TeacherBroadcastPayload, KpiEffect, KpiKey,
+    PermanentKpiAdjustment
 } from '../types';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {supabase} from '../lib/supabase';
@@ -12,6 +12,7 @@ import {useAuth} from './AuthContext';
 import {useSessionManager} from '../hooks/useSessionManager';
 import {useGameController} from '../hooks/useGameController';
 import {useTeamDataManager} from '../hooks/useTeamDataManager';
+import {ServerCrash} from 'lucide-react';
 
 interface AppContextProps {
     state: AppState;
@@ -37,7 +38,6 @@ interface AppContextProps {
     fetchTeamsForSession: () => Promise<void>;
     fetchTeamRoundDataForSession: (sessionId: string) => Promise<void>;
     resetTeamDecisionForPhase: (teamId: string, phaseId: string) => Promise<void>;
-    // Processors are now more specific
     processChoicePhaseDecisions: (phaseId: string) => Promise<void>;
     processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     processDoubleDownPayoff: () => Promise<void>;
@@ -47,19 +47,22 @@ interface AppContextProps {
 
 const initialAppContextLocalStateDefinition: {
     isStudentWindowOpen: boolean;
-    currentTeacherAlert: { title: string; message: string } | null;
     isLoadingProcessing: boolean;
     errorProcessing: string | null;
 } = {
     isStudentWindowOpen: false,
-    currentTeacherAlert: null,
     isLoadingProcessing: false,
     errorProcessing: null,
 };
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
-export const useAppContext = () => { /* ... same ... */
+
+export const useAppContext = () => {
+    const context = useContext(AppContext);
+    if (!context) throw new Error('useAppContext must be used within an AppProvider');
+    return context;
 };
+
 let broadcastChannel: BroadcastChannel | null = null;
 
 interface AppProviderProps {
@@ -87,42 +90,67 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         resetTeamDecisionInDb,
     } = useTeamDataManager(currentDbSession?.id || null);
 
-    const allPhasesInOrder = useMemo((): GamePhaseNode[] => { /* ... same ... */
+    const allPhasesInOrder = useMemo((): GamePhaseNode[] => {
+        if (!gameStructureInstance) return [];
+        return [
+            ...gameStructureInstance.welcome_phases,
+            ...gameStructureInstance.rounds.flatMap(round => round.phases),
+            ...gameStructureInstance.game_end_phases,
+        ];
     }, [gameStructureInstance]);
 
-    const applyKpiEffects = useCallback((currentKpisInput: TeamRoundData, effects: KpiEffect[], kpiContext: string = "Effect"): TeamRoundData => { /* ... same ... */
+    const applyKpiEffects = useCallback((currentKpisInput: TeamRoundData, effects: KpiEffect[]): TeamRoundData => {
+        const updatedKpis = {...currentKpisInput};
+        effects.forEach(effect => {
+            if (effect.timing === 'immediate') {
+                const currentKpiName = `current_${effect.kpi}` as keyof TeamRoundData;
+                const baseValue = (updatedKpis[currentKpiName] as number | undefined) ?? (updatedKpis[`start_${effect.kpi}` as keyof TeamRoundData] as number | undefined) ?? 0;
+                let change = effect.change_value;
+                if (effect.is_percentage_change && baseValue !== undefined) {
+                    change = baseValue * (effect.change_value / 100);
+                }
+                (updatedKpis[currentKpiName] as number) = Math.round(baseValue + change);
+            }
+        });
+        return updatedKpis;
     }, []);
-    const storePermanentAdjustments = useCallback(async (teamId: string, sessionId: string, effects: KpiEffect[], phaseSourceLabel: string) => { /* ... same ... */
+
+    const storePermanentAdjustments = useCallback(async (teamId: string, sessionId: string, effects: KpiEffect[], phaseSourceLabel: string) => {
+        const adjustmentsToInsert = effects
+            .filter(eff => eff.timing === 'permanent_next_round_start' && eff.applies_to_rounds && eff.applies_to_rounds.length > 0)
+            .flatMap(eff => (eff.applies_to_rounds!).map(roundNum => ({
+                session_id: sessionId, team_id: teamId, applies_to_round_start: roundNum,
+                kpi_key: eff.kpi, change_value: eff.change_value,
+                is_percentage: eff.is_percentage_change || false,
+                description: eff.description || `Permanent effect from ${phaseSourceLabel}`
+            })));
+        if (adjustmentsToInsert.length > 0) {
+            const {error} = await supabase.from('permanent_kpi_adjustments').insert(adjustmentsToInsert);
+            if (error) console.error("Error storing permanent KPI adjustments:", error);
+        }
     }, []);
 
     const ensureTeamRoundData = useCallback(async (teamId: string, roundNumber: 1 | 2 | 3, sessionId: string): Promise<TeamRoundData> => {
-        let kpis = teamRoundData[teamId]?.[roundNumber];
+        const kpis = teamRoundData[teamId]?.[roundNumber];
         if (kpis) {
-            console.log(`ensureTeamRoundData: Found local KPI data for team ${teamId}, round ${roundNumber}.`);
             return kpis;
         }
-
-        console.log(`ensureTeamRoundData: No local KPI data for team ${teamId}, round ${roundNumber}. Checking DB.`);
         const {
             data: existingData,
             error: fetchErr
         } = await supabase.from('team_round_data').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('round_number', roundNumber).single();
         if (fetchErr && fetchErr.code !== 'PGRST116') throw fetchErr;
         if (existingData) {
-            console.log(`ensureTeamRoundData: Fetched KPI data from DB for team ${teamId}, round ${roundNumber}.`);
             setTeamRoundDataDirectly(prev => ({
                 ...prev,
                 [teamId]: {...(prev[teamId] || {}), [roundNumber]: existingData as TeamRoundData}
             }));
             return existingData as TeamRoundData;
         }
-
-        console.log(`ensureTeamRoundData: No data in DB for team ${teamId}, round ${roundNumber}. Initializing.`);
-        let start_capacity = 5000, start_orders = 6250, start_cost = 1200000, start_asp = 1000; // Game defaults
+        let start_capacity = 5000, start_orders = 6250, start_cost = 1200000, start_asp = 1000;
         if (roundNumber > 1) {
             const prevRoundKey = (roundNumber - 1) as 1 | 2;
-            // Try to get previous round data, first from local state, then DB if necessary
-            let prevRoundData = teamRoundData[teamId]?.[prevRoundKey];
+            let prevRoundData: TeamRoundData | null = teamRoundData[teamId]?.[prevRoundKey];
             if (!prevRoundData) {
                 const {data: prevDataFromDb} = await supabase.from('team_round_data').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('round_number', prevRoundKey).single();
                 prevRoundData = prevDataFromDb as TeamRoundData | null;
@@ -132,8 +160,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 start_orders = prevRoundData.current_orders;
                 start_cost = prevRoundData.current_cost;
                 start_asp = prevRoundData.current_asp;
-            } else {
-                console.warn(`ensureTeamRoundData: Cannot find prev round (${prevRoundKey}) data for team ${teamId}. Using game defaults for RD${roundNumber}.`);
             }
         }
         const {data: adjustments} = await supabase.from('permanent_kpi_adjustments').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('applies_to_round_start', roundNumber);
@@ -163,10 +189,20 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             start_asp = Math.round(start_asp);
         });
         const newRoundDataContent: Omit<TeamRoundData, 'id' | 'created_at' | 'updated_at'> = {
-            session_id: sessionId, team_id: teamId, round_number: roundNumber,
-            start_capacity, current_capacity: start_capacity, start_orders, current_orders: start_orders,
-            start_cost, current_cost: start_cost, start_asp, current_asp: start_asp,
-            revenue: 0, net_income: 0, net_margin: 0, // Initialize calculated fields
+            session_id: sessionId,
+            team_id: teamId,
+            round_number: roundNumber,
+            start_capacity,
+            current_capacity: start_capacity,
+            start_orders,
+            current_orders: start_orders,
+            start_cost,
+            current_cost: start_cost,
+            start_asp,
+            current_asp: start_asp,
+            revenue: 0,
+            net_income: 0,
+            net_margin: 0,
         };
         const {
             data: insertedData,
@@ -178,17 +214,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             [teamId]: {...(prev[teamId] || {}), [roundNumber]: insertedData as TeamRoundData}
         }));
         return insertedData as TeamRoundData;
-    }, [teamRoundData, setTeamRoundDataDirectly]);
+    }, [teamRoundData, setTeamRoundDataDirectly]); // `supabase` is stable, not needed in deps for this specific callback
 
     const processChoicePhaseDecisionsInternal = useCallback(async (phaseId: string) => {
         const currentPhaseForProcessing = allPhasesInOrder.find(p => p.id === phaseId);
         if (!currentDbSession?.id || !gameStructureInstance || !currentPhaseForProcessing || teams.length === 0 || currentPhaseForProcessing.phase_type !== 'choice') {
-            console.warn("processChoicePhaseDecisions: Prerequisites not met or not a choice phase.", {
-                currentDbSessionId: currentDbSession?.id,
-                gameStructureInstanceExists: !!gameStructureInstance,
-                currentPhaseForProcessing,
-                teamsLength: teams.length
-            });
+            console.warn("processChoicePhaseDecisions: Prerequisites not met or not a choice phase.");
             return;
         }
         console.log(`AppContext: Processing CHOICE decisions for phase: ${phaseId}, round ${currentPhaseForProcessing.round_number}`);
@@ -197,22 +228,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             for (const team of teams) {
                 const teamKpisForRound = await ensureTeamRoundData(team.id, currentPhaseForProcessing.round_number as 1 | 2 | 3, currentDbSession.id);
                 const decisionForPhase = teamDecisions[team.id]?.[phaseId];
-                let effectsToApply: KpiEffect[] = [];
+                const effectsToApply: KpiEffect[] = [];
                 let narrativeDesc = currentPhaseForProcessing.label;
                 const selectedOptionId = decisionForPhase?.selected_challenge_option_id || gameStructureInstance.all_challenge_options[phaseId]?.find(opt => opt.is_default_choice)?.id;
 
                 if (selectedOptionId) {
                     narrativeDesc = `${currentPhaseForProcessing.label} - Team ${team.name} chose ${selectedOptionId}`;
                     if (!decisionForPhase) narrativeDesc = `${currentPhaseForProcessing.label} - Team ${team.name} Defaulted to ${selectedOptionId}`;
-
-                    const consequencePhaseKey = `${phaseId}-conseq`; // e.g. ch1-conseq
+                    const consequencePhaseKey = `${phaseId}-conseq`;
                     const consequence = gameStructureInstance.all_consequences[consequencePhaseKey]?.find(c => c.challenge_option_id === selectedOptionId);
-                    if (consequence) {
-                        console.log(`Applying consequence for ${team.name}, choice ${selectedOptionId}:`, consequence.effects);
-                        effectsToApply.push(...consequence.effects);
-                    } else {
-                        console.warn(`No consequence found for phase ${phaseId}, option ${selectedOptionId}`);
-                    }
+                    if (consequence) effectsToApply.push(...consequence.effects);
+                    else console.warn(`No consequence found for phase ${phaseId}, option ${selectedOptionId}`);
                 } else {
                     console.warn(`No decision or default found for team ${team.name} in phase ${phaseId}`);
                 }
@@ -220,10 +246,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 if (effectsToApply.length > 0) {
                     const updatedKpis = applyKpiEffects(teamKpisForRound, effectsToApply, `Consequence for ${selectedOptionId}`);
                     await storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply, narrativeDesc);
-
-                    const {data: upsertedData, error: upsertError} = await supabase.from('team_round_data').upsert({
-                        ...updatedKpis, id: teamKpisForRound.id // Important: pass id for upsert to update
-                    }, {onConflict: 'id'}).select().single(); // Use 'id' if it's the unique PK constraint for upsert
+                    const {
+                        data: upsertedData,
+                        error: upsertError
+                    } = await supabase.from('team_round_data').upsert({
+                        ...updatedKpis,
+                        id: teamKpisForRound.id
+                    }, {onConflict: 'id'}).select().single();
                     if (upsertError) throw upsertError;
                     if (upsertedData) setTeamRoundDataDirectly(prev => ({
                         ...prev,
@@ -234,10 +263,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                     }));
                 }
             }
-            // After processing all teams for the choice phase, we might not need to fetch all round data again immediately,
-            // as individual upserts update the local state via setTeamRoundDataDirectly.
-            // However, a final fetch could ensure consistency if there were partial failures.
-            // if (currentDbSession?.id) await fetchTeamRoundDataFromHook(currentDbSession.id);
+            if (currentDbSession?.id) await fetchTeamRoundDataFromHook(currentDbSession.id);
             console.log("AppContext: All team choice decisions for phase processed successfully.");
         } catch (err) {
             console.error("Error processing choice phase decisions:", err);
@@ -267,13 +293,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 const teamKpisForRound = await ensureTeamRoundData(team.id, roundNumber, currentDbSession.id);
                 const investPhaseId = `rd${roundNumber}-invest`;
                 const teamInvestments = teamDecisions[team.id]?.[investPhaseId]?.selected_investment_ids || [];
-                let effectsToApply: KpiEffect[] = [];
-
+                const effectsToApply: KpiEffect[] = [];
                 teamInvestments.forEach(investId => {
                     const payoff = allPayoffsForRound.find(p => p.investment_option_id === investId);
                     if (payoff) effectsToApply.push(...payoff.effects);
                 });
-
                 if (effectsToApply.length > 0) {
                     const updatedKpis = applyKpiEffects(teamKpisForRound, effectsToApply, `RD${roundNumber} Investment Payoff`);
                     await storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply, `RD${roundNumber} Investment Payoff`);
@@ -298,65 +322,139 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         } finally {
             setLocalUiState(s => ({...s, isLoadingProcessing: false}));
         }
-    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, setTeamRoundDataDirectly]);
+    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, setTeamRoundDataDirectly, fetchTeamRoundDataFromHook]);
 
     const processDoubleDownPayoffInternal = useCallback(async () => {
-        console.log("TODO: Implement processDoubleDownPayoff");
+        console.log("Attempting to process Double Down Payoff...");
+        setLocalUiState(s => ({...s, isLoadingProcessing: true, errorProcessing: null}));
+        // Actual logic for dice roll, finding doubled investment, applying boosted payoff
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate async work
         setLocalUiState(s => ({...s, isLoadingProcessing: false}));
-    }, []);
+        console.log("Double Down Payoff processed (Placeholder - needs full logic).");
+        if (currentDbSession?.id) await fetchTeamRoundDataFromHook(currentDbSession.id); // Refresh data
+    }, [currentDbSession, fetchTeamRoundDataFromHook]);
+
     const calculateAndFinalizeRoundKPIsInternal = useCallback(async (roundNumber: 1 | 2 | 3) => {
-        console.log(`TODO: Implement calculateAndFinalizeRoundKPIs for round ${roundNumber}`);
-        setLocalUiState(s => ({...s, isLoadingProcessing: false}));
-    }, []);
-
-    const {
-        currentPhaseNode, currentSlideData, teacherNotes, isPlayingVideo, currentTeacherAlert,
-        selectPhase, nextSlideRaw, previousSlideRaw, togglePlayPauseVideo,
-        updateTeacherNotesForCurrentSlide, clearTeacherAlert,
-    } = useGameController(currentDbSession, gameStructureInstance, updateSessionInDb, processChoicePhaseDecisionsInternal); // Pass choice processor
-
-    const nextSlide = useCallback(async () => {
-        if (localUiState.currentTeacherAlert) {
-            console.warn("Alert active.");
+        if (!currentDbSession?.id || teams.length === 0) {
+            console.warn("calculateAndFinalizeRoundKPIs: Prerequisites not met.");
             return;
-        } // Use localUiState for alert
-        const phaseToEnd = currentPhaseNode; // Capture before potential async ops change it
-        const slideIsLast = currentSlideData && phaseToEnd ? (currentDbSession?.current_slide_id_in_phase ?? 0) >= phaseToEnd.slide_ids.length - 1 : false;
+        }
+        console.log(`Calculating and Finalizing KPIs for round ${roundNumber}`);
+        setLocalUiState(s => ({...s, isLoadingProcessing: true, errorProcessing: null}));
+        try {
+            for (const team of teams) {
+                const kpis = teamRoundData[team.id]?.[roundNumber];
+                if (kpis) {
+                    const revenue = kpis.current_orders * kpis.current_asp;
+                    const netIncome = revenue - kpis.current_cost;
+                    const netMargin = revenue !== 0 ? netIncome / revenue : 0;
+                    const finalKpis: Partial<TeamRoundData> = {revenue, net_income: netIncome, net_margin: netMargin};
+                    const {error} = await supabase.from('team_round_data').update(finalKpis).eq('id', kpis.id);
+                    if (error) throw error;
+                }
+            }
+            if (currentDbSession?.id) await fetchTeamRoundDataFromHook(currentDbSession.id);
+            console.log(`Finalized KPIs for round ${roundNumber}`);
+        } catch (err) {
+            console.error("Error finalizing round KPIs:", err);
+            setLocalUiState(s => ({...s, errorProcessing: "Failed to finalize round KPIs."}));
+        } finally {
+            setLocalUiState(s => ({...s, isLoadingProcessing: false}));
+        }
+    }, [currentDbSession, teams, teamRoundData, fetchTeamRoundDataFromHook]);
 
-        if (slideIsLast && phaseToEnd) {
-            setLocalUiState(s => ({...s, isLoadingProcessing: true}));
+    const gameController = useGameController(currentDbSession, gameStructureInstance, updateSessionInDb, processChoicePhaseDecisionsInternal);
+
+    const nextSlideCombined = useCallback(async () => {
+        const phaseNode = gameController.currentPhaseNode;
+        if (phaseNode) {
+            setLocalUiState(s => ({...s, isLoadingProcessing: true})); // Set loading before async processing
             try {
-                if (phaseToEnd.phase_type === 'choice') {
-                    // Already processed by useGameController's processPhaseDecisionsFunction if it's the last slide of choice phase
-                    // Or if we want to ensure it's called here: await processChoicePhaseDecisionsInternal(phaseToEnd.id);
-                } else if (phaseToEnd.phase_type === 'payoff' && phaseToEnd.round_number > 0) {
-                    if (phaseToEnd.id.includes('rd3') && phaseToEnd.id.includes('dd')) { // Specific check for DD payoff phase
+                if (phaseNode.phase_type === 'payoff' && phaseNode.round_number > 0) {
+                    if (phaseNode.id.includes('double-down') || phaseNode.id.includes('DD-payoff')) { // More specific ID for DD payoff phase
                         await processDoubleDownPayoffInternal();
                     } else {
-                        await processInvestmentPayoffsInternal(phaseToEnd.round_number as 1 | 2 | 3);
+                        await processInvestmentPayoffsInternal(phaseNode.round_number as 1 | 2 | 3);
                     }
-                } else if (phaseToEnd.phase_type === 'kpi' && phaseToEnd.round_number > 0) {
-                    await calculateAndFinalizeRoundKPIsInternal(phaseToEnd.round_number as 1 | 2 | 3);
+                } else if (phaseNode.phase_type === 'kpi' && phaseNode.round_number > 0) {
+                    await calculateAndFinalizeRoundKPIsInternal(phaseNode.round_number as 1 | 2 | 3);
                 }
+                // Choice phase decisions are processed by useGameController via its passed function
             } catch (e) {
-                console.error("Error in nextSlide processing logic:", e); /* set error state */
+                console.error("Error during nextSlide combined processing:", e);
+                setLocalUiState(s => ({...s, errorProcessing: "Error during game logic processing."}));
             } finally {
                 setLocalUiState(s => ({...s, isLoadingProcessing: false}));
             }
         }
-        await nextSlideRaw(); // This will call the game controller's next slide logic
-    }, [localUiState.currentTeacherAlert, currentPhaseNode, currentSlideData, currentDbSession, nextSlideRaw, processChoicePhaseDecisionsInternal, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal, calculateAndFinalizeRoundKPIsInternal]);
+        await gameController.nextSlide();
+    }, [gameController, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal, calculateAndFinalizeRoundKPIsInternal]);
 
-    const previousSlide = useCallback(async () => {
-        await previousSlideRaw();
-    }, [previousSlideRaw]);
+    const previousSlideCombined = useCallback(async () => {
+        await gameController.previousSlide();
+    }, [gameController]);
 
-    const syncAndBroadcastAppState = useCallback(() => { /* ... (No changes from last full version) ... */
-    }, [currentDbSession, currentPhaseNode, currentSlideData, isPlayingVideo, gameStructureInstance, allPhasesInOrder]);
-    useEffect(() => { /* ... BroadcastChannel init ... */
+    const syncAndBroadcastAppState = useCallback(() => {
+        if (currentDbSession?.id && currentDbSession.id !== 'new' && broadcastChannel) {
+            const isStudentDecisionActive = gameController.currentPhaseNode?.is_interactive_student_phase && (gameController.currentSlideData?.type.startsWith('interactive_') || false);
+            let decisionPhaseTimerEndTime: number | undefined = undefined;
+            if (isStudentDecisionActive && gameController.currentSlideData?.timer_duration_seconds) {
+                decisionPhaseTimerEndTime = Date.now() + (gameController.currentSlideData.timer_duration_seconds * 1000);
+            }
+            const payload: TeacherBroadcastPayload = {
+                currentSlideId: gameController.currentSlideData?.id || null,
+                currentPhaseId: gameController.currentPhaseNode?.id || null,
+                currentPhaseType: gameController.currentPhaseNode?.phase_type || null,
+                currentRoundNumber: gameController.currentPhaseNode?.round_number || null,
+                isPlayingVideo: gameController.isPlayingVideo && gameController.currentSlideData?.type === 'video',
+                isStudentDecisionPhaseActive: isStudentDecisionActive,
+                decisionOptionsKey: isStudentDecisionActive ? gameController.currentSlideData?.interactive_data_key : undefined,
+                decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
+            };
+            broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
+        }
+    }, [currentDbSession, gameController.currentPhaseNode, gameController.currentSlideData, gameController.isPlayingVideo]);
+
+    useEffect(() => { // Initialize BroadcastChannel & handle STUDENT_DISPLAY_READY
+        if (currentDbSession?.id && currentDbSession.id !== 'new') {
+            if (broadcastChannel && broadcastChannel.name !== `classroom-${currentDbSession.id}`) {
+                broadcastChannel.close();
+                broadcastChannel = null;
+            }
+            if (!broadcastChannel) {
+                broadcastChannel = new BroadcastChannel(`classroom-${currentDbSession.id}`);
+                console.log("AppContext: BroadcastChannel initialized for session:", currentDbSession.id);
+            }
+            broadcastChannel.onmessage = (event) => {
+                if (event.data.type === 'STUDENT_DISPLAY_READY') {
+                    console.log('Student display ready for session:', currentDbSession.id, 'Sending current state.');
+                    syncAndBroadcastAppState();
+                }
+            };
+            syncAndBroadcastAppState(); // Initial broadcast when session is ready
+            return () => {
+                if (broadcastChannel) {
+                    broadcastChannel.close();
+                    broadcastChannel = null;
+                }
+            };
+        }
     }, [currentDbSession?.id, syncAndBroadcastAppState]);
-    useEffect(() => { /* ... Broadcast on game controller state changes ... */
-    }, [currentPhaseNode, currentSlideData, isPlayingVideo, syncAndBroadcastAppState, currentDbSession]);
+
+    useEffect(() => { // Broadcast on game controller state changes
+        if (currentDbSession?.id && currentDbSession.id !== 'new') {
+            syncAndBroadcastAppState();
+        }
+    }, [gameController.currentPhaseNode, gameController.currentSlideData, gameController.isPlayingVideo, syncAndBroadcastAppState, currentDbSession]);
+
+    useEffect(() => { // Supabase Real-time Subscriptions (moved team_decisions to useTeamDataManager)
+        if (!currentDbSession?.id || currentDbSession.id === 'new' || authLoading) return;
+        // sessionSub for 'sessions' table is implicitly handled by useSessionManager reacting to DB changes
+        // team_decisions subscription is now in useTeamDataManager
+        // TODO: Add subscription for team_round_data if live KPI updates from DB are desired here
+        return () => { /* No supabase.removeChannel needed here if subs are in other hooks */
+        };
+    }, [currentDbSession?.id, authLoading]);
 
     const fetchWrapperTeams = useCallback(() => {
         if (currentDbSession?.id && currentDbSession.id !== 'new') fetchTeamsFromHook(currentDbSession.id);
@@ -364,6 +462,35 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     const resetWrapperTeamDecision = useCallback(async (teamId: string, phaseId: string) => {
         if (currentDbSession?.id && currentDbSession.id !== 'new') await resetTeamDecisionInDb(currentDbSession.id, teamId, phaseId);
     }, [currentDbSession?.id, resetTeamDecisionInDb]);
+
+    const resetGameProgressInternal = useCallback(async () => {
+        if (currentDbSession?.id && gameStructureInstance) {
+            const confirm = window.confirm("Are you sure you want to reset all game progress for this session? This will clear all team decisions and KPI history.");
+            if (confirm) {
+                setLocalUiState(s => ({...s, isLoadingProcessing: true, errorProcessing: null}));
+                try {
+                    await supabase.from('team_decisions').delete().eq('session_id', currentDbSession.id);
+                    await supabase.from('team_round_data').delete().eq('session_id', currentDbSession.id);
+                    await supabase.from('permanent_kpi_adjustments').delete().eq('session_id', currentDbSession.id);
+                    const initialPhase = gameStructureInstance.welcome_phases[0];
+                    await updateSessionInDb({
+                        current_phase_id: initialPhase?.id || null, current_slide_id_in_phase: initialPhase ? 0 : null,
+                        is_playing: false, is_complete: false, teacher_notes: {}
+                    });
+                    fetchWrapperTeams();
+                    fetchTeamDecisionsFromHook(currentDbSession.id);
+                    fetchTeamRoundDataFromHook(currentDbSession.id);
+                    alert("Game progress has been reset.");
+                } catch (e) {
+                    console.error("Reset error", e);
+                    alert("Error resetting game data.");
+                    setLocalUiState(s => ({...s, errorProcessing: "Failed to reset game."}));
+                } finally {
+                    setLocalUiState(s => ({...s, isLoadingProcessing: false}));
+                }
+            }
+        }
+    }, [currentDbSession, gameStructureInstance, updateSessionInDb, fetchWrapperTeams, fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook]);
 
     useEffect(() => {
         if (currentDbSession?.id && currentDbSession.id !== 'new' && !isLoadingSession && !authLoading) {
@@ -376,44 +503,50 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     const combinedAppState: AppState = useMemo(() => ({
         currentSessionId: currentDbSession?.id || null,
         gameStructure: gameStructureInstance,
-        currentPhaseId: currentPhaseNode?.id || null,
-        currentSlideIdInPhase: currentDbSession?.current_slide_id_in_phase ?? (currentPhaseNode === gameStructureInstance?.welcome_phases[0] ? 0 : null),
-        teacherNotes: teacherNotes, isPlaying: isPlayingVideo,
+        currentPhaseId: gameController.currentPhaseNode?.id || null,
+        currentSlideIdInPhase: currentDbSession?.current_slide_id_in_phase ?? (gameController.currentPhaseNode === gameStructureInstance?.welcome_phases[0] ? 0 : null),
+        teacherNotes: gameController.teacherNotes,
+        isPlaying: gameController.isPlayingVideo,
         teams: teams, teamDecisions: teamDecisions, teamRoundData: teamRoundData,
         isStudentWindowOpen: localUiState.isStudentWindowOpen,
         isLoading: isLoadingSession || authLoading || isLoadingTeams || localUiState.isLoadingProcessing,
         error: sessionError || localUiState.errorProcessing,
-        currentTeacherAlert: currentTeacherAlert,
+        currentTeacherAlert: gameController.currentTeacherAlert,
     }), [
-        currentDbSession, gameStructureInstance, currentPhaseNode, teacherNotes, isPlayingVideo,
-        teams, teamDecisions, teamRoundData, localUiState,
-        isLoadingSession, authLoading, isLoadingTeams, sessionError, currentTeacherAlert
+        currentDbSession, gameStructureInstance, gameController, teams, teamDecisions, teamRoundData,
+        localUiState, isLoadingSession, authLoading, isLoadingTeams, sessionError
     ]);
 
     const contextValue: AppContextProps = useMemo(() => ({
-        state: combinedAppState, currentPhaseNode, currentSlideData, allPhasesInOrder,
-        selectPhase: selectPhaseCtrl, updateTeacherNotesForCurrentSlide,
-        nextSlide, previousSlide, // Use wrapped next/prev
-        togglePlayPauseVideo: togglePlayPauseVideoCtrl, clearTeacherAlert: clearTeacherAlertCtrl,
+        state: combinedAppState,
+        currentPhaseNode: gameController.currentPhaseNode,
+        currentSlideData: gameController.currentSlideData,
+        allPhasesInOrder,
+        selectPhase: gameController.selectPhase,
+        updateTeacherNotesForCurrentSlide: gameController.updateTeacherNotesForCurrentSlide,
+        nextSlide: nextSlideCombined,
+        previousSlide: previousSlideCombined,
+        togglePlayPauseVideo: gameController.togglePlayPauseVideo,
+        clearTeacherAlert: gameController.clearTeacherAlert,
         isLoadingSession, sessionError, clearSessionError,
         isStudentWindowOpen: localUiState.isStudentWindowOpen,
         setStudentWindowOpen: (isOpen: boolean) => setLocalUiState(s => ({...s, isStudentWindowOpen: isOpen})),
         teams, teamDecisions, teamRoundData, isLoadingTeams,
         fetchTeamsForSession: fetchWrapperTeams,
-        fetchTeamRoundDataForSession: (sessionId: string) => fetchTeamRoundDataFromHook(sessionId),
+        fetchTeamRoundDataForSession: (sessionId: string) => fetchTeamRoundDataFromHook(sessionId || currentDbSession?.id || ''),
         resetTeamDecisionForPhase: resetWrapperTeamDecision,
         processChoicePhaseDecisions: processChoicePhaseDecisionsInternal,
         processInvestmentPayoffs: processInvestmentPayoffsInternal,
         processDoubleDownPayoff: processDoubleDownPayoffInternal,
         calculateAndFinalizeRoundKPIs: calculateAndFinalizeRoundKPIsInternal,
-        resetGameProgress: async () => { /* ... (Full reset logic from previous complete version) ... */
-        },
+        resetGameProgress: resetGameProgressInternal,
+        isLoadingProcessingDecisions: localUiState.isLoadingProcessing,
     }), [
-        combinedAppState, currentPhaseNode, currentSlideData, allPhasesInOrder,
-        selectPhaseCtrl, updateTeacherNotesForCurrentSlide, nextSlide, previousSlide, togglePlayPauseVideoCtrl,
-        clearTeacherAlertCtrl, isLoadingSession, sessionError, clearSessionError, localUiState.isStudentWindowOpen,
-        teams, teamDecisions, teamRoundData, isLoadingTeams, fetchWrapperTeams, fetchTeamRoundDataFromHook, resetWrapperTeamDecision,
-        processChoicePhaseDecisionsInternal, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal, calculateAndFinalizeRoundKPIsInternal
+        combinedAppState, gameController, allPhasesInOrder, isLoadingSession, sessionError, clearSessionError,
+        localUiState.isStudentWindowOpen, teams, teamDecisions, teamRoundData, isLoadingTeams,
+        fetchWrapperTeams, fetchTeamRoundDataFromHook, resetWrapperTeamDecision,
+        processChoicePhaseDecisionsInternal, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal,
+        calculateAndFinalizeRoundKPIsInternal, nextSlideCombined, previousSlideCombined, resetGameProgressInternal
     ]);
 
     return (
@@ -427,13 +560,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                                 "Initializing Simulator..."}
                     </p>
                 </div>
-            ) : contextValue.state.error && (passedSessionId === 'new' || (contextValue.state.currentSessionId && !currentPhaseNode && contextValue.state.currentSessionId !== 'new')) ?
+            ) : contextValue.state.error && (passedSessionId === 'new' || (contextValue.state.currentSessionId && !gameController.currentPhaseNode && contextValue.state.currentSessionId !== 'new')) ?
                 <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-4 text-center">
                     <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
-                        <h2 className="text-2xl font-bold text-red-600 mb-4">Initialization Error</h2>
-                        <p className="text-gray-700 mb-6">{contextValue.state.error || "An unknown error occurred."}</p>
+                        <ServerCrash size={48} className="text-red-500 mx-auto mb-4"/>
+                        <h2 className="text-2xl font-bold text-red-700 mb-2">Initialization Error</h2>
+                        <p className="text-gray-600 mb-6">{contextValue.state.error || "An unknown error occurred."}</p>
                         <button onClick={() => navigate('/dashboard', {replace: true})}
-                                className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">
+                                className="bg-blue-600 text-white font-medium py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
                             Back to Dashboard
                         </button>
                     </div>

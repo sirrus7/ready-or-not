@@ -1,12 +1,10 @@
 // src/components/TeacherHost/CreateGameWizard/Step3_TeamSetup.tsx
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect} from 'react';
 import {NewGameData, TeamConfig as AppTeamConfig} from '../../../types'; // Ensure path is correct
 import {
     ArrowLeft,
     ArrowRight,
-    Users as UsersIcon,
     Edit2,
-    Check,
     Printer as PrinterIcon,
     Mail,
     Info,

@@ -1,7 +1,7 @@
 // src/components/TeacherHost/CreateGameWizard/Step5_Finalize.tsx
 import React from 'react';
 import {NewGameData} from '../../../types'; // Ensure path is correct
-import {ArrowLeft, Rocket, CheckCircle, Edit3, AlertTriangle} from 'lucide-react';
+import {ArrowLeft, Rocket, AlertTriangle, UsersIcon} from 'lucide-react';
 
 interface Step5Props {
     gameData: NewGameData;
