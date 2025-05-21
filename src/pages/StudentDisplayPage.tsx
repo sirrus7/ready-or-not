@@ -1,17 +1,20 @@
 // src/pages/StudentDisplayPage.tsx
-import React, {useEffect, useState} from 'react';
-import {useParams} from 'react-router-dom'; // Import useParams
-import SlideRenderer from '../components/StudentDisplay/SlideRenderer';
-import { Slide, TeacherBroadcastPayload } from '../types';
-import {readyOrNotGame_2_0_DD} from '../data/gameStructure'; // Assuming access to this for slide data
+import React, {useEffect, useState, useMemo} from 'react';
+import {useParams} from 'react-router-dom';
+import StudentDisplayView from '../components/StudentDisplay/StudentDisplayView';
+import {Slide, TeacherBroadcastPayload} from '../types';
+import {readyOrNotGame_2_0_DD} from '../data/gameStructure'; // For slide definitions
 import {Hourglass} from 'lucide-react';
 
 const StudentDisplayPage: React.FC = () => {
-    const {sessionId} = useParams<{ sessionId: string }>(); // Get sessionId from URL
+    const {sessionId} = useParams<{ sessionId: string }>();
     const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
-    const [isPlaying, setIsPlaying] = useState<boolean>(false);
-    // Optional: State to show a "connecting" or "waiting for session" message
+    const [isPlayingTargetState, setIsPlayingTargetState] = useState<boolean>(false);
+    const [videoTimeTargetState, setVideoTimeTargetState] = useState<number | undefined>(undefined);
+    const [triggerSeekEventState, setTriggerSeekEventState] = useState<boolean>(false);
     const [statusMessage, setStatusMessage] = useState<string>("Initializing Student Display...");
+
+    const gameStructureInstance = useMemo(() => readyOrNotGame_2_0_DD, []);
 
     useEffect(() => {
         document.title = `Student Display - Session ${sessionId || 'N/A'}`;
@@ -19,52 +22,50 @@ const StudentDisplayPage: React.FC = () => {
 
     useEffect(() => {
         if (!sessionId) {
-            setStatusMessage("Error: No Session ID provided in URL. This window should be opened by the teacher.");
+            setStatusMessage("Error: No Session ID provided in URL.");
             return;
         }
-
         setStatusMessage(`Connecting to game session: ${sessionId}...`);
-        console.log(`StudentDisplayPage: Attempting to connect to BroadcastChannel: classroom-${sessionId}`);
-
         const channel = new BroadcastChannel(`classroom-${sessionId}`);
 
         channel.onmessage = (event) => {
-            console.log('StudentDisplayPage: Message received from teacher', event.data);
             if (event.data.type === 'TEACHER_STATE_UPDATE') {
                 const payload = event.data.payload as TeacherBroadcastPayload;
-
-                const gameSlides = readyOrNotGame_2_0_DD.slides; // Accessing master slides
-                const slideData = gameSlides.find(s => s.id === payload.currentSlideId) || null;
+                const slideData = gameStructureInstance.slides.find(s => s.id === payload.currentSlideId) || null;
 
                 setCurrentSlide(slideData);
-                setIsPlaying(payload.isPlaying);
-                setStatusMessage(""); // Clear status message once connected and receiving data
-            } else if (event.data.type === 'SESSION_ENDED_BY_TEACHER') { // Example of another message type
+                setIsPlayingTargetState(payload.isPlayingVideo);
+                setVideoTimeTargetState(payload.videoCurrentTime);
+                setTriggerSeekEventState(payload.triggerVideoSeek || false);
+                if (payload.triggerVideoSeek) {
+                    setTimeout(() => setTriggerSeekEventState(false), 100);
+                }
+                setStatusMessage("");
+            } else if (event.data.type === 'SESSION_ENDED_BY_TEACHER') {
                 setCurrentSlide(null);
-                setIsPlaying(false);
+                setIsPlayingTargetState(false);
                 setStatusMessage("The game session has ended. You can close this window.");
-                channel.close(); // Close the channel as it's no longer needed
+                channel.close();
             }
         };
-
-        // Inform teacher app that student display is ready and listening
-        // This helps the teacher app know it can start sending updates
         channel.postMessage({type: 'STUDENT_DISPLAY_READY', payload: {sessionId}});
-        console.log(`StudentDisplayPage: Sent STUDENT_DISPLAY_READY for session ${sessionId}`);
-        setStatusMessage(`Waiting for game updates from facilitator for session: ${sessionId}...`);
-
-
+        setStatusMessage(`Waiting for game updates for session: ${sessionId}...`);
         return () => {
-            console.log(`StudentDisplayPage: Closing BroadcastChannel: classroom-${sessionId}`);
-            channel.postMessage({type: 'STUDENT_DISPLAY_CLOSING', payload: {sessionId}}); // Inform teacher
+            channel.postMessage({type: 'STUDENT_DISPLAY_CLOSING', payload: {sessionId}});
             channel.close();
         };
-    }, [sessionId]); // Re-run if sessionId changes (though it shouldn't for a given window instance)
+    }, [sessionId, gameStructureInstance]);
 
     return (
-        <div className="h-screen w-screen overflow-hidden bg-gray-900"> {/* Default bg if slide has none */}
+        <div className="h-screen w-screen overflow-hidden bg-gray-900">
             {currentSlide ? (
-                <SlideRenderer slide={currentSlide} isPlaying={isPlaying} isStudentView={false}/>
+                <StudentDisplayView
+                    slide={currentSlide}
+                    isPlayingTarget={isPlayingTargetState}
+                    videoTimeTarget={videoTimeTargetState}
+                    triggerSeekEvent={triggerSeekEventState}
+                    isForTeacherPreview={false}
+                />
             ) : (
                 <div className="h-full flex flex-col items-center justify-center text-white p-8">
                     <Hourglass size={48} className="mb-4 text-blue-400 animate-pulse"/>
@@ -74,5 +75,4 @@ const StudentDisplayPage: React.FC = () => {
         </div>
     );
 };
-
 export default StudentDisplayPage;

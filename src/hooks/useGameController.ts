@@ -1,190 +1,221 @@
 // src/hooks/useGameController.ts
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { GameSession, GameStructure, GamePhaseNode, Slide } from '../types';
+import {useState, useEffect, useCallback, useMemo} from 'react';
+import {GameSession, GameStructure, GamePhaseNode, Slide} from '../types';
 
-interface GameControllerOutput {
-    // State directly managed or derived by this hook
+export interface GameControllerOutput {
     currentPhaseId: string | null;
     currentSlideIdInPhase: number | null;
     currentPhaseNode: GamePhaseNode | null;
     currentSlideData: Slide | null;
-    teacherNotes: Record<number, string>; // Slide-specific notes
+    teacherNotes: Record<string, string>; // Keyed by slideId (as string for Record)
     isPlayingVideo: boolean;
+    videoCurrentTime: number;
+    triggerVideoSeek: boolean; // Flag to explicitly tell student display to seek
     currentTeacherAlert: { title: string; message: string } | null;
-    allPhasesInOrder: GamePhaseNode[]; // Exposing this for UI like JourneyMap
+    allPhasesInOrder: GamePhaseNode[];
 
-    // Actions
     selectPhase: (phaseId: string) => void;
-    nextSlide: () => Promise<void>; // Make async if it awaits processPhaseDecisions
+    nextSlide: () => Promise<void>; // Will call processChoicePhaseDecisionsFunction
     previousSlide: () => void;
     togglePlayPauseVideo: () => void;
+    setVideoPlaybackState: (playing: boolean, time: number, triggerSeek?: boolean) => void;
     updateTeacherNotesForCurrentSlide: (notes: string) => void;
     clearTeacherAlert: () => void;
-    processCurrentPhaseDecisionsIfNeeded: () => Promise<void>; // To be called by nextSlide
 }
 
 export const useGameController = (
-    dbSession: GameSession | null, // Session data from useSessionManager
+    dbSession: GameSession | null,
     gameStructure: GameStructure | null,
     updateSessionInDb: (updates: Partial<Pick<GameSession, 'current_phase_id' | 'current_slide_id_in_phase' | 'is_playing' | 'teacher_notes'>>) => Promise<void>,
-    // processPhaseDecisionsFunction will be passed from AppContext eventually, which uses useGameLogicProcessor
-    processPhaseDecisionsFunction: (phaseId: string) => Promise<void>
+    processChoicePhaseDecisionsFunction: (phaseId: string) => Promise<void>
 ): GameControllerOutput => {
-    const [currentPhaseId, setCurrentPhaseId] = useState<string | null>(null);
-    const [currentSlideIdInPhase, setCurrentSlideIdInPhase] = useState<number | null>(null);
-    const [teacherNotes, setTeacherNotes] = useState<Record<number, string>>({});
-    const [isPlayingVideo, setIsPlayingVideo] = useState<boolean>(false);
-    const [currentTeacherAlert, setCurrentTeacherAlert] = useState<{ title: string; message: string } | null>(null);
+    const [currentPhaseIdState, setCurrentPhaseIdState] = useState<string | null>(null);
+    const [currentSlideIdInPhaseState, setCurrentSlideIdInPhaseState] = useState<number | null>(0);
+    const [teacherNotesState, setTeacherNotesState] = useState<Record<string, string>>({});
+    const [isPlayingVideoState, setIsPlayingVideoState] = useState<boolean>(false);
+    const [videoCurrentTimeState, setVideoCurrentTimeState] = useState<number>(0);
+    const [triggerVideoSeekState, setTriggerVideoSeekState] = useState<boolean>(false);
+    const [currentTeacherAlertState, setCurrentTeacherAlertState] = useState<{
+        title: string;
+        message: string
+    } | null>(null);
 
     const allPhasesInOrder = useMemo((): GamePhaseNode[] => {
         if (!gameStructure) return [];
         return [
-            ...gameStructure.welcome_phases,
+            ...(gameStructure.welcome_phases || []),
             ...gameStructure.rounds.flatMap(round => round.phases),
-            ...gameStructure.game_end_phases,
+            ...(gameStructure.game_end_phases || []),
         ];
     }, [gameStructure]);
 
-    // Sync with dbSession changes from useSessionManager
     useEffect(() => {
         if (dbSession) {
-            setCurrentPhaseId(dbSession.current_phase_id);
-            setCurrentSlideIdInPhase(dbSession.current_slide_id_in_phase ?? 0);
-            setTeacherNotes(dbSession.teacher_notes || {});
-            setIsPlayingVideo(dbSession.is_playing || false);
-        } else { // Reset if session is null (e.g., logged out, error)
-            setCurrentPhaseId(gameStructure?.welcome_phases[0]?.id || null);
-            setCurrentSlideIdInPhase(0);
-            setTeacherNotes({});
-            setIsPlayingVideo(false);
-            setCurrentTeacherAlert(null);
+            setCurrentPhaseIdState(dbSession.current_phase_id);
+            setCurrentSlideIdInPhaseState(dbSession.current_slide_id_in_phase ?? 0);
+            setTeacherNotesState(dbSession.teacher_notes || {});
+            setIsPlayingVideoState(dbSession.is_playing || false);
+            // videoCurrentTime is transient, not loaded from DB session directly here
+        } else {
+            const firstPhaseId = gameStructure?.welcome_phases?.[0]?.id || allPhasesInOrder[0]?.id || null;
+            setCurrentPhaseIdState(firstPhaseId);
+            setCurrentSlideIdInPhaseState(0);
+            setTeacherNotesState({});
+            setIsPlayingVideoState(false);
+            setCurrentTeacherAlertState(null);
+            setVideoCurrentTimeState(0);
+            setTriggerVideoSeekState(false);
         }
-    }, [dbSession, gameStructure]);
-
+    }, [dbSession, gameStructure, allPhasesInOrder]);
 
     const currentPhaseNode = useMemo(() => {
-        return allPhasesInOrder.find(p => p.id === currentPhaseId) || null;
-    }, [allPhasesInOrder, currentPhaseId]);
+        return allPhasesInOrder.find(p => p.id === currentPhaseIdState) || null;
+    }, [allPhasesInOrder, currentPhaseIdState]);
 
     const currentSlideData = useMemo(() => {
-        if (!currentPhaseNode || currentSlideIdInPhase === null || !gameStructure) return null;
-        if (currentPhaseNode.slide_ids.length === 0 && currentSlideIdInPhase === 0) return null;
-        if (currentSlideIdInPhase >= currentPhaseNode.slide_ids.length) return null;
-        const slideId = currentPhaseNode.slide_ids[currentSlideIdInPhase];
+        if (!currentPhaseNode || currentSlideIdInPhaseState === null || !gameStructure) return null;
+        if (currentPhaseNode.slide_ids.length === 0 && currentSlideIdInPhaseState === 0) return null;
+        if (currentSlideIdInPhaseState >= currentPhaseNode.slide_ids.length) return null;
+        const slideId = currentPhaseNode.slide_ids[currentSlideIdInPhaseState];
         return gameStructure.slides.find(s => s.id === slideId) || null;
-    }, [currentPhaseNode, currentSlideIdInPhase, gameStructure]);
+    }, [currentPhaseNode, currentSlideIdInPhaseState, gameStructure]);
 
     const handleTeacherAlertDisplay = useCallback((slide: Slide | null): boolean => {
         if (slide?.teacher_alert) {
-            setCurrentTeacherAlert(slide.teacher_alert);
-            setIsPlayingVideo(false); // Pause video if alert shows
-            if (dbSession) updateSessionInDb({ is_playing: false });
+            setCurrentTeacherAlertState(slide.teacher_alert);
+            if (isPlayingVideoState) { // If video was playing, pause it due to alert
+                setIsPlayingVideoState(false);
+                if (dbSession) updateSessionInDb({is_playing: false});
+            }
             return true;
         }
         return false;
-    }, [dbSession, updateSessionInDb]);
+    }, [dbSession, updateSessionInDb, isPlayingVideoState]);
 
     const clearTeacherAlert = useCallback(() => {
-        setCurrentTeacherAlert(null);
+        setCurrentTeacherAlertState(null);
     }, []);
 
     const selectPhase = useCallback(async (phaseId: string) => {
         const targetPhase = allPhasesInOrder.find(p => p.id === phaseId);
         if (targetPhase && dbSession) {
-            setCurrentPhaseId(phaseId);
-            setCurrentSlideIdInPhase(0);
-            setIsPlayingVideo(false);
-            setCurrentTeacherAlert(null);
-            await updateSessionInDb({ current_phase_id: phaseId, current_slide_id_in_phase: 0, is_playing: false });
+            setCurrentPhaseIdState(phaseId);
+            setCurrentSlideIdInPhaseState(0);
+            setIsPlayingVideoState(false);
+            setCurrentTeacherAlertState(null);
+            setVideoCurrentTimeState(0);
+            setTriggerVideoSeekState(true);
+            await updateSessionInDb({
+                current_phase_id: phaseId,
+                current_slide_id_in_phase: 0,
+                is_playing: false,
+                teacher_notes: teacherNotesState
+            });
         }
-    }, [allPhasesInOrder, dbSession, updateSessionInDb]);
-
-    const processCurrentPhaseDecisionsIfNeeded = useCallback(async () => {
-        if (currentPhaseNode?.is_interactive_student_phase && dbSession) {
-            console.log(`useGameController: Processing decisions for phase ${currentPhaseNode.id}`);
-            await processPhaseDecisionsFunction(currentPhaseNode.id);
-        }
-    }, [currentPhaseNode, dbSession, processPhaseDecisionsFunction]);
+    }, [allPhasesInOrder, dbSession, updateSessionInDb, teacherNotesState]);
 
     const nextSlide = useCallback(async () => {
-        if (currentTeacherAlert) { console.warn("useGameController: Alert active, cannot advance slide."); return; }
-        if (currentPhaseNode && currentSlideIdInPhase !== null && dbSession) {
+        if (currentTeacherAlertState) return;
+        if (currentPhaseNode && currentSlideIdInPhaseState !== null && dbSession) {
             if (handleTeacherAlertDisplay(currentSlideData)) return;
 
-            const isLastSlideInPhase = currentSlideIdInPhase >= currentPhaseNode.slide_ids.length - 1;
+            const isLastSlideInPhase = currentSlideIdInPhaseState >= currentPhaseNode.slide_ids.length - 1;
+            let nextPhaseId = currentPhaseIdState;
+            let nextSlideIndex = currentSlideIdInPhaseState + 1;
+            const newIsPlaying = false;
+
             if (isLastSlideInPhase) {
-                if (currentPhaseNode.is_interactive_student_phase) {
-                    await processCurrentPhaseDecisionsIfNeeded();
+                if (currentPhaseNode.is_interactive_student_phase && currentPhaseNode.phase_type === 'choice') {
+                    await processChoicePhaseDecisionsFunction(currentPhaseNode.id);
                 }
-                const currentPhaseIndex = allPhasesInOrder.findIndex(p => p.id === currentPhaseId);
+                const currentPhaseIndex = allPhasesInOrder.findIndex(p => p.id === currentPhaseIdState);
                 if (currentPhaseIndex < allPhasesInOrder.length - 1) {
                     const nextPhaseNode = allPhasesInOrder[currentPhaseIndex + 1];
-                    setCurrentPhaseId(nextPhaseNode.id);
-                    setCurrentSlideIdInPhase(0);
-                    setIsPlayingVideo(false);
-                    await updateSessionInDb({ current_phase_id: nextPhaseNode.id, current_slide_id_in_phase: 0, is_playing: false });
-                } else { console.log("useGameController: End of game."); /* Optionally update session to complete */ }
-            } else {
-                const newSlideIndex = currentSlideIdInPhase + 1;
-                setCurrentSlideIdInPhase(newSlideIndex);
-                await updateSessionInDb({ current_slide_id_in_phase: newSlideIndex });
-            }
-        }
-    }, [currentTeacherAlert, currentPhaseNode, currentSlideIdInPhase, dbSession, handleTeacherAlertDisplay, currentSlideData, allPhasesInOrder, updateSessionInDb, processCurrentPhaseDecisionsIfNeeded, currentPhaseId]);
-
-    const previousSlide = useCallback(async () => {
-        if (currentTeacherAlert) return;
-        if (currentPhaseNode && currentSlideIdInPhase !== null && dbSession) {
-            if (currentSlideIdInPhase > 0) {
-                const newSlideIndex = currentSlideIdInPhase - 1;
-                setCurrentSlideIdInPhase(newSlideIndex);
-                setIsPlayingVideo(false); // Stop video when navigating
-                await updateSessionInDb({ current_slide_id_in_phase: newSlideIndex, is_playing: false });
-            } else {
-                const currentPhaseIndex = allPhasesInOrder.findIndex(p => p.id === currentPhaseId);
-                if (currentPhaseIndex > 0) {
-                    const prevPhaseNode = allPhasesInOrder[currentPhaseIndex - 1];
-                    setCurrentPhaseId(prevPhaseNode.id);
-                    setCurrentSlideIdInPhase(prevPhaseNode.slide_ids.length - 1);
-                    setIsPlayingVideo(false);
-                    await updateSessionInDb({ current_phase_id: prevPhaseNode.id, current_slide_id_in_phase: prevPhaseNode.slide_ids.length - 1, is_playing: false });
+                    nextPhaseId = nextPhaseNode.id;
+                    nextSlideIndex = 0;
+                } else {
+                    console.log("useGameController: End of game.");
+                    await updateSessionInDb({is_complete: true});
+                    return;
                 }
             }
+
+            setCurrentPhaseIdState(nextPhaseId);
+            setCurrentSlideIdInPhaseState(nextSlideIndex);
+            setIsPlayingVideoState(newIsPlaying);
+            setVideoCurrentTimeState(0);
+            setTriggerVideoSeekState(true);
+            await updateSessionInDb({
+                current_phase_id: nextPhaseId,
+                current_slide_id_in_phase: nextSlideIndex,
+                is_playing: newIsPlaying
+            });
         }
-    }, [currentTeacherAlert, currentPhaseNode, currentSlideIdInPhase, dbSession, allPhasesInOrder, updateSessionInDb, currentPhaseId]);
+    }, [currentTeacherAlertState, currentPhaseNode, currentSlideIdInPhaseState, dbSession, handleTeacherAlertDisplay, currentSlideData, allPhasesInOrder, updateSessionInDb, processChoicePhaseDecisionsFunction, currentPhaseIdState]);
+
+    const previousSlide = useCallback(async () => {
+        if (currentTeacherAlertState) return;
+        if (currentPhaseNode && currentSlideIdInPhaseState !== null && dbSession) {
+            let newPhaseId = currentPhaseIdState;
+            let newSlideIndex = currentSlideIdInPhaseState;
+            if (currentSlideIdInPhaseState > 0) {
+                newSlideIndex = currentSlideIdInPhaseState - 1;
+            } else {
+                const currentPhaseIndex = allPhasesInOrder.findIndex(p => p.id === currentPhaseIdState);
+                if (currentPhaseIndex > 0) {
+                    const prevPhaseNode = allPhasesInOrder[currentPhaseIndex - 1];
+                    newPhaseId = prevPhaseNode.id;
+                    newSlideIndex = prevPhaseNode.slide_ids.length - 1;
+                } else {
+                    return;
+                }
+            }
+            setCurrentPhaseIdState(newPhaseId);
+            setCurrentSlideIdInPhaseState(newSlideIndex);
+            setIsPlayingVideoState(false);
+            setVideoCurrentTimeState(0);
+            setTriggerVideoSeekState(true);
+            await updateSessionInDb({
+                current_phase_id: newPhaseId,
+                current_slide_id_in_phase: newSlideIndex,
+                is_playing: false
+            });
+        }
+    }, [currentTeacherAlertState, currentPhaseNode, currentSlideIdInPhaseState, dbSession, allPhasesInOrder, updateSessionInDb, currentPhaseIdState]);
 
     const togglePlayPauseVideo = useCallback(async () => {
         if (currentSlideData?.type === 'video' && dbSession) {
-            const newIsPlaying = !isPlayingVideo;
-            setIsPlayingVideo(newIsPlaying);
-            await updateSessionInDb({ is_playing: newIsPlaying });
+            const newIsPlaying = !isPlayingVideoState;
+            setIsPlayingVideoState(newIsPlaying);
+            setTriggerVideoSeekState(false);
+            await updateSessionInDb({is_playing: newIsPlaying});
         }
-    }, [currentSlideData, dbSession, isPlayingVideo, updateSessionInDb]);
+    }, [currentSlideData, dbSession, isPlayingVideoState, updateSessionInDb]);
+
+    const setVideoPlaybackState = useCallback(async (playing: boolean, time: number, triggerSeek: boolean = false) => {
+        setIsPlayingVideoState(playing);
+        setVideoCurrentTimeState(time);
+        setTriggerVideoSeekState(triggerSeek);
+        if (dbSession && dbSession.is_playing !== playing) { // Only update DB if intended play state differs
+            await updateSessionInDb({is_playing: playing});
+        }
+    }, [dbSession, updateSessionInDb]);
 
     const updateTeacherNotesForCurrentSlide = useCallback(async (notes: string) => {
         if (currentSlideData && dbSession) {
-            const newTeacherNotes = { ...teacherNotes, [currentSlideData.id]: notes };
-            setTeacherNotes(newTeacherNotes);
-            await updateSessionInDb({ teacher_notes: newTeacherNotes });
+            const slideKey = currentSlideData.id.toString();
+            const newTeacherNotes = {...teacherNotesState, [slideKey]: notes};
+            setTeacherNotesState(newTeacherNotes);
+            await updateSessionInDb({teacher_notes: newTeacherNotes});
         }
-    }, [currentSlideData, dbSession, teacherNotes, updateSessionInDb]);
-
+    }, [currentSlideData, dbSession, teacherNotesState, updateSessionInDb]);
 
     return {
-        currentPhaseId,
-        currentSlideIdInPhase,
-        currentPhaseNode,
-        currentSlideData,
-        teacherNotes,
-        isPlayingVideo,
-        currentTeacherAlert,
-        allPhasesInOrder,
-        selectPhase,
-        nextSlide,
-        previousSlide,
-        togglePlayPauseVideo,
-        updateTeacherNotesForCurrentSlide,
-        clearTeacherAlert,
-        processCurrentPhaseDecisionsIfNeeded,
+        currentPhaseId: currentPhaseIdState, currentSlideIdInPhase: currentSlideIdInPhaseState,
+        currentPhaseNode, currentSlideData, teacherNotes: teacherNotesState,
+        isPlayingVideo: isPlayingVideoState, videoCurrentTime: videoCurrentTimeState,
+        triggerVideoSeek: triggerVideoSeekState, currentTeacherAlert: currentTeacherAlertState,
+        allPhasesInOrder, selectPhase, nextSlide, previousSlide, togglePlayPauseVideo,
+        setVideoPlaybackState, updateTeacherNotesForCurrentSlide, clearTeacherAlert,
     };
 };
