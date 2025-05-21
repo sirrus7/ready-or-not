@@ -1,16 +1,26 @@
 // src/components/StudentDisplay/StudentDisplayView.tsx
 import React from 'react';
-import SlideRenderer from './SlideRenderer'; // Assuming SlideRenderer is in the same folder
+import SlideRenderer from './SlideRenderer';
 import {Slide} from '../../types';
 import {Hourglass} from 'lucide-react';
 
 interface StudentDisplayViewProps {
     slide: Slide | null;
-    isPlaying: boolean;
-    isForTeacherPreview?: boolean; // New prop
+    isPlayingTarget: boolean; // CHANGED: from isPlaying to isPlayingTarget
+    videoTimeTarget?: number;
+    triggerSeekEvent?: boolean;
+    isForTeacherPreview?: boolean;
+    onPreviewVideoStateChange?: (playing: boolean, time: number, triggerSeek?: boolean) => void;
 }
 
-const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({slide, isPlaying, isForTeacherPreview = false}) => {
+const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
+                                                                   slide,
+                                                                   isPlayingTarget, // CHANGED: from isPlaying
+                                                                   videoTimeTarget,
+                                                                   triggerSeekEvent,
+                                                                   isForTeacherPreview = false,
+                                                                   onPreviewVideoStateChange,
+                                                               }) => {
     if (!slide) {
         return (
             <div className="h-full flex flex-col items-center justify-center bg-gray-800 text-white p-8">
@@ -25,9 +35,11 @@ const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({slide, isPlaying
         <div className="h-full w-full overflow-hidden"> {/* Ensure full height and width */}
             <SlideRenderer
                 slide={slide}
-                isPlaying={isPlaying}
-                isStudentView={!isForTeacherPreview} // If it's for teacher preview, it's NOT the actual student view
-                isForTeacherPreview={isForTeacherPreview} // Pass this down
+                isPlayingTarget={isPlayingTarget} // CHANGED: from isPlaying
+                videoTimeTarget={videoTimeTarget}
+                triggerSeekEvent={triggerSeekEvent}
+                isForTeacherPreview={isForTeacherPreview}
+                onPreviewVideoStateChange={onPreviewVideoStateChange}
             />
         </div>
     );
