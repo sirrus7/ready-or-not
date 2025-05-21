@@ -1,16 +1,14 @@
 // src/pages/DashboardPage.tsx
-import React, {useEffect, useState, useCallback} from 'react'; // Added useCallback
+import React, {useEffect, useState, useCallback} from 'react';
 import {Link, useNavigate} from 'react-router-dom';
 import {
     PlusCircle,
-    ListChecks,
     CheckCircle,
     Activity,
     AlertTriangle,
     LogOut,
-    RefreshCw,
-    ServerCrash
-} from 'lucide-react'; // Added RefreshCw, ServerCrash
+    RefreshCw
+} from 'lucide-react';
 import {useAuth} from '../context/AuthContext';
 import {supabase} from '../lib/supabase';
 import {GameSession} from '../types';
@@ -18,16 +16,14 @@ import {GameSession} from '../types';
 interface GameListProps {
     title: string;
     games: GameSession[];
-    isLoading: boolean; // Passed down to indicate overall loading
-    // error?: string | null; // Error handling specific to this list might be redundant if parent handles
+    isLoading: boolean;
     onGameSelect: (sessionId: string) => void;
     icon: React.ReactNode;
     listType: 'current' | 'completed';
 }
 
 const SimpleGameList: React.FC<GameListProps> = ({title, games, isLoading, onGameSelect, icon, listType}) => {
-    // This component now just renders the list based on props. Parent handles loading/error for the whole set.
-    if (isLoading) { // Show a spinner within the list area while parent is loading
+    if (isLoading) {
         return (
             <div
                 className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 min-h-[200px] flex items-center justify-center">
@@ -79,9 +75,8 @@ const SimpleGameList: React.FC<GameListProps> = ({title, games, isLoading, onGam
     );
 };
 
-
 const DashboardPage: React.FC = () => {
-    const {user, signOut, loading: authLoading} = useAuth(); // Get authLoading
+    const {user, signOut, loading: authLoading} = useAuth();
     const navigate = useNavigate();
     const [currentGames, setCurrentGames] = useState<GameSession[]>([]);
     const [completedGames, setCompletedGames] = useState<GameSession[]>([]);
@@ -90,8 +85,7 @@ const DashboardPage: React.FC = () => {
 
     const fetchGames = useCallback(async () => {
         if (!user) {
-            // This shouldn't happen if PrivateRoute is working, but good safeguard
-            setIsLoadingGames(false);
+            setIsLoadingGames(false); // Ensure loading stops if no user
             return;
         }
         console.log("DashboardPage: Fetching games for user:", user.id);
@@ -117,32 +111,48 @@ const DashboardPage: React.FC = () => {
             }
         } catch (err) {
             console.error("DashboardPage: Error fetching games:", err);
-            setFetchError("Could not load your game sessions. Please try again later.");
+            const errorMessage = err instanceof Error ? err.message : "Could not load your game sessions.";
+            setFetchError(errorMessage);
         } finally {
             setIsLoadingGames(false);
         }
-    }, [user]); // Dependency is user
+    }, [user]);
 
     useEffect(() => {
-        // Fetch games only when auth is complete AND user is available
         if (!authLoading && user) {
             fetchGames();
         } else if (!authLoading && !user) {
-            // If auth is done and still no user, something is wrong (e.g. token expired, user deleted)
-            // This should ideally be handled by PrivateRoute navigating to login.
-            // For safety, we can set loading to false here too.
             setIsLoadingGames(false);
             console.log("DashboardPage: Auth complete, but no user. Not fetching games.");
         }
-        // If authLoading is true, we wait.
+        // If authLoading is true, we wait for it to complete.
     }, [user, authLoading, fetchGames]);
 
-    const handleGameSelect = (sessionId: string) => { /* ... as before ... */
-    };
-    const handleLogout = async () => { /* ... as before ... */
+    const handleGameSelect = (sessionId: string) => {
+        const selectedGame = [...currentGames, ...completedGames].find(g => g.id === sessionId);
+        if (selectedGame) {
+            if (selectedGame.is_complete) {
+                // navigate(`/report/${sessionId}`); // Uncomment when report page is ready
+                alert(`Navigating to report for completed game: ${sessionId} (Not yet implemented)`);
+            } else {
+                navigate(`/classroom/${sessionId}`);
+            }
+        }
     };
 
-    if (authLoading) { // Show a page-level loading spinner while auth is in progress
+    const handleLogout = async () => {
+        console.log("DashboardPage: handleLogout function CALLED");
+        try {
+            await signOut();
+            console.log("DashboardPage: signOut from AuthContext completed. Navigating to /login.");
+            navigate('/login', {replace: true});
+        } catch (error) {
+            console.error("DashboardPage: Logout process failed:", error);
+            alert(`Logout failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    };
+
+    if (authLoading && !user) {
         return (
             <div
                 className="min-h-screen bg-gradient-to-br from-slate-100 to-sky-100 flex flex-col items-center justify-center p-4">
@@ -181,7 +191,6 @@ const DashboardPage: React.FC = () => {
             <main className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                 <div
                     className="md:col-span-1 bg-blue-600 text-white p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow flex flex-col items-center justify-center text-center order-first md:order-none">
-                    {/* ... Create New Game CTA content as before ... */}
                     <PlusCircle size={40} className="mb-2 opacity-80"/>
                     <h2 className="text-xl lg:text-2xl font-bold mb-1.5">Start a New Game</h2>
                     <p className="text-xs lg:text-sm opacity-90 mb-5">
@@ -210,19 +219,13 @@ const DashboardPage: React.FC = () => {
                         </div>
                     )}
                     <SimpleGameList
-                        title="Active Games"
-                        games={currentGames}
-                        isLoading={isLoadingGames && !fetchError} // Only show list loading if no general fetch error
-                        onGameSelect={handleGameSelect}
-                        icon={<Activity size={20} className="text-orange-500"/>}
+                        title="Active Games" games={currentGames} isLoading={isLoadingGames && !fetchError}
+                        onGameSelect={handleGameSelect} icon={<Activity size={20} className="text-orange-500"/>}
                         listType="current"
                     />
                     <SimpleGameList
-                        title="Completed Games"
-                        games={completedGames}
-                        isLoading={isLoadingGames && !fetchError}
-                        onGameSelect={handleGameSelect}
-                        icon={<CheckCircle size={20} className="text-green-500"/>}
+                        title="Completed Games" games={completedGames} isLoading={isLoadingGames && !fetchError}
+                        onGameSelect={handleGameSelect} icon={<CheckCircle size={20} className="text-green-500"/>}
                         listType="completed"
                     />
                 </div>

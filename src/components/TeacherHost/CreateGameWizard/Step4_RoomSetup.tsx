@@ -1,7 +1,7 @@
 // src/components/TeacherHost/CreateGameWizard/Step4_RoomSetup.tsx
 import React from 'react';
 import {NewGameData} from '../../../types'; // Ensure path is correct
-import {ArrowLeft, ArrowRight, MonitorPlay, Rows, Download, Info, Users, Tv2, LayoutGrid} from 'lucide-react';
+import {ArrowLeft, ArrowRight, MonitorPlay, Download, Info, Tv2, LayoutGrid} from 'lucide-react';
 
 interface Step4Props {
     gameData: NewGameData; // May be used for dynamic instructions based on player/team count later

@@ -1,12 +1,12 @@
 // src/hooks/useTeamDataManager.ts
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, Dispatch, SetStateAction} from 'react';
 import {supabase} from '../lib/supabase';
 import {Team, TeamDecision, TeamRoundData} from '../types';
 
 interface TeamDataManagerOutput {
     teams: Team[];
-    teamDecisions: Record<string, Record<string, TeamDecision>>; // teamId -> phaseId -> Decision
-    teamRoundData: Record<string, Record<number, TeamRoundData>>; // teamId -> roundNumber -> Data
+    teamDecisions: Record<string, Record<string, TeamDecision>>;
+    teamRoundData: Record<string, Record<number, TeamRoundData>>;
     isLoadingTeams: boolean;
     isLoadingDecisions: boolean;
     isLoadingRoundData: boolean;
@@ -15,6 +15,7 @@ interface TeamDataManagerOutput {
     fetchTeamDecisionsForSession: (sessionId: string) => Promise<void>;
     fetchTeamRoundDataForSession: (sessionId: string) => Promise<void>;
     resetTeamDecisionInDb: (sessionId: string, teamId: string, phaseId: string) => Promise<void>;
+    setTeamRoundDataDirectly: Dispatch<SetStateAction<Record<string, Record<number, TeamRoundData>>>>;
 }
 
 export const useTeamDataManager = (initialSessionId: string | null): TeamDataManagerOutput => {
@@ -202,6 +203,7 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         isLoadingTeams, isLoadingDecisions, isLoadingRoundData,
         error,
         fetchTeamsForSession, fetchTeamDecisionsForSession, fetchTeamRoundDataForSession,
-        resetTeamDecisionInDb
+        resetTeamDecisionInDb,
+        setTeamRoundDataDirectly: setTeamRoundData // Export the setter function
     };
 };
