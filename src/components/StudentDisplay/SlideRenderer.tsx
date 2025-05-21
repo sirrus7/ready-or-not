@@ -1,41 +1,87 @@
 // src/components/StudentDisplay/SlideRenderer.tsx
 import React, {useEffect, useRef} from 'react';
 import {Slide} from '../../types';
-import {
-    Image as ImageIcon,
-    Video as VideoIcon,
-    FileText as TextIcon,
-    AlertCircle,
-    BarChart2,
-    CheckSquare,
-    Repeat as RepeatIcon,
-    Hourglass, ListChecks
-} from 'lucide-react';
+import {Tv2, AlertCircle, ListChecks} from 'lucide-react'; // Ensure all needed icons are imported
 
 interface SlideRendererProps {
     slide: Slide | null;
-    isPlaying?: boolean; // Controlled by teacher for videos on main display
-    isStudentView?: boolean; // True if this is rendering on an individual student's app
+    isPlayingTarget: boolean;
+    videoTimeTarget?: number;
+    triggerSeekEvent?: boolean;
+    isForTeacherPreview?: boolean;
+    onPreviewVideoStateChange?: (playing: boolean, time: number, triggerSeek?: boolean) => void;
 }
 
-const SlideRenderer: React.FC<SlideRendererProps> = ({slide, isPlaying = false, isStudentView = false}) => {
+const SlideRenderer: React.FC<SlideRendererProps> = ({
+                                                         slide,
+                                                         isPlayingTarget,
+                                                         videoTimeTarget,
+                                                         triggerSeekEvent,
+                                                         isForTeacherPreview = false,
+                                                         onPreviewVideoStateChange
+                                                     }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const lastBroadcastedTime = useRef<number | undefined>(undefined);
+    const hasSeekedForCurrentTrigger = useRef(false);
 
     useEffect(() => {
-        if (videoRef.current && slide?.type === 'video') {
-            if (isPlaying && !isStudentView) { // Autoplay only on main student display, controlled by teacher
-                videoRef.current.play().catch(error => console.warn("Video autoplay prevented:", error));
+        const videoElement = videoRef.current;
+        if (videoElement && slide?.type === 'video') {
+            if (!isForTeacherPreview) {
+                if (triggerSeekEvent && videoTimeTarget !== undefined && !hasSeekedForCurrentTrigger.current) {
+                    videoElement.currentTime = videoTimeTarget;
+                    hasSeekedForCurrentTrigger.current = true;
+                } else if (!triggerSeekEvent) {
+                    hasSeekedForCurrentTrigger.current = false;
+                }
+                if (isPlayingTarget && videoElement.paused) {
+                    videoElement.play().catch(e => console.warn("Student display video play error:", e));
+                } else if (!isPlayingTarget && !videoElement.paused) {
+                    videoElement.pause();
+                }
             } else {
-                videoRef.current.pause();
+                if (isPlayingTarget && videoElement.paused) {
+                    videoElement.play().catch(e => console.warn("Teacher preview video play error:", e));
+                } else if (!isPlayingTarget && !videoElement.paused) {
+                    videoElement.pause();
+                }
             }
         }
-    }, [isPlaying, slide, isStudentView]);
+    }, [slide, isPlayingTarget, videoTimeTarget, triggerSeekEvent, isForTeacherPreview]);
+
+    const handlePreviewPlay = () => {
+        if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) onPreviewVideoStateChange(true, videoRef.current.currentTime, false);
+    };
+    const handlePreviewPause = () => {
+        if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) onPreviewVideoStateChange(false, videoRef.current.currentTime, false);
+    };
+    const handlePreviewTimeUpdate = () => {
+        if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {
+            const currentTime = videoRef.current.currentTime;
+            if (lastBroadcastedTime.current === undefined || Math.abs(currentTime - lastBroadcastedTime.current) >= 0.5) {
+                onPreviewVideoStateChange(videoRef.current.paused ? false : true, currentTime, false);
+                lastBroadcastedTime.current = currentTime;
+            }
+        }
+    };
+    const handlePreviewSeeked = () => {
+        if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) onPreviewVideoStateChange(videoRef.current.paused ? false : true, videoRef.current.currentTime, true);
+    };
+    const handlePreviewLoadedMetadata = () => {
+        if (videoRef.current && videoTimeTarget !== undefined) {
+            if (Math.abs(videoRef.current.currentTime - videoTimeTarget) > 1.5 || triggerSeekEvent) {
+                videoRef.current.currentTime = videoTimeTarget;
+                if (!isForTeacherPreview && triggerSeekEvent) hasSeekedForCurrentTrigger.current = true;
+            }
+        }
+    };
 
     if (!slide) {
         return (
             <div className="h-full flex flex-col items-center justify-center bg-gray-800 text-white p-8">
-                <Hourglass size={48} className="mb-4 text-blue-400 animate-pulse"/>
-                <p className="text-xl">Waiting for content...</p>
+                <Tv2 size={48} className="mb-4 text-blue-400 opacity-50"/>
+                <p className="text-xl">Display is Ready</p>
+                <p className="text-sm text-gray-400">Waiting for facilitator to start content...</p>
             </div>
         );
     }
@@ -54,30 +100,33 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, isPlaying = false, 
                 return (
                     <video
                         ref={videoRef}
-                        key={slide.source_url} // Key helps React re-render if source changes
+                        key={slide.source_url}
                         src={slide.source_url}
-                        controls={!isStudentView} // Show controls on main display, maybe not on student app's passive view
+                        controls={isForTeacherPreview}
                         className="max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none"
-                        // autoPlay={isPlaying && !isStudentView} // Handled by useEffect for better control
-                        // loop // Optional, based on game design
-                        muted={isStudentView} // Mute on individual student views to avoid audio chaos
-                        playsInline // Good for mobile
+                        playsInline
+                        muted={!isForTeacherPreview}
+                        onPlay={isForTeacherPreview ? handlePreviewPlay : undefined}
+                        onPause={isForTeacherPreview ? handlePreviewPause : undefined}
+                        onTimeUpdate={isForTeacherPreview ? handlePreviewTimeUpdate : undefined}
+                        onSeeked={isForTeacherPreview ? handlePreviewSeeked : undefined}
+                        onLoadedMetadata={handlePreviewLoadedMetadata}
                     >
                         Your browser does not support the video tag.
                     </video>
                 );
             case 'content_page':
                 return (
-                    <div className="text-center max-w-3xl mx-auto">
+                    <div
+                        className="text-center max-w-3xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-10 rounded-xl shadow-2xl">
                         {slide.main_text &&
-                            <h1 className="text-4xl md:text-5xl font-bold mb-6 break-words">{slide.main_text}</h1>}
+                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-shadow-lg break-words">{slide.main_text}</h1>}
                         {slide.sub_text &&
-                            <p className="text-xl md:text-2xl text-gray-300 mb-8 break-words">{slide.sub_text}</p>}
+                            <p className="text-lg sm:text-xl md:text-2xl text-gray-200 mb-6 sm:mb-8 text-shadow break-words">{slide.sub_text}</p>}
                         {slide.bullet_points && slide.bullet_points.length > 0 && (
-                            <ul className="list-disc list-inside text-left space-y-2 text-lg md:text-xl text-gray-200">
+                            <ul className="list-disc list-inside text-left space-y-2 text-md sm:text-lg md:text-xl text-gray-100 max-w-xl mx-auto">
                                 {slide.bullet_points.map((point, index) => (
-                                    <li key={index}>{point}</li>
-                                ))}
+                                    <li key={index} className="text-shadow-sm">{point}</li>))}
                             </ul>
                         )}
                     </div>
@@ -86,74 +135,78 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, isPlaying = false, 
             case 'interactive_choice':
             case 'interactive_double_down_prompt':
             case 'interactive_double_down_select':
-                // On the main Student Display, these slides show prompts/instructions
-                // On the individual StudentGamePage, the DecisionPanel handles interaction
+                // This is the content shown on the main Student Display (projector)
+                // while students are interacting on their own devices.
                 return (
                     <div
-                        className="text-center max-w-2xl mx-auto p-6 bg-gray-700/80 rounded-xl shadow-xl backdrop-blur-sm">
-                        <ListChecks size={40} className="text-blue-400 mx-auto mb-4"/>
-                        <h2 className="text-3xl font-bold mb-3">{slide.main_text || slide.title || "Make Your Decision"}</h2>
-                        <p className="text-lg text-gray-300">{slide.sub_text || "Please use your team app to submit your response."}</p>
-                        {slide.timer_duration_seconds && !isStudentView && ( // Show timer visual only on main display
+                        className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
+                        <ListChecks size={32} className="text-blue-400 mx-auto mb-4 animate-pulse"/>
+                        <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">{slide.main_text || slide.title || "Team Decision Time"}</h2>
+                        <p className="text-md sm:text-lg text-gray-300 mb-4">{slide.sub_text || "Please refer to your devices to make your selections."}</p>
+                        {slide.timer_duration_seconds && (isForTeacherPreview || !isForTeacherPreview) && (
                             <div
-                                className="mt-6 text-2xl font-mono text-yellow-400 bg-black/30 px-4 py-2 rounded-lg inline-block">
-                                {/* Timer display would be handled by AppContext updating this slide or a separate timer component */}
-                                {`${Math.floor(slide.timer_duration_seconds / 60)}:${(slide.timer_duration_seconds % 60).toString().padStart(2, '0')}`}
+                                className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
+                                TIME: {`${Math.floor(slide.timer_duration_seconds / 60)}:${(slide.timer_duration_seconds % 60).toString().padStart(2, '0')}`}
+                            </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-4"> (Timer is active on individual team devices)</p>
+                    </div>
+                );
+            case 'consequence_reveal':
+            case 'payoff_reveal':
+                // These slides typically show specific outcomes based on prior choices/investments.
+                // The content (main_text, sub_text, source_url for image/video) comes from the Slide object.
+                return (
+                    <div
+                        className="text-center max-w-4xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
+                        {slide.source_url && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) != null &&
+                            <img src={slide.source_url} alt={slide.title || 'Reveal Image'}
+                                 className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
+                        }
+                        {slide.source_url && slide.source_url.match(/\.(mp4|webm|ogg)$/i) != null &&
+                            <video key={slide.source_url} src={slide.source_url} controls={isForTeacherPreview}
+                                   className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto outline-none"
+                                   autoPlay={isPlayingTarget && (!isForTeacherPreview || isPlayingTarget)}
+                                   muted={!isForTeacherPreview} playsInline
+                                   loop={slide.title?.toLowerCase().includes('payoff')}/>
+                        }
+                        {slide.main_text &&
+                            <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
+                        {slide.sub_text &&
+                            <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
+                        {slide.details && slide.details.length > 0 && (
+                            <div
+                                className="mt-4 text-left text-md text-gray-100 space-y-1 bg-slate-700/50 p-4 rounded-md max-w-md mx-auto">
+                                {slide.details.map((detail, index) => <p key={index}>{detail}</p>)}
                             </div>
                         )}
                     </div>
                 );
-            case 'consequence_reveal':
-                return (
-                    <div className="text-center max-w-3xl mx-auto">
-                        {slide.source_url && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/) != null &&
-                            <img src={slide.source_url} alt={slide.title || 'Consequence Image'}
-                                 className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
-                        }
-                        {slide.source_url && slide.source_url.match(/\.(mp4|webm|ogg)$/) != null &&
-                            <video key={slide.source_url} src={slide.source_url} controls
-                                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg mb-4 mx-auto outline-none"
-                                   autoPlay muted={isStudentView} playsInline/>
-                        }
-                        {slide.main_text &&
-                            <h2 className="text-2xl md:text-3xl font-semibold mb-2 break-words">{slide.main_text}</h2>}
-                        {slide.sub_text && <p className="text-lg text-gray-300 break-words">{slide.sub_text}</p>}
-                    </div>
-                );
-            case 'payoff_reveal':
-                return (
-                    <div className="text-center max-w-3xl mx-auto">
-                        {/* This could be an image or video as well, or composed text */}
-                        {slide.source_url && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/) != null &&
-                            <img src={slide.source_url} alt={slide.title || 'Payoff Image'}
-                                 className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
-                        }
-                        {slide.source_url && slide.source_url.match(/\.(mp4|webm|ogg)$/) != null &&
-                            <video key={slide.source_url} src={slide.source_url} controls
-                                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg mb-4 mx-auto outline-none"
-                                   autoPlay muted={isStudentView} playsInline/>
-                        }
-                        <h2 className="text-3xl font-bold mb-3">{slide.main_text || slide.title || "Investment Payoff"}</h2>
-                        {slide.sub_text && <p className="text-lg text-gray-300">{slide.sub_text}</p>}
-                        {/* Logic to display actual payoff effects might be complex here or handled by teacher narration */}
-                    </div>
-                );
             case 'kpi_summary_instructional':
-            case 'leaderboard_chart': // For now, treat leaderboard charts also as images/videos if pre-rendered
+            case 'leaderboard_chart':
             case 'game_end_summary':
+                // These often are image-based summaries
+                if (slide.source_url) {
+                    return <img src={slide.source_url} alt={slide.title || 'Summary Screen'}
+                                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"/>;
+                }
+                // Fallback if no image URL but still this type
                 return (
-                    <img
-                        src={slide.source_url} // Assumes these are images for now
-                        alt={slide.title || 'Summary Screen'}
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                    />
+                    <div
+                        className="text-center max-w-3xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-10 rounded-xl shadow-2xl">
+                        {slide.main_text &&
+                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-shadow-lg break-words">{slide.main_text}</h1>}
+                        {slide.sub_text &&
+                            <p className="text-lg sm:text-xl md:text-2xl text-gray-200 text-shadow break-words">{slide.sub_text}</p>}
+                    </div>
                 );
             default:
+                // const _exhaustiveCheck: never = slide.type; // For ensuring all types are handled
                 return (
-                    <div className="text-center">
-                        <AlertCircle size={32} className="mx-auto mb-2 text-red-400"/>
-                        <p className="text-lg">Unsupported slide type: {slide.type}</p>
-                        <p className="text-sm text-gray-400">Content: {slide.main_text || slide.title}</p>
+                    <div className="text-center p-6 bg-red-800/50 rounded-lg">
+                        <AlertCircle size={32} className="mx-auto mb-2 text-red-300"/>
+                        <p className="text-lg text-red-200">Unsupported slide type: {(slide as any).type}</p>
+                        <p className="text-sm text-red-300 mt-1">Content: {slide.main_text || slide.title}</p>
                     </div>
                 );
         }
@@ -161,10 +214,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, isPlaying = false, 
 
     return (
         <div
-            className={`h-full flex flex-col items-center justify-center text-white p-4 md:p-8 overflow-hidden ${slide.background_css || 'bg-gray-800'}`}>
-            {/* Slide ID overlay - useful for teacher's preview, maybe not for student display */}
-            {!isStudentView && slide.id && (
-                <div className="absolute top-2 left-2 bg-black/40 rounded-full px-3 py-1 text-xs font-medium z-10">
+            className={`h-full w-full flex flex-col items-center justify-center text-white p-4 md:p-6 overflow-hidden ${slide.background_css || 'bg-gray-900'}`}>
+            {isForTeacherPreview && slide.id !== null && slide.id !== undefined && (
+                <div
+                    className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-full px-3.5 py-1.5 text-xs font-semibold z-20 shadow-lg">
                     SLIDE: {slide.id} {slide.title ? `(${slide.title})` : ''}
                 </div>
             )}
@@ -172,5 +225,4 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, isPlaying = false, 
         </div>
     );
 };
-
 export default SlideRenderer;

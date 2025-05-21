@@ -269,16 +269,18 @@ export interface StudentPageState {
 
 // --- Broadcast Payloads ---
 export interface TeacherBroadcastPayload {
-  currentSlideId: number | null;       // ID of the slide teacher is currently on
-  currentPhaseId: string | null;       // ID of the current GamePhaseNode
-  currentPhaseType: GamePhaseNode['phase_type'] | null; // Type of the current phase
-  currentRoundNumber: 0 | 1 | 2 | 3 | null; // Current round number
+  currentSlideId: number | null;
+  currentPhaseId: string | null;
+  currentPhaseType: GamePhaseNode['phase_type'] | null;
+  currentRoundNumber: 0 | 1 | 2 | 3 | null;
 
-  isPlayingVideo: boolean;             // Is the teacher currently "playing" a video slide on the main display
+  isPlayingVideo: boolean;
+  videoCurrentTime?: number;    // Current playback time of the video in seconds
+  triggerVideoSeek?: boolean;   // A flag to tell the student display to seek (set to true, then immediately false after broadcast)
 
-  isStudentDecisionPhaseActive: boolean; // TRUE if students should be making a decision NOW
-  decisionOptionsKey?: string;         // Key to lookup options in gameStructure (e.g., "rd1-invest", "ch1")
-  decisionPhaseTimerEndTime?: number;  // Epoch ms when the current decision timer ends
+  isStudentDecisionPhaseActive: boolean;
+  decisionOptionsKey?: string;
+  decisionPhaseTimerEndTime?: number;
 }
 
 // Interface for messages from Student Display to Teacher AppContext (optional, but good for structure)

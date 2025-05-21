@@ -24,6 +24,7 @@ interface AppContextProps {
     nextSlide: () => Promise<void>;
     previousSlide: () => void;
     togglePlayPauseVideo: () => void;
+    setVideoPlaybackStateFromPreview: (playing: boolean, time: number, triggerSeek?: boolean) => void;
     clearTeacherAlert: () => void;
     isLoadingSession: boolean;
     sessionError: string | null;
@@ -43,6 +44,9 @@ interface AppContextProps {
     processDoubleDownPayoff: () => Promise<void>;
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     resetGameProgress: () => void;
+    isPlayingVideo: boolean;
+    videoCurrentTime: number;
+    triggerVideoSeek: boolean;
 }
 
 const initialAppContextLocalStateDefinition: {
@@ -84,7 +88,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     const {
         teams, teamDecisions, teamRoundData, isLoadingTeams,
         fetchTeamsForSession: fetchTeamsFromHook,
-        fetchTeamDecisionsForSession: fetchTeamDecisionsFromHook,
+        fetchTeamDecisionsForSession: fetchTeamDecisionsFromHook, // Added import from hook
         fetchTeamRoundDataForSession: fetchTeamRoundDataFromHook,
         setTeamRoundDataDirectly,
         resetTeamDecisionInDb,
@@ -99,8 +103,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         ];
     }, [gameStructureInstance]);
 
-    const applyKpiEffects = useCallback((currentKpisInput: TeamRoundData, effects: KpiEffect[]): TeamRoundData => {
+    const applyKpiEffects = useCallback((currentKpisInput: TeamRoundData, effects: KpiEffect[], kpiContext: string = "Effect"): TeamRoundData => {
         const updatedKpis = {...currentKpisInput};
+        console.log(`Applying ${kpiContext} to KPIs. Starting KPIs for team ${updatedKpis.team_id}, round ${updatedKpis.round_number}:`, JSON.parse(JSON.stringify(updatedKpis)));
+        console.log("Effects to apply:", effects);
         effects.forEach(effect => {
             if (effect.timing === 'immediate') {
                 const currentKpiName = `current_${effect.kpi}` as keyof TeamRoundData;
@@ -110,8 +116,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                     change = baseValue * (effect.change_value / 100);
                 }
                 (updatedKpis[currentKpiName] as number) = Math.round(baseValue + change);
+                console.log(`Applied effect: ${effect.kpi} changed by ${change}. New value: ${updatedKpis[currentKpiName]}`);
             }
         });
+        console.log(`Finished applying ${kpiContext}. Final KPIs for team ${updatedKpis.team_id}, round ${updatedKpis.round_number}:`, JSON.parse(JSON.stringify(updatedKpis)));
         return updatedKpis;
     }, []);
 
@@ -127,30 +135,35 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         if (adjustmentsToInsert.length > 0) {
             const {error} = await supabase.from('permanent_kpi_adjustments').insert(adjustmentsToInsert);
             if (error) console.error("Error storing permanent KPI adjustments:", error);
+            else console.log("Permanent KPI adjustments stored successfully.");
         }
     }, []);
 
     const ensureTeamRoundData = useCallback(async (teamId: string, roundNumber: 1 | 2 | 3, sessionId: string): Promise<TeamRoundData> => {
         const kpis = teamRoundData[teamId]?.[roundNumber];
         if (kpis) {
+            console.log(`ensureTeamRoundData: Found local KPI data for team ${teamId}, round ${roundNumber}.`);
             return kpis;
         }
+        console.log(`ensureTeamRoundData: No local KPI data for team ${teamId}, round ${roundNumber}. Checking DB.`);
         const {
             data: existingData,
             error: fetchErr
         } = await supabase.from('team_round_data').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('round_number', roundNumber).single();
         if (fetchErr && fetchErr.code !== 'PGRST116') throw fetchErr;
         if (existingData) {
+            console.log(`ensureTeamRoundData: Fetched KPI data from DB for team ${teamId}, round ${roundNumber}.`);
             setTeamRoundDataDirectly(prev => ({
                 ...prev,
                 [teamId]: {...(prev[teamId] || {}), [roundNumber]: existingData as TeamRoundData}
             }));
             return existingData as TeamRoundData;
         }
+        console.log(`ensureTeamRoundData: No data in DB for team ${teamId}, round ${roundNumber}. Initializing.`);
         let start_capacity = 5000, start_orders = 6250, start_cost = 1200000, start_asp = 1000;
         if (roundNumber > 1) {
             const prevRoundKey = (roundNumber - 1) as 1 | 2;
-            let prevRoundData: TeamRoundData | null = teamRoundData[teamId]?.[prevRoundKey];
+            let prevRoundData = teamRoundData[teamId]?.[prevRoundKey];
             if (!prevRoundData) {
                 const {data: prevDataFromDb} = await supabase.from('team_round_data').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('round_number', prevRoundKey).single();
                 prevRoundData = prevDataFromDb as TeamRoundData | null;
@@ -160,6 +173,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 start_orders = prevRoundData.current_orders;
                 start_cost = prevRoundData.current_cost;
                 start_asp = prevRoundData.current_asp;
+            } else {
+                console.warn(`ensureTeamRoundData: Cannot find prev round (${prevRoundKey}) data for team ${teamId}. Using game defaults for RD${roundNumber}.`);
             }
         }
         const {data: adjustments} = await supabase.from('permanent_kpi_adjustments').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('applies_to_round_start', roundNumber);
@@ -214,12 +229,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             [teamId]: {...(prev[teamId] || {}), [roundNumber]: insertedData as TeamRoundData}
         }));
         return insertedData as TeamRoundData;
-    }, [teamRoundData, setTeamRoundDataDirectly]); // `supabase` is stable, not needed in deps for this specific callback
+    }, [teamRoundData, setTeamRoundDataDirectly, supabase]);
 
     const processChoicePhaseDecisionsInternal = useCallback(async (phaseId: string) => {
         const currentPhaseForProcessing = allPhasesInOrder.find(p => p.id === phaseId);
         if (!currentDbSession?.id || !gameStructureInstance || !currentPhaseForProcessing || teams.length === 0 || currentPhaseForProcessing.phase_type !== 'choice') {
-            console.warn("processChoicePhaseDecisions: Prerequisites not met or not a choice phase.");
+            console.warn("processChoicePhaseDecisions: Prerequisites not met or not a choice phase.", {
+                currentDbSessionId: currentDbSession?.id,
+                gameStructureInstanceExists: !!gameStructureInstance,
+                currentPhaseForProcessing,
+                teamsLength: teams.length
+            });
             return;
         }
         console.log(`AppContext: Processing CHOICE decisions for phase: ${phaseId}, round ${currentPhaseForProcessing.round_number}`);
@@ -271,7 +291,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         } finally {
             setLocalUiState(s => ({...s, isLoadingProcessing: false}));
         }
-    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, fetchTeamRoundDataFromHook, allPhasesInOrder, setTeamRoundDataDirectly]);
+    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, fetchTeamRoundDataFromHook, allPhasesInOrder, setTeamRoundDataDirectly, supabase]);
 
     const processInvestmentPayoffsInternal = useCallback(async (roundNumber: 1 | 2 | 3) => {
         if (!currentDbSession?.id || !gameStructureInstance || teams.length === 0) {
@@ -287,7 +307,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             setLocalUiState(s => ({...s, isLoadingProcessing: false}));
             return;
         }
-
         try {
             for (const team of teams) {
                 const teamKpisForRound = await ensureTeamRoundData(team.id, roundNumber, currentDbSession.id);
@@ -322,16 +341,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         } finally {
             setLocalUiState(s => ({...s, isLoadingProcessing: false}));
         }
-    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, setTeamRoundDataDirectly, fetchTeamRoundDataFromHook]);
+    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, setTeamRoundDataDirectly, fetchTeamRoundDataFromHook, supabase]);
 
     const processDoubleDownPayoffInternal = useCallback(async () => {
-        console.log("Attempting to process Double Down Payoff...");
+        console.log("Processing Double Down Payoff...");
         setLocalUiState(s => ({...s, isLoadingProcessing: true, errorProcessing: null}));
-        // Actual logic for dice roll, finding doubled investment, applying boosted payoff
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate async work
+        // TODO: Implement actual logic
+        await new Promise(resolve => setTimeout(resolve, 500));
         setLocalUiState(s => ({...s, isLoadingProcessing: false}));
-        console.log("Double Down Payoff processed (Placeholder - needs full logic).");
-        if (currentDbSession?.id) await fetchTeamRoundDataFromHook(currentDbSession.id); // Refresh data
+        console.log("Double Down Payoff processed.");
+        if (currentDbSession?.id) await fetchTeamRoundDataFromHook(currentDbSession.id);
     }, [currentDbSession, fetchTeamRoundDataFromHook]);
 
     const calculateAndFinalizeRoundKPIsInternal = useCallback(async (roundNumber: 1 | 2 | 3) => {
@@ -361,30 +380,51 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         } finally {
             setLocalUiState(s => ({...s, isLoadingProcessing: false}));
         }
-    }, [currentDbSession, teams, teamRoundData, fetchTeamRoundDataFromHook]);
+    }, [currentDbSession, teams, teamRoundData, fetchTeamRoundDataFromHook, supabase]);
 
     const gameController = useGameController(currentDbSession, gameStructureInstance, updateSessionInDb, processChoicePhaseDecisionsInternal);
 
     const nextSlideCombined = useCallback(async () => {
         const phaseNode = gameController.currentPhaseNode;
         if (phaseNode) {
-            setLocalUiState(s => ({...s, isLoadingProcessing: true})); // Set loading before async processing
-            try {
-                if (phaseNode.phase_type === 'payoff' && phaseNode.round_number > 0) {
-                    if (phaseNode.id.includes('double-down') || phaseNode.id.includes('DD-payoff')) { // More specific ID for DD payoff phase
+            if (phaseNode.is_interactive_student_phase && phaseNode.phase_type !== 'choice') { // Choices are processed by useGameController before advancing slide
+                // For other interactive types that might need processing *before* showing next phase's content
+                if (phaseNode.phase_type === 'invest') {
+                    // Investment choices are made, but payoffs happen at a specific 'payoff' phase
+                    console.log("End of investment phase. Payoffs will be processed later.");
+                } else if (phaseNode.phase_type === 'double-down-select') {
+                    // Decisions for DD are made, payoff happens at DD payoff phase.
+                    console.log("End of double down selection phase. Payoffs will be processed later.");
+                }
+            }
+            // Check if the *current* phase (before advancing) is a payoff or kpi finalization phase
+            // This logic is tricky, as nextSlide in gameController updates phase THEN AppContext's nextSlide processes
+            // It might be better for gameController's nextSlide to return the *next* phase, and process logic based on *that*.
+            // For now, assume process logic is tied to end of certain *types* of phases from currentPhaseNode
+            if (phaseNode.phase_type.includes('payoff') && phaseNode.round_number > 0) {
+                setLocalUiState(s => ({...s, isLoadingProcessing: true}));
+                try {
+                    if (phaseNode.id.includes('double-down') || phaseNode.id.includes('DD-payoff')) {
                         await processDoubleDownPayoffInternal();
                     } else {
                         await processInvestmentPayoffsInternal(phaseNode.round_number as 1 | 2 | 3);
                     }
-                } else if (phaseNode.phase_type === 'kpi' && phaseNode.round_number > 0) {
-                    await calculateAndFinalizeRoundKPIsInternal(phaseNode.round_number as 1 | 2 | 3);
+                } catch (e) {
+                    console.error("Error in payoff processing:", e);
+                    setLocalUiState(s => ({...s, errorProcessing: "Error processing payoffs."}));
+                } finally {
+                    setLocalUiState(s => ({...s, isLoadingProcessing: false}));
                 }
-                // Choice phase decisions are processed by useGameController via its passed function
-            } catch (e) {
-                console.error("Error during nextSlide combined processing:", e);
-                setLocalUiState(s => ({...s, errorProcessing: "Error during game logic processing."}));
-            } finally {
-                setLocalUiState(s => ({...s, isLoadingProcessing: false}));
+            } else if (phaseNode.phase_type === 'kpi' && phaseNode.round_number > 0) {
+                setLocalUiState(s => ({...s, isLoadingProcessing: true}));
+                try {
+                    await calculateAndFinalizeRoundKPIsInternal(phaseNode.round_number as 1 | 2 | 3);
+                } catch (e) {
+                    console.error("Error finalizing KPIs:", e);
+                    setLocalUiState(s => ({...s, errorProcessing: "Error finalizing KPIs."}));
+                } finally {
+                    setLocalUiState(s => ({...s, isLoadingProcessing: false}));
+                }
             }
         }
         await gameController.nextSlide();
@@ -402,18 +442,21 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 decisionPhaseTimerEndTime = Date.now() + (gameController.currentSlideData.timer_duration_seconds * 1000);
             }
             const payload: TeacherBroadcastPayload = {
-                currentSlideId: gameController.currentSlideData?.id || null,
-                currentPhaseId: gameController.currentPhaseNode?.id || null,
-                currentPhaseType: gameController.currentPhaseNode?.phase_type || null,
-                currentRoundNumber: gameController.currentPhaseNode?.round_number || null,
-                isPlayingVideo: gameController.isPlayingVideo && gameController.currentSlideData?.type === 'video',
+                currentSlideId: gameController.currentSlideData?.id || null, currentPhaseId: gameController.currentPhaseNode?.id || null,
+                currentPhaseType: gameController.currentPhaseNode?.phase_type || null, currentRoundNumber: gameController.currentPhaseNode?.round_number || null,
+                isPlayingVideo: gameController.isPlayingVideo,
+                videoCurrentTime: gameController.videoCurrentTime,
+                triggerVideoSeek: gameController.triggerVideoSeek,
                 isStudentDecisionPhaseActive: isStudentDecisionActive,
                 decisionOptionsKey: isStudentDecisionActive ? gameController.currentSlideData?.interactive_data_key : undefined,
                 decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
             };
-            broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
+            broadcastChannel.postMessage({ type: 'TEACHER_STATE_UPDATE', payload });
+            if (gameController.triggerVideoSeek) {
+                gameController.setVideoPlaybackState(gameController.isPlayingVideo, gameController.videoCurrentTime, false);
+            }
         }
-    }, [currentDbSession, gameController.currentPhaseNode, gameController.currentSlideData, gameController.isPlayingVideo]);
+    }, [currentDbSession, gameController]);
 
     useEffect(() => { // Initialize BroadcastChannel & handle STUDENT_DISPLAY_READY
         if (currentDbSession?.id && currentDbSession.id !== 'new') {
@@ -512,21 +555,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         isLoading: isLoadingSession || authLoading || isLoadingTeams || localUiState.isLoadingProcessing,
         error: sessionError || localUiState.errorProcessing,
         currentTeacherAlert: gameController.currentTeacherAlert,
-    }), [
-        currentDbSession, gameStructureInstance, gameController, teams, teamDecisions, teamRoundData,
-        localUiState, isLoadingSession, authLoading, isLoadingTeams, sessionError
-    ]);
+    }), [currentDbSession, gameStructureInstance, gameController, teams, teamDecisions, teamRoundData, localUiState, isLoadingSession, authLoading, isLoadingTeams, sessionError]);
 
     const contextValue: AppContextProps = useMemo(() => ({
         state: combinedAppState,
-        currentPhaseNode: gameController.currentPhaseNode,
-        currentSlideData: gameController.currentSlideData,
+        currentPhaseNode: gameController.currentPhaseNode, currentSlideData: gameController.currentSlideData,
         allPhasesInOrder,
         selectPhase: gameController.selectPhase,
         updateTeacherNotesForCurrentSlide: gameController.updateTeacherNotesForCurrentSlide,
-        nextSlide: nextSlideCombined,
-        previousSlide: previousSlideCombined,
+        nextSlide: nextSlideCombined, previousSlide: previousSlideCombined,
         togglePlayPauseVideo: gameController.togglePlayPauseVideo,
+        setVideoPlaybackStateFromPreview: gameController.setVideoPlaybackState,
         clearTeacherAlert: gameController.clearTeacherAlert,
         isLoadingSession, sessionError, clearSessionError,
         isStudentWindowOpen: localUiState.isStudentWindowOpen,
@@ -541,6 +580,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         calculateAndFinalizeRoundKPIs: calculateAndFinalizeRoundKPIsInternal,
         resetGameProgress: resetGameProgressInternal,
         isLoadingProcessingDecisions: localUiState.isLoadingProcessing,
+        isPlayingVideo: gameController.isPlayingVideo,
+        videoCurrentTime: gameController.videoCurrentTime,
+        triggerVideoSeek: gameController.triggerVideoSeek,
     }), [
         combinedAppState, gameController, allPhasesInOrder, isLoadingSession, sessionError, clearSessionError,
         localUiState.isStudentWindowOpen, teams, teamDecisions, teamRoundData, isLoadingTeams,
@@ -560,19 +602,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                                 "Initializing Simulator..."}
                     </p>
                 </div>
-            ) : contextValue.state.error && (passedSessionId === 'new' || (contextValue.state.currentSessionId && !gameController.currentPhaseNode && contextValue.state.currentSessionId !== 'new')) ?
+            ) : contextValue.state.error && (passedSessionId === 'new' || (contextValue.state.currentSessionId && !gameController.currentPhaseNode && contextValue.state.currentSessionId !== 'new') ) ?
                 <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-4 text-center">
                     <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
-                        <ServerCrash size={48} className="text-red-500 mx-auto mb-4"/>
+                        <ServerCrash size={48} className="text-red-500 mx-auto mb-4" />
                         <h2 className="text-2xl font-bold text-red-700 mb-2">Initialization Error</h2>
                         <p className="text-gray-600 mb-6">{contextValue.state.error || "An unknown error occurred."}</p>
-                        <button onClick={() => navigate('/dashboard', {replace: true})}
+                        <button onClick={() => {clearSessionError(); navigate('/dashboard', { replace: true });}}
                                 className="bg-blue-600 text-white font-medium py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
                             Back to Dashboard
                         </button>
                     </div>
                 </div>
-                : (children)}
+                : ( children )}
         </AppContext.Provider>
     );
 };
