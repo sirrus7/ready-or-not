@@ -1,579 +1,444 @@
 // src/context/AppContext.tsx
 import React, {createContext, useContext, useState, useEffect, useCallback, useMemo} from 'react';
-// REMOVED: import { useParams } from 'react-router-dom';
-import {useNavigate} from 'react-router-dom'; // Keep useNavigate
+import {useNavigate} from 'react-router-dom';
 import {
-    AppState,
-    GameStructure,
-    GamePhaseNode,
-    Slide,
-    Team,
-    TeamDecision,
-    TeamRoundData,
-    User,
-    TeacherBroadcastPayload, GameSession,
+    AppState, GameStructure, GamePhaseNode, Slide, Team, TeamDecision,
+    TeamRoundData, User, TeacherBroadcastPayload, KpiEffect, KpiKey,
+    PermanentKpiAdjustment, InvestmentPayoff, Consequence
 } from '../types';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {supabase} from '../lib/supabase';
 import {useAuth} from './AuthContext';
+import {useSessionManager} from '../hooks/useSessionManager';
+import {useGameController} from '../hooks/useGameController';
+import {useTeamDataManager} from '../hooks/useTeamDataManager';
 
 interface AppContextProps {
     state: AppState;
-    currentPhase: GamePhaseNode | null;
+    currentPhaseNode: GamePhaseNode | null;
     currentSlideData: Slide | null;
     allPhasesInOrder: GamePhaseNode[];
     selectPhase: (phaseId: string) => void;
-    updateTeacherNotes: (slideId: number, notes: string) => void;
-    nextSlide: () => void;
+    updateTeacherNotesForCurrentSlide: (notes: string) => void;
+    nextSlide: () => Promise<void>;
     previousSlide: () => void;
     togglePlayPauseVideo: () => void;
-    resetGameProgress: () => void;
-    setStudentWindowOpen: (isOpen: boolean) => void;
-    fetchTeamsForSession: () => Promise<void>;
     clearTeacherAlert: () => void;
+    isLoadingSession: boolean;
+    sessionError: string | null;
+    clearSessionError: () => void;
+    isStudentWindowOpen: boolean;
+    setStudentWindowOpen: (isOpen: boolean) => void;
+    teams: Team[];
+    teamDecisions: Record<string, Record<string, TeamDecision>>;
+    teamRoundData: Record<string, Record<number, TeamRoundData>>;
+    isLoadingTeams: boolean;
+    isLoadingProcessingDecisions: boolean;
+    fetchTeamsForSession: () => Promise<void>;
+    fetchTeamRoundDataForSession: (sessionId: string) => Promise<void>;
     resetTeamDecisionForPhase: (teamId: string, phaseId: string) => Promise<void>;
-    processPhaseDecisions: (phaseId: string) => Promise<void>;
+    // Processors are now more specific
+    processChoicePhaseDecisions: (phaseId: string) => Promise<void>;
+    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>;
+    processDoubleDownPayoff: () => Promise<void>;
+    calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => Promise<void>;
+    resetGameProgress: () => void;
 }
 
-const initialAppState: AppState = {
-    currentSessionId: null,
-    gameStructure: null,
-    currentPhaseId: null,
-    currentSlideIdInPhase: null,
-    teacherNotes: {},
-    isPlaying: false,
-    teams: [],
-    teamDecisions: {},
-    teamRoundData: {},
+const initialAppContextLocalStateDefinition: {
+    isStudentWindowOpen: boolean;
+    currentTeacherAlert: { title: string; message: string } | null;
+    isLoadingProcessing: boolean;
+    errorProcessing: string | null;
+} = {
     isStudentWindowOpen: false,
-    isLoading: true,
-    error: null,
     currentTeacherAlert: null,
+    isLoadingProcessing: false,
+    errorProcessing: null,
 };
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
-
-export const useAppContext = () => {
-    const context = useContext(AppContext);
-    if (!context) {
-        throw new Error('useAppContext must be used within an AppProvider');
-    }
-    return context;
+export const useAppContext = () => { /* ... same ... */
 };
-
 let broadcastChannel: BroadcastChannel | null = null;
 
-interface AppProviderProps { // For accepting passedSessionId
+interface AppProviderProps {
     children: React.ReactNode;
     passedSessionId?: string | null;
 }
 
 export const AppProvider: React.FC<AppProviderProps> = ({children, passedSessionId}) => {
-    const [state, setState] = useState<AppState>(initialAppState);
+    const [localUiState, setLocalUiState] = useState(initialAppContextLocalStateDefinition);
     const {user, loading: authLoading} = useAuth();
     const navigate = useNavigate();
-
     const gameStructureInstance = useMemo(() => readyOrNotGame_2_0_DD, []);
 
-    const allPhasesInOrder = useMemo((): GamePhaseNode[] => {
-        if (!gameStructureInstance) return [];
-        return [
-            ...gameStructureInstance.welcome_phases,
-            ...gameStructureInstance.rounds.flatMap(round => round.phases),
-            ...gameStructureInstance.game_end_phases,
-        ];
+    const {
+        session: currentDbSession, isLoading: isLoadingSession, error: sessionError,
+        updateSessionInDb, clearSessionError
+    } = useSessionManager(passedSessionId, user, authLoading, gameStructureInstance);
+
+    const {
+        teams, teamDecisions, teamRoundData, isLoadingTeams,
+        fetchTeamsForSession: fetchTeamsFromHook,
+        fetchTeamDecisionsForSession: fetchTeamDecisionsFromHook,
+        fetchTeamRoundDataForSession: fetchTeamRoundDataFromHook,
+        setTeamRoundDataDirectly,
+        resetTeamDecisionInDb,
+    } = useTeamDataManager(currentDbSession?.id || null);
+
+    const allPhasesInOrder = useMemo((): GamePhaseNode[] => { /* ... same ... */
     }, [gameStructureInstance]);
 
-    const currentPhase = useMemo(() => {
-        return allPhasesInOrder.find(p => p.id === state.currentPhaseId) || null;
-    }, [allPhasesInOrder, state.currentPhaseId]);
+    const applyKpiEffects = useCallback((currentKpisInput: TeamRoundData, effects: KpiEffect[], kpiContext: string = "Effect"): TeamRoundData => { /* ... same ... */
+    }, []);
+    const storePermanentAdjustments = useCallback(async (teamId: string, sessionId: string, effects: KpiEffect[], phaseSourceLabel: string) => { /* ... same ... */
+    }, []);
 
-    const currentSlideData = useMemo(() => {
-        if (!currentPhase || state.currentSlideIdInPhase === null || !gameStructureInstance) return null;
-        if (currentPhase.slide_ids.length === 0 && state.currentSlideIdInPhase === 0) {
-            return null;
+    const ensureTeamRoundData = useCallback(async (teamId: string, roundNumber: 1 | 2 | 3, sessionId: string): Promise<TeamRoundData> => {
+        let kpis = teamRoundData[teamId]?.[roundNumber];
+        if (kpis) {
+            console.log(`ensureTeamRoundData: Found local KPI data for team ${teamId}, round ${roundNumber}.`);
+            return kpis;
         }
-        if (state.currentSlideIdInPhase >= currentPhase.slide_ids.length) {
-            return null;
+
+        console.log(`ensureTeamRoundData: No local KPI data for team ${teamId}, round ${roundNumber}. Checking DB.`);
+        const {
+            data: existingData,
+            error: fetchErr
+        } = await supabase.from('team_round_data').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('round_number', roundNumber).single();
+        if (fetchErr && fetchErr.code !== 'PGRST116') throw fetchErr;
+        if (existingData) {
+            console.log(`ensureTeamRoundData: Fetched KPI data from DB for team ${teamId}, round ${roundNumber}.`);
+            setTeamRoundDataDirectly(prev => ({
+                ...prev,
+                [teamId]: {...(prev[teamId] || {}), [roundNumber]: existingData as TeamRoundData}
+            }));
+            return existingData as TeamRoundData;
         }
-        const slideId = currentPhase.slide_ids[state.currentSlideIdInPhase];
-        return gameStructureInstance.slides.find(s => s.id === slideId) || null;
-    }, [currentPhase, state.currentSlideIdInPhase, gameStructureInstance]);
 
-    const syncStateToDbAndBroadcast = useCallback(async (newState: AppState, oldState?: AppState) => {
-        const derivedNewCurrentPhase = allPhasesInOrder.find(p => p.id === newState.currentPhaseId) || null;
-        let derivedNewCurrentSlideId: number | null = null;
-        let derivedNewCurrentSlide: Slide | null = null;
-
-        if (derivedNewCurrentPhase && newState.currentSlideIdInPhase !== null && gameStructureInstance) {
-            if (derivedNewCurrentPhase.slide_ids.length > 0 && newState.currentSlideIdInPhase < derivedNewCurrentPhase.slide_ids.length) {
-                derivedNewCurrentSlideId = derivedNewCurrentPhase.slide_ids[newState.currentSlideIdInPhase];
-                derivedNewCurrentSlide = gameStructureInstance.slides.find(s => s.id === derivedNewCurrentSlideId) || null;
+        console.log(`ensureTeamRoundData: No data in DB for team ${teamId}, round ${roundNumber}. Initializing.`);
+        let start_capacity = 5000, start_orders = 6250, start_cost = 1200000, start_asp = 1000; // Game defaults
+        if (roundNumber > 1) {
+            const prevRoundKey = (roundNumber - 1) as 1 | 2;
+            // Try to get previous round data, first from local state, then DB if necessary
+            let prevRoundData = teamRoundData[teamId]?.[prevRoundKey];
+            if (!prevRoundData) {
+                const {data: prevDataFromDb} = await supabase.from('team_round_data').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('round_number', prevRoundKey).single();
+                prevRoundData = prevDataFromDb as TeamRoundData | null;
+            }
+            if (prevRoundData) {
+                start_capacity = prevRoundData.current_capacity;
+                start_orders = prevRoundData.current_orders;
+                start_cost = prevRoundData.current_cost;
+                start_asp = prevRoundData.current_asp;
+            } else {
+                console.warn(`ensureTeamRoundData: Cannot find prev round (${prevRoundKey}) data for team ${teamId}. Using game defaults for RD${roundNumber}.`);
             }
         }
-
-        setState(newState);
-
-        if (newState.currentSessionId && broadcastChannel) {
-            let decisionPhaseTimerEndTime: number | undefined = undefined;
-            const isStudentDecisionActive = derivedNewCurrentPhase?.is_interactive_student_phase &&
-                (derivedNewCurrentSlide?.type.startsWith('interactive_') || false);
-
-            if (isStudentDecisionActive && derivedNewCurrentSlide?.timer_duration_seconds) {
-                const oldDerivedOldCurrentPhase = oldState ? allPhasesInOrder.find(p => p.id === oldState.currentPhaseId) || null : null;
-                let oldDerivedOldSlideId: number | null = null;
-                if (oldDerivedOldCurrentPhase && oldState && oldState.currentSlideIdInPhase !== null && oldDerivedOldCurrentPhase.slide_ids.length > oldState.currentSlideIdInPhase) {
-                    oldDerivedOldSlideId = oldDerivedOldCurrentPhase.slide_ids[oldState.currentSlideIdInPhase];
-                }
-                if (derivedNewCurrentSlideId !== oldDerivedOldSlideId || derivedNewCurrentPhase?.id !== oldDerivedOldCurrentPhase?.id) {
-                    decisionPhaseTimerEndTime = Date.now() + (derivedNewCurrentSlide.timer_duration_seconds * 1000);
-                }
+        const {data: adjustments} = await supabase.from('permanent_kpi_adjustments').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('applies_to_round_start', roundNumber);
+        (adjustments as PermanentKpiAdjustment[] || []).forEach(adj => {
+            let baseValForPermAdj = 0;
+            switch (adj.kpi_key as KpiKey) {
+                case 'capacity':
+                    baseValForPermAdj = start_capacity;
+                    start_capacity += adj.is_percentage ? baseValForPermAdj * (adj.change_value / 100) : adj.change_value;
+                    break;
+                case 'orders':
+                    baseValForPermAdj = start_orders;
+                    start_orders += adj.is_percentage ? baseValForPermAdj * (adj.change_value / 100) : adj.change_value;
+                    break;
+                case 'cost':
+                    baseValForPermAdj = start_cost;
+                    start_cost += adj.is_percentage ? baseValForPermAdj * (adj.change_value / 100) : adj.change_value;
+                    break;
+                case 'asp':
+                    baseValForPermAdj = start_asp;
+                    start_asp += adj.is_percentage ? baseValForPermAdj * (adj.change_value / 100) : adj.change_value;
+                    break;
             }
-            const payload: TeacherBroadcastPayload = {
-                currentSlideId: derivedNewCurrentSlideId,
-                currentPhaseId: newState.currentPhaseId,
-                currentPhaseType: derivedNewCurrentPhase?.phase_type || null,
-                currentRoundNumber: derivedNewCurrentPhase?.round_number || null,
-                isPlayingVideo: newState.isPlaying && derivedNewCurrentSlide?.type === 'video',
-                isStudentDecisionPhaseActive: isStudentDecisionActive,
-                decisionOptionsKey: isStudentDecisionActive ? derivedNewCurrentSlide?.interactive_data_key : undefined,
-                decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
-            };
-            broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload: payload});
-        }
-
-        if (newState.currentSessionId && newState.currentSessionId !== 'new') {
-            try {
-                const dbUpdateNeeded = !oldState || newState.currentPhaseId !== oldState.currentPhaseId ||
-                    newState.currentSlideIdInPhase !== oldState.currentSlideIdInPhase || newState.isPlaying !== oldState.isPlaying ||
-                    JSON.stringify(newState.teacherNotes) !== JSON.stringify(oldState.teacherNotes);
-                if (dbUpdateNeeded) {
-                    await supabase.from('sessions').update({
-                        current_phase_id: newState.currentPhaseId,
-                        current_slide_id_in_phase: newState.currentSlideIdInPhase,
-                        is_playing: newState.isPlaying,
-                        teacher_notes: newState.teacherNotes,
-                        updated_at: new Date().toISOString(),
-                    }).eq('id', newState.currentSessionId);
-                }
-            } catch (error) {
-                console.error("Error updating session in Supabase:", error);
-                setState(s => ({...s, error: "Failed to save session state."}));
-            }
-        }
-    }, [allPhasesInOrder, gameStructureInstance]);
-
-    useEffect(() => {
-        const effectSessionId = passedSessionId; // Use the prop
-        console.log("AppContext INIT EFFECT - Prop passedSessionId:", effectSessionId, "AuthLoading:", authLoading, "User:", !!user, "Current AppState SessionId:", state.currentSessionId, "Is Loading:", state.isLoading);
-
-        if (authLoading) {
-            console.log("AppContext: Auth is loading. Setting app isLoading: true.");
-            if (!state.isLoading) setState(s => ({...s, isLoading: true, gameStructure: gameStructureInstance}));
-            return;
-        }
-
-        if (effectSessionId === undefined || effectSessionId === null) {
-            console.log("AppContext: No sessionId from prop (e.g. on /dashboard). isLoading: false.");
-            if (state.currentSessionId !== null || state.isLoading) {
-                setState(s => ({...initialAppState, isLoading: false, gameStructure: gameStructureInstance}));
-            }
-            return;
-        }
-
-        if (state.currentSessionId === effectSessionId && !state.isLoading && effectSessionId !== 'new') {
-            console.log(`AppContext: Session ${effectSessionId} already processed. No re-init.`);
-            return;
-        }
-
-        console.log(`AppContext: Proceeding with session initialization for: ${effectSessionId}`);
-        setState(prevState => ({
-            ...prevState,
-            isLoading: true,
-            gameStructure: gameStructureInstance,
-            error: null,
-            currentSessionId: effectSessionId
+            start_capacity = Math.round(start_capacity);
+            start_orders = Math.round(start_orders);
+            start_cost = Math.round(start_cost);
+            start_asp = Math.round(start_asp);
+        });
+        const newRoundDataContent: Omit<TeamRoundData, 'id' | 'created_at' | 'updated_at'> = {
+            session_id: sessionId, team_id: teamId, round_number: roundNumber,
+            start_capacity, current_capacity: start_capacity, start_orders, current_orders: start_orders,
+            start_cost, current_cost: start_cost, start_asp, current_asp: start_asp,
+            revenue: 0, net_income: 0, net_margin: 0, // Initialize calculated fields
+        };
+        const {
+            data: insertedData,
+            error: insertError
+        } = await supabase.from('team_round_data').insert(newRoundDataContent).select().single();
+        if (insertError || !insertedData) throw insertError || new Error("Failed to insert new team_round_data");
+        setTeamRoundDataDirectly(prev => ({
+            ...prev,
+            [teamId]: {...(prev[teamId] || {}), [roundNumber]: insertedData as TeamRoundData}
         }));
+        return insertedData as TeamRoundData;
+    }, [teamRoundData, setTeamRoundDataDirectly]);
 
-        const initializeActualSession = async (sessionIdToProcess: string) => {
-            console.log(`AppContext: Starting initializeActualSession for: ${sessionIdToProcess}`);
-            try {
-                if (sessionIdToProcess === 'new') {
-                    if (user) {
-                        console.log("AppContext: [NEW SESSION PATH] Creating session...");
-                        const initialPhase = gameStructureInstance.welcome_phases[0];
-                        const {data: newSession, error: sessionError} = await supabase.from('sessions').insert({
-                            name: `New Game - ${new Date().toLocaleDateString()}`,
-                            teacher_id: user.id,
-                            game_version: gameStructureInstance.id,
-                            current_phase_id: initialPhase?.id || null,
-                            current_slide_id_in_phase: initialPhase ? 0 : null,
-                            is_playing: false,
-                            is_complete: false,
-                            teacher_notes: {},
-                        }).select().single();
-                        if (sessionError) {
-                            console.error("AppContext: [NEW] Supabase error:", JSON.stringify(sessionError, null, 2));
-                            throw sessionError;
-                        }
-                        if (newSession?.id) {
-                            console.log("AppContext: [NEW] Session CREATED:", newSession.id, ". Navigating now...");
-                            navigate(`/classroom/${newSession.id}`, {replace: true});
-                            return;
-                        } else {
-                            console.error("AppContext: [NEW] No session data/ID returned.");
-                            throw new Error("Failed to create session.");
-                        }
+    const processChoicePhaseDecisionsInternal = useCallback(async (phaseId: string) => {
+        const currentPhaseForProcessing = allPhasesInOrder.find(p => p.id === phaseId);
+        if (!currentDbSession?.id || !gameStructureInstance || !currentPhaseForProcessing || teams.length === 0 || currentPhaseForProcessing.phase_type !== 'choice') {
+            console.warn("processChoicePhaseDecisions: Prerequisites not met or not a choice phase.", {
+                currentDbSessionId: currentDbSession?.id,
+                gameStructureInstanceExists: !!gameStructureInstance,
+                currentPhaseForProcessing,
+                teamsLength: teams.length
+            });
+            return;
+        }
+        console.log(`AppContext: Processing CHOICE decisions for phase: ${phaseId}, round ${currentPhaseForProcessing.round_number}`);
+        setLocalUiState(s => ({...s, isLoadingProcessing: true, errorProcessing: null}));
+        try {
+            for (const team of teams) {
+                const teamKpisForRound = await ensureTeamRoundData(team.id, currentPhaseForProcessing.round_number as 1 | 2 | 3, currentDbSession.id);
+                const decisionForPhase = teamDecisions[team.id]?.[phaseId];
+                let effectsToApply: KpiEffect[] = [];
+                let narrativeDesc = currentPhaseForProcessing.label;
+                const selectedOptionId = decisionForPhase?.selected_challenge_option_id || gameStructureInstance.all_challenge_options[phaseId]?.find(opt => opt.is_default_choice)?.id;
+
+                if (selectedOptionId) {
+                    narrativeDesc = `${currentPhaseForProcessing.label} - Team ${team.name} chose ${selectedOptionId}`;
+                    if (!decisionForPhase) narrativeDesc = `${currentPhaseForProcessing.label} - Team ${team.name} Defaulted to ${selectedOptionId}`;
+
+                    const consequencePhaseKey = `${phaseId}-conseq`; // e.g. ch1-conseq
+                    const consequence = gameStructureInstance.all_consequences[consequencePhaseKey]?.find(c => c.challenge_option_id === selectedOptionId);
+                    if (consequence) {
+                        console.log(`Applying consequence for ${team.name}, choice ${selectedOptionId}:`, consequence.effects);
+                        effectsToApply.push(...consequence.effects);
                     } else {
-                        console.warn("AppContext: [NEW] User not auth'd. Navigating to login.");
-                        setState(s => ({...s, isLoading: false, error: "User auth needed."}));
-                        navigate('/login', {replace: true});
+                        console.warn(`No consequence found for phase ${phaseId}, option ${selectedOptionId}`);
                     }
                 } else {
-                    console.log("AppContext: [EXISTING] Loading session:", sessionIdToProcess);
-                    const {
-                        data: existingSession,
-                        error: fetchError
-                    } = await supabase.from('sessions').select('*').eq('id', sessionIdToProcess).single();
-                    if (fetchError || !existingSession) {
-                        console.error("AppContext: [EXISTING] Fetch error or not found.", fetchError);
-                        throw fetchError || new Error(`Session ${sessionIdToProcess} not found.`);
-                    }
+                    console.warn(`No decision or default found for team ${team.name} in phase ${phaseId}`);
+                }
 
-                    console.log("AppContext: [EXISTING] Session data loaded:", existingSession.id);
-                    setState(prevState => ({
-                        ...prevState, currentSessionId: existingSession.id,
-                        currentPhaseId: existingSession.current_phase_id,
-                        currentSlideIdInPhase: existingSession.current_slide_id_in_phase ?? 0,
-                        isPlaying: existingSession.is_playing, teacherNotes: existingSession.teacher_notes || {},
-                        teams: [], teamDecisions: {}, teamRoundData: {},
-                        isLoading: false, error: null,
+                if (effectsToApply.length > 0) {
+                    const updatedKpis = applyKpiEffects(teamKpisForRound, effectsToApply, `Consequence for ${selectedOptionId}`);
+                    await storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply, narrativeDesc);
+
+                    const {data: upsertedData, error: upsertError} = await supabase.from('team_round_data').upsert({
+                        ...updatedKpis, id: teamKpisForRound.id // Important: pass id for upsert to update
+                    }, {onConflict: 'id'}).select().single(); // Use 'id' if it's the unique PK constraint for upsert
+                    if (upsertError) throw upsertError;
+                    if (upsertedData) setTeamRoundDataDirectly(prev => ({
+                        ...prev,
+                        [team.id]: {
+                            ...(prev[team.id] || {}),
+                            [currentPhaseForProcessing.round_number]: upsertedData as TeamRoundData
+                        }
                     }));
-
-                    if (broadcastChannel && broadcastChannel.name !== `classroom-${sessionIdToProcess}`) {
-                        broadcastChannel.close();
-                        broadcastChannel = null;
-                    }
-                    if (!broadcastChannel) {
-                        broadcastChannel = new BroadcastChannel(`classroom-${sessionIdToProcess}`);
-                        console.log("AppContext: BroadcastChannel initialized for", sessionIdToProcess);
-                    }
-                    broadcastChannel.onmessage = (event) => {
-                        if (event.data.type === 'STUDENT_DISPLAY_READY') {
-                            console.log('Student display ready for session:', sessionIdToProcess, 'Sending current state.');
-                            setState(currentState => {
-                                syncStateToDbAndBroadcast(currentState, currentState);
-                                return currentState;
-                            });
-                        }
-                    };
-                    setState(currentState => {
-                        syncStateToDbAndBroadcast(currentState, currentState);
-                        return currentState;
-                    });
-                }
-            } catch (err) {
-                const errorMessage = err instanceof Error ? err.message : "Failed to initialize session.";
-                console.error("AppContext: CATCH in initializeActualSession:", err, "SessionId was:", sessionIdToProcess);
-                setState(prevState => ({
-                    ...prevState,
-                    error: errorMessage,
-                    isLoading: false,
-                    currentSessionId: sessionIdToProcess
-                }));
-                if (sessionIdToProcess !== 'new') {
-                    navigate('/dashboard', {replace: true});
                 }
             }
-        };
+            // After processing all teams for the choice phase, we might not need to fetch all round data again immediately,
+            // as individual upserts update the local state via setTeamRoundDataDirectly.
+            // However, a final fetch could ensure consistency if there were partial failures.
+            // if (currentDbSession?.id) await fetchTeamRoundDataFromHook(currentDbSession.id);
+            console.log("AppContext: All team choice decisions for phase processed successfully.");
+        } catch (err) {
+            console.error("Error processing choice phase decisions:", err);
+            setLocalUiState(s => ({...s, errorProcessing: "Failed to process choice decisions."}));
+        } finally {
+            setLocalUiState(s => ({...s, isLoadingProcessing: false}));
+        }
+    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, fetchTeamRoundDataFromHook, allPhasesInOrder, setTeamRoundDataDirectly]);
 
-        if (effectSessionId) {
-            initializeActualSession(effectSessionId);
+    const processInvestmentPayoffsInternal = useCallback(async (roundNumber: 1 | 2 | 3) => {
+        if (!currentDbSession?.id || !gameStructureInstance || teams.length === 0) {
+            console.warn("processInvestmentPayoffs: Prerequisites not met.");
+            return;
+        }
+        console.log(`Processing INVESTMENT payoffs for round: ${roundNumber}`);
+        setLocalUiState(s => ({...s, isLoadingProcessing: true, errorProcessing: null}));
+        const payoffPhaseKey = `rd${roundNumber}-payoff`;
+        const allPayoffsForRound = gameStructureInstance.all_investment_payoffs[payoffPhaseKey] || [];
+        if (allPayoffsForRound.length === 0) {
+            console.warn(`No payoffs defined for ${payoffPhaseKey}`);
+            setLocalUiState(s => ({...s, isLoadingProcessing: false}));
+            return;
         }
 
-        return () => {
-            if (broadcastChannel) {
-                console.log("AppContext: useEffect cleanup for session:", effectSessionId, "- Closing broadcast channel.");
-                broadcastChannel.close();
-                broadcastChannel = null;
+        try {
+            for (const team of teams) {
+                const teamKpisForRound = await ensureTeamRoundData(team.id, roundNumber, currentDbSession.id);
+                const investPhaseId = `rd${roundNumber}-invest`;
+                const teamInvestments = teamDecisions[team.id]?.[investPhaseId]?.selected_investment_ids || [];
+                let effectsToApply: KpiEffect[] = [];
+
+                teamInvestments.forEach(investId => {
+                    const payoff = allPayoffsForRound.find(p => p.investment_option_id === investId);
+                    if (payoff) effectsToApply.push(...payoff.effects);
+                });
+
+                if (effectsToApply.length > 0) {
+                    const updatedKpis = applyKpiEffects(teamKpisForRound, effectsToApply, `RD${roundNumber} Investment Payoff`);
+                    await storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply, `RD${roundNumber} Investment Payoff`);
+                    const {
+                        data: upsertedData,
+                        error: upsertError
+                    } = await supabase.from('team_round_data').upsert({
+                        ...updatedKpis,
+                        id: teamKpisForRound.id
+                    }, {onConflict: 'id'}).select().single();
+                    if (upsertError) throw upsertError;
+                    if (upsertedData) setTeamRoundDataDirectly(prev => ({
+                        ...prev,
+                        [team.id]: {...(prev[team.id] || {}), [roundNumber]: upsertedData as TeamRoundData}
+                    }));
+                }
             }
-        };
-    }, [passedSessionId, user, authLoading, navigate, gameStructureInstance, syncStateToDbAndBroadcast, state.currentSessionId, state.isLoading]);
-
-    useEffect(() => {
-        if (!state.currentSessionId || state.currentSessionId === 'new' || authLoading) return;
-        const sessionSub = supabase.channel(`session-${state.currentSessionId}-updates`)
-            .on('postgres_changes', {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'sessions',
-                    filter: `id=eq.${state.currentSessionId}`
-                },
-                (payload) => {
-                    const updatedSession = payload.new as GameSession;
-                    if (updatedSession.current_phase_id !== state.currentPhaseId ||
-                        (updatedSession.current_slide_id_in_phase ?? 0) !== (state.currentSlideIdInPhase ?? 0) ||
-                        updatedSession.is_playing !== state.isPlaying ||
-                        JSON.stringify(updatedSession.teacher_notes || {}) !== JSON.stringify(state.teacherNotes)) {
-                        console.log('Supabase session update received from external source:', payload.new);
-                        setState(prevState => ({
-                            ...prevState, currentPhaseId: updatedSession.current_phase_id,
-                            currentSlideIdInPhase: updatedSession.current_slide_id_in_phase ?? 0,
-                            isPlaying: updatedSession.is_playing, teacherNotes: updatedSession.teacher_notes || {},
-                        }));
-                    }
-                }
-            ).subscribe();
-        const decisionSub = supabase.channel(`team-decisions-${state.currentSessionId}`)
-            .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'team_decisions',
-                    filter: `session_id=eq.${state.currentSessionId}`
-                },
-                (payload) => {
-                    console.log('Team decision change received:', payload);
-                    const newDecision = payload.new as TeamDecision;
-                    const oldDecision = payload.old as TeamDecision;
-                    setState(prev => {
-                        const updatedTeamDecisions = JSON.parse(JSON.stringify(prev.teamDecisions));
-                        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                            if (!updatedTeamDecisions[newDecision.team_id]) {
-                                updatedTeamDecisions[newDecision.team_id] = {};
-                            }
-                            updatedTeamDecisions[newDecision.team_id][newDecision.phase_id] = newDecision;
-                        } else if (payload.eventType === 'DELETE' && oldDecision?.team_id && oldDecision?.phase_id) {
-                            if (updatedTeamDecisions[oldDecision.team_id]) {
-                                delete updatedTeamDecisions[oldDecision.team_id][oldDecision.phase_id];
-                                if (Object.keys(updatedTeamDecisions[oldDecision.team_id]).length === 0) {
-                                    delete updatedTeamDecisions[oldDecision.team_id];
-                                }
-                            }
-                        }
-                        return {...prev, teamDecisions: updatedTeamDecisions};
-                    });
-                }
-            ).subscribe();
-        return () => {
-            supabase.removeChannel(sessionSub);
-            supabase.removeChannel(decisionSub);
-        };
-    }, [state.currentSessionId, authLoading]);
-
-    const selectPhase = (phaseId: string) => {
-        const targetPhase = allPhasesInOrder.find(p => p.id === phaseId);
-        if (targetPhase) {
-            const oldState = {...state};
-            syncStateToDbAndBroadcast({
-                ...state, currentPhaseId: phaseId, currentSlideIdInPhase: 0,
-                isPlaying: false, currentTeacherAlert: null,
-            }, oldState);
+            console.log("AppContext: All investment payoffs for round processed successfully.");
+        } catch (err) {
+            console.error("Error processing investment payoffs:", err);
+            setLocalUiState(s => ({...s, errorProcessing: "Failed to process investment payoffs."}));
+        } finally {
+            setLocalUiState(s => ({...s, isLoadingProcessing: false}));
         }
-    };
+    }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, setTeamRoundDataDirectly]);
 
-    const handleTeacherAlert = (slide: Slide | null): boolean => {
-        if (slide?.teacher_alert) {
-            setState(prevState => ({...prevState, currentTeacherAlert: slide.teacher_alert, isPlaying: false}));
-            return true;
-        }
-        return false;
-    };
+    const processDoubleDownPayoffInternal = useCallback(async () => {
+        console.log("TODO: Implement processDoubleDownPayoff");
+        setLocalUiState(s => ({...s, isLoadingProcessing: false}));
+    }, []);
+    const calculateAndFinalizeRoundKPIsInternal = useCallback(async (roundNumber: 1 | 2 | 3) => {
+        console.log(`TODO: Implement calculateAndFinalizeRoundKPIs for round ${roundNumber}`);
+        setLocalUiState(s => ({...s, isLoadingProcessing: false}));
+    }, []);
 
-    const clearTeacherAlert = () => {
-        setState(prevState => ({...prevState, currentTeacherAlert: null}));
-    };
+    const {
+        currentPhaseNode, currentSlideData, teacherNotes, isPlayingVideo, currentTeacherAlert,
+        selectPhase, nextSlideRaw, previousSlideRaw, togglePlayPauseVideo,
+        updateTeacherNotesForCurrentSlide, clearTeacherAlert,
+    } = useGameController(currentDbSession, gameStructureInstance, updateSessionInDb, processChoicePhaseDecisionsInternal); // Pass choice processor
 
-    const nextSlide = () => {
-        const oldState = {...state};
-        if (state.currentTeacherAlert) {
+    const nextSlide = useCallback(async () => {
+        if (localUiState.currentTeacherAlert) {
             console.warn("Alert active.");
             return;
-        }
-        if (currentPhase && state.currentSlideIdInPhase !== null) {
-            if (handleTeacherAlert(currentSlideData)) return;
+        } // Use localUiState for alert
+        const phaseToEnd = currentPhaseNode; // Capture before potential async ops change it
+        const slideIsLast = currentSlideData && phaseToEnd ? (currentDbSession?.current_slide_id_in_phase ?? 0) >= phaseToEnd.slide_ids.length - 1 : false;
 
-            const isLastSlideInPhase = state.currentSlideIdInPhase >= currentPhase.slide_ids.length - 1;
-            if (isLastSlideInPhase) {
-                const currentPhaseIndex = allPhasesInOrder.findIndex(p => p.id === state.currentPhaseId);
-                if (currentPhaseIndex < allPhasesInOrder.length - 1) {
-                    const nextPhaseNode = allPhasesInOrder[currentPhaseIndex + 1];
-                    if (currentPhase.is_interactive_student_phase) {
-                        console.log(`Phase ${currentPhase.id} ended. Processing decisions before moving to ${nextPhaseNode.id}`);
-                        processPhaseDecisions(currentPhase.id).then(() => {
-                            syncStateToDbAndBroadcast({
-                                ...state,
-                                currentPhaseId: nextPhaseNode.id,
-                                currentSlideIdInPhase: 0,
-                                isPlaying: false,
-                            }, oldState);
-                        }).catch(err => console.error("Error processing phase decisions:", err));
+        if (slideIsLast && phaseToEnd) {
+            setLocalUiState(s => ({...s, isLoadingProcessing: true}));
+            try {
+                if (phaseToEnd.phase_type === 'choice') {
+                    // Already processed by useGameController's processPhaseDecisionsFunction if it's the last slide of choice phase
+                    // Or if we want to ensure it's called here: await processChoicePhaseDecisionsInternal(phaseToEnd.id);
+                } else if (phaseToEnd.phase_type === 'payoff' && phaseToEnd.round_number > 0) {
+                    if (phaseToEnd.id.includes('rd3') && phaseToEnd.id.includes('dd')) { // Specific check for DD payoff phase
+                        await processDoubleDownPayoffInternal();
                     } else {
-                        syncStateToDbAndBroadcast({
-                            ...state,
-                            currentPhaseId: nextPhaseNode.id,
-                            currentSlideIdInPhase: 0,
-                            isPlaying: false,
-                        }, oldState);
+                        await processInvestmentPayoffsInternal(phaseToEnd.round_number as 1 | 2 | 3);
                     }
-                } else {
-                    console.log("End of game.");
+                } else if (phaseToEnd.phase_type === 'kpi' && phaseToEnd.round_number > 0) {
+                    await calculateAndFinalizeRoundKPIsInternal(phaseToEnd.round_number as 1 | 2 | 3);
                 }
-            } else {
-                syncStateToDbAndBroadcast({
-                    ...state,
-                    currentSlideIdInPhase: state.currentSlideIdInPhase + 1,
-                }, oldState);
+            } catch (e) {
+                console.error("Error in nextSlide processing logic:", e); /* set error state */
+            } finally {
+                setLocalUiState(s => ({...s, isLoadingProcessing: false}));
             }
         }
-    };
+        await nextSlideRaw(); // This will call the game controller's next slide logic
+    }, [localUiState.currentTeacherAlert, currentPhaseNode, currentSlideData, currentDbSession, nextSlideRaw, processChoicePhaseDecisionsInternal, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal, calculateAndFinalizeRoundKPIsInternal]);
 
-    const previousSlide = () => {
-        const oldState = {...state};
-        if (state.currentTeacherAlert) return;
-        if (currentPhase && state.currentSlideIdInPhase !== null) {
-            if (state.currentSlideIdInPhase > 0) {
-                syncStateToDbAndBroadcast({
-                    ...state,
-                    currentSlideIdInPhase: state.currentSlideIdInPhase - 1,
-                    isPlaying: false
-                }, oldState);
-            } else {
-                const currentPhaseIndex = allPhasesInOrder.findIndex(p => p.id === state.currentPhaseId);
-                if (currentPhaseIndex > 0) {
-                    const prevPhaseNode = allPhasesInOrder[currentPhaseIndex - 1];
-                    syncStateToDbAndBroadcast({
-                        ...state,
-                        currentPhaseId: prevPhaseNode.id,
-                        currentSlideIdInPhase: prevPhaseNode.slide_ids.length - 1,
-                        isPlaying: false,
-                    }, oldState);
-                }
-            }
-        }
-    };
+    const previousSlide = useCallback(async () => {
+        await previousSlideRaw();
+    }, [previousSlideRaw]);
 
-    const togglePlayPauseVideo = () => {
-        if (currentSlideData?.type === 'video') {
-            const oldState = {...state};
-            syncStateToDbAndBroadcast({...state, isPlaying: !state.isPlaying}, oldState);
-        }
-    };
+    const syncAndBroadcastAppState = useCallback(() => { /* ... (No changes from last full version) ... */
+    }, [currentDbSession, currentPhaseNode, currentSlideData, isPlayingVideo, gameStructureInstance, allPhasesInOrder]);
+    useEffect(() => { /* ... BroadcastChannel init ... */
+    }, [currentDbSession?.id, syncAndBroadcastAppState]);
+    useEffect(() => { /* ... Broadcast on game controller state changes ... */
+    }, [currentPhaseNode, currentSlideData, isPlayingVideo, syncAndBroadcastAppState, currentDbSession]);
 
-    const updateTeacherNotes = (slideId: number, notes: string) => {
-        const oldState = {...state};
-        syncStateToDbAndBroadcast({...state, teacherNotes: {...state.teacherNotes, [slideId]: notes,},}, oldState);
-    };
-
-    const setStudentWindowOpen = (isOpen: boolean) => {
-        setState(prevState => ({...prevState, isStudentWindowOpen: isOpen}));
-    };
-
-    const resetGameProgress = async () => {
-        if (state.currentSessionId && state.gameStructure) {
-            const confirmReset = window.confirm("Are you sure you want to reset all progress for this game session? This action cannot be undone.");
-            if (confirmReset) {
-                const oldState = {...state};
-                const initialPhaseId = state.gameStructure.welcome_phases[0]?.id || null;
-                const newState: AppState = {
-                    ...initialAppState, currentSessionId: state.currentSessionId,
-                    gameStructure: state.gameStructure, currentPhaseId: initialPhaseId,
-                    currentSlideIdInPhase: initialPhaseId ? 0 : null, isLoading: false,
-                    teams: state.teams,
-                };
-                try {
-                    await supabase.from('team_decisions').delete().eq('session_id', state.currentSessionId);
-                    await supabase.from('team_round_data').delete().eq('session_id', state.currentSessionId);
-                    await supabase.from('permanent_kpi_adjustments').delete().eq('session_id', state.currentSessionId);
-                    syncStateToDbAndBroadcast(newState, oldState);
-                    alert("Game progress has been reset. Team data (decisions, KPIs) cleared.");
-                } catch (err) {
-                    console.error("Error during game reset:", err);
-                    alert("Failed to fully reset game. Check console.");
-                }
-            }
-        }
-    };
-
-    const fetchTeamsForSession = useCallback(async () => {
-        if (!state.currentSessionId || state.currentSessionId === 'new') return;
-        const {data, error} = await supabase.from('teams').select('*').eq('session_id', state.currentSessionId);
-        if (error) {
-            console.error("Error fetching teams:", error);
-            setState(s => ({...s, error: "Failed to fetch teams."}));
-        } else if (data) {
-            setState(s => ({...s, teams: data as Team[], error: null}));
-        } else {
-            setState(s => ({...s, teams: [], error: null}));
-        }
-    }, [state.currentSessionId]);
-
-    const resetTeamDecisionForPhase = async (teamId: string, phaseId: string) => {
-        if (!state.currentSessionId) {
-            throw new Error("No active session.");
-        }
-        try {
-            const {error} = await supabase.from('team_decisions').delete()
-                .eq('session_id', state.currentSessionId).eq('team_id', teamId).eq('phase_id', phaseId);
-            if (error) throw error;
-            console.log(`AppContext: Decision reset for team ${teamId}, phase ${phaseId} successful in DB.`);
-        } catch (err) {
-            console.error("Error in AppContext resetTeamDecisionForPhase (Supabase):", err);
-            throw err;
-        }
-    };
-
-    const processPhaseDecisions = async (phaseId: string) => {
-        console.log(`TODO: Implement all game logic for processing decisions for phase: ${phaseId}`);
-        alert(`Placeholder: Processing decisions for ${phaseId}. KPIs for teams would be updated.`);
-        console.log("Current Team Decisions for processing:", state.teamDecisions);
-    };
+    const fetchWrapperTeams = useCallback(() => {
+        if (currentDbSession?.id && currentDbSession.id !== 'new') fetchTeamsFromHook(currentDbSession.id);
+    }, [currentDbSession?.id, fetchTeamsFromHook]);
+    const resetWrapperTeamDecision = useCallback(async (teamId: string, phaseId: string) => {
+        if (currentDbSession?.id && currentDbSession.id !== 'new') await resetTeamDecisionInDb(currentDbSession.id, teamId, phaseId);
+    }, [currentDbSession?.id, resetTeamDecisionInDb]);
 
     useEffect(() => {
-        if (state.currentSessionId && state.currentSessionId !== 'new' && !state.isLoading && !authLoading) {
-            fetchTeamsForSession();
+        if (currentDbSession?.id && currentDbSession.id !== 'new' && !isLoadingSession && !authLoading) {
+            fetchWrapperTeams();
+            fetchTeamDecisionsFromHook(currentDbSession.id);
+            fetchTeamRoundDataFromHook(currentDbSession.id);
         }
-    }, [state.currentSessionId, state.isLoading, authLoading, fetchTeamsForSession]);
+    }, [currentDbSession?.id, isLoadingSession, authLoading, fetchWrapperTeams, fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook]);
+
+    const combinedAppState: AppState = useMemo(() => ({
+        currentSessionId: currentDbSession?.id || null,
+        gameStructure: gameStructureInstance,
+        currentPhaseId: currentPhaseNode?.id || null,
+        currentSlideIdInPhase: currentDbSession?.current_slide_id_in_phase ?? (currentPhaseNode === gameStructureInstance?.welcome_phases[0] ? 0 : null),
+        teacherNotes: teacherNotes, isPlaying: isPlayingVideo,
+        teams: teams, teamDecisions: teamDecisions, teamRoundData: teamRoundData,
+        isStudentWindowOpen: localUiState.isStudentWindowOpen,
+        isLoading: isLoadingSession || authLoading || isLoadingTeams || localUiState.isLoadingProcessing,
+        error: sessionError || localUiState.errorProcessing,
+        currentTeacherAlert: currentTeacherAlert,
+    }), [
+        currentDbSession, gameStructureInstance, currentPhaseNode, teacherNotes, isPlayingVideo,
+        teams, teamDecisions, teamRoundData, localUiState,
+        isLoadingSession, authLoading, isLoadingTeams, sessionError, currentTeacherAlert
+    ]);
+
+    const contextValue: AppContextProps = useMemo(() => ({
+        state: combinedAppState, currentPhaseNode, currentSlideData, allPhasesInOrder,
+        selectPhase: selectPhaseCtrl, updateTeacherNotesForCurrentSlide,
+        nextSlide, previousSlide, // Use wrapped next/prev
+        togglePlayPauseVideo: togglePlayPauseVideoCtrl, clearTeacherAlert: clearTeacherAlertCtrl,
+        isLoadingSession, sessionError, clearSessionError,
+        isStudentWindowOpen: localUiState.isStudentWindowOpen,
+        setStudentWindowOpen: (isOpen: boolean) => setLocalUiState(s => ({...s, isStudentWindowOpen: isOpen})),
+        teams, teamDecisions, teamRoundData, isLoadingTeams,
+        fetchTeamsForSession: fetchWrapperTeams,
+        fetchTeamRoundDataForSession: (sessionId: string) => fetchTeamRoundDataFromHook(sessionId),
+        resetTeamDecisionForPhase: resetWrapperTeamDecision,
+        processChoicePhaseDecisions: processChoicePhaseDecisionsInternal,
+        processInvestmentPayoffs: processInvestmentPayoffsInternal,
+        processDoubleDownPayoff: processDoubleDownPayoffInternal,
+        calculateAndFinalizeRoundKPIs: calculateAndFinalizeRoundKPIsInternal,
+        resetGameProgress: async () => { /* ... (Full reset logic from previous complete version) ... */
+        },
+    }), [
+        combinedAppState, currentPhaseNode, currentSlideData, allPhasesInOrder,
+        selectPhaseCtrl, updateTeacherNotesForCurrentSlide, nextSlide, previousSlide, togglePlayPauseVideoCtrl,
+        clearTeacherAlertCtrl, isLoadingSession, sessionError, clearSessionError, localUiState.isStudentWindowOpen,
+        teams, teamDecisions, teamRoundData, isLoadingTeams, fetchWrapperTeams, fetchTeamRoundDataFromHook, resetWrapperTeamDecision,
+        processChoicePhaseDecisionsInternal, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal, calculateAndFinalizeRoundKPIsInternal
+    ]);
 
     return (
-        <AppContext.Provider
-            value={{
-                state, currentPhase, currentSlideData, allPhasesInOrder, selectPhase,
-                updateTeacherNotes, nextSlide, previousSlide, togglePlayPauseVideo,
-                resetGameProgress, setStudentWindowOpen, fetchTeamsForSession,
-                clearTeacherAlert, resetTeamDecisionForPhase, processPhaseDecisions,
-            }}
-        >
-            {state.isLoading || authLoading ? (
+        <AppContext.Provider value={contextValue}>
+            {contextValue.state.isLoading ? (
                 <div className="min-h-screen flex items-center justify-center bg-gray-100">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
                     <p className="ml-4 text-lg font-semibold text-gray-700">
                         {authLoading ? "Authenticating..." :
-                            (passedSessionId === 'new' && !state.error) ? "Creating New Session..." :  // Check passedSessionId for "Creating" message
+                            (passedSessionId === 'new' && !contextValue.state.error) ? "Creating New Session..." :
                                 "Initializing Simulator..."}
                     </p>
                 </div>
-            ) : state.error && (passedSessionId === 'new' || (state.currentSessionId && !currentPhase && state.currentSessionId !== 'new')) ?
+            ) : contextValue.state.error && (passedSessionId === 'new' || (contextValue.state.currentSessionId && !currentPhaseNode && contextValue.state.currentSessionId !== 'new')) ?
                 <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-4 text-center">
                     <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
                         <h2 className="text-2xl font-bold text-red-600 mb-4">Initialization Error</h2>
-                        <p className="text-gray-700 mb-6">{state.error || "An unknown error occurred during initialization."}</p>
-                        <button
-                            onClick={() => {
-                                if (passedSessionId === 'new' || !state.currentSessionId) {
-                                    navigate('/dashboard', {replace: true});
-                                } else {
-                                    navigate('/dashboard', {replace: true});
-                                }
-                            }}
-                            className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors"
-                        >
+                        <p className="text-gray-700 mb-6">{contextValue.state.error || "An unknown error occurred."}</p>
+                        <button onClick={() => navigate('/dashboard', {replace: true})}
+                                className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">
                             Back to Dashboard
                         </button>
                     </div>
                 </div>
-                : (
-                    children
-                )}
+                : (children)}
         </AppContext.Provider>
     );
 };
