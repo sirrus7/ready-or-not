@@ -163,7 +163,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         let start_capacity = 5000, start_orders = 6250, start_cost = 1200000, start_asp = 1000;
         if (roundNumber > 1) {
             const prevRoundKey = (roundNumber - 1) as 1 | 2;
-            let prevRoundData = teamRoundData[teamId]?.[prevRoundKey];
+            let prevRoundData: TeamRoundData | null = teamRoundData[teamId]?.[prevRoundKey];
             if (!prevRoundData) {
                 const {data: prevDataFromDb} = await supabase.from('team_round_data').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('round_number', prevRoundKey).single();
                 prevRoundData = prevDataFromDb as TeamRoundData | null;
