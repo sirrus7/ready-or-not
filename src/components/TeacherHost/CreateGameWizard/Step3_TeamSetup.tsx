@@ -1,180 +1,193 @@
 // src/components/TeacherHost/CreateGameWizard/Step3_TeamSetup.tsx
-import React, {useState, useEffect} from 'react';
-import {NewGameData, TeamConfig} from '../../../types'; // Assuming TeamConfig is exported or defined in NewGameData
+import React, {useState, useEffect, useCallback} from 'react';
+import {NewGameData, TeamConfig as AppTeamConfig} from '../../../types'; // Ensure path is correct
 import {
     ArrowLeft,
     ArrowRight,
+    Users as UsersIcon,
     Edit2,
+    Check,
     Printer as PrinterIcon,
     Mail,
     Info,
-    Save, RefreshCw
+    RefreshCw,
+    Save
 } from 'lucide-react';
 
-// If TeamConfig is not in CreateGamePage, define it here or in types.ts
-// export interface TeamConfig {
-//   id: number; // Temporary client-side ID for mapping/editing
-//   name: string;
-//   passcode: string;
-// }
+// Internal state for this component can use an 'id' for React keys
+interface LocalTeamConfig extends AppTeamConfig {
+    id: number; // Client-side temporary ID for list mapping and editing state
+}
 
 const generatePasscode = (): string => {
-    // Generates a 4-digit numeric passcode
-    return Math.floor(1000 + Math.random() * 9000).toString();
+    return Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit numeric passcode
 };
 
 interface Step3Props {
     gameData: NewGameData;
-    onDataChange: (field: keyof NewGameData, value: any) => void; // To update teams_config
+    onDataChange: (field: keyof NewGameData, value: AppTeamConfig[]) => void; // Specifically for teams_config
     onNext: (dataFromStep: Partial<NewGameData>) => void;
     onPrevious: () => void;
 }
 
 const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, onPrevious}) => {
-    const [teams, setTeams] = useState<TeamConfig[]>([]);
+    const [localTeams, setLocalTeams] = useState<LocalTeamConfig[]>([]);
     const [editingTeamId, setEditingTeamId] = useState<number | null>(null);
     const [tempTeamName, setTempTeamName] = useState('');
 
+    // Initialize or re-initialize teams when gameData.num_teams changes or gameData.teams_config is different
     useEffect(() => {
-        // Initialize teams based on gameData.num_teams
-        // If teams_config already exists (e.g., navigating back), use that.
-        const existingTeamsConfig = gameData.teams_config;
+        console.log("Step3TeamSetup: useEffect for gameData.num_teams or gameData.teams_config change.", gameData);
         const numTeams = gameData.num_teams || 0;
-        const initialTeams: TeamConfig[] = [];
+        const existingTeamsConfig = gameData.teams_config || [];
+        const newLocalTeams: LocalTeamConfig[] = [];
 
         for (let i = 0; i < numTeams; i++) {
-            initialTeams.push({
-                id: i, // Simple numeric ID for client-side list key and editing
-                name: existingTeamsConfig?.[i]?.name || `Team ${String.fromCharCode(65 + i)}`, // Default to Team A, B, C...
-                passcode: existingTeamsConfig?.[i]?.passcode || generatePasscode(),
+            newLocalTeams.push({
+                id: i,
+                name: existingTeamsConfig[i]?.name || `Team ${String.fromCharCode(65 + i)}`,
+                passcode: existingTeamsConfig[i]?.passcode || generatePasscode(),
             });
         }
-        setTeams(initialTeams);
-        // Update gameData with these initial/retrieved teams if not already set precisely
-        if (!existingTeamsConfig || existingTeamsConfig.length !== numTeams) {
-            onDataChange('teams_config', initialTeams.map(({id, ...rest}) => rest));
-        }
-    }, [gameData.num_teams]); // Rerun if num_teams changes from a previous step correction
+        setLocalTeams(newLocalTeams);
 
-    const handleEditName = (team: TeamConfig) => {
+        // Update parent if the generated/retrieved teams differ from what's in gameData.teams_config
+        // This handles initial setup and cases where num_teams might change after this step was visited.
+        const newAppTeamConfigs = newLocalTeams.map(({id, ...rest}) => rest);
+        if (JSON.stringify(gameData.teams_config) !== JSON.stringify(newAppTeamConfigs)) {
+            console.log("Step3TeamSetup: Updating parent teams_config due to initialization/change.");
+            onDataChange('teams_config', newAppTeamConfigs);
+        }
+    }, [gameData.num_teams]); // Only re-initialize if num_teams changes. gameData.teams_config is for initial load.
+
+    // Effect to update parent if localTeams state changes due to user edits
+    useEffect(() => {
+        // Avoid updating parent during initial setup from gameData.num_teams
+        if (localTeams.length > 0 && localTeams.length === gameData.num_teams) {
+            const appTeamConfigs = localTeams.map(({id, ...rest}) => rest);
+            if (JSON.stringify(gameData.teams_config) !== JSON.stringify(appTeamConfigs)) {
+                console.log("Step3TeamSetup: Local teams changed by user, updating parent teams_config.");
+                onDataChange('teams_config', appTeamConfigs);
+            }
+        }
+    }, [localTeams, gameData.teams_config, gameData.num_teams, onDataChange]);
+
+
+    const handleEditName = (team: LocalTeamConfig) => {
         setEditingTeamId(team.id);
         setTempTeamName(team.name);
     };
 
     const handleSaveName = (teamId: number) => {
-        const updatedTeams = teams.map(t =>
-            t.id === teamId ? {...t, name: tempTeamName.trim() || `Team ${String.fromCharCode(65 + t.id)}`} : t
+        setLocalTeams(prevTeams =>
+            prevTeams.map(t =>
+                t.id === teamId ? {...t, name: tempTeamName.trim() || `Team ${String.fromCharCode(65 + t.id)}`} : t
+            )
         );
-        setTeams(updatedTeams);
-        onDataChange('teams_config', updatedTeams.map(({id, ...rest}) => rest)); // Save to parent state
         setEditingTeamId(null);
     };
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleTempNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setTempTeamName(e.target.value);
     };
 
-    const regeneratePasscode = (teamId: number) => {
-        const updatedTeams = teams.map(t =>
-            t.id === teamId ? {...t, passcode: generatePasscode()} : t
+    const regeneratePasscode = (teamIdToUpdate: number) => {
+        setLocalTeams(prevTeams =>
+            prevTeams.map(t =>
+                t.id === teamIdToUpdate ? {...t, passcode: generatePasscode()} : t
+            )
         );
-        setTeams(updatedTeams);
-        onDataChange('teams_config', updatedTeams.map(({id, ...rest}) => rest));
     };
 
     const printLogins = (multiplePerPage: boolean) => {
-        let printContent = `<style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .login-card { 
-            border: 1px solid #ddd; 
-            padding: 15px; 
-            margin-bottom: 15px; 
-            border-radius: 8px; 
-            page-break-inside: avoid;
-            width: ${multiplePerPage ? 'calc(50% - 10px)' : '100%'};
-            box-sizing: border-box;
-            display: inline-block;
-            vertical-align: top;
-        }
-        .login-card h3 { margin-top: 0; color: #333; }
-        .login-card p { margin: 5px 0; font-size: 0.9em; }
-        .login-card .passcode { font-size: 1.2em; color: #007bff; font-weight: bold; }
-        .qr-placeholder { width: 80px; height: 80px; background-color: #f0f0f0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.7em; color:#888; margin:10px auto; border:1px dashed #ccc;}
-        @media print { 
-            body { margin: 10mm; } 
-            .login-card { box-shadow: none; border: 1px dashed #999; }
-            .no-print { display: none; }
-        }
-        ${multiplePerPage ? '.page-container { display: flex; flex-wrap: wrap; gap: 10px; }' : ''}
-    </style>
-    <h2 class="no-print">Team Login Information (Session ID will be assigned upon game start)</h2>
-    <button class="no-print" onclick="window.print()">Print</button> <hr class="no-print"/>
-    <div class="${multiplePerPage ? 'page-container' : ''}">`;
+        let content = localTeams.map(team => {
+            // Basic QR code placeholder - a real implementation would use a library
+            const qrPlaceholder = `<div style="width:80px; height:80px; background-color: #f0f0f0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.7em; color:#888; margin:10px auto; border:1px dashed #ccc;">QR for Session</div>`;
 
-        teams.forEach(team => {
-            printContent += `
-        <div class="login-card">
-          <h3>Ready or Not Game</h3>
-          <p><strong>Team Name:</strong> ${team.name}</p>
-          <p><strong>Login URL:</strong> [To be provided with Session ID]</p>
-          <div class="qr-placeholder">QR Code <br/>(for Session URL)</div>
-          <p><strong>Team Passcode:</strong> <span class="passcode">${team.passcode}</span></p>
-          <p style="color:red; font-size:0.8em;">Keep your passcode secret!</p>
-        </div>
-      `;
-        });
-        printContent += `</div>`;
+            return `<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; width: ${multiplePerPage ? 'calc(50% - 20px)' : 'calc(100% - 30px)'}; box-sizing: border-box; display: inline-block; vertical-align: top; margin-right: ${multiplePerPage ? '10px' : '0'};">
+                    <h3 style="margin-top: 0; color: #333; font-size: 1.1em;">Ready Or Not Game Login</h3>
+                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Name:</strong> ${team.name}</p>
+                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Login URL/Instructions:</strong> Provided by Facilitator</p>
+                    ${qrPlaceholder}
+                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Passcode:</strong> <span style="font-size: 1.3em; color: #007bff; font-weight: bold;">${team.passcode}</span></p>
+                    <p style="color:red; font-size:0.8em; margin-top: 10px;">Keep your passcode secret within your team!</p>
+                </div>`;
+        }).join(multiplePerPage ? '' : '<div style="page-break-after: always;"></div>');
 
-        const printWindow = window.open('', '_blank');
-        printWindow?.document.write(printContent);
+        if (multiplePerPage) {
+            content = `<div style="display: flex; flex-wrap: wrap; gap: 10px;">${content}</div>`;
+        }
+
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        printWindow?.document.write(`
+        <html><head><title>Team Login Credentials</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            @media print { 
+                body { margin: 10mm; } 
+                .no-print { display: none !important; }
+                .login-card { box-shadow: none !important; border: 1px dashed #999 !important; }
+            }
+        </style>
+        </head><body>
+        <h2 class="no-print">Team Login Information</h2>
+        <p class="no-print"><strong>Important:</strong> The game Session ID and specific Login URL/QR code will be available after the facilitator starts the game session from their control panel.</p>
+        <button class="no-print" onclick="window.print()" style="padding:10px; margin:10px 0; background-color:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">Print This Page</button>
+        <hr class="no-print"/>
+        ${content}
+        </body></html>`);
         printWindow?.document.close();
     };
 
     const emailLogins = () => {
         const subject = `Team Logins for "Ready or Not" Game: ${gameData.name || 'New Game'}`;
-        let body = `Hello,\n\nPlease find the team login details for your upcoming "Ready or Not" session.\nThe Session URL will be provided by the facilitator when the game starts.\n\n`;
-        teams.forEach(team => {
+        let body = `Hello Teams,\n\nPlease find your login details for the "Ready or Not" simulation: ${gameData.name || ''}.\n\n`;
+        body += `The specific Session URL/QR Code will be provided by your facilitator when the game begins.\n\n`;
+        localTeams.forEach(team => {
             body += `-------------------------------------\n`;
             body += `Team Name: ${team.name}\n`;
             body += `Team Passcode: ${team.passcode}\n`;
-            body += `(Scan QR code or use Session URL provided by facilitator)\n`;
             body += `-------------------------------------\n\n`;
         });
-        body += `Remember to keep passcodes secret within your teams!\n\nBest regards,\nFacilitator`;
+        body += `Please keep your passcode secret within your team.\n\nGood luck!\nYour Facilitator`;
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
     return (
         <div className="space-y-6">
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md">
+            <div className="bg-sky-50 border-l-4 border-sky-500 p-4 rounded-md">
                 <div className="flex">
-                    <div className="flex-shrink-0">
-                        <Info className="h-5 w-5 text-blue-700"/>
+                    <div className="flex-shrink-0 pt-0.5">
+                        <Info className="h-5 w-5 text-sky-700"/>
                     </div>
                     <div className="ml-3">
-                        <p className="text-sm text-blue-700">
-                            Below are the teams generated for your game based on <strong
-                            className="font-semibold">{gameData.num_teams} teams</strong>.
-                            You can rename teams if desired. Unique passcodes have been generated for each.
-                            The Session ID and specific Login URL/QR Code will be available once you finalize and start
-                            the game.
+                        <p className="text-sm text-sky-700">
+                            Based on your selection of <strong
+                            className="font-medium">{gameData.num_teams} teams</strong>, initial names and unique
+                            4-digit passcodes have been generated.
+                            You can customize team names below. These credentials will be used by students to log into
+                            their team's interface on their devices.
                         </p>
                     </div>
                 </div>
             </div>
 
+            {localTeams.length === 0 && (
+                <p className="text-gray-500 text-center py-4">No teams to display. Please set the number of teams in
+                    Step 1.</p>
+            )}
 
             <div
                 className="space-y-3 max-h-72 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 border rounded-lg p-3 bg-white">
-                {teams.map((team) => (
+                {localTeams.map((team) => (
                     <div key={team.id}
-                         className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
+                         className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex-grow mr-2">
                             {editingTeamId === team.id ? (
                                 <input
                                     type="text"
                                     value={tempTeamName}
-                                    onChange={handleInputChange}
+                                    onChange={handleTempNameChange}
                                     onBlur={() => handleSaveName(team.id)}
                                     onKeyPress={(e) => e.key === 'Enter' && handleSaveName(team.id)}
                                     className="w-full text-sm font-medium text-gray-800 border-blue-500 border px-2 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -206,26 +219,25 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
                 ))}
             </div>
 
-            <div className="mt-4 pt-4 border-t">
+            <div className="mt-4 pt-4 border-t border-gray-200">
                 <h4 className="text-sm font-medium text-gray-600 mb-2">Distribute Login Credentials:</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <button onClick={() => printLogins(false)}
-                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm">
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
                         <PrinterIcon size={16}/> Print (1 per Page)
                     </button>
                     <button onClick={() => printLogins(true)}
-                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm">
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
                         <PrinterIcon size={16}/> Print (Multiple/Page)
                     </button>
                     <button onClick={emailLogins}
-                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm">
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
                         <Mail size={16}/> Compose Email
                     </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">The actual Session ID and login URL/QR code will be generated
-                    and available after you finalize and start the game.</p>
+                <p className="text-xs text-gray-500 mt-2">The Session ID and specific Login URL/QR code will be
+                    available once the game is finalized and started from the main control panel.</p>
             </div>
-
 
             <div className="mt-8 flex justify-between">
                 <button
@@ -237,8 +249,7 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
                 </button>
                 <button
                     type="button"
-                    // Data is updated in onDataChange, so just call onNext
-                    onClick={() => onNext(gameData)} // Ensure gameData is passed if it was modified here
+                    onClick={() => onNext(gameData)} // Pass the current gameData which includes updated teams_config
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
                     Next: Room Setup <ArrowRight size={18}/>
