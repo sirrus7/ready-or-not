@@ -4,7 +4,36 @@ import { useAppContext } from '../../context/AppContext';
 import GamePhaseNodeButton from './GamePhaseNodeButton';
 import { GamePhaseNode, GameRound } from '../../types';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { ArcherContainer, ArcherElement, Relation } from 'react-archer';
+import { ArcherContainer, ArcherElement } from 'react-archer';
+
+// react-archer's internal RelationType often expects these for anchors in its stricter type defs
+type ArcherAnchorPosition = 'top' | 'bottom' | 'left' | 'right' | 'middle';
+
+interface ArcherRelationStyle {
+    strokeColor?: string;
+    strokeWidth?: number;
+    strokeDasharray?: string;
+    endMarker?: boolean;
+    endShape?: {
+        triangle?: {
+            arrowLength?: number;
+            arrowThickness?: number;
+            fillColor?: string; // Added for completeness
+            strokeColor?: string; // Added for completeness
+            strokeWidth?: number; // Added for completeness
+        };
+        // Other shapes like circle, etc. can be added here
+    };
+    // Add other style properties if react-archer supports them
+}
+interface CustomArcherRelation {
+    targetId: string;
+    sourceAnchor: ArcherAnchorPosition | { anchor: ArcherAnchorPosition; offset: { x?: number; y?: number; }; };
+    targetAnchor: ArcherAnchorPosition | { anchor: ArcherAnchorPosition; offset: { x?: number; y?: number; }; };
+    style?: ArcherRelationStyle;
+    label?: React.ReactNode;
+}
+
 
 const GameJourneyMap: React.FC = () => {
     const { state, selectPhase } = useAppContext();
@@ -77,33 +106,63 @@ const GameJourneyMap: React.FC = () => {
                                 (currentGlobalPhaseIndex > -1 && overallPhaseIndex === currentGlobalPhaseIndex + 1) ||
                                 (currentGlobalPhaseIndex === -1 && overallPhaseIndex === 0);
 
-                            const relations: Relation[] = [];
+                            const relations: CustomArcherRelation[] = [];
                             const nextPhaseOverallIndex = overallPhaseIndex + 1;
                             const nextPhaseOverall = nextPhaseOverallIndex < allPhasesInOrder.length ? allPhasesInOrder[nextPhaseOverallIndex] : null;
 
                             const connectorIsActive = isCompleted || isCurrent || (nextPhaseOverall && nextPhaseOverall.id === currentPhaseId);
-                            const strokeColor = connectorIsActive ? '#3b82f6' : '#9ca3af'; // blue-500 or gray-400
-                            const arrowStrokeWidth = 2;
+                            const strokeColor = connectorIsActive ? '#3b82f6' : '#9ca3af';
+                            const arrowStrokeWidth = 1.5;
 
-                            // Horizontal arrow to next node in the same row
+                            const commonRelationStyle: ArcherRelationStyle = { // Use ArcherRelationStyle type
+                                strokeColor,
+                                strokeWidth: arrowStrokeWidth,
+                                endMarker: true,
+                                endShape: {
+                                    triangle: {
+                                        arrowLength: 7,
+                                        arrowThickness: 5,
+                                    }
+                                }
+                            };
+
+                            // Horizontal arrow
                             if (phaseIndexInRow < row.length - 1 && nextPhaseOverall) {
                                 const nextNodeInRowId = row[phaseIndexInRow + 1].id;
                                 relations.push({
                                     targetId: `phase-node-${nextNodeInRowId}`,
                                     sourceAnchor: rowIndex % 2 === 1 ? 'left' : 'right',
                                     targetAnchor: rowIndex % 2 === 1 ? 'right' : 'left',
-                                    style: { strokeColor, strokeWidth: arrowStrokeWidth },
+                                    style: { ...commonRelationStyle },
                                 });
                             }
-                            // Arrow to the first node of the next row (wrapping arrow)
+                            // Wrapping arrow
                             else if (phaseIndexInRow === row.length - 1 && rowIndex < rows.length - 1 && nextPhaseOverall) {
-                                const firstNodeNextRowId = rows[rowIndex + 1][0].id;
-                                relations.push({
-                                    targetId: `phase-node-${firstNodeNextRowId}`,
-                                    sourceAnchor: 'bottom',
-                                    targetAnchor: rowIndex % 2 === 0 ? 'left' : 'right',
-                                    style: { strokeColor, strokeWidth: arrowStrokeWidth },
-                                });
+                                const firstNodeNextRow = rows[rowIndex + 1][0];
+                                if (firstNodeNextRow) {
+                                    // Use offsets to simulate corner anchors if direct corner strings aren't type-safe
+                                    let sourceAnchorConfig: CustomArcherRelation['sourceAnchor'];
+                                    let targetAnchorConfig: CustomArcherRelation['targetAnchor'];
+
+                                    if (rowIndex % 2 === 0) { // Current row is LTR, next row will be RTL
+                                        // Exit from bottom-right of current node
+                                        sourceAnchorConfig = { anchor: 'bottom', offset: { x: 15 } }; // Positive x for right
+                                        // Enter from right of next node
+                                        targetAnchorConfig = { anchor: 'right', offset: { y: -15 }}; // Negative y for top part of right side
+                                    } else { // Current row is RTL, next row will be LTR
+                                        // Exit from bottom-left of current node
+                                        sourceAnchorConfig = { anchor: 'bottom', offset: { x: -15 } }; // Negative x for left
+                                        // Enter from left of next node
+                                        targetAnchorConfig = { anchor: 'left', offset: {y: -15 }};  // Negative y for top part of left side
+                                    }
+
+                                    relations.push({
+                                        targetId: `phase-node-${firstNodeNextRow.id}`,
+                                        sourceAnchor: sourceAnchorConfig,
+                                        targetAnchor: targetAnchorConfig,
+                                        style: { ...commonRelationStyle },
+                                    });
+                                }
                             }
 
                             return (
@@ -121,7 +180,7 @@ const GameJourneyMap: React.FC = () => {
                                             />
                                         </div>
                                     </ArcherElement>
-                                    {phaseIndexInRow < row.length - 1 && ( // Check against actual row length
+                                    {phaseIndexInRow < row.length - 1 && (
                                         <div className="w-6 md:w-8 flex-shrink-0"></div>
                                     )}
                                 </React.Fragment>
@@ -189,18 +248,11 @@ const GameJourneyMap: React.FC = () => {
 
     return (
         <ArcherContainer
-            strokeColor="#9ca3af"
-            arrowLength={8}      // Default length of the arrowhead lines
-            arrowThickness={1}   // Default thickness of the arrowhead lines (base width)
-            strokeWidth={2}      // Default thickness of the arrow shaft
-            endShape={{
-                triangle: {
-                    arrowLength: 6,    // Custom length for the arrowhead lines
-                    arrowThickness: 4, // Custom thickness (base width) for the arrowhead
-                },
-            }} // Added closing curly brace
-            lineStyle="curve"
-            offset={2}
+            strokeColor="#9ca3af" // Default line color
+            strokeWidth={1.5}    // Default line thickness
+            // Removed arrowLength and arrowThickness from here
+            lineStyle="angle"
+            offset={3}
         >
             <div className="bg-gray-50 p-3 rounded-lg shadow-inner h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <h2 className="text-lg font-semibold text-gray-700 mb-3 px-1">Game Journey</h2>
@@ -218,15 +270,23 @@ const GameJourneyMap: React.FC = () => {
                                 (currentGlobalPhaseIndex > -1 && overallPhaseIndex === currentGlobalPhaseIndex + 1) ||
                                 (currentGlobalPhaseIndex === -1 && overallPhaseIndex === 0);
 
-                            const relations: Relation[] = [];
+                            const relationsArray: CustomArcherRelation[] = [];
+
                             if (index < welcomePhases.length - 1) {
                                 const nextPhase = welcomePhases[index+1];
                                 const connectorIsActive = isCompleted || isCurrent || (nextPhase && nextPhase.id === currentPhaseId);
-                                relations.push({
+                                relationsArray.push({
                                     targetId: `phase-node-${nextPhase.id}`,
                                     sourceAnchor: 'right',
                                     targetAnchor: 'left',
-                                    style: { strokeColor: connectorIsActive ? '#3b82f6' : '#9ca3af', strokeWidth: 2 },
+                                    style: {
+                                        strokeColor: connectorIsActive ? '#3b82f6' : '#9ca3af',
+                                        strokeWidth: 1.5,
+                                        endMarker: true,
+                                        endShape: {
+                                            triangle: { arrowLength: 7, arrowThickness: 5 }
+                                        }
+                                    },
                                 });
                             }
 
@@ -234,7 +294,7 @@ const GameJourneyMap: React.FC = () => {
                                 <React.Fragment key={phase.id}>
                                     <ArcherElement
                                         id={`phase-node-${phase.id}`}
-                                        relations={relations}
+                                        relations={relationsArray}
                                     >
                                         <div className="w-28 h-24 flex-shrink-0 m-1">
                                             <GamePhaseNodeButton
