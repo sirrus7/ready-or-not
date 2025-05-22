@@ -4,12 +4,12 @@ import { GamePhaseNode } from '../../../types';
 export const round1Phases: GamePhaseNode[] = [
     {
         id: 'rd1-invest',
-        label: "RD-1 INVEST",
-        sub_label: "Years 1&2",
+        label: "INVEST",
+        sub_label: "15 Minutes",
         icon_name: 'DollarSign',
         phase_type: 'invest',
         round_number: 1,
-        slide_ids: [6, 8, 9, 10],
+        slide_ids: [6, 7, 8, 9],
         is_interactive_student_phase: true,
         expected_duration_minutes: 20
     },
@@ -26,8 +26,8 @@ export const round1Phases: GamePhaseNode[] = [
     },
     {
         id: 'ch1-conseq',
-        label: "CONSEQ.",
-        sub_label: "CH1",
+        label: "CHOICE 1",
+        sub_label: "Impact",
         icon_name: 'AlertTriangle',
         phase_type: 'consequence',
         round_number: 1,
@@ -48,8 +48,8 @@ export const round1Phases: GamePhaseNode[] = [
     },
     {
         id: 'ch2-conseq',
-        label: "CONSEQ.",
-        sub_label: "CH2",
+        label: "CHOICE 2.",
+        sub_label: "Impact",
         icon_name: 'AlertTriangle',
         phase_type: 'consequence',
         round_number: 1,
@@ -70,8 +70,8 @@ export const round1Phases: GamePhaseNode[] = [
     },
     {
         id: 'ch3-conseq',
-        label: "CONSEQ.",
-        sub_label: "CH3",
+        label: "CHOICE 3.",
+        sub_label: "Impact",
         icon_name: 'AlertTriangle',
         phase_type: 'consequence',
         round_number: 1,
@@ -81,7 +81,7 @@ export const round1Phases: GamePhaseNode[] = [
     },
     {
         id: 'rd1-payoff',
-        label: "RD-1 PAYOFF",
+        label: "PAYOFF",
         icon_name: 'TrendingUp',
         phase_type: 'payoff',
         round_number: 1,
@@ -91,7 +91,7 @@ export const round1Phases: GamePhaseNode[] = [
     },
     {
         id: 'rd1-kpi',
-        label: "RD-1 KPIs",
+        label: "KPIs",
         icon_name: 'BarChart3',
         phase_type: 'kpi',
         round_number: 1,
