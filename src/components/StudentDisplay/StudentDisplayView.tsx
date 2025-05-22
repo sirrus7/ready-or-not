@@ -11,6 +11,7 @@ interface StudentDisplayViewProps {
     triggerSeekEvent?: boolean;
     isForTeacherPreview?: boolean;
     onPreviewVideoStateChange?: (playing: boolean, time: number, triggerSeek?: boolean) => void;
+    onPreviewVideoDuration?: (duration: number) => void;
 }
 
 const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
@@ -20,6 +21,7 @@ const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
                                                                    triggerSeekEvent,
                                                                    isForTeacherPreview = false,
                                                                    onPreviewVideoStateChange,
+                                                                   onPreviewVideoDuration,
                                                                }) => {
     if (!slide) {
         return (
@@ -40,6 +42,7 @@ const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
                 triggerSeekEvent={triggerSeekEvent}
                 isForTeacherPreview={isForTeacherPreview}
                 onPreviewVideoStateChange={onPreviewVideoStateChange}
+                onPreviewVideoDuration={onPreviewVideoDuration}
             />
         </div>
     );

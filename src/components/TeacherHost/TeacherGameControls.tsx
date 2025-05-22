@@ -7,16 +7,16 @@ import {
     Pause,
     Users,
     QrCode,
-    Save, // Kept for potential future use (e.g. explicit manual save)
     Trophy,
     FileText,
-    ExternalLink, // For launching student display
+    ExternalLink,
     Lightbulb,
-    ClipboardList
+    LogOut // NEW: Icon for Exit Game
 } from 'lucide-react';
 import {useAppContext} from '../../context/AppContext';
 import Modal from '../UI/Modal';
-import {openStudentDisplay} from '../../utils/windowUtils'; // For launching student display
+import {openStudentDisplay} from '../../utils/windowUtils';
+import {useNavigate} from 'react-router-dom';
 
 const TeacherGameControls: React.FC = () => {
     const {
@@ -24,24 +24,28 @@ const TeacherGameControls: React.FC = () => {
         previousSlide,
         nextSlide,
         togglePlayPauseVideo,
-        updateTeacherNotes,
+        // updateTeacherNotes, // Renamed in AppContext to updateTeacherNotesForCurrentSlide
+        updateTeacherNotesForCurrentSlide,
         currentSlideData,
-        currentPhase,
+        currentPhaseNode, // Changed from currentPhase
         clearTeacherAlert,
         setStudentWindowOpen,
-        selectPhase, // To jump to leaderboard phase
-        allPhasesInOrder, // To find leaderboard phases
+        selectPhase,
+        allPhasesInOrder,
     } = useAppContext();
 
+    const navigate = useNavigate(); // NEW: Hook for navigation
     const [showNotes, setShowNotes] = useState(false);
     const [isJoinInfoModalOpen, setIsJoinInfoModalOpen] = useState(false);
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
+    const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false); // NEW: State for exit confirmation
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
     const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         if (currentSlideData) {
-            updateTeacherNotes(currentSlideData.id, e.target.value);
+            // Use the correctly named function from context
+            updateTeacherNotesForCurrentSlide(e.target.value);
         }
     };
 
@@ -49,7 +53,6 @@ const TeacherGameControls: React.FC = () => {
         const studentWindow = openStudentDisplay(state.currentSessionId);
         if (studentWindow) {
             setStudentWindowOpen(true);
-            // Monitor if window is closed (optional, could be in GameHostPage or AppContext)
             const checkIfClosed = setInterval(() => {
                 if (studentWindow.closed) {
                     clearInterval(checkIfClosed);
@@ -68,14 +71,15 @@ const TeacherGameControls: React.FC = () => {
     const closeTeamCodesModal = () => setIsTeamCodesModalOpen(false);
 
     const showCurrentRoundLeaderboard = () => {
-        if (currentPhase && currentPhase.round_number > 0) {
-            const leaderboardPhaseId = `rd${currentPhase.round_number}-leaderboard`;
+        // Use currentPhaseNode from context
+        if (currentPhaseNode && currentPhaseNode.round_number > 0) {
+            const leaderboardPhaseId = `rd${currentPhaseNode.round_number}-leaderboard`;
             if (allPhasesInOrder.find(p => p.id === leaderboardPhaseId)) {
                 selectPhase(leaderboardPhaseId);
             } else {
                 alert("Leaderboard for the current round is not yet available or configured.");
             }
-        } else if (currentPhase?.phase_type === 'game-end') {
+        } else if (currentPhaseNode?.phase_type === 'game-end') {
             const finalLeaderboardPhase = allPhasesInOrder.find(p => p.id === 'final-leaderboard');
             if (finalLeaderboardPhase) selectPhase(finalLeaderboardPhase.id);
         } else {
@@ -83,12 +87,37 @@ const TeacherGameControls: React.FC = () => {
         }
     };
 
-    const currentNotes = currentSlideData ? state.teacherNotes[currentSlideData.id] || '' : '';
-    const studentAppBaseUrl = `${window.location.origin}/play`;
+    // NEW: Handlers for Exit Game
+    const handleExitGameClick = () => {
+        setIsExitConfirmModalOpen(true);
+    };
 
-    const isFirstSlideOverall = currentPhase?.id === state.gameStructure?.welcome_phases[0]?.id && state.currentSlideIdInPhase === 0;
-    const lastGamePhase = state.gameStructure?.game_end_phases[state.gameStructure?.game_end_phases.length - 1];
-    const isLastSlideOverall = currentPhase?.id === lastGamePhase?.id && state.currentSlideIdInPhase === (lastGamePhase?.slide_ids.length ?? 0) - 1;
+    const confirmExitGame = () => {
+        setIsExitConfirmModalOpen(false);
+        // Here you might want to do cleanup or save final state if necessary,
+        // though current game state should be persisted via updateSessionInDb.
+        // For now, just navigate.
+        navigate('/dashboard');
+    };
+
+    const currentNotes = currentSlideData ? state.teacherNotes[String(currentSlideData.id)] || '' : '';
+    const studentAppBaseUrl = `${window.location.origin}/student-game`; // Corrected path
+
+    const isFirstSlideOverall = currentPhaseNode?.id === state.gameStructure?.welcome_phases[0]?.id && state.currentSlideIdInPhase === 0;
+
+    const lastMainGamePhase = state.gameStructure?.rounds.flatMap(r => r.phases).slice(-1)[0] || state.gameStructure?.welcome_phases.slice(-1)[0];
+    const gameEndPhaseIds = state.gameStructure?.game_end_phases.map(p => p.id) || [];
+
+    let isLastSlideOverall = false;
+    if (currentPhaseNode && state.gameStructure) {
+        if (gameEndPhaseIds.includes(currentPhaseNode.id)) {
+            const lastGameEndPhase = state.gameStructure.game_end_phases[state.gameStructure.game_end_phases.length - 1];
+            if (currentPhaseNode.id === lastGameEndPhase.id && state.currentSlideIdInPhase === (lastGameEndPhase.slide_ids.length - 1)) {
+                isLastSlideOverall = true;
+            }
+        }
+    }
+
 
     return (
         <div className="bg-white p-3 md:p-4 rounded-lg shadow-md border border-gray-200">
@@ -106,9 +135,9 @@ const TeacherGameControls: React.FC = () => {
 
                     <button
                         onClick={togglePlayPauseVideo}
-                        disabled={currentSlideData?.type !== 'video' || !!state.currentTeacherAlert}
+                        disabled={(currentSlideData?.type !== 'video' && !(currentSlideData?.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))) || !!state.currentTeacherAlert}
                         className={`p-3 rounded-lg text-white shadow transition-colors
-                        ${currentSlideData?.type !== 'video' || !!state.currentTeacherAlert
+                        ${(currentSlideData?.type !== 'video' && !(currentSlideData?.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))) || !!state.currentTeacherAlert
                             ? 'bg-gray-400 cursor-not-allowed'
                             : state.isPlaying ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-500 hover:bg-green-600'
                         }`}
@@ -125,6 +154,7 @@ const TeacherGameControls: React.FC = () => {
                     >
                         <ChevronRight size={24}/>
                     </button>
+                    ,
                 </div>
 
                 <button
@@ -170,12 +200,16 @@ const TeacherGameControls: React.FC = () => {
                 >
                     <FileText size={16}/> Notes
                 </button>
-                {/* <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300" aria-label="Save Game">
-          <Save size={16} /> Save Game (Auto)
-        </button> */}
+                {/* NEW: Exit Game Button */}
+                <button
+                    onClick={handleExitGameClick}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-red-100 text-red-600 transition-colors border border-red-300"
+                    aria-label="Exit Game"
+                >
+                    <LogOut size={16}/> Exit Game
+                </button>
             </div>
 
-            {/* Teacher Notes Area */}
             {showNotes && (
                 <div className="mt-3 border-t border-gray-200 pt-3">
                     <label htmlFor="teacherNotes" className="block text-xs font-medium text-gray-500 mb-1">
@@ -194,10 +228,10 @@ const TeacherGameControls: React.FC = () => {
                 </div>
             )}
 
-            {/* Modals (content defined in previous explanations) */}
             {state.currentTeacherAlert && (
                 <Modal isOpen={!!state.currentTeacherAlert} onClose={clearTeacherAlert}
-                       title={state.currentTeacherAlert.title || "Game Host Alert!"} hideCloseButton={true}>
+                       title={state.currentTeacherAlert.title || "Game Host Alert!"}
+                       hideCloseButton={false} /* Allow closing normally now */ >
                     <div className="p-1">
                         <div className="flex items-start">
                             <div
@@ -229,10 +263,10 @@ const TeacherGameControls: React.FC = () => {
                     </div>
                     {state.currentSessionId && (
                         <div className="flex justify-center my-4">
-                            {/* Placeholder for QR Code component - e.g., using qrcode.react */}
                             <div
                                 className="w-40 h-40 bg-gray-200 flex items-center justify-center text-gray-500 text-xs p-2">
-                                [QR Code for: {`${studentAppBaseUrl}/${state.currentSessionId}`}]
+                                {/* Consider adding a QR code library here if needed */}
+                                [QR Code for student join link]
                             </div>
                         </div>
                     )}
@@ -263,6 +297,39 @@ const TeacherGameControls: React.FC = () => {
                     <div className="mt-4 text-right">
                         <button onClick={closeTeamCodesModal}
                                 className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition">Close
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* NEW: Exit Game Confirmation Modal */}
+            <Modal
+                isOpen={isExitConfirmModalOpen}
+                onClose={() => setIsExitConfirmModalOpen(false)}
+                title="Confirm Exit Game"
+                size="sm"
+            >
+                <div className="p-1">
+                    <p className="text-sm text-gray-700">
+                        Are you sure you want to exit this game session and return to the dashboard?
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Your current game progress is saved.
+                    </p>
+                    <div className="mt-5 sm:mt-6 flex flex-row-reverse gap-3">
+                        <button
+                            type="button"
+                            className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm w-full sm:w-auto"
+                            onClick={confirmExitGame}
+                        >
+                            Yes, Exit Game
+                        </button>
+                        <button
+                            type="button"
+                            className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm w-full sm:w-auto"
+                            onClick={() => setIsExitConfirmModalOpen(false)}
+                        >
+                            Cancel
                         </button>
                     </div>
                 </div>

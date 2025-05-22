@@ -1,292 +1,276 @@
 // src/types/index.ts
+// (Assuming this file is mostly complete from your previous provision.
+// Ensure KpiEffect, InvestmentOption, ChallengeOption, Consequence, InvestmentPayoff are robust enough
+// for the details in your spreadsheets. For example, descriptions in InvestmentOption might be useful.)
 
-import { User as SupabaseUser } from '@supabase/supabase-js';
+import {User as SupabaseUser} from '@supabase/supabase-js';
 
 // --- User & Authentication ---
 export type User = SupabaseUser;
 
 // --- Core Game Entities ---
 export interface GameSession {
-  id: string; // Unique UUID from Supabase
-  teacher_id: string; // FK to Supabase auth.users
-  name: string; // e.g., "Justin's Test"
-  game_version: '2.0_dd' | '1.5_dd'; // Version of the game being played
-  class_name?: string | null; // e.g., "Math" - Make nullable if DB column allows NULL
-  grade_level?: string | null; // e.g., "Freshman" - Make nullable if DB column allows NULL
-  current_phase_id: string | null; // ID of the current GamePhaseNode
-  current_slide_id_in_phase: number | null; // Index within the phase's slide_ids array
-  is_playing: boolean; // Is the game actively being presented (vs. paused)
-  is_complete: boolean;
-  teacher_notes: Record<number, string> | null; // Store notes as { slideId: "note text" }, or null from DB
-  created_at: string;
-  updated_at: string;
-  // Add any other columns from your 'sessions' table you might use, like num_players, num_teams if you added them
-  // num_players?: number | null;
-  // num_teams_configured?: number | null;
+    id: string;
+    teacher_id: string;
+    name: string;
+    game_version: '2.0_dd' | '1.5_dd';
+    class_name?: string | null;
+    grade_level?: string | null;
+    current_phase_id: string | null;
+    current_slide_id_in_phase: number | null;
+    is_playing: boolean;
+    is_complete: boolean;
+    teacher_notes: Record<string, string> | null; // Changed key to string for slideId
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Team {
-  id: string; // Unique UUID from Supabase
-  session_id: string; // FK to GameSession
-  name: string; // e.g., "Crane", "Willow"
-  passcode: string; // Simple numeric code for team login
-  // Add other team-specific persistent data if needed
+    id: string;
+    session_id: string;
+    name: string;
+    passcode: string;
 }
 
 // --- Key Performance Indicators (KPIs) ---
 export interface KPIs {
-  capacity: number;
-  orders: number;
-  cost: number; // Store as a whole number, e.g., 1200000 for $1.2M
-  asp: number; // Average Selling Price, store as whole number, e.g., 1000 for $1,000
+    capacity: number;
+    orders: number;
+    cost: number;
+    asp: number;
 }
 
 export interface TeamRoundData {
-  id: string; // Unique UUID
-  session_id: string;
-  team_id: string;
-  round_number: 1 | 2 | 3;
-  // Starting KPIs for this round (after permanent adjustments)
-  start_capacity: number;
-  start_orders: number;
-  start_cost: number;
-  start_asp: number;
-  // Current KPIs for this round (updated by decisions within the round)
-  current_capacity: number;
-  current_orders: number;
-  current_cost: number;
-  current_asp: number;
-  // Calculated at end of round
-  revenue?: number;
-  net_margin?: number; // Store as percentage, e.g., 0.04 for 4%
-  net_income?: number;
+    id: string;
+    session_id: string;
+    team_id: string;
+    round_number: 1 | 2 | 3;
+    start_capacity: number;
+    current_capacity: number;
+    start_orders: number;
+    current_orders: number;
+    start_cost: number;
+    current_cost: number;
+    start_asp: number;
+    current_asp: number;
+    revenue: number; // Changed from optional
+    net_margin: number; // Changed from optional
+    net_income: number; // Changed from optional
+    // Optional: Store raw investment/choice costs for the round if needed for detailed reports
+    round_investment_spend?: number;
+    round_event_spend?: number;
 }
 
 // --- Decisions & Options ---
 export interface InvestmentOption {
-  id: string; // e.g., "biz_growth_rd1"
-  name: string; // e.g., "1. Biz Growth"
-  cost: number;
-  description?: string;
+    id: string;
+    name: string;
+    cost: number;
+    description?: string; // Added for clarity on student app
 }
 
 export interface ChallengeOption {
-  id: string; // e.g., "A", "B", "C", "D"
-  text: string;
-  estimated_cost?: number; // Can be positive or negative (savings)
-  immediate_kpi_impact_preview?: string; // e.g., "-250 CAP, +$50K COSTS"
-  is_default_choice?: boolean; // For auto-submission on timeout
+    id: string;
+    text: string;
+    estimated_cost?: number;
+    immediate_kpi_impact_preview?: string;
+    is_default_choice?: boolean;
 }
 
 export interface DoubleDownChoice {
-  investmentToSacrificeId: string | null; // ID of RD-3 investment chosen to remove
-  investmentToDoubleDownId: string | null; // ID of RD-3 investment chosen to double
+    investmentToSacrificeId: string | null;
+    investmentToDoubleDownId: string | null;
 }
 
 export interface TeamDecision {
-  id: string; // Unique UUID
-  session_id: string;
-  team_id: string;
-  phase_id: string; // e.g., "rd1-invest", "ch1", "double-down"
-  round_number: 1 | 2 | 3;
-  selected_investment_ids?: string[]; // For investment phases
-  selected_challenge_option_id?: string; // For choice phases
-  double_down_decision?: DoubleDownChoice; // For double down phase
-  total_spent_budget?: number; // For investment phases
-  submitted_at: string;
+    id: string;
+    session_id: string;
+    team_id: string;
+    phase_id: string;
+    round_number: 0 | 1 | 2 | 3; // round 0 for pre-game if any decisions made there
+    selected_investment_ids?: string[];
+    selected_challenge_option_id?: string;
+    double_down_decision?: DoubleDownChoice;
+    total_spent_budget?: number;
+    submitted_at: string;
 }
 
-// --- Game Creation Wizard Specific Types ---
 export interface TeamConfig {
-  name: string;
-  passcode: string;
+    name: string;
+    passcode: string;
 }
 
 export interface NewGameData {
-  game_version: '2.0_dd' | '1.5_dd';
-  name: string;
-  class_name: string;
-  grade_level: string;
-  num_players: number;
-  num_teams: number;
-  teams_config?: TeamConfig[]; // Array of team configurations
+    game_version: '2.0_dd' | '1.5_dd';
+    name: string;
+    class_name: string;
+    grade_level: string;
+    num_players: number;
+    num_teams: number;
+    teams_config?: TeamConfig[];
 }
 
-// --- Consequences & Payoffs ---
 export type KpiKey = 'capacity' | 'orders' | 'cost' | 'asp' | 'revenue' | 'net_margin' | 'net_income';
 
 export interface KpiEffect {
-  kpi: KpiKey;
-  change_value: number; // Amount to change by (can be negative)
-  is_percentage_change?: boolean; // If true, change_value is a percentage (e.g., 0.05 for +5%)
-  timing: 'immediate' | 'permanent_next_round_start' | 'end_of_round_adjustment';
-  description?: string; // For tracking permanent effects e.g., "CNC Machine Bonus"
-  applies_to_rounds?: (1 | 2 | 3)[]; // For permanent effects that apply to specific future rounds
+    kpi: KpiKey;
+    change_value: number;
+    is_percentage_change?: boolean;
+    timing: 'immediate' | 'permanent_next_round_start' | 'end_of_round_adjustment';
+    description?: string;
+    applies_to_rounds?: (1 | 2 | 3)[];
 }
 
 export interface PermanentKpiAdjustment {
-  id?: string; // Optional: if you want to give it a DB ID
-  session_id: string;
-  team_id: string;
-  applies_to_round_start: 1 | 2 | 3;
-  kpi_key: KpiKey;
-  change_value: number;
-  is_percentage?: boolean; // Match KpiEffect
-  description?: string;
+    id?: string;
+    session_id: string;
+    team_id: string;
+    applies_to_round_start: 1 | 2 | 3;
+    kpi_key: KpiKey;
+    change_value: number;
+    is_percentage?: boolean;
+    description?: string;
 }
 
 export interface Consequence {
-  id: string; // e.g., "ch1_consequence_a"
-  challenge_option_id: string; // Links to the specific option chosen
-  narrative_text: string;
-  effects: KpiEffect[];
-  teacher_alert?: string; // For facilitator desk interactions
-  student_notification?: string; // Message for the student app
-  impact_card_image_url?: string; // If there's a visual "card"
+    id: string;
+    challenge_option_id: string;
+    narrative_text: string;
+    effects: KpiEffect[];
+    teacher_alert?: string;
+    student_notification?: string;
+    impact_card_image_url?: string;
+    details?: string[]; // Added for consequence slides
 }
 
 export interface InvestmentPayoff {
-  id: string; // e.g., "rd1_payoff_biz_growth"
-  investment_option_id: string; // Links to the investment option
-  name: string; // e.g., "#1 Business Growth Strategy"
-  effects: KpiEffect[];
+    id: string;
+    investment_option_id: string;
+    name: string;
+    effects: KpiEffect[];
 }
 
 export interface DoubleDownPayoffRollResult {
-  dice_roll: number; // 2-12
-  percentage_boost: number; // e.g., 0, 25, 75, 100, 125
-  description: string; // e.g., "2-0% Boost", "9-12=100% Increase"
+    dice_roll: number;
+    percentage_boost: number;
+    description: string;
 }
 
-// --- Slide & Game Flow Structure ---
 export type SlideType =
-    | 'image' // Simple image display
-    | 'video' // Plays a video
-    | 'content_page' // Static text, lists, titles
-    | 'interactive_invest' // Prompts student app for investment decisions
-    | 'interactive_choice' // Prompts student app for A/B/C/D choice
-    | 'interactive_double_down_prompt' // Prompts student: "Do you want to double down?"
-    | 'interactive_double_down_select' // Student selects which investments to double down/sacrifice
-    | 'consequence_reveal' // Shows consequence for a specific team choice (teacher navigates to the right one)
-    | 'payoff_reveal' // Shows payoff for a specific investment (teacher navigates)
-    | 'double_down_dice_roll' // Animation/display of dice roll
-    | 'kpi_summary_instructional' // E.g., "CFO record your KPIs"
-    | 'leaderboard_chart' // Displays a specific leaderboard chart
+    | 'image'
+    | 'video'
+    | 'content_page'
+    | 'interactive_invest'
+    | 'interactive_choice'
+    | 'interactive_double_down_prompt'
+    | 'interactive_double_down_select'
+    | 'consequence_reveal'
+    | 'payoff_reveal'
+    | 'double_down_dice_roll'
+    | 'kpi_summary_instructional'
+    | 'leaderboard_chart'
     | 'game_end_summary';
 
 export interface Slide {
-  id: number; // Unique within the entire game's slide deck
-  title?: string; // Optional title displayed on the slide itself or for teacher reference
-  phase_id?: string; // Which GamePhaseNode this slide belongs to
-  type: SlideType;
-  source_url?: string; // URL for image or video
-  main_text?: string; // Primary text content for content_page or titles
-  sub_text?: string; // Secondary text
-  bullet_points?: string[];
-  background_css?: string;
-  // For interactive slides, this signals the student app what to display/do
-  interactive_data_key?: string; // e.g., "rd1_invest_options", "ch1_options" to fetch decision options
-  timer_duration_seconds?: number; // For timed student interactions shown ON THIS SLIDE.
-                                   // If video has timer, this might not be needed for that slide.
-  auto_advance_after_video?: boolean; // If true, move to next slide after video ends
-  teacher_alert?: {
-    title: string;
-    message: string;
-  };
+    id: number;
+    title?: string;
+    phase_id?: string;
+    type: SlideType;
+    source_url?: string;
+    main_text?: string;
+    sub_text?: string;
+    bullet_points?: string[];
+    background_css?: string;
+    interactive_data_key?: string;
+    timer_duration_seconds?: number;
+    auto_advance_after_video?: boolean;
+    teacher_alert?: {
+        title: string;
+        message: string;
+    };
+    details?: string[]; // For consequence/payoff reveal slides
 }
 
 export interface GamePhaseNode {
-  id: string; // e.g., "welcome", "rd1-invest", "ch1", "ch1-consequences", "rd1-payoffs"
-  label: string; // Text on the Journey Map button (e.g., "RD-1 INVEST")
-  sub_label?: string; // e.g., "15M" or "Years 1 & 2"
-  icon_name: string; // Lucide icon name (as string)
-  phase_type: 'welcome' | 'setup' | 'narration' | 'invest' | 'choice' | 'consequence' | 'payoff' | 'double-down-prompt' | 'double-down-select' | 'double-down-payoff' | 'kpi' | 'leaderboard' | 'game-end';
-  round_number: 0 | 1 | 2 | 3; // 0 for pre-game/welcome
-  slide_ids: number[]; // Sequence of slide IDs that make up this phase
-  is_interactive_student_phase: boolean; // True if students make decisions on their app during this phase
-  // Expected duration from video or for teacher pacing, in minutes
-  expected_duration_minutes?: number;
+    id: string;
+    label: string;
+    sub_label?: string;
+    icon_name: string;
+    phase_type: 'welcome' | 'setup' | 'narration' | 'invest' | 'choice' | 'consequence' | 'payoff' | 'double-down-prompt' | 'double-down-select' | 'double-down-payoff' | 'kpi' | 'leaderboard' | 'game-end';
+    round_number: 0 | 1 | 2 | 3;
+    slide_ids: number[];
+    is_interactive_student_phase: boolean;
+    expected_duration_minutes?: number;
 }
 
 export interface GameRound {
-  id: string; // e.g., "round1"
-  name: string; // e.g., "Round 1: Years 1 & 2"
-  year_label: string; // e.g., "Years 1 & 2"
-  phases: GamePhaseNode[];
+    id: string;
+    name: string;
+    year_label: string;
+    phases: GamePhaseNode[];
 }
 
 export interface GameStructure {
-  id: string; // e.g., "ready_or_not_2.0_dd"
-  name: string;
-  welcome_phases: GamePhaseNode[];
-  rounds: GameRound[];
-  game_end_phases: GamePhaseNode[];
-  slides: Slide[]; // Master list of all slides
-  // Master lists of all options for quicker lookup by student app
-  all_investment_options: Record<string, InvestmentOption[]>; // Keyed by phase_id like "rd1-invest"
-  all_challenge_options: Record<string, ChallengeOption[]>; // Keyed by phase_id like "ch1"
-  all_consequences: Record<string, Consequence[]>; // Keyed by phase_id like "ch1-consequences"
-  all_investment_payoffs: Record<string, InvestmentPayoff[]>; // Keyed by phase_id like "rd1-payoffs"
-  // ... potentially more master data lists
+    id: string;
+    name: string;
+    welcome_phases: GamePhaseNode[];
+    rounds: GameRound[];
+    game_end_phases: GamePhaseNode[];
+    slides: Slide[];
+    all_investment_options: Record<string, InvestmentOption[]>;
+    all_challenge_options: Record<string, ChallengeOption[]>;
+    investment_phase_budgets: Record<string, number>; // key is phase_id (e.g. rd1-invest)
+    all_consequences: Record<string, Consequence[]>;
+    all_investment_payoffs: Record<string, InvestmentPayoff[]>;
+    allPhases: GamePhaseNode[]; // Added for convenience
 }
 
-
-// --- Application State (Teacher's AppContext) ---
 export interface AppState {
-  currentSessionId: string | null;
-  gameStructure: GameStructure | null; // Loaded game definition
-  currentPhaseId: string | null;
-  currentSlideIdInPhase: number | null; // Index of current slide within currentPhase.slide_ids
-  teacherNotes: Record<number, string>; // Keyed by slide ID
-  isPlaying: boolean; // For videos or auto-advancing slides
-  teams: Team[]; // Teams in the current session
-  teamDecisions: Record<string, TeamDecision[]>; // Key: teamId, Value: array of their decisions
-  teamRoundData: Record<string, TeamRoundData[]>; // Key: teamId, Value: array of their round data
-  // For student display window management
-  isStudentWindowOpen: boolean;
-  // UI state
-  isLoading: boolean;
-  error: string | null;
-  currentTeacherAlert: { title: string, message: string } | null;
+    currentSessionId: string | null;
+    gameStructure: GameStructure | null;
+    currentPhaseId: string | null;
+    currentSlideIdInPhase: number | null;
+    teacherNotes: Record<string, string>; // Keyed by slide ID (as string)
+    isPlaying: boolean;
+    teams: Team[];
+    teamDecisions: Record<string, Record<string, TeamDecision>>; // teamId -> phaseId -> Decision
+    teamRoundData: Record<string, Record<number, TeamRoundData>>; // teamId -> roundNumber -> RoundData
+    isStudentWindowOpen: boolean;
+    isLoading: boolean;
+    error: string | null;
+    currentTeacherAlert: { title: string, message: string } | null;
 }
 
-// --- Student App State (Simplified, managed locally or via props in StudentGamePage) ---
 export interface StudentPageState {
-  teamId: string | null;
-  teamName: string | null;
-  currentSessionId: string | null;
-  // Data broadcasted from teacher or fetched based on teacher signals
-  activePhaseId: string | null; // What phase the teacher has initiated
-  activeSlideData: Slide | null; // What content the teacher is currently showing (if not interactive)
-  currentKpis: TeamRoundData | null; // Current team's live KPIs for the round
-  availableChoices?: ChallengeOption[] | InvestmentOption[]; // Options for current decision
-  decisionBudget?: { investUpTo: number, remaining: number, spent: number };
-  timeRemainingSeconds?: number;
-  isDecisionTime: boolean; // Is it currently time for this student's team to make a decision?
-  lastSubmissionStatus?: 'success' | 'error' | null;
-  // ... more as needed
+    teamId: string | null;
+    teamName: string | null;
+    currentSessionId: string | null;
+    activePhaseId: string | null;
+    activeSlideData: Slide | null;
+    currentKpis: TeamRoundData | null;
+    availableChoices?: ChallengeOption[] | InvestmentOption[];
+    decisionBudget?: { investUpTo: number, remaining: number, spent: number };
+    timeRemainingSeconds?: number;
+    isDecisionTime: boolean;
+    lastSubmissionStatus?: 'success' | 'error' | null;
 }
 
-// --- Broadcast Payloads ---
 export interface TeacherBroadcastPayload {
-  currentSlideId: number | null;
-  currentPhaseId: string | null;
-  currentPhaseType: GamePhaseNode['phase_type'] | null;
-  currentRoundNumber: 0 | 1 | 2 | 3 | null;
-
-  isPlayingVideo: boolean;
-  videoCurrentTime?: number;    // Current playback time of the video in seconds
-  triggerVideoSeek?: boolean;   // A flag to tell the student display to seek (set to true, then immediately false after broadcast)
-
-  isStudentDecisionPhaseActive: boolean;
-  decisionOptionsKey?: string;
-  decisionPhaseTimerEndTime?: number;
+    currentSlideId: number | null;
+    currentPhaseId: string | null;
+    currentPhaseType: GamePhaseNode['phase_type'] | null;
+    currentRoundNumber: 0 | 1 | 2 | 3 | null;
+    isPlayingVideo: boolean;
+    videoCurrentTime?: number;
+    triggerVideoSeek?: boolean;
+    isStudentDecisionPhaseActive: boolean;
+    decisionOptionsKey?: string;
+    decisionPhaseTimerEndTime?: number;
 }
 
-// Interface for messages from Student Display to Teacher AppContext (optional, but good for structure)
 export interface StudentDisplayMessage {
-  type: 'STUDENT_DISPLAY_READY' | 'STUDENT_DISPLAY_CLOSING';
-  payload: {
-    sessionId: string | null;
-  };
+    type: 'STUDENT_DISPLAY_READY' | 'STUDENT_DISPLAY_CLOSING';
+    payload: {
+        sessionId: string | null;
+    };
 }

@@ -10,6 +10,7 @@ interface SlideRendererProps {
     triggerSeekEvent?: boolean;
     isForTeacherPreview?: boolean;
     onPreviewVideoStateChange?: (playing: boolean, time: number, triggerSeek?: boolean) => void;
+    onPreviewVideoDuration?: (duration: number) => void;
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
@@ -18,7 +19,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          videoTimeTarget,
                                                          triggerSeekEvent,
                                                          isForTeacherPreview = false,
-                                                         onPreviewVideoStateChange
+                                                         onPreviewVideoStateChange,
+                                                         onPreviewVideoDuration,
                                                      }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const lastBroadcastedTime = useRef<number | undefined>(undefined);
@@ -111,9 +113,15 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     };
     const handlePreviewLoadedMetadata = () => {
-        if (videoRef.current && videoTimeTarget !== undefined) {
-            if (triggerSeekEvent || Math.abs(videoRef.current.currentTime - videoTimeTarget) > 0.1) {
-                videoRef.current.currentTime = videoTimeTarget;
+        const videoElement = videoRef.current;
+        if (videoElement) {
+            if (isForTeacherPreview && onPreviewVideoDuration && videoElement.duration && !isNaN(videoElement.duration) && videoElement.duration !== Infinity) {
+                onPreviewVideoDuration(videoElement.duration); // Report duration
+            }
+            if (videoTimeTarget !== undefined) {
+                if (triggerSeekEvent || Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
+                    videoElement.currentTime = videoTimeTarget;
+                }
             }
         }
     };
