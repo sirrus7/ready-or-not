@@ -10,7 +10,7 @@ import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {supabase} from '../lib/supabase';
 import {useAuth} from './AuthContext';
 import {useSessionManager} from '../hooks/useSessionManager';
-import {useGameController, GameControllerOutput} from '../hooks/useGameController';
+import {useGameController} from '../hooks/useGameController';
 import {useTeamDataManager} from '../hooks/useTeamDataManager';
 import {ServerCrash} from 'lucide-react';
 

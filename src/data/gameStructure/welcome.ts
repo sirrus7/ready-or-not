@@ -42,11 +42,7 @@ export const welcomeSlides: Slide[] = [
         title: "Let's Get It On!",
         type: 'video',
         source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_006.mp4?alt=media',
-        auto_advance_after_video: false,
-        teacher_alert: {
-            title: "Begin RD-1 Investments",
-            message: "The RD-1 Investment overview video will play next, followed by the 15-minute investment period. Ensure teams are ready."
-        }
+        auto_advance_after_video: true,
     },
 ];
 
@@ -63,8 +59,8 @@ export const welcomePhases: GamePhaseNode[] = [
         expected_duration_minutes: 3
     },
     {
-        id: 'game-intro-video',
-        label: "GAME INTRO",
+        id: 'game-setup',
+        label: "GAME SETUP",
         icon_name: 'Film',
         phase_type: 'narration',
         round_number: 0,
