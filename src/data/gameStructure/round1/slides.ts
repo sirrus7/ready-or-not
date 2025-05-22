@@ -1,5 +1,5 @@
 // src/data/gameStructure/round1/slides.ts
-import { Slide } from '../../../types';
+import {Slide} from '../../../types';
 
 export const round1Slides: Slide[] = [
     {
@@ -185,28 +185,28 @@ export const round1Slides: Slide[] = [
         id: 28,
         title: "Impact Event #2: Option A Video (Raise Prices)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_029.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
         id: 29,
         title: "Impact Event #2: Option B Video (Increase Marketing)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_030.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
         id: 30,
         title: "Impact Event #2: Option C Video (Cost Cutting)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_031.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
         id: 31,
         title: "Impact Event #2: Option D Video (Do Nothing)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_032.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
@@ -227,7 +227,7 @@ export const round1Slides: Slide[] = [
         id: 33,
         title: "Impact Event #2: Options Summary Video",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_034.mp4?alt=media",
         auto_advance_after_video: false
     },
 
@@ -236,7 +236,7 @@ export const round1Slides: Slide[] = [
         id: 34,
         title: "Consequences Overview Video CH2",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_035.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
@@ -246,7 +246,7 @@ export const round1Slides: Slide[] = [
         main_text: "Consequence for Option A (Raise Prices)",
         sub_text: "ASP increases by $20. Demand stable.",
         details: ["+$20 ASP", "-250 Orders (per spreadsheet)"],
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_036.mp4?alt=media',
         background_css: 'bg-gray-700'
     },
     {
@@ -256,7 +256,7 @@ export const round1Slides: Slide[] = [
         main_text: "Consequence for Option B (Increase Marketing)",
         sub_text: "Orders increase by 500, Marketing Costs increase by $25k.",
         details: ["+500 Orders", "+$25k Costs"],
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_037.mp4?alt=media',
         background_css: 'bg-gray-700'
     },
     {
@@ -266,7 +266,7 @@ export const round1Slides: Slide[] = [
         main_text: "Consequence for Option C (Cost Cutting)",
         sub_text: "Costs decrease by $25k, but Capacity drops by 250 due to morale/service cuts.",
         details: ["-250 Capacity", "-$25k Costs"],
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_038.mp4?alt=media',
         background_css: 'bg-gray-700'
     },
     {
@@ -276,14 +276,14 @@ export const round1Slides: Slide[] = [
         main_text: "Consequence for Option D (Do Nothing - New Tax)",
         sub_text: "Operational costs increase by $50k due to absorbing the new tax.",
         details: ["+$50k Costs (New Tax)"],
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_039.mp4?alt=media',
         background_css: 'bg-gray-700'
     },
     {
         id: 39,
         title: "CH2 Career Insight Video",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_040.mp4?alt=media",
         auto_advance_after_video: false,
         teacher_alert: {title: "Impact Event #2 Complete", message: "Prepare for Impact Event #3. Click OK to proceed."}
     },
@@ -293,49 +293,49 @@ export const round1Slides: Slide[] = [
         id: 40,
         title: "Transition to later in Year 2 Video",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_041.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
         id: 41,
         title: "News Broadcast Video (Mid Year 2 - Recession)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_042.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
         id: 42,
         title: "Impact Event #3: Setup Video (Recession)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_043.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
         id: 43,
         title: "Impact Event #3: Option A Video (Layoffs)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_044.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
         id: 44,
         title: "Impact Event #3: Option B Video (Furlough/Workshare)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_045.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
         id: 45,
         title: "Impact Event #3: Option C Video (Maintain/Cut OT)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_046.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
         id: 46,
         title: "Impact Event #3: Option D Video (Do Nothing)",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_047.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
@@ -356,7 +356,7 @@ export const round1Slides: Slide[] = [
         id: 48,
         title: "Impact Event #3: Options Summary Video",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_049.mp4?alt=media",
         auto_advance_after_video: false
     },
 
@@ -365,7 +365,7 @@ export const round1Slides: Slide[] = [
         id: 49,
         title: "Consequences Overview Video CH3",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_050.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
@@ -375,7 +375,7 @@ export const round1Slides: Slide[] = [
         main_text: "Consequence for Option A (Layoffs)",
         sub_text: "Significant cost reduction and capacity decrease. Future capacity also impacted.",
         details: ["-1250 Current Capacity", "-$300k Current Costs", "Permanent KPI Card: -1000 Capacity (Future - per spreadsheet)"],
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_051.mp4?alt=media',
         background_css: 'bg-gray-700'
     },
     {
@@ -385,7 +385,7 @@ export const round1Slides: Slide[] = [
         main_text: "Consequence for Option B (Furlough/Workshare)",
         sub_text: "Reduces costs and capacity, but less severely than full layoffs.",
         details: ["-1000 Current Capacity", "-$200k Current Costs"],
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_052.mp4?alt=media',
         background_css: 'bg-gray-700'
     },
     {
@@ -395,7 +395,7 @@ export const round1Slides: Slide[] = [
         main_text: "Consequence for Option C (Maintain/Cut OT)",
         sub_text: "Moderate cost savings with a smaller capacity hit.",
         details: ["-500 Current Capacity", "-$100k Current Costs"],
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_053.mp4?alt=media',
         background_css: 'bg-gray-700'
     },
     {
@@ -405,14 +405,14 @@ export const round1Slides: Slide[] = [
         main_text: "Consequence for Option D (Do Nothing - Recession)",
         sub_text: "Demand drops significantly, and unchanged fixed costs hurt margins. Morale issues reduce capacity.",
         details: ["-1000 Current Orders (Demand Drop)", "-1000 Current Capacity (Morale/Quits)", "+$25k Current Costs (Inefficiency/Admin)"],
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_054.mp4?alt=media',
         background_css: 'bg-gray-700'
     },
     {
         id: 54,
         title: "CH3 Career Insight Video",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_055.mp4?alt=media",
         auto_advance_after_video: false,
         teacher_alert: {
             title: "Impact Event #3 Complete",
@@ -425,7 +425,7 @@ export const round1Slides: Slide[] = [
         id: 55,
         title: "RD-1 Investment Payoff Intro Video",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_056.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
@@ -435,7 +435,7 @@ export const round1Slides: Slide[] = [
         main_text: "RD-1 Payoff: Business Growth Strategy",
         sub_text: "Impact: Capacity: +250, Orders: +250, ASP: +$20",
         details: ["+250 Capacity", "+250 Orders", "+$20 ASP"],
-        source_url: ''
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_057.mp4?alt=media'
     },
     {
         id: 57,
@@ -444,7 +444,7 @@ export const round1Slides: Slide[] = [
         main_text: "RD-1 Payoff: Production Efficiency",
         sub_text: "Impact: Capacity: +1500",
         details: ["+1500 Capacity"],
-        source_url: ''
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_058.mp4?alt=media'
     },
     {
         id: 58,
@@ -453,7 +453,7 @@ export const round1Slides: Slide[] = [
         main_text: "RD-1 Payoff: Add 2nd Shift",
         sub_text: "Impact: Capacity: +1500, Costs: +$300k",
         details: ["+1500 Capacity", "+$300k Costs"],
-        source_url: ''
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_059.mp4?alt=media'
     },
     {
         id: 59,
@@ -462,7 +462,7 @@ export const round1Slides: Slide[] = [
         main_text: "RD-1 Payoff: Supply Chain Optimization",
         sub_text: "Impact: Capacity: +250, Costs: -$100k",
         details: ["+250 Capacity", "-$100k Costs"],
-        source_url: ''
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_060.mp4?alt=media'
     },
     {
         id: 60,
@@ -471,7 +471,7 @@ export const round1Slides: Slide[] = [
         main_text: "RD-1 Payoff: Employee Development",
         sub_text: "Impact: Capacity: +250, Costs: -$25k",
         details: ["+250 Capacity", "-$25k Costs"],
-        source_url: ''
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_061.mp4?alt=media'
     },
     {
         id: 61,
@@ -480,7 +480,7 @@ export const round1Slides: Slide[] = [
         main_text: "RD-1 Payoff: Maximize Sales (Boutique)",
         sub_text: "Impact: Orders: +500, ASP: +$20",
         details: ["+500 Orders", "+$20 ASP"],
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_062.mp4?alt=media',
         teacher_alert: {
             title: "RD-1 Payoffs Complete",
             message: "All investment payoffs for Round 1 have been revealed. Click OK to review End of Round KPIs."
@@ -494,7 +494,7 @@ export const round1Slides: Slide[] = [
         type: 'kpi_summary_instructional',
         main_text: "END OF ROUND 1 KPIs",
         sub_text: "CFOs: Review your team's final KPIs on your device and record them on your Team Summary Sheet. The facilitator will display the leaderboard next.",
-        source_url: '',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_063.mp4?alt=media',
         teacher_alert: {
             title: "KPI Review",
             message: "Ensure teams have reviewed their KPIs. Click OK to display the Leaderboard."
@@ -504,7 +504,7 @@ export const round1Slides: Slide[] = [
         id: 63,
         title: "RD-1 Leaderboard Intro Video",
         type: 'video',
-        source_url: "",
+        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_064.mp4?alt=media",
         auto_advance_after_video: true
     },
     {
