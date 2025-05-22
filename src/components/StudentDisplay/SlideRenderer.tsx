@@ -20,7 +20,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          triggerSeekEvent,
                                                          isForTeacherPreview = false,
                                                          onPreviewVideoStateChange,
-                                                         onPreviewVideoDuration,
+                                                         onPreviewVideoDuration
                                                      }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const lastBroadcastedTime = useRef<number | undefined>(undefined);
@@ -29,56 +29,51 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         const videoElement = videoRef.current;
         const context = isForTeacherPreview ? "TeacherPreview" : "StudentDisplay";
 
-        if (videoElement && slide?.type === 'video') {
+        if (videoElement && (slide?.type === 'video' || (slide?.type === 'interactive_invest' && slide.source_url))) {
             if (!isForTeacherPreview) { // Student Display Logic
-                console.log(`[${context}] STUDENT EFFECT: slideId=${slide?.id}, isPlayingTarget=${isPlayingTarget}, videoTimeTarget=${videoTimeTarget?.toFixed(2)}, triggerSeekEvent=${triggerSeekEvent}`);
+                // console.log(`[${context}] STUDENT EFFECT: slideId=${slide?.id}, isPlayingTarget=${isPlayingTarget}, videoTimeTarget=${videoTimeTarget?.toFixed(2)}, triggerSeekEvent=${triggerSeekEvent}`);
 
                 if (triggerSeekEvent && videoTimeTarget !== undefined) {
-                    // Teacher initiated a seek. Global isPlayingTarget should be false.
-                    // Student display must pause and seek.
-                    console.log(`[${context}] STUDENT: PROCESSING SEEK TRIGGER. TargetTime: ${videoTimeTarget.toFixed(2)}.`);
+                    // console.log(`[${context}] STUDENT: PROCESSING SEEK TRIGGER. TargetTime: ${videoTimeTarget.toFixed(2)}.`);
 
                     if (!videoElement.paused) {
-                        console.log(`[${context}] STUDENT: Pausing video due to seek trigger.`);
+                        // console.log(`[${context}] STUDENT: Pausing video due to seek trigger.`);
                         videoElement.pause();
                     }
 
-                    // Only set currentTime if it's significantly different, to prevent no-op seeks
                     if (Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
-                        console.log(`[${context}] STUDENT: Setting currentTime from ${videoElement.currentTime.toFixed(2)} to ${videoTimeTarget.toFixed(2)}.`);
+                        // console.log(`[${context}] STUDENT: Setting currentTime from ${videoElement.currentTime.toFixed(2)} to ${videoTimeTarget.toFixed(2)}.`);
                         videoElement.currentTime = videoTimeTarget;
-                    } else {
-                        console.log(`[${context}] STUDENT: currentTime ${videoElement.currentTime.toFixed(2)} already close to target ${videoTimeTarget.toFixed(2)}. No seek action taken for currentTime.`);
                     }
-                    // Video remains paused after this block.
-                    // The next useEffect run (when triggerSeekEvent becomes false) will handle play based on isPlayingTarget.
-
-                    // It's crucial that isPlayingTarget is indeed false when triggerSeekEvent is true,
-                    // as per the logic in useGameController.
+                    // Video remains paused. Playback is handled by the block below when triggerSeekEvent is false.
                     if (isPlayingTarget) {
-                        console.warn(`[${context}] STUDENT: isPlayingTarget is TRUE during seek trigger. This is unexpected. Video should remain paused.`);
-                        if (!videoElement.paused) videoElement.pause(); // Extra safety pause
+                        // This state (isPlayingTarget=true during a triggerSeekEvent=true) should ideally not happen
+                        // because useGameController forces isPlaying to false on seek.
+                        console.warn(`[${context}] STUDENT: isPlayingTarget is TRUE during seek trigger. This is unexpected based on 'force pause on seek' strategy.`);
+                        if(!videoElement.paused) videoElement.pause(); // Ensure it's paused
                     }
 
-                } else { // triggerSeekEvent is false
-                    // This is a regular play/pause command or the state after a seek has been processed
-                    // and triggerSeekEvent has been reset to false.
+                } else {
+                    // Regular play/pause (triggerSeekEvent is false)
                     if (isPlayingTarget && videoElement.paused) {
-                        console.log(`[${context}] STUDENT: Regular PLAY command (triggerSeek=false). CurrentTime: ${videoElement.currentTime.toFixed(2)}`);
+                        // console.log(`[${context}] STUDENT: Regular PLAY command (triggerSeek=false). CurrentTime: ${videoElement.currentTime.toFixed(2)}`);
                         videoElement.play().catch(e => console.warn(`[${context}] Student display video play error:`, e));
                     } else if (!isPlayingTarget && !videoElement.paused) {
-                        console.log(`[${context}] STUDENT: Regular PAUSE command (triggerSeek=false). CurrentTime: ${videoElement.currentTime.toFixed(2)}`);
+                        // console.log(`[${context}] STUDENT: Regular PAUSE command (triggerSeek=false). CurrentTime: ${videoElement.currentTime.toFixed(2)}`);
                         videoElement.pause();
                     }
                 }
 
-            } else { // Teacher Preview Logic (remains the same as your last version)
+            } else { // Teacher Preview Logic
+                // console.log(`[${context}] PREVIEW EFFECT: isPlayingTarget=${isPlayingTarget}, triggerSeekEvent=${triggerSeekEvent}, videoTimeTarget=${videoTimeTarget}`);
                 if (isPlayingTarget && videoElement.paused && !videoElement.seeking) {
                     videoElement.play().catch(e => console.warn(`[${context}] Teacher preview video play error:`, e));
                 } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) {
                     videoElement.pause();
                 }
-                if (triggerSeekEvent && videoTimeTarget !== undefined && Math.abs(videoElement.currentTime - videoTimeTarget) > 0.5) {
+                // This seek for preview is mainly for when the slide changes and needs to be set to a specific start time.
+                if (triggerSeekEvent && videoTimeTarget !== undefined && Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) { // Use a small threshold
+                    // console.log(`[${context}] PREVIEW: triggerSeekEvent=true or time diff. Setting currentTime to ${videoTimeTarget.toFixed(2)}`);
                     videoElement.currentTime = videoTimeTarget;
                 }
             }
@@ -108,18 +103,23 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
     const handlePreviewSeeked = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {
-            console.log(`[TeacherPreview] handlePreviewSeeked - new time: ${videoRef.current.currentTime.toFixed(2)}. Broadcasting with triggerSeek=true.`);
+            // console.log(`[TeacherPreview] handlePreviewSeeked - new time: ${videoRef.current.currentTime.toFixed(2)}. Broadcasting with triggerSeek=true.`);
             onPreviewVideoStateChange(videoRef.current.paused ? false : true, videoRef.current.currentTime, true);
         }
     };
+
     const handlePreviewLoadedMetadata = () => {
         const videoElement = videoRef.current;
+        const context = isForTeacherPreview ? "TeacherPreview" : "StudentDisplay";
         if (videoElement) {
             if (isForTeacherPreview && onPreviewVideoDuration && videoElement.duration && !isNaN(videoElement.duration) && videoElement.duration !== Infinity) {
-                onPreviewVideoDuration(videoElement.duration); // Report duration
+                // console.log(`[${context}] LoadedMetadata - Reporting duration: ${videoElement.duration}`);
+                onPreviewVideoDuration(videoElement.duration);
             }
+            // Set initial time if videoTimeTarget is provided, especially if triggerSeekEvent is true (e.g. new slide)
             if (videoTimeTarget !== undefined) {
                 if (triggerSeekEvent || Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
+                    // console.log(`[${context}] LoadedMetadata: Setting initial currentTime to ${videoTimeTarget.toFixed(2)} due to target/trigger.`);
                     videoElement.currentTime = videoTimeTarget;
                 }
             }
@@ -137,6 +137,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     }
 
     const renderContent = () => {
+        // Check if slide type is 'interactive_invest' and has a source_url (like our Slide 8)
+        const isInteractiveVideoSlide = slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i);
+
         switch (slide.type) {
             case 'image':
                 return (
@@ -147,24 +150,39 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     />
                 );
             case 'video':
-                return (
-                    <video
-                        ref={videoRef}
-                        key={slide.source_url + (isForTeacherPreview ? '_preview' : '_student')}
-                        src={slide.source_url}
-                        controls={isForTeacherPreview}
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none"
-                        playsInline
-                        muted={!isForTeacherPreview}
-                        onPlay={isForTeacherPreview ? handlePreviewPlay : undefined}
-                        onPause={isForTeacherPreview ? handlePreviewPause : undefined}
-                        onTimeUpdate={isForTeacherPreview ? handlePreviewTimeUpdate : undefined}
-                        onSeeked={isForTeacherPreview ? handlePreviewSeeked : undefined}
-                        onLoadedMetadata={handlePreviewLoadedMetadata}
-                    >
-                        Your browser does not support the video tag.
-                    </video>
-                );
+            case 'interactive_invest': // Combined handling for videos
+                if (slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) { // Ensure it's a video for interactive_invest too
+                    return (
+                        <video
+                            ref={videoRef}
+                            key={slide.source_url + (isForTeacherPreview ? '_preview' : '_student') + slide.id}
+                            src={slide.source_url}
+                            controls={isForTeacherPreview}
+                            className="max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none"
+                            playsInline
+                            muted={!isForTeacherPreview}
+                            onPlay={isForTeacherPreview ? handlePreviewPlay : undefined}
+                            onPause={isForTeacherPreview ? handlePreviewPause : undefined}
+                            onTimeUpdate={isForTeacherPreview ? handlePreviewTimeUpdate : undefined}
+                            onSeeked={isForTeacherPreview ? handlePreviewSeeked : undefined}
+                            onLoadedMetadata={handlePreviewLoadedMetadata}
+                        >
+                            Your browser does not support the video tag.
+                        </video>
+                    );
+                } else if (slide.type === 'interactive_invest') { // Fallback text for interactive_invest if no video
+                    return (
+                        <div
+                            className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
+                            <ListChecks size={32} className="text-blue-400 mx-auto mb-4 animate-pulse"/>
+                            <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">{slide.main_text || slide.title || "Investment Decisions"}</h2>
+                            <p className="text-md sm:text-lg text-gray-300 mb-4">{slide.sub_text || "Refer to your team device to make investment choices."}</p>
+                        </div>
+                    );
+                }
+                // Fallback if 'video' type has no source_url (should ideally not happen)
+                return <div className="text-red-500">Video source missing for slide type 'video'.</div>;
+
             case 'content_page':
                 return (
                     <div
@@ -181,7 +199,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         )}
                     </div>
                 );
-            case 'interactive_invest':
             case 'interactive_choice':
             case 'interactive_double_down_prompt':
             case 'interactive_double_down_select':
@@ -211,8 +228,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         }
                         {slide.source_url && slide.source_url.match(/\.(mp4|webm|ogg)$/i) != null &&
                             <video
-                                ref={videoRef}
-                                key={slide.source_url + (isForTeacherPreview ? '_preview_reveal' : '_student_reveal')}
+                                ref={videoRef} // Ensure ref is attached
+                                key={slide.source_url + (isForTeacherPreview ? '_preview_reveal' : '_student_reveal') + slide.id}
                                 src={slide.source_url}
                                 controls={isForTeacherPreview}
                                 className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto outline-none"
@@ -223,7 +240,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                 onPause={isForTeacherPreview ? handlePreviewPause : undefined}
                                 onTimeUpdate={isForTeacherPreview ? handlePreviewTimeUpdate : undefined}
                                 onSeeked={isForTeacherPreview ? handlePreviewSeeked : undefined}
-                                onLoadedMetadata={handlePreviewLoadedMetadata}
+                                onLoadedMetadata={handlePreviewLoadedMetadata} // Critical for duration reporting
                                 autoPlay={!isForTeacherPreview && isPlayingTarget}
                             />
                         }

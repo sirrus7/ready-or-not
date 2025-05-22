@@ -1,16 +1,13 @@
 // src/pages/StudentGamePage.tsx
-import React, {useState, useEffect, useCallback, useMemo} from 'react';
+import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {useParams} from 'react-router-dom';
 import TeamLogin from '../components/StudentGame/TeamLogin';
 import KpiDisplay from '../components/StudentGame/KpiDisplay';
 import DecisionPanel from '../components/StudentGame/DecisionPanel';
-// SlideRenderer is not typically used directly on StudentGamePage, content comes via DecisionPanel/KPIs
-// import SlideRenderer from '../components/StudentDisplay/SlideRenderer';
 import {
     TeamRoundData,
-    Slide, // Slide type might be useful for context, but not for direct rendering here
+    Slide,
     GamePhaseNode,
-    TeamDecision, // For type checking existing decisions
     TeacherBroadcastPayload,
     InvestmentOption,
     ChallengeOption
@@ -18,7 +15,7 @@ import {
 import {supabase} from '../lib/supabase';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {Hourglass, CheckCircle, AlertTriangle} from 'lucide-react';
-import Modal from '../components/UI/Modal'; // Assuming generic Modal
+import Modal from '../components/UI/Modal';
 
 const StudentGamePage: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
@@ -26,24 +23,34 @@ const StudentGamePage: React.FC = () => {
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(localStorage.getItem(`ron_teamName_${sessionId}`));
 
     const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
-    const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null); // Slide from teacher
+    const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
     const [currentActivePhase, setCurrentActivePhase] = useState<GamePhaseNode | null>(null);
 
     const [isStudentDecisionTime, setIsStudentDecisionTime] = useState<boolean>(false);
-    const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined);
+    const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined); // Store the target end time
     const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | undefined>(undefined);
 
     const [decisionOptionsKey, setDecisionOptionsKey] = useState<string | undefined>(undefined);
 
-    const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
+    const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
     const [pageError, setPageError] = useState<string | null>(null);
 
     const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
     const [isSubmissionFeedbackModalOpen, setIsSubmissionFeedbackModalOpen] = useState(false);
 
-
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
+    const submissionStatusRef = useRef(submissionStatus);
+    const isStudentDecisionTimeRef = useRef(isStudentDecisionTime); // Ref for isStudentDecisionTime
+
+    useEffect(() => {
+        submissionStatusRef.current = submissionStatus;
+    }, [submissionStatus]);
+
+    useEffect(() => {
+        isStudentDecisionTimeRef.current = isStudentDecisionTime;
+    }, [isStudentDecisionTime]);
+
 
     const fetchInitialTeamData = useCallback(async (teamId: string, activePhase: GamePhaseNode | null) => {
         if (!sessionId || !activePhase || !teamId) {
@@ -52,12 +59,10 @@ const StudentGamePage: React.FC = () => {
             return;
         }
 
-        console.log(`[StudentGamePage] Fetching initial data for team ${teamId}, phase ${activePhase.id}, round ${activePhase.round_number}`);
         setIsLoadingData(true);
         setPageError(null);
 
         try {
-            // Fetch current KPIs if in a round
             if (activePhase.round_number > 0) {
                 const {data: kpiData, error: kpiError} = await supabase
                     .from('team_round_data')
@@ -66,13 +71,12 @@ const StudentGamePage: React.FC = () => {
                     .eq('team_id', teamId)
                     .eq('round_number', activePhase.round_number)
                     .single();
-                if (kpiError && kpiError.code !== 'PGRST116') throw kpiError; // PGRST116 = no rows, ok if first time
+                if (kpiError && kpiError.code !== 'PGRST116') throw kpiError;
                 setCurrentTeamKpis(kpiData as TeamRoundData | null);
             } else {
-                setCurrentTeamKpis(null); // No KPIs for welcome/setup phases
+                setCurrentTeamKpis(null);
             }
 
-            // Check for existing submission for this phase
             if (activePhase.is_interactive_student_phase) {
                 const {data: existingDecision, error: decisionError} = await supabase
                     .from('team_decisions')
@@ -85,16 +89,19 @@ const StudentGamePage: React.FC = () => {
                 if (decisionError && decisionError.code !== 'PGRST116') throw decisionError;
 
                 if (existingDecision?.submitted_at) {
-                    setSubmissionStatus('success');
+                    setSubmissionStatus('success'); // Set directly
+                    submissionStatusRef.current = 'success'; // Update ref immediately
                     setSubmissionMessage(`Decisions for "${activePhase.label}" were already submitted.`);
                     setIsStudentDecisionTime(false);
+                    isStudentDecisionTimeRef.current = false;
                 } else {
-                    // Reset for a new interactive phase if no prior submission
                     setSubmissionStatus('idle');
+                    submissionStatusRef.current = 'idle';
                     setSubmissionMessage(null);
                 }
             } else {
-                setSubmissionStatus('idle'); // Not an interactive phase
+                setSubmissionStatus('idle');
+                submissionStatusRef.current = 'idle';
                 setSubmissionMessage(null);
             }
         } catch (err) {
@@ -110,14 +117,12 @@ const StudentGamePage: React.FC = () => {
             setPageError("No game session ID found in the URL.");
             return;
         }
-        console.log(`[StudentGamePage] Setting up BroadcastChannel for session: ${sessionId}`);
         const channel = new BroadcastChannel(`classroom-${sessionId}`);
         let timerInterval: NodeJS.Timeout | undefined;
 
         channel.onmessage = (event) => {
             if (event.data.type === 'TEACHER_STATE_UPDATE') {
                 const payload = event.data.payload as TeacherBroadcastPayload;
-                // console.log('[StudentGamePage] Received TEACHER_STATE_UPDATE:', payload);
 
                 const newPhaseNode = payload.currentPhaseId ? gameStructure.allPhases.find(p => p.id === payload.currentPhaseId) || null : null;
                 const newSlide = payload.currentSlideId !== null ? gameStructure.slides.find(s => s.id === payload.currentSlideId) || null : null;
@@ -129,89 +134,89 @@ const StudentGamePage: React.FC = () => {
 
                 const decisionPhaseNowActive = payload.isStudentDecisionPhaseActive || false;
 
-                // If phase changes, fetch initial data (KPIs, check existing submission)
                 if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== previousPhaseId) {
-                    fetchInitialTeamData(loggedInTeamId, newPhaseNode);
-                }
-
-                // This logic now needs to be careful not to override submissionStatus if fetchInitialTeamData found a submission
-                // setIsStudentDecisionTime is set *after* fetchInitialTeamData potentially modifies submissionStatus
-                if (newPhaseNode && newPhaseNode.id !== previousPhaseId) {
-                    // If it's a new phase, rely on fetchInitialTeamData to set submission status, then decide if it's decision time
-                    fetchInitialTeamData(loggedInTeamId!, newPhaseNode).then(() => {
-                        // This check is now inside the .then()
+                    fetchInitialTeamData(loggedInTeamId, newPhaseNode).then(() => {
                         if (decisionPhaseNowActive && submissionStatusRef.current !== 'success') {
                             setIsStudentDecisionTime(true);
                         } else {
                             setIsStudentDecisionTime(false);
                         }
                     });
-                } else if (decisionPhaseNowActive && submissionStatusRef.current !== 'success') { // Same phase, but not yet submitted
-                    setIsStudentDecisionTime(true);
-                } else { // Not decision time or already submitted
-                    setIsStudentDecisionTime(false);
+                } else {
+                    if (decisionPhaseNowActive && submissionStatusRef.current !== 'success') {
+                        setIsStudentDecisionTime(true);
+                    } else {
+                        setIsStudentDecisionTime(false);
+                    }
                 }
 
-
-                if (decisionPhaseNowActive && payload.decisionPhaseTimerEndTime) {
+                if (decisionPhaseTimerEndTime !== payload.decisionPhaseTimerEndTime) { // Only update if target end time changed
                     setDecisionPhaseTimerEndTime(payload.decisionPhaseTimerEndTime);
-                    const now = Date.now();
-                    const remaining = Math.max(0, Math.round((payload.decisionPhaseTimerEndTime - now) / 1000));
-                    setTimeRemainingSeconds(remaining);
+                }
 
-                    if (timerInterval) clearInterval(timerInterval);
-                    if (remaining > 0) {
-                        timerInterval = setInterval(() => {
-                            const currentRemaining = Math.max(0, Math.round((payload.decisionPhaseTimerEndTime! - Date.now()) / 1000));
-                            setTimeRemainingSeconds(currentRemaining);
-                            if (currentRemaining <= 0) {
-                                clearInterval(timerInterval);
-                                // Auto-submit logic is handled in a separate useEffect watching timeRemainingSeconds
-                            }
-                        }, 1000);
+                // KPI data fetch based on round change or if KPIs are null for the current round
+                if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
+                    if (currentTeamKpis?.round_number !== newPhaseNode.round_number || !currentTeamKpis) {
+                        fetchInitialTeamData(loggedInTeamId, newPhaseNode); // Will also handle submission status
                     }
-                } else {
-                    setDecisionPhaseTimerEndTime(undefined);
-                    setTimeRemainingSeconds(undefined);
-                    if (timerInterval) clearInterval(timerInterval);
+                } else if (newPhaseNode?.round_number === 0) {
+                    setCurrentTeamKpis(null);
                 }
             }
         };
         return () => {
-            console.log(`[StudentGamePage] Closing BroadcastChannel for session: ${sessionId}`);
             channel.close();
             if (timerInterval) clearInterval(timerInterval);
         };
-    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId]);
+    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId, currentActivePhase, currentTeamKpis, decisionPhaseTimerEndTime]); // Added decisionPhaseTimerEndTime
 
-    // Ref for submissionStatus to use in broadcast onmessage
-    const submissionStatusRef = React.useRef(submissionStatus);
+    // Separate useEffect for the countdown timer itself, driven by decisionPhaseTimerEndTime
     useEffect(() => {
-        submissionStatusRef.current = submissionStatus;
-    }, [submissionStatus]);
+        let timerInterval: NodeJS.Timeout | undefined;
+        if (isStudentDecisionTimeRef.current && decisionPhaseTimerEndTime && decisionPhaseTimerEndTime > Date.now()) {
+            const updateTimer = () => {
+                const now = Date.now();
+                const remaining = Math.max(0, Math.round((decisionPhaseTimerEndTime - now) / 1000));
+                setTimeRemainingSeconds(remaining);
+                if (remaining <= 0) {
+                    clearInterval(timerInterval);
+                }
+            };
+            updateTimer(); // Initial call
+            timerInterval = setInterval(updateTimer, 1000);
+        } else {
+            setTimeRemainingSeconds(undefined); // No timer or timer expired
+            if (timerInterval) clearInterval(timerInterval);
+        }
+        return () => {
+            if (timerInterval) clearInterval(timerInterval);
+        };
+    }, [isStudentDecisionTime, decisionPhaseTimerEndTime]); // React to changes in these states
 
-    // Auto-submit for choice phases when timer runs out
+
     useEffect(() => {
-        if (isStudentDecisionTime && timeRemainingSeconds === 0 &&
+        if (isStudentDecisionTimeRef.current && timeRemainingSeconds === 0 &&
             currentActivePhase?.phase_type === 'choice' &&
-            submissionStatusRef.current !== 'success' && // Use ref here
+            submissionStatusRef.current !== 'success' &&
             submissionStatusRef.current !== 'submitting') {
 
             console.log(`[StudentGamePage] Timer ended for CHOICE phase ${currentActivePhase.id}. Auto-submitting default.`);
 
-            const options = gameStructure.all_challenge_options[decisionOptionsKey || currentActivePhase.id] || [];
+            const optionsKey = decisionOptionsKey || currentActivePhase.id;
+            const options = gameStructure.all_challenge_options[optionsKey] || [];
             const defaultOption = options.find(opt => opt.is_default_choice) || (options.length > 0 ? options[options.length-1] : null);
 
             if (defaultOption && loggedInTeamId && sessionId && currentActivePhase) {
                 setSubmissionStatus('submitting');
-                setSubmissionMessage('Time up! Submitting default choice...');
+                submissionStatusRef.current = 'submitting';
+                setSubmissionMessage('Time is up! Submitting the default choice...');
                 setIsSubmissionFeedbackModalOpen(true);
 
                 const decisionData = {
                     session_id: sessionId,
                     team_id: loggedInTeamId,
                     phase_id: currentActivePhase.id,
-                    round_number: currentActivePhase.round_number,
+                    round_number: currentActivePhase.round_number as 0 | 1 | 2 | 3,
                     selected_challenge_option_id: defaultOption.id,
                     submitted_at: new Date().toISOString(),
                 };
@@ -221,9 +226,10 @@ const StudentGamePage: React.FC = () => {
                             throw error;
                         }
                         setSubmissionStatus('success');
-                        setSubmissionMessage(`Time's up! Default choice (${defaultOption.text.substring(0,20)}...) submitted.`);
+                        setSubmissionMessage(`Time's up! Default choice "${defaultOption.text.substring(0,20)}..." submitted.`);
                         setIsStudentDecisionTime(false);
                         setTimeRemainingSeconds(undefined);
+                        setTimeout(() => setIsSubmissionFeedbackModalOpen(false), 3000);
                     })
                     .catch(err => {
                         console.error("[StudentGamePage] Auto-submit error:", err);
@@ -232,14 +238,14 @@ const StudentGamePage: React.FC = () => {
                     });
             }
         }
-    }, [timeRemainingSeconds, isStudentDecisionTime, currentActivePhase, gameStructure, decisionOptionsKey, loggedInTeamId, sessionId]);
+    }, [timeRemainingSeconds, currentActivePhase, gameStructure, decisionOptionsKey, loggedInTeamId, sessionId]);
 
 
     useEffect(() => {
         if (loggedInTeamId && currentActivePhase) {
             fetchInitialTeamData(loggedInTeamId, currentActivePhase);
         }
-    }, [loggedInTeamId]); // Re-fetch if loggedInTeamId changes (after login)
+    }, [loggedInTeamId, currentActivePhase?.id, fetchInitialTeamData]); // Trigger fetch if phase ID changes while logged in
 
     const handleLoginSuccess = (teamId: string, teamName: string) => {
         localStorage.setItem(`ron_teamId_${sessionId}`, teamId);
@@ -247,30 +253,29 @@ const StudentGamePage: React.FC = () => {
         setLoggedInTeamId(teamId);
         setLoggedInTeamName(teamName);
         setPageError(null);
-        // fetchInitialTeamData will be called by the effect watching loggedInTeamId if currentActivePhase is set
-        // Or, if currentActivePhase is not yet set (e.g. page just loaded), we might need an initial fetch here
-        // or ensure the broadcast listener fetches once loggedInTeamId is available.
-        // The current broadcast listener effect should handle fetching when new phase data arrives post-login.
+        setIsLoadingData(true); // Indicate loading while initial data for phase is fetched
+        // fetchInitialTeamData will be called by the useEffect above once currentActivePhase is set/updated by broadcast
     };
 
     const handleDecisionSubmit = async (decisionDataPayload: any) => {
         if (!sessionId || !loggedInTeamId || !currentActivePhase) {
             setSubmissionStatus('error');
-            setSubmissionMessage("Cannot submit: Critical information missing.");
+            setSubmissionMessage("Cannot submit: Critical information missing (session, team, or phase).");
             setIsSubmissionFeedbackModalOpen(true);
             return;
         }
 
         setSubmissionStatus('submitting');
+        submissionStatusRef.current = 'submitting';
         setSubmissionMessage(`Submitting decisions for ${currentActivePhase.label}...`);
         setIsSubmissionFeedbackModalOpen(true);
 
         const submissionPayload = {
-            ...decisionDataPayload, // This comes from DecisionPanel
+            ...decisionDataPayload,
             session_id: sessionId,
             team_id: loggedInTeamId,
             phase_id: currentActivePhase.id,
-            round_number: currentActivePhase.round_number,
+            round_number: currentActivePhase.round_number as 0 | 1 | 2 | 3,
             submitted_at: new Date().toISOString(),
         };
 
@@ -279,18 +284,21 @@ const StudentGamePage: React.FC = () => {
             if (error) throw error;
 
             setSubmissionStatus('success');
+            submissionStatusRef.current = 'success';
             setSubmissionMessage(`Decisions for ${currentActivePhase.label} submitted successfully! Waiting for facilitator.`);
-            setIsStudentDecisionTime(false); // Turn off decision panel locally
-            setTimeRemainingSeconds(undefined); // Clear timer
-            // KPIs will be updated via broadcast when teacher processes and advances
+            setIsStudentDecisionTime(false);
+            setTimeRemainingSeconds(undefined);
+            setDecisionPhaseTimerEndTime(undefined); // Clear target end time
+            setTimeout(() => {
+                setIsSubmissionFeedbackModalOpen(false);
+                // Don't clear submission message here, let passive view show it
+            }, 3000);
         } catch (err) {
             console.error("[StudentGamePage] Error submitting decision:", err);
             setSubmissionStatus('error');
+            submissionStatusRef.current = 'error';
             setSubmissionMessage(err instanceof Error ? `Submission Error: ${err.message}` : "Failed to submit decisions. Please try again or notify facilitator.");
         }
-        // Keep modal open for success/error feedback for a bit
-        // setTimeout(() => setIsSubmissionFeedbackModalOpen(false), submissionStatus === 'success' ? 3000 : 5000);
-        // Better to let user close error, auto-close success via another timer if needed
     };
 
     const investmentOptionsForCurrentPhase = useMemo((): InvestmentOption[] => {
@@ -309,11 +317,10 @@ const StudentGamePage: React.FC = () => {
 
     const rd3InvestmentsForDoubleDown = useMemo((): InvestmentOption[] => {
         if (loggedInTeamId && currentActivePhase?.phase_type === 'double-down-select' && gameStructure) {
-            const rd3InvestPhaseId = `rd3-invest`; // Key for RD3 investment options
-            // Ideally, filter by what the team actually invested in RD3
-            // This requires fetching and using team's RD3 decision
-            // For now, showing all RD3 options as a placeholder:
-            return gameStructure.all_investment_options[rd3InvestPhaseId] || [];
+            const rd3InvestKey = `rd3-invest`;
+            // TODO: Future - Filter these by what the team actually invested in RD3
+            // This would require fetching/having access to previous rd3-invest decision for this team.
+            return gameStructure.all_investment_options[rd3InvestKey] || [];
         }
         return [];
     }, [currentActivePhase, gameStructure, loggedInTeamId]);
@@ -323,7 +330,7 @@ const StudentGamePage: React.FC = () => {
         return (
             <div className="min-h-screen bg-red-900 text-white flex flex-col items-center justify-center p-4">
                 <AlertTriangle size={48} className="mb-4 text-yellow-300"/>
-                <h1 className="text-2xl font-bold mb-2">Connection Error</h1>
+                <h1 className="text-2xl font-bold mb-2">Application Error</h1>
                 <p className="text-center mb-4">{pageError}</p>
                 <button
                     onClick={() => window.location.reload()}
@@ -336,21 +343,23 @@ const StudentGamePage: React.FC = () => {
     }
 
     if (!sessionId) {
-        return <div className="min-h-screen bg-gray-800 text-white flex items-center justify-center p-4">Invalid session link.</div>;
+        return <div className="min-h-screen bg-gray-800 text-white flex items-center justify-center p-4">Error: Invalid session link. Please check the URL.</div>;
     }
 
     if (!loggedInTeamId || !loggedInTeamName) {
         return <TeamLogin sessionId={sessionId} onLoginSuccess={handleLoginSuccess}/>;
     }
 
-    const kpiRoundLabel = currentActivePhase?.round_number ? `RD-${currentActivePhase.round_number} Status` : "Pre-Game";
+    const kpiRoundLabel = currentActivePhase?.round_number ?
+        `RD-${currentActivePhase.round_number} ${currentActivePhase.phase_type === 'kpi' || currentActivePhase.phase_type === 'leaderboard' ? 'Final ' : ''}Status`
+        : "Game Setup";
+
     const budgetForInvestPhase = currentActivePhase?.phase_type === 'invest' && decisionOptionsKey && gameStructure.investment_phase_budgets?.[decisionOptionsKey]
         ? gameStructure.investment_phase_budgets[decisionOptionsKey]
         : 0;
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-900 text-white overflow-hidden">
-            {/* Always show KPIs if available for current round, or a placeholder */}
             <KpiDisplay
                 teamName={loggedInTeamName}
                 currentRoundLabel={kpiRoundLabel}
@@ -358,14 +367,14 @@ const StudentGamePage: React.FC = () => {
             />
 
             <div className="flex-grow p-3 md:p-4 overflow-y-auto">
-                {isLoadingData && (
+                {isLoadingData && !currentActivePhase && (
                     <div className="text-center text-gray-400 py-10">
                         <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
-                        Loading team data...
+                        Connecting and loading game data...
                     </div>
                 )}
 
-                {!isLoadingData && isStudentDecisionTime && currentActivePhase && submissionStatus !== 'success' ? (
+                {!isLoadingData && isStudentDecisionTime && currentActivePhase && submissionStatusRef.current !== 'success' ? (
                     <DecisionPanel
                         sessionId={sessionId}
                         teamId={loggedInTeamId}
@@ -375,28 +384,30 @@ const StudentGamePage: React.FC = () => {
                         challengeOptions={challengeOptionsForCurrentPhase}
                         availableRd3Investments={rd3InvestmentsForDoubleDown}
                         onDecisionSubmit={handleDecisionSubmit}
-                        isDecisionTime={isStudentDecisionTime}
+                        isDecisionTime={isStudentDecisionTime} // Pass the state
                         timeRemainingSeconds={timeRemainingSeconds}
-                        // currentSpentBudgetForInvestments could be fetched if needed for resuming
                     />
                 ) : !isLoadingData && currentActiveSlide ? (
-                    // Passive view: Show a simplified version of the current slide from teacher
-                    // This is NOT the main student display, just a small contextual view on their device.
-                    <div className="text-center p-4 bg-gray-800 rounded-lg shadow-md max-w-xl mx-auto">
-                        <h3 className="text-lg font-semibold text-sky-300 mb-2">{currentActiveSlide.title || "Current Activity"}</h3>
-                        {currentActiveSlide.main_text && <p className="text-md text-gray-300 mb-1">{currentActiveSlide.main_text}</p>}
-                        {currentActiveSlide.sub_text && <p className="text-sm text-gray-400">{currentActiveSlide.sub_text}</p>}
-                        {submissionStatus === 'success' && submissionMessage &&
-                            <p className="mt-3 text-sm text-green-400 flex items-center justify-center"><CheckCircle size={16} className="mr-1"/> {submissionMessage}</p>
-                        }
-                        {submissionStatus !== 'success' && !isStudentDecisionTime &&
-                            <p className="mt-3 text-sm text-yellow-400 flex items-center justify-center"><Hourglass size={16} className="mr-1 animate-pulse"/> Waiting for facilitator...</p>
+                    <div className="text-center p-4 bg-gray-800 rounded-lg shadow-md max-w-xl mx-auto my-4">
+                        <h3 className="text-lg font-semibold text-sky-400 mb-2">{currentActiveSlide.title || "Current Activity"}</h3>
+                        {currentActiveSlide.main_text && <p className="text-md text-gray-200 mb-1">{currentActiveSlide.main_text}</p>}
+                        {currentActiveSlide.sub_text && <p className="text-sm text-gray-300">{currentActiveSlide.sub_text}</p>}
+
+                        {submissionStatusRef.current === 'success' && (
+                            <p className="mt-4 text-sm text-green-400 flex items-center justify-center">
+                                <CheckCircle size={18} className="mr-2"/> Decisions submitted for {currentActivePhase?.label || "previous phase"}. Waiting for facilitator.
+                            </p>
+                        )}
+                        {(submissionStatusRef.current !== 'success' && !isStudentDecisionTime) &&
+                            <p className="mt-4 text-sm text-yellow-400 flex items-center justify-center">
+                                <Hourglass size={18} className="mr-2 animate-pulse"/> Waiting for facilitator...
+                            </p>
                         }
                     </div>
                 ) : !isLoadingData && (
                     <div className="text-center text-gray-400 py-10">
                         <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
-                        {submissionStatus === 'success' && submissionMessage ? submissionMessage : "Waiting for facilitator to start next phase..."}
+                        {submissionStatusRef.current === 'success' && submissionMessage ? submissionMessage : "Waiting for facilitator to start next phase..."}
                     </div>
                 )}
             </div>
@@ -404,24 +415,31 @@ const StudentGamePage: React.FC = () => {
             {isSubmissionFeedbackModalOpen && (
                 <Modal
                     isOpen={isSubmissionFeedbackModalOpen}
-                    onClose={() => setIsSubmissionFeedbackModalOpen(false)}
+                    onClose={() => {
+                        setIsSubmissionFeedbackModalOpen(false);
+                        if(submissionStatus === 'error') setSubmissionMessage(null); // Clear error message on manual close
+                    }}
                     title={
-                        submissionStatus === 'submitting' ? "Processing..." :
-                            submissionStatus === 'success' ? "Submission Successful!" :
-                                submissionStatus === 'error' ? "Submission Failed" :
-                                    "Status"
+                        submissionStatus === 'submitting' ? "Processing Submission..." :
+                            submissionStatus === 'success' ? "Submission Confirmed!" :
+                                submissionStatus === 'error' ? "Submission Problem" :
+                                    "Decision Status"
                     }
                     size="sm"
                 >
                     <div className="p-2 text-center">
-                        {submissionStatus === 'submitting' && <Hourglass size={24} className="mx-auto mb-2 text-blue-500 animate-pulse" />}
-                        {submissionStatus === 'success' && <CheckCircle size={24} className="mx-auto mb-2 text-green-500" />}
-                        {submissionStatus === 'error' && <AlertTriangle size={24} className="mx-auto mb-2 text-red-500" />}
-                        <p className={`text-sm ${submissionStatus === 'error' ? 'text-red-600' : 'text-gray-600'}`}>{submissionMessage || "Updating..."}</p>
+                        {submissionStatus === 'submitting' && <Hourglass size={32} className="mx-auto mb-3 text-blue-500 animate-pulse" />}
+                        {submissionStatus === 'success' && <CheckCircle size={32} className="mx-auto mb-3 text-green-500" />}
+                        {submissionStatus === 'error' && <AlertTriangle size={32} className="mx-auto mb-3 text-red-500" />}
+                        <p className={`text-sm ${submissionStatus === 'error' ? 'text-red-700' : 'text-gray-700'}`}>{submissionMessage || "Updating..."}</p>
+
                         {(submissionStatus === 'success' || submissionStatus === 'error') && (
                             <button
-                                onClick={() => setIsSubmissionFeedbackModalOpen(false)}
-                                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
+                                onClick={() => {
+                                    setIsSubmissionFeedbackModalOpen(false);
+                                    if(submissionStatus === 'error') setSubmissionMessage(null);
+                                }}
+                                className="mt-5 px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                             >
                                 OK
                             </button>
