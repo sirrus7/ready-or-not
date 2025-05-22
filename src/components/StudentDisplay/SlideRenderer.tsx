@@ -52,7 +52,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         }, 100);
                     }
                 } else {
-                    // Normal play/pause control
+                    // Normal play/pause control - only act if state differs from current
                     if (isPlayingTarget && videoElement.paused) {
                         videoElement.play().catch(e => console.warn(`[${context}] Video play error:`, e));
                     } else if (!isPlayingTarget && !videoElement.paused) {
@@ -60,14 +60,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     }
                 }
             } else {
-                // Teacher Preview Logic
+                // Teacher Preview Logic - only act if state differs from current
                 if (triggerSeekEvent && videoTimeTarget !== undefined) {
                     if (Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
                         videoElement.currentTime = videoTimeTarget;
                     }
-                    // Don't change play/pause state during seek
                 } else {
-                    // Normal play/pause control
+                    // Only change play/pause state if it's different
                     if (isPlayingTarget && videoElement.paused && !videoElement.seeking) {
                         videoElement.play().catch(e => console.warn(`[${context}] Teacher preview play error:`, e));
                     } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) {

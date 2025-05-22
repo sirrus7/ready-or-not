@@ -124,25 +124,28 @@ export const useGameController = (
                 setCurrentVideoDurationState(null);
                 const timeSinceLastToggle = Date.now() - lastManualToggleTimestamp.current;
 
-                let shouldPlayNow = isPlayingVideoState;
+                let shouldPlayNow = false; // Default to false
 
+                // Only auto-play if there's no alert and it's configured to auto-advance
                 if (!alertShownForThisSlide && timeSinceLastToggle > 500) {
                     if (currentSlideData.id === 8 && currentSlideData.type === 'interactive_invest') {
                         shouldPlayNow = true;
                     } else if (currentSlideData.auto_advance_after_video) {
                         shouldPlayNow = true;
                     } else {
+                        // Keep current state for non-auto-advance videos
                         shouldPlayNow = isPlayingVideoState;
                     }
                 } else if (alertShownForThisSlide) {
                     shouldPlayNow = false;
                 }
 
+                // Only update if state actually needs to change
                 if (isPlayingVideoState !== shouldPlayNow) {
                     setIsPlayingVideoState(shouldPlayNow);
-                }
-                if (dbSession && dbSession.is_playing !== shouldPlayNow) {
-                    updateSessionInDb({ is_playing: shouldPlayNow });
+                    if (dbSession && dbSession.is_playing !== shouldPlayNow) {
+                        updateSessionInDb({ is_playing: shouldPlayNow });
+                    }
                 }
             } else {
                 if (isPlayingVideoState) {
@@ -157,7 +160,7 @@ export const useGameController = (
             if (isPlayingVideoState) setIsPlayingVideoState(false);
             if (currentTeacherAlertState) setCurrentTeacherAlertState(null);
         }
-    }, [currentSlideData, dbSession, updateSessionInDb, handleTeacherAlertDisplay]);
+    }, [currentSlideData, dbSession, updateSessionInDb, handleTeacherAlertDisplay, isPlayingVideoState]);
 
     const reportVideoDuration = useCallback((duration: number) => {
         setCurrentVideoDurationState(duration);
