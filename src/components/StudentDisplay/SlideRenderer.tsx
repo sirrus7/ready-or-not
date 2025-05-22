@@ -3,7 +3,7 @@ import React, {useEffect, useRef} from 'react';
 import {Slide} from '../../types';
 import {Tv2, AlertCircle, ListChecks} from 'lucide-react';
 import LeaderboardChartDisplay from './LeaderboardChartDisplay';
-import { useAppContext } from '../../context/AppContext'; // Needed for Leaderboard
+import { useAppContext } from '../../context/AppContext';
 
 interface SlideRendererProps {
     slide: Slide | null;
@@ -13,6 +13,7 @@ interface SlideRendererProps {
     isForTeacherPreview?: boolean;
     onPreviewVideoStateChange?: (playing: boolean, time: number, triggerSeek?: boolean) => void;
     onPreviewVideoDuration?: (duration: number) => void;
+    onPreviewVideoEnded?: () => void; // For teacher preview auto-advance
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
@@ -22,27 +23,24 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          triggerSeekEvent,
                                                          isForTeacherPreview = false,
                                                          onPreviewVideoStateChange,
-                                                         onPreviewVideoDuration
+                                                         onPreviewVideoDuration,
+                                                         onPreviewVideoEnded
                                                      }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const lastBroadcastedTime = useRef<number | undefined>(undefined);
-    const { state } = useAppContext(); // For Leaderboard currentPhaseNode access
+    const { state } = useAppContext();
 
     useEffect(() => {
         const videoElement = videoRef.current;
         const context = isForTeacherPreview ? "TeacherPreview" : "StudentDisplay";
 
-        // Check if the slide is a type that should contain a video source
-        const shouldHaveVideo = slide?.type === 'video' ||
+        const isVideoSlideType = slide?.type === 'video' ||
             (slide?.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
             ((slide?.type === 'consequence_reveal' || slide?.type === 'payoff_reveal') && slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
 
-        if (videoElement && shouldHaveVideo && slide?.source_url) { // Ensure source_url exists
+        if (videoElement && isVideoSlideType && slide?.source_url) {
             if (!isForTeacherPreview) {
-                // console.log(`[${context}] STUDENT EFFECT: slideId=${slide?.id}, isPlayingTarget=${isPlayingTarget}, videoTimeTarget=${videoTimeTarget?.toFixed(2)}, triggerSeekEvent=${triggerSeekEvent}`);
-
                 if (triggerSeekEvent && videoTimeTarget !== undefined) {
-                    // console.log(`[${context}] STUDENT: PROCESSING SEEK TRIGGER. TargetTime: ${videoTimeTarget.toFixed(2)}.`);
                     if (!videoElement.paused) {
                         videoElement.pause();
                     }
@@ -50,7 +48,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         videoElement.currentTime = videoTimeTarget;
                     }
                     if (isPlayingTarget && videoElement.paused) {
-                        console.warn(`[${context}] STUDENT: isPlayingTarget is TRUE during seek trigger. Video should remain paused as per strategy.`);
+                        console.warn(`[${context}] STUDENT: isPlayingTarget is TRUE during seek trigger. Video remains paused as per strategy.`);
                         if(!videoElement.paused) videoElement.pause();
                     }
                 } else {
@@ -61,13 +59,25 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     }
                 }
             } else { // Teacher Preview Logic
-                if (isPlayingTarget && videoElement.paused && !videoElement.seeking) {
-                    videoElement.play().catch(e => console.warn(`[${context}] Teacher preview video play error:`, e));
-                } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) {
-                    videoElement.pause();
-                }
-                if (triggerSeekEvent && videoTimeTarget !== undefined && Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
-                    videoElement.currentTime = videoTimeTarget;
+                if (triggerSeekEvent && videoTimeTarget !== undefined) {
+                    if (Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
+                        videoElement.currentTime = videoTimeTarget;
+                    }
+                    // isPlayingTarget should be false from controller on seek, so video pauses.
+                    if (!videoElement.paused && !isPlayingTarget) {
+                        videoElement.pause();
+                    }
+                } else {
+                    // Reflect the global play state from teacher controls
+                    if (isPlayingTarget && videoElement.paused) {
+                        if (!videoElement.seeking) {
+                            videoElement.play().catch(e => console.warn(`[${context}] Teacher preview play error:`, e));
+                        }
+                    } else if (!isPlayingTarget && !videoElement.paused) {
+                        if (!videoElement.seeking) {
+                            videoElement.pause();
+                        }
+                    }
                 }
             }
         }
@@ -102,7 +112,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
     const handlePreviewLoadedMetadata = () => {
         const videoElement = videoRef.current;
-        // const context = isForTeacherPreview ? "TeacherPreview" : "StudentDisplay";
         if (videoElement) {
             if (isForTeacherPreview && onPreviewVideoDuration && videoElement.duration && !isNaN(videoElement.duration) && videoElement.duration !== Infinity) {
                 onPreviewVideoDuration(videoElement.duration);
@@ -112,6 +121,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     videoElement.currentTime = videoTimeTarget;
                 }
             }
+        }
+    };
+
+    const handlePreviewVideoEnded = () => { // NEW HANDLER
+        // console.log("[SlideRenderer TeacherPreview] Video ended event fired.");
+        if (isForTeacherPreview && onPreviewVideoEnded) {
+            onPreviewVideoEnded();
         }
     };
 
@@ -132,7 +148,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     };
 
     const renderContent = () => {
-        // console.log('[SlideRenderer] renderContent called for slide:', JSON.parse(JSON.stringify(slide)));
         if (!slide) return <div className="text-xl text-gray-400 p-4 text-center">Waiting for slide data...</div>;
 
         switch (slide.type) {
@@ -148,7 +163,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             case 'video':
             case 'interactive_invest':
                 const hasVideoSrc = isVideoSourceValid(slide.source_url);
-                if (hasVideoSrc && slide.source_url) { // Ensure source_url is not undefined before passing to src
+                if (hasVideoSrc && slide.source_url) {
                     return (
                         <video
                             ref={videoRef}
@@ -163,6 +178,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             onTimeUpdate={isForTeacherPreview ? handlePreviewTimeUpdate : undefined}
                             onSeeked={isForTeacherPreview ? handlePreviewSeeked : undefined}
                             onLoadedMetadata={handlePreviewLoadedMetadata}
+                            onEnded={isForTeacherPreview ? handlePreviewVideoEnded : undefined} // ADDED ONENDED
                         >
                             Your browser does not support the video tag.
                         </video>
@@ -174,7 +190,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             <ListChecks size={32} className="text-blue-400 mx-auto mb-4 animate-pulse"/>
                             <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">{slide.main_text || slide.title || "Investment Decisions"}</h2>
                             <p className="text-md sm:text-lg text-gray-300 mb-4">{slide.sub_text || "Refer to your team device to make investment choices."}</p>
-                            {slide.timer_duration_seconds && !slide.source_url && ( // Show only if no video source (video is not the timer)
+                            {slide.timer_duration_seconds && !slide.source_url && (
                                 <div
                                     className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
                                     TIME: {`${Math.floor(slide.timer_duration_seconds / 60)}:${(slide.timer_duration_seconds % 60).toString().padStart(2, '0')}`}
@@ -222,14 +238,15 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 );
             case 'consequence_reveal':
             case 'payoff_reveal':
+                const hasConsequenceVideo = isVideoSourceValid(slide.source_url);
                 return (
                     <div
                         className="text-center max-w-4xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
-                        {slide.source_url && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) != null &&
+                        {slide.source_url && !hasConsequenceVideo && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) != null && // Only show img if not a video
                             <img src={slide.source_url} alt={slide.title || 'Reveal Image'}
                                  className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
                         }
-                        {slide.source_url && slide.source_url.match(/\.(mp4|webm|ogg)$/i) != null &&
+                        {hasConsequenceVideo && slide.source_url && // Check hasVideoSource here
                             <video
                                 ref={videoRef}
                                 key={slide.id + "_" + slide.source_url + (isForTeacherPreview ? '_preview_reveal' : '_student_reveal')}
@@ -244,7 +261,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                 onTimeUpdate={isForTeacherPreview ? handlePreviewTimeUpdate : undefined}
                                 onSeeked={isForTeacherPreview ? handlePreviewSeeked : undefined}
                                 onLoadedMetadata={handlePreviewLoadedMetadata}
-                                autoPlay={!isForTeacherPreview && isPlayingTarget}
+                                onEnded={isForTeacherPreview ? handlePreviewVideoEnded : undefined} // ADDED ONENDED
+                                autoPlay={!isForTeacherPreview && isPlayingTarget} // Student display video might autoplay if teacher is playing
                             />
                         }
                         {slide.main_text &&
@@ -257,6 +275,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                 {slide.details.map((detail, index) => <p key={index}>{detail}</p>)}
                             </div>
                         )}
+                        {!slide.source_url && !slide.main_text && <p className="text-xl p-8">Details for {slide.title || 'this event'} will be shown based on team choices or game events.</p>}
                     </div>
                 );
             case 'kpi_summary_instructional':
@@ -272,11 +291,11 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-shadow-lg break-words">{slide.main_text || slide.title || "Summary"}</h1>}
                         {slide.sub_text &&
                             <p className="text-lg sm:text-xl md:text-2xl text-gray-200 text-shadow break-words">{slide.sub_text}</p>}
-                        {!slide.source_url && !slide.main_text && <p className="text-xl">Loading summary...</p>}
+                        {!slide.source_url && !slide.main_text && <p className="text-xl">Loading summary information...</p>}
                     </div>
                 );
             case 'leaderboard_chart':
-                if (!slide.interactive_data_key || !state.currentPhaseNode?.round_number) { // state from useAppContext
+                if (!slide.interactive_data_key || !state.currentPhaseNode?.round_number) {
                     return <div className="p-8 text-center text-xl text-red-500">Leaderboard configuration error for slide ID: {slide.id}.</div>;
                 }
                 return (
@@ -286,10 +305,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     />
                 );
             default:
-                // This should ideally not be reached if all slide types are handled.
-                // The `never` type helps ensure exhaustiveness at compile time.
                 const _exhaustiveCheck: never = slide.type;
-                console.warn("[SlideRenderer] Fallback: Unsupported slide type encountered:", _exhaustiveCheck);
+                console.warn("[SlideRenderer] Fallback: Unsupported slide type encountered:", slide.type, slide);
                 return (
                     <div className="text-center p-6 bg-red-800/50 rounded-lg">
                         <AlertCircle size={32} className="mx-auto mb-2 text-red-300"/>
@@ -299,7 +316,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 );
         }
     };
-
 
     return (
         <div
