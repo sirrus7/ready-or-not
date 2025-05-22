@@ -140,20 +140,17 @@ const GameJourneyMap: React.FC = () => {
                             else if (phaseIndexInRow === row.length - 1 && rowIndex < rows.length - 1 && nextPhaseOverall) {
                                 const firstNodeNextRow = rows[rowIndex + 1][0];
                                 if (firstNodeNextRow) {
-                                    // Use offsets to simulate corner anchors if direct corner strings aren't type-safe
                                     let sourceAnchorConfig: CustomArcherRelation['sourceAnchor'];
                                     let targetAnchorConfig: CustomArcherRelation['targetAnchor'];
+                                    const xOffset = 15; // Adjust this value based on node width/margin
+                                    const yOffset = -10; // Adjust this for how high on the side the arrow should target
 
-                                    if (rowIndex % 2 === 0) { // Current row is LTR, next row will be RTL
-                                        // Exit from bottom-right of current node
-                                        sourceAnchorConfig = { anchor: 'bottom', offset: { x: 15 } }; // Positive x for right
-                                        // Enter from right of next node
-                                        targetAnchorConfig = { anchor: 'right', offset: { y: -15 }}; // Negative y for top part of right side
-                                    } else { // Current row is RTL, next row will be LTR
-                                        // Exit from bottom-left of current node
-                                        sourceAnchorConfig = { anchor: 'bottom', offset: { x: -15 } }; // Negative x for left
-                                        // Enter from left of next node
-                                        targetAnchorConfig = { anchor: 'left', offset: {y: -15 }};  // Negative y for top part of left side
+                                    if (rowIndex % 2 === 0) { // Current LTR, next RTL
+                                        sourceAnchorConfig = { anchor: 'bottom', offset: { x: xOffset } };
+                                        targetAnchorConfig = { anchor: 'right', offset: { y: yOffset }};
+                                    } else { // Current RTL, next LTR
+                                        sourceAnchorConfig = { anchor: 'bottom', offset: { x: -xOffset } };
+                                        targetAnchorConfig = { anchor: 'left', offset: {y: yOffset }};  // yOffset might need to be positive here for consistency
                                     }
 
                                     relations.push({
