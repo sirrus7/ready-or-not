@@ -9,11 +9,12 @@ const GameHostPage: React.FC = () => {
     const {
         state,
         currentSlideData,
-        isPlayingVideo,        // This is gameController.isPlayingVideo
-        videoCurrentTime,      // This is gameController.videoCurrentTime
-        triggerVideoSeek,      // This is gameController.triggerVideoSeek
+        isPlayingVideo,
+        videoCurrentTime,
+        triggerVideoSeek,
         setVideoPlaybackStateFromPreview,
-        reportVideoDuration    // Get this from context
+        reportVideoDuration,
+        handlePreviewVideoEnded,
     } = useAppContext();
 
     const {currentSessionId, gameStructure, isStudentWindowOpen} = state;
@@ -81,6 +82,7 @@ const GameHostPage: React.FC = () => {
                                 isForTeacherPreview={true}
                                 onPreviewVideoStateChange={setVideoPlaybackStateFromPreview}
                                 onPreviewVideoDuration={reportVideoDuration}
+                                onPreviewVideoEnded={handlePreviewVideoEnded}
                             />
                         </div>
                     </div>

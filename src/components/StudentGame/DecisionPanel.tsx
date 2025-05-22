@@ -120,10 +120,10 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
     const handleSubmitClick = () => {
         setSubmitError(null); // Clear previous errors
         if (currentPhase?.phase_type === 'double-down-prompt') {
-            // This decision is handled by StudentGamePage calling onDecisionSubmit directly
+            // This decision is handled by CompanyDisplayPage calling onDecisionSubmit directly
             // with { wantsToDoubleDown: true/false } based on selectedChallengeOptionId
             // This component's submit button shouldn't directly submit for this specific type.
-            // Instead, StudentGamePage would interpret selectedChallengeOptionId
+            // Instead, CompanyDisplayPage would interpret selectedChallengeOptionId
             // and call onDecisionSubmit with the appropriate payload.
             // For now, we assume onDecisionSubmit handles this logic if called.
             onDecisionSubmit({ wantsToDoubleDown: selectedChallengeOptionId === 'yes_dd' });
@@ -145,7 +145,7 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
         setIsSubmitting(true);
         setSubmitError(null);
 
-        let decisionPayload: any = {}; // Payload to be passed to StudentGamePage's onDecisionSubmit
+        let decisionPayload: any = {}; // Payload to be passed to CompanyDisplayPage's onDecisionSubmit
 
         if (currentPhase.phase_type === 'invest') {
             decisionPayload.selected_investment_ids = selectedInvestmentIds;
@@ -175,14 +175,14 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
 
         // Call the parent's submission handler
         onDecisionSubmit(decisionPayload);
-        // Parent (StudentGamePage) will handle actual DB insert and further state updates (submissionStatus, etc.)
+        // Parent (CompanyDisplayPage) will handle actual DB insert and further state updates (submissionStatus, etc.)
         setIsSubmitting(false); // Reset local submitting state, parent handles global
     };
 
 
     if (!isDecisionTime || !currentPhase) {
-        // This component will likely be conditionally rendered by StudentGamePage,
-        // so this state might not be hit often if StudentGamePage handles the "waiting" display.
+        // This component will likely be conditionally rendered by CompanyDisplayPage,
+        // so this state might not be hit often if CompanyDisplayPage handles the "waiting" display.
         return (
             <div
                 className="p-6 bg-gray-800 text-gray-400 text-center rounded-b-xl min-h-[200px] flex flex-col items-center justify-center">

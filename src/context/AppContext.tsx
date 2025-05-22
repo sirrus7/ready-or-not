@@ -9,9 +9,9 @@ import {
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {supabase} from '../lib/supabase';
 import {useAuth} from './AuthContext';
-import {useSessionManager}from '../hooks/useSessionManager';
+import {useSessionManager} from '../hooks/useSessionManager';
 import {useGameController, GameControllerOutput} from '../hooks/useGameController';
-import {useTeamDataManager}from '../hooks/useTeamDataManager';
+import {useTeamDataManager} from '../hooks/useTeamDataManager';
 import {ServerCrash} from 'lucide-react';
 
 interface AppContextProps {
@@ -48,6 +48,8 @@ interface AppContextProps {
     isPlayingVideo: boolean;
     videoCurrentTime: number;
     triggerVideoSeek: boolean;
+    setCurrentTeacherAlertState: (alert: { title: string; message: string } | null) => void;
+    handlePreviewVideoEnded: () => Promise<void>;
 }
 
 const initialAppContextLocalStateDefinition: {
@@ -136,10 +138,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         const kpisFromState = teamRoundData[teamId]?.[roundNumber];
         if (kpisFromState) return kpisFromState;
 
-        const { data: existingData, error: fetchErr } = await supabase.from('team_round_data').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('round_number', roundNumber).single();
+        const {
+            data: existingData,
+            error: fetchErr
+        } = await supabase.from('team_round_data').select('*').eq('session_id', sessionId).eq('team_id', teamId).eq('round_number', roundNumber).single();
         if (fetchErr && fetchErr.code !== 'PGRST116') throw fetchErr;
         if (existingData) {
-            setTeamRoundDataDirectly(prev => ({...prev, [teamId]: {...(prev[teamId] || {}), [roundNumber]: existingData as TeamRoundData}}));
+            setTeamRoundDataDirectly(prev => ({
+                ...prev,
+                [teamId]: {...(prev[teamId] || {}), [roundNumber]: existingData as TeamRoundData}
+            }));
             return existingData as TeamRoundData;
         }
 
@@ -152,8 +160,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 prevRoundData = prevDataFromDb as TeamRoundData | null;
             }
             if (prevRoundData) {
-                start_capacity = prevRoundData.current_capacity; start_orders = prevRoundData.current_orders;
-                start_cost = prevRoundData.current_cost; start_asp = prevRoundData.current_asp;
+                start_capacity = prevRoundData.current_capacity;
+                start_orders = prevRoundData.current_orders;
+                start_cost = prevRoundData.current_cost;
+                start_asp = prevRoundData.current_asp;
             } else {
                 console.warn(`[AppContext] ensureTeamRoundData: Prev round (${prevRoundKey}) data for team ${teamId} not found. Using game defaults for RD${roundNumber}.`);
             }
@@ -162,13 +172,27 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         (adjustments as PermanentKpiAdjustment[] || []).forEach(adj => {
             let baseVal = 0;
             switch (adj.kpi_key as KpiKey) {
-                case 'capacity': baseVal = start_capacity; start_capacity += adj.is_percentage ? baseVal * (adj.change_value/100) : adj.change_value; break;
-                case 'orders': baseVal = start_orders; start_orders += adj.is_percentage ? baseVal * (adj.change_value/100) : adj.change_value; break;
-                case 'cost': baseVal = start_cost; start_cost += adj.is_percentage ? baseVal * (adj.change_value/100) : adj.change_value; break;
-                case 'asp': baseVal = start_asp; start_asp += adj.is_percentage ? baseVal * (adj.change_value/100) : adj.change_value; break;
+                case 'capacity':
+                    baseVal = start_capacity;
+                    start_capacity += adj.is_percentage ? baseVal * (adj.change_value / 100) : adj.change_value;
+                    break;
+                case 'orders':
+                    baseVal = start_orders;
+                    start_orders += adj.is_percentage ? baseVal * (adj.change_value / 100) : adj.change_value;
+                    break;
+                case 'cost':
+                    baseVal = start_cost;
+                    start_cost += adj.is_percentage ? baseVal * (adj.change_value / 100) : adj.change_value;
+                    break;
+                case 'asp':
+                    baseVal = start_asp;
+                    start_asp += adj.is_percentage ? baseVal * (adj.change_value / 100) : adj.change_value;
+                    break;
             }
-            start_capacity = Math.round(start_capacity); start_orders = Math.round(start_orders);
-            start_cost = Math.round(start_cost); start_asp = Math.round(start_asp);
+            start_capacity = Math.round(start_capacity);
+            start_orders = Math.round(start_orders);
+            start_cost = Math.round(start_cost);
+            start_asp = Math.round(start_asp);
         });
         const newRoundDataContent: Omit<TeamRoundData, 'id' | 'created_at' | 'updated_at'> = {
             session_id: sessionId, team_id: teamId, round_number: roundNumber,
@@ -176,9 +200,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             start_cost, current_cost: start_cost, start_asp, current_asp: start_asp,
             revenue: 0, net_income: 0, net_margin: 0,
         };
-        const { data: insertedData, error: insertError } = await supabase.from('team_round_data').insert(newRoundDataContent).select().single();
+        const {
+            data: insertedData,
+            error: insertError
+        } = await supabase.from('team_round_data').insert(newRoundDataContent).select().single();
         if (insertError || !insertedData) throw insertError || new Error("Failed to insert new team_round_data");
-        setTeamRoundDataDirectly(prev => ({...prev, [teamId]: {...(prev[teamId] || {}), [roundNumber]: insertedData as TeamRoundData}}));
+        setTeamRoundDataDirectly(prev => ({
+            ...prev,
+            [teamId]: {...(prev[teamId] || {}), [roundNumber]: insertedData as TeamRoundData}
+        }));
         return insertedData as TeamRoundData;
     }, [teamRoundData, setTeamRoundDataDirectly]);
 
@@ -186,7 +216,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     const processChoicePhaseDecisionsInternal = useCallback(async (phaseId: string, associatedSlide: Slide | null) => {
         const currentPhaseForProcessing = allPhasesInOrder.find(p => p.id === phaseId);
         if (!currentDbSession?.id || !gameStructureInstance || !currentPhaseForProcessing || !associatedSlide || teams.length === 0 || currentPhaseForProcessing.phase_type !== 'choice') {
-            console.warn("[AppContext] processChoicePhaseDecisions: Prerequisites not met or not a choice phase.", {phaseId, associatedSlideId: associatedSlide?.id, currentPhaseType: currentPhaseForProcessing?.phase_type});
+            console.warn("[AppContext] processChoicePhaseDecisions: Prerequisites not met or not a choice phase.", {
+                phaseId,
+                associatedSlideId: associatedSlide?.id,
+                currentPhaseType: currentPhaseForProcessing?.phase_type
+            });
             return;
         }
         setLocalUiState(s => ({...s, isLoadingProcessing: true, errorProcessing: null}));
@@ -214,14 +248,29 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 if (effectsToApply.length > 0) {
                     const updatedKpis = applyKpiEffects(teamKpisForRound, effectsToApply, `Choice Consequence (${selectedOptionId})`);
                     await storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply, narrativeDesc);
-                    const { data: upsertedData, error: upsertError } = await supabase.from('team_round_data').upsert({...updatedKpis, id: teamKpisForRound.id}, {onConflict: 'id'}).select().single();
+                    const {
+                        data: upsertedData,
+                        error: upsertError
+                    } = await supabase.from('team_round_data').upsert({
+                        ...updatedKpis,
+                        id: teamKpisForRound.id
+                    }, {onConflict: 'id'}).select().single();
                     if (upsertError) throw upsertError;
-                    if (upsertedData) setTeamRoundDataDirectly(prev => ({...prev, [team.id]: {...(prev[team.id] || {}), [currentPhaseForProcessing.round_number]: upsertedData as TeamRoundData}}));
+                    if (upsertedData) setTeamRoundDataDirectly(prev => ({
+                        ...prev,
+                        [team.id]: {
+                            ...(prev[team.id] || {}),
+                            [currentPhaseForProcessing.round_number]: upsertedData as TeamRoundData
+                        }
+                    }));
                 }
             }
             if (currentDbSession?.id) await fetchTeamRoundDataFromHook(currentDbSession.id);
         } catch (err) {
-            setLocalUiState(s => ({...s, errorProcessing: err instanceof Error ? err.message : "Failed to process choice decisions."}));
+            setLocalUiState(s => ({
+                ...s,
+                errorProcessing: err instanceof Error ? err.message : "Failed to process choice decisions."
+            }));
         } finally {
             setLocalUiState(s => ({...s, isLoadingProcessing: false}));
         }
@@ -233,10 +282,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         updateSessionInDb,
         (phaseId) => { // Wrapper to pass currentSlideData to processChoicePhaseDecisionsInternal
             const currentPhaseNodeForDecision = allPhasesInOrder.find(p => p.id === phaseId);
-            const slideForDecision = currentPhaseNodeForDecision && gameStructureInstance.slides.find(s => s.id === currentPhaseNodeForDecision.slide_ids[currentPhaseNodeForDecision.slide_ids.length -1]); // assume decision is on last slide of phase
-            return processChoicePhaseDecisionsInternal(phaseId, slideForDecision || null );
+            const slideForDecision = currentPhaseNodeForDecision && gameStructureInstance.slides.find(s => s.id === currentPhaseNodeForDecision.slide_ids[currentPhaseNodeForDecision.slide_ids.length - 1]); // assume decision is on last slide of phase
+            return processChoicePhaseDecisionsInternal(phaseId, slideForDecision || null);
         }
     );
+
+    const setCurrentTeacherAlertState = gameController.setCurrentTeacherAlertState;
 
     const combinedAppState: AppState = useMemo(() => ({
         currentSessionId: currentDbSession?.id || null,
@@ -265,11 +316,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 }
             }
             const allSubmitted = submittedCount === teams.length;
-            if(gameController.allTeamsSubmittedCurrentInteractivePhase !== allSubmitted) {
+            if (gameController.allTeamsSubmittedCurrentInteractivePhase !== allSubmitted) {
                 gameController.setAllTeamsSubmittedCurrentInteractivePhase(allSubmitted);
             }
         } else if (gameController.currentPhaseNode && !gameController.currentPhaseNode.is_interactive_student_phase) {
-            if(gameController.allTeamsSubmittedCurrentInteractivePhase) {
+            if (gameController.allTeamsSubmittedCurrentInteractivePhase) {
                 gameController.setAllTeamsSubmittedCurrentInteractivePhase(false);
             }
         }
@@ -315,13 +366,25 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 if (effectsToApply.length > 0) {
                     const updatedKpis = applyKpiEffects(teamKpisForRound, effectsToApply, `RD${roundNumber} Investment Payoff`);
                     await storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply, `RD${roundNumber} Investment Payoff`);
-                    const { data: upsertedData, error: upsertError } = await supabase.from('team_round_data').upsert({...updatedKpis, id: teamKpisForRound.id}, {onConflict: 'id'}).select().single();
+                    const {
+                        data: upsertedData,
+                        error: upsertError
+                    } = await supabase.from('team_round_data').upsert({
+                        ...updatedKpis,
+                        id: teamKpisForRound.id
+                    }, {onConflict: 'id'}).select().single();
                     if (upsertError) throw upsertError;
-                    if (upsertedData) setTeamRoundDataDirectly(prev => ({...prev, [team.id]: {...(prev[team.id] || {}), [roundNumber]: upsertedData as TeamRoundData}}));
+                    if (upsertedData) setTeamRoundDataDirectly(prev => ({
+                        ...prev,
+                        [team.id]: {...(prev[team.id] || {}), [roundNumber]: upsertedData as TeamRoundData}
+                    }));
                 }
             }
         } catch (err) {
-            setLocalUiState(s => ({...s, errorProcessing: err instanceof Error ? err.message : "Failed to process investment payoffs."}));
+            setLocalUiState(s => ({
+                ...s,
+                errorProcessing: err instanceof Error ? err.message : "Failed to process investment payoffs."
+            }));
         } finally {
             setLocalUiState(s => ({...s, isLoadingProcessing: false}));
         }
@@ -357,7 +420,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             }
             if (currentDbSession?.id) await fetchTeamRoundDataFromHook(currentDbSession.id);
         } catch (err) {
-            setLocalUiState(s => ({...s, errorProcessing: err instanceof Error ? err.message : "Failed to finalize round KPIs."}));
+            setLocalUiState(s => ({
+                ...s,
+                errorProcessing: err instanceof Error ? err.message : "Failed to finalize round KPIs."
+            }));
         } finally {
             setLocalUiState(s => ({...s, isLoadingProcessing: false}));
         }
@@ -419,8 +485,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             };
 
             console.log(`[AppContext] Broadcasting: SlideID=${currentSlide?.id}, PhaseID=${currentPhase?.id}, isStudentDecisionActive=${payload.isStudentDecisionPhaseActive}`);
-            broadcastChannel.postMessage({ type: 'TEACHER_STATE_UPDATE', payload });
-        }  else {
+            broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
+        } else {
             console.log("[AppContext] Broadcast skipped: No valid session or channel.");
         }
     }, [currentDbSession, gameController]);
@@ -428,17 +494,23 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     useEffect(() => {
         if (currentDbSession?.id && currentDbSession.id !== 'new') {
             if (broadcastChannel && broadcastChannel.name !== `classroom-${currentDbSession.id}`) {
-                broadcastChannel.close(); broadcastChannel = null;
+                broadcastChannel.close();
+                broadcastChannel = null;
             }
             if (!broadcastChannel) {
                 broadcastChannel = new BroadcastChannel(`classroom-${currentDbSession.id}`);
             }
             broadcastChannel.onmessage = (event) => {
-                if (event.data.type === 'STUDENT_DISPLAY_READY') { syncAndBroadcastAppState(); }
+                if (event.data.type === 'STUDENT_DISPLAY_READY') {
+                    syncAndBroadcastAppState();
+                }
             };
             syncAndBroadcastAppState();
             return () => {
-                if (broadcastChannel) { broadcastChannel.close(); broadcastChannel = null; }
+                if (broadcastChannel) {
+                    broadcastChannel.close();
+                    broadcastChannel = null;
+                }
             };
         }
     }, [currentDbSession?.id, syncAndBroadcastAppState]);
@@ -496,10 +568,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                     else if (allPhasesInOrder.length > 0) await gameController.selectPhase(allPhasesInOrder[0].id);
 
                     alert("Game progress has been reset.");
-                    navigate('/dashboard', { replace: true });
+                    navigate('/dashboard', {replace: true});
 
                 } catch (e) {
-                    setLocalUiState(s => ({...s, errorProcessing: e instanceof Error ? e.message : "Failed to reset game."}));
+                    setLocalUiState(s => ({
+                        ...s,
+                        errorProcessing: e instanceof Error ? e.message : "Failed to reset game."
+                    }));
                 } finally {
                     setLocalUiState(s => ({...s, isLoadingProcessing: false}));
                 }
@@ -553,17 +628,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         isPlayingVideo: gameController.isPlayingVideo,
         videoCurrentTime: gameController.videoCurrentTime,
         triggerVideoSeek: gameController.triggerVideoSeek,
+        handlePreviewVideoEnded: gameController.handlePreviewVideoEnded,
     }), [
         combinedAppState, gameController, allPhasesInOrder, isLoadingSession, sessionError, clearSessionError,
         localUiState.isStudentWindowOpen, teams, teamDecisions, teamRoundData, isLoadingTeams,
         fetchWrapperTeams, fetchTeamRoundDataFromHook, resetWrapperTeamDecision, nextSlideCombined,
         processChoicePhaseDecisionsInternal, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal,
-        calculateAndFinalizeRoundKPIsInternal, resetGameProgressInternal, gameStructureInstance // Added gameStructureInstance
+        calculateAndFinalizeRoundKPIsInternal, resetGameProgressInternal, gameStructureInstance, setCurrentTeacherAlertState,
     ]);
 
     return (
         <AppContext.Provider value={contextValue}>
-            {contextValue.state.isLoading && (!passedSessionId || passedSessionId === 'new' || !currentDbSession?.id || !gameController.currentPhaseNode ) ? (
+            {contextValue.state.isLoading && (!passedSessionId || passedSessionId === 'new' || !currentDbSession?.id || !gameController.currentPhaseNode) ? (
                 <div className="min-h-screen flex items-center justify-center bg-gray-100">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
                     <p className="ml-4 text-lg font-semibold text-gray-700">
@@ -573,19 +649,22 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                                     "Initializing Simulator..."}
                     </p>
                 </div>
-            ) : contextValue.state.error && (passedSessionId === 'new' || (contextValue.state.currentSessionId && !gameController.currentPhaseNode && contextValue.state.currentSessionId !== 'new') ) ?
+            ) : contextValue.state.error && (passedSessionId === 'new' || (contextValue.state.currentSessionId && !gameController.currentPhaseNode && contextValue.state.currentSessionId !== 'new')) ?
                 <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-4 text-center">
                     <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
-                        <ServerCrash size={48} className="text-red-500 mx-auto mb-4" />
+                        <ServerCrash size={48} className="text-red-500 mx-auto mb-4"/>
                         <h2 className="text-2xl font-bold text-red-700 mb-2">Initialization Error</h2>
                         <p className="text-gray-600 mb-6">{contextValue.state.error || "An unknown error occurred."}</p>
-                        <button onClick={() => {clearSessionError(); navigate('/dashboard', { replace: true });}}
+                        <button onClick={() => {
+                            clearSessionError();
+                            navigate('/dashboard', {replace: true});
+                        }}
                                 className="bg-blue-600 text-white font-medium py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
                             Back to Dashboard
                         </button>
                     </div>
                 </div>
-                : ( children )}
+                : (children)}
         </AppContext.Provider>
     );
 };

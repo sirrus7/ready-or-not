@@ -9,34 +9,27 @@ import GameHostPage from './pages/GameHostPage';
 import StudentDisplayPage from './pages/StudentDisplayPage';
 import DashboardPage from './pages/DashboardPage';
 import CreateGamePage from './pages/CreateGamePage';
-import StudentGamePage from './pages/StudentGamePage'; // IMPORT StudentGamePage
+import CompanyDisplayPage from './pages/CompanyDisplayPage';
 
 // Wrapper component to extract sessionId and pass it to AppProvider for GameHostPage
 const SessionAwareAppProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
     const {sessionId} = useParams<{ sessionId: string | undefined }>();
-    // console.log("SessionAwareAppProvider: Rendering with sessionId from URL for GameHost:", sessionId);
     return <AppProvider passedSessionId={sessionId}>{children}</AppProvider>;
 };
 
 function App() {
-    // console.log("App.tsx: Rendering");
     return (
         <BrowserRouter>
-            <AuthProvider> {/* AuthProvider wraps everything that might need auth context */}
+            <AuthProvider>
                 <Routes>
-                    {/* Publicly accessible student-facing routes - NO PrivateRoute, NO AppProvider directly needed for StudentGamePage unless it uses teacher-centric context */}
-                    <Route path="/student-game/:sessionId" element={<StudentGamePage />} />
-                    <Route path="/student-display/:sessionId" element={
-                        // StudentDisplayPage typically doesn't need AppProvider for teacher session data,
-                        // it gets its info via BroadcastChannel. If it did, it would need its own session awareness.
-                        // For now, keeping it simple.
-                        <StudentDisplayPage/>
-                    }/>
+                    {/* Publicly accessible student-facing routes */}
+                    <Route path="/student-game/:sessionId" element={<CompanyDisplayPage />} />
+                    <Route path="/student-display/:sessionId" element={<StudentDisplayPage/>}/>
 
-                    {/* Teacher Login - Publicly accessible, but AppProvider might be used for general app settings if any */}
+                    {/* Teacher Login - Publicly accessible */}
                     <Route path="/login" element={<AppProvider><LoginPage/></AppProvider>}/>
 
-                    {/* Teacher-only authenticated routes - Wrapped in PrivateRoute and SessionAwareAppProvider or AppProvider */}
+                    {/* Teacher-only authenticated routes */}
                     <Route
                         path="/dashboard"
                         element={<PrivateRoute><AppProvider><DashboardPage/></AppProvider></PrivateRoute>}
@@ -49,17 +42,16 @@ function App() {
                         path="/classroom/:sessionId"
                         element={
                             <PrivateRoute>
-                                <SessionAwareAppProvider> {/* This wrapper extracts sessionId for GameHost */}
+                                <SessionAwareAppProvider>
                                     <GameHostPage/>
                                 </SessionAwareAppProvider>
                             </PrivateRoute>
                         }
                     />
                     <Route
-                        path="/classroom" // Route for creating a new session
+                        path="/classroom"
                         element={
                             <PrivateRoute>
-                                {/* 'new' as passedSessionId will trigger new session creation logic in useSessionManager */}
                                 <AppProvider passedSessionId="new">
                                     <GameHostPage />
                                 </AppProvider>
@@ -67,19 +59,18 @@ function App() {
                         }
                     />
 
-
-                    {/* Default authenticated route: if logged in, go to dashboard */}
+                    {/* Default authenticated route */}
                     <Route
                         path="/"
                         element={
                             <PrivateRoute>
-                                <AppProvider> {/* AppProvider for potential dashboard context if user is already there */}
+                                <AppProvider>
                                     <Navigate to="/dashboard" replace/>
                                 </AppProvider>
                             </PrivateRoute>
                         }
                     />
-                    {/* Fallback for any other authenticated paths - might be too broad, consider specific 404 */}
+                    {/* Fallback for any other authenticated paths */}
                     <Route
                         path="*"
                         element={

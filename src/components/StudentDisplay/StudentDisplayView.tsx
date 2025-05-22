@@ -6,22 +6,24 @@ import {Hourglass} from 'lucide-react';
 
 interface StudentDisplayViewProps {
     slide: Slide | null;
-    isPlayingTarget: boolean; // CHANGED: from isPlaying to isPlayingTarget
+    isPlayingTarget: boolean;
     videoTimeTarget?: number;
     triggerSeekEvent?: boolean;
     isForTeacherPreview?: boolean;
     onPreviewVideoStateChange?: (playing: boolean, time: number, triggerSeek?: boolean) => void;
     onPreviewVideoDuration?: (duration: number) => void;
+    onPreviewVideoEnded?: () => void; // Add this prop type
 }
 
 const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
                                                                    slide,
-                                                                   isPlayingTarget, // CHANGED: from isPlaying
+                                                                   isPlayingTarget,
                                                                    videoTimeTarget,
                                                                    triggerSeekEvent,
                                                                    isForTeacherPreview = false,
                                                                    onPreviewVideoStateChange,
                                                                    onPreviewVideoDuration,
+                                                                   onPreviewVideoEnded, // Add this prop
                                                                }) => {
     if (!slide) {
         return (
@@ -34,15 +36,16 @@ const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
     }
 
     return (
-        <div className="h-full w-full overflow-hidden"> {/* Ensure full height and width */}
+        <div className="h-full w-full overflow-hidden">
             <SlideRenderer
                 slide={slide}
-                isPlayingTarget={isPlayingTarget} // CHANGED: from isPlaying
+                isPlayingTarget={isPlayingTarget}
                 videoTimeTarget={videoTimeTarget}
                 triggerSeekEvent={triggerSeekEvent}
                 isForTeacherPreview={isForTeacherPreview}
                 onPreviewVideoStateChange={onPreviewVideoStateChange}
                 onPreviewVideoDuration={onPreviewVideoDuration}
+                onPreviewVideoEnded={onPreviewVideoEnded} // Pass it to SlideRenderer
             />
         </div>
     );
