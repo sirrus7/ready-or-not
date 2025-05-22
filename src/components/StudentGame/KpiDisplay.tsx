@@ -109,7 +109,7 @@ const KpiDisplay: React.FC<KpiDisplayProps> = ({teamName, currentRoundLabel, kpi
     };
 
     // If kpis is null AND it's a round > 0, it means data is expected but not yet loaded/available.
-    // The StudentGamePage will show a general "Loading data for {phase}"
+    // The CompanyDisplayPage will show a general "Loading data for {phase}"
     // KpiDisplay itself can just show N/A or base values.
     // The specific "Loading KPI data..." spinner inside KpiDisplay is removed.
 

@@ -11,7 +11,8 @@ import {
     FileText,
     ExternalLink,
     Lightbulb,
-    LogOut // NEW: Icon for Exit Game
+    LogOut,
+    X // Added X icon for close button
 } from 'lucide-react';
 import {useAppContext} from '../../context/AppContext';
 import Modal from '../UI/Modal';
@@ -24,27 +25,26 @@ const TeacherGameControls: React.FC = () => {
         previousSlide,
         nextSlide,
         togglePlayPauseVideo,
-        // updateTeacherNotes, // Renamed in AppContext to updateTeacherNotesForCurrentSlide
         updateTeacherNotesForCurrentSlide,
         currentSlideData,
-        currentPhaseNode, // Changed from currentPhase
+        currentPhaseNode,
         clearTeacherAlert,
         setStudentWindowOpen,
         selectPhase,
         allPhasesInOrder,
+        setCurrentTeacherAlertState,
     } = useAppContext();
 
-    const navigate = useNavigate(); // NEW: Hook for navigation
+    const navigate = useNavigate();
     const [showNotes, setShowNotes] = useState(false);
     const [isJoinInfoModalOpen, setIsJoinInfoModalOpen] = useState(false);
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
-    const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false); // NEW: State for exit confirmation
+    const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false);
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
     const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         if (currentSlideData) {
-            // Use the correctly named function from context
             updateTeacherNotesForCurrentSlide(e.target.value);
         }
     };
@@ -71,7 +71,6 @@ const TeacherGameControls: React.FC = () => {
     const closeTeamCodesModal = () => setIsTeamCodesModalOpen(false);
 
     const showCurrentRoundLeaderboard = () => {
-        // Use currentPhaseNode from context
         if (currentPhaseNode && currentPhaseNode.round_number > 0) {
             const leaderboardPhaseId = `rd${currentPhaseNode.round_number}-leaderboard`;
             if (allPhasesInOrder.find(p => p.id === leaderboardPhaseId)) {
@@ -87,21 +86,17 @@ const TeacherGameControls: React.FC = () => {
         }
     };
 
-    // NEW: Handlers for Exit Game
     const handleExitGameClick = () => {
         setIsExitConfirmModalOpen(true);
     };
 
     const confirmExitGame = () => {
         setIsExitConfirmModalOpen(false);
-        // Here you might want to do cleanup or save final state if necessary,
-        // though current game state should be persisted via updateSessionInDb.
-        // For now, just navigate.
         navigate('/dashboard');
     };
 
     const currentNotes = currentSlideData ? state.teacherNotes[String(currentSlideData.id)] || '' : '';
-    const studentAppBaseUrl = `${window.location.origin}/student-game`; // Corrected path
+    const studentAppBaseUrl = `${window.location.origin}/student-game`;
 
     const isFirstSlideOverall = currentPhaseNode?.id === state.gameStructure?.welcome_phases[0]?.id && state.currentSlideIdInPhase === 0;
 
@@ -118,6 +113,8 @@ const TeacherGameControls: React.FC = () => {
         }
     }
 
+    // Check if the current alert is our custom one
+    const isCustomAlert = state.currentTeacherAlert?.message === "Time's Up. When you're ready, click Next to proceed.";
 
     return (
         <div className="bg-white p-3 md:p-4 rounded-lg shadow-md border border-gray-200">
@@ -154,7 +151,6 @@ const TeacherGameControls: React.FC = () => {
                     >
                         <ChevronRight size={24}/>
                     </button>
-                    ,
                 </div>
 
                 <button
@@ -200,7 +196,6 @@ const TeacherGameControls: React.FC = () => {
                 >
                     <FileText size={16}/> Notes
                 </button>
-                {/* NEW: Exit Game Button */}
                 <button
                     onClick={handleExitGameClick}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-red-100 text-red-600 transition-colors border border-red-300"
@@ -229,9 +224,14 @@ const TeacherGameControls: React.FC = () => {
             )}
 
             {state.currentTeacherAlert && (
-                <Modal isOpen={!!state.currentTeacherAlert} onClose={clearTeacherAlert}
-                       title={state.currentTeacherAlert.title || "Game Host Alert!"}
-                       hideCloseButton={false} /* Allow closing normally now */ >
+                <Modal
+                    isOpen={!!state.currentTeacherAlert}
+                    onClose={isCustomAlert ? () => {
+                        setCurrentTeacherAlertState(null);
+                    } : clearTeacherAlert}
+                    title={state.currentTeacherAlert.title || "Game Host Alert!"}
+                    hideCloseButton={!isCustomAlert}
+                >
                     <div className="p-1">
                         <div className="flex items-start">
                             <div
@@ -241,16 +241,31 @@ const TeacherGameControls: React.FC = () => {
                             <div className="ml-3 text-left">
                                 <p className="text-sm text-gray-600 mt-1">{state.currentTeacherAlert.message}</p>
                             </div>
+                            {isCustomAlert && (
+                                <button
+                                    onClick={() => {
+                                        setCurrentTeacherAlertState(null);
+                                    }}
+                                    className="ml-auto -mt-1 -mr-1 p-1 rounded-full hover:bg-gray-100"
+                                    aria-label="Close alert"
+                                >
+                                    <X size={20} className="text-gray-500 hover:text-gray-700"/>
+                                </button>
+                            )}
                         </div>
                         <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-                            <button type="button"
-                                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    onClick={clearTeacherAlert}>OK
+                            <button
+                                type="button"
+                                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                                onClick={isCustomAlert ? clearTeacherAlert : clearTeacherAlert}
+                            >
+                                {isCustomAlert ? "Next" : "OK"}
                             </button>
                         </div>
                     </div>
                 </Modal>
             )}
+
             <Modal isOpen={isJoinInfoModalOpen} onClose={closeJoinInfoModal} title="Student Join Information" size="md">
                 <div className="p-2 text-center">
                     <p className="text-sm text-gray-600 mb-2">Students join at:</p>
@@ -265,7 +280,6 @@ const TeacherGameControls: React.FC = () => {
                         <div className="flex justify-center my-4">
                             <div
                                 className="w-40 h-40 bg-gray-200 flex items-center justify-center text-gray-500 text-xs p-2">
-                                {/* Consider adding a QR code library here if needed */}
                                 [QR Code for student join link]
                             </div>
                         </div>
@@ -277,6 +291,7 @@ const TeacherGameControls: React.FC = () => {
                     </button>
                 </div>
             </Modal>
+
             <Modal isOpen={isTeamCodesModalOpen} onClose={closeTeamCodesModal} title="Team Access Codes" size="sm">
                 <div className="p-2">
                     {state.teams.length > 0 ? (
@@ -302,7 +317,6 @@ const TeacherGameControls: React.FC = () => {
                 </div>
             </Modal>
 
-            {/* NEW: Exit Game Confirmation Modal */}
             <Modal
                 isOpen={isExitConfirmModalOpen}
                 onClose={() => setIsExitConfirmModalOpen(false)}

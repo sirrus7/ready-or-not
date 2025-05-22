@@ -40,43 +40,38 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
         if (videoElement && isVideoSlideType && slide?.source_url) {
             if (!isForTeacherPreview) {
+                // Student display handling
                 if (triggerSeekEvent && videoTimeTarget !== undefined) {
-                    if (!videoElement.paused) {
-                        videoElement.pause();
-                    }
                     if (Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
                         videoElement.currentTime = videoTimeTarget;
                     }
+                    // After seek, resume playing if that was the intended state
                     if (isPlayingTarget && videoElement.paused) {
-                        console.warn(`[${context}] STUDENT: isPlayingTarget is TRUE during seek trigger. Video remains paused as per strategy.`);
-                        if(!videoElement.paused) videoElement.pause();
+                        setTimeout(() => {
+                            videoElement.play().catch(e => console.warn(`[${context}] Play after seek error:`, e));
+                        }, 100);
                     }
                 } else {
+                    // Normal play/pause control
                     if (isPlayingTarget && videoElement.paused) {
-                        videoElement.play().catch(e => console.warn(`[${context}] Student display video play error:`, e));
+                        videoElement.play().catch(e => console.warn(`[${context}] Video play error:`, e));
                     } else if (!isPlayingTarget && !videoElement.paused) {
                         videoElement.pause();
                     }
                 }
-            } else { // Teacher Preview Logic
+            } else {
+                // Teacher Preview Logic
                 if (triggerSeekEvent && videoTimeTarget !== undefined) {
                     if (Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
                         videoElement.currentTime = videoTimeTarget;
                     }
-                    // isPlayingTarget should be false from controller on seek, so video pauses.
-                    if (!videoElement.paused && !isPlayingTarget) {
-                        videoElement.pause();
-                    }
+                    // Don't change play/pause state during seek
                 } else {
-                    // Reflect the global play state from teacher controls
-                    if (isPlayingTarget && videoElement.paused) {
-                        if (!videoElement.seeking) {
-                            videoElement.play().catch(e => console.warn(`[${context}] Teacher preview play error:`, e));
-                        }
-                    } else if (!isPlayingTarget && !videoElement.paused) {
-                        if (!videoElement.seeking) {
-                            videoElement.pause();
-                        }
+                    // Normal play/pause control
+                    if (isPlayingTarget && videoElement.paused && !videoElement.seeking) {
+                        videoElement.play().catch(e => console.warn(`[${context}] Teacher preview play error:`, e));
+                    } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) {
+                        videoElement.pause();
                     }
                 }
             }
@@ -88,8 +83,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             onPreviewVideoStateChange(true, videoRef.current.currentTime, false);
         }
     };
+
     const handlePreviewPause = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {
+            // Only report pause, NOT video ended
             onPreviewVideoStateChange(false, videoRef.current.currentTime, false);
         }
     };
@@ -106,8 +103,15 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
     const handlePreviewSeeked = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {
-            onPreviewVideoStateChange(videoRef.current.paused ? false : true, videoRef.current.currentTime, true);
+            // Pass the current playing state (not paused) and mark as seek
+            const isCurrentlyPlaying = !videoRef.current.paused;
+            onPreviewVideoStateChange(isCurrentlyPlaying, videoRef.current.currentTime, true);
         }
+    };
+
+    const handlePreviewSeeking = () => {
+        // Don't update state while seeking is in progress
+        // This prevents the stutter
     };
 
     const handlePreviewLoadedMetadata = () => {
@@ -124,9 +128,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     };
 
-    const handlePreviewVideoEnded = () => { // NEW HANDLER
-        // console.log("[SlideRenderer TeacherPreview] Video ended event fired.");
+    const handlePreviewVideoEnded = () => {
+        console.log("[SlideRenderer TeacherPreview] Video ended event fired.");
         if (isForTeacherPreview && onPreviewVideoEnded) {
+            console.log("[SlideRenderer TeacherPreview] Calling onPreviewVideoEnded handler.");
             onPreviewVideoEnded();
         }
     };
@@ -176,9 +181,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             onPlay={isForTeacherPreview ? handlePreviewPlay : undefined}
                             onPause={isForTeacherPreview ? handlePreviewPause : undefined}
                             onTimeUpdate={isForTeacherPreview ? handlePreviewTimeUpdate : undefined}
+                            onSeeking={isForTeacherPreview ? handlePreviewSeeking : undefined}
                             onSeeked={isForTeacherPreview ? handlePreviewSeeked : undefined}
                             onLoadedMetadata={handlePreviewLoadedMetadata}
-                            onEnded={isForTeacherPreview ? handlePreviewVideoEnded : undefined} // ADDED ONENDED
+                            onEnded={isForTeacherPreview ? handlePreviewVideoEnded : undefined}
                         >
                             Your browser does not support the video tag.
                         </video>

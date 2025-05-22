@@ -1,4 +1,4 @@
-// src/pages/StudentGamePage.tsx
+// src/pages/CompanyDisplayPage.tsx
 import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {useParams} from 'react-router-dom';
 import TeamLogin from '../components/StudentGame/TeamLogin';
@@ -17,7 +17,7 @@ import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {Hourglass, CheckCircle, AlertTriangle} from 'lucide-react';
 import Modal from '../components/UI/Modal';
 
-const StudentGamePage: React.FC = () => {
+const CompanyDisplayPage: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(localStorage.getItem(`ron_teamId_${sessionId}`));
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(localStorage.getItem(`ron_teamName_${sessionId}`));
@@ -58,7 +58,7 @@ const StudentGamePage: React.FC = () => {
             return;
         }
 
-        console.log(`[StudentGamePage] Fetching initial data for team ${teamId}, phase ${activePhase.id}, round ${activePhase.round_number}`);
+        console.log(`[CompanyDisplayPage] Fetching initial data for team ${teamId}, phase ${activePhase.id}, round ${activePhase.round_number}`);
         setIsLoadingData(true);
         setPageError(null);
 
@@ -74,9 +74,8 @@ const StudentGamePage: React.FC = () => {
 
                 if (kpiError) {
                     console.error("Error fetching KPIs via RPC:", kpiError);
-                    throw kpiError; // Let error boundary catch or handle specifically
+                    throw kpiError;
                 }
-                // RPC 'data' for SETOF will be an array. Expecting one or zero rows.
                 setCurrentTeamKpis(kpiData && kpiData.length > 0 ? kpiData[0] as TeamRoundData : null);
             } else {
                 setCurrentTeamKpis(null);
@@ -115,7 +114,7 @@ const StudentGamePage: React.FC = () => {
                 setSubmissionMessage(null);
             }
         } catch (err) {
-            console.error("[StudentGamePage] Error fetching initial team data (RPC):", err);
+            console.error("[CompanyDisplayPage] Error fetching initial team data (RPC):", err);
             setPageError("Failed to load your team's data. Please check your connection or contact the facilitator.");
         } finally {
             setIsLoadingData(false);
@@ -166,7 +165,7 @@ const StudentGamePage: React.FC = () => {
 
                 if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
                     if (currentTeamKpis?.round_number !== newPhaseNode.round_number || !currentTeamKpis) {
-                        if (newPhaseNode.id !== previousPhaseId) { // Only fetch if phase also changed, or KPIs are null
+                        if (newPhaseNode.id !== previousPhaseId) {
                             fetchInitialTeamData(loggedInTeamId, newPhaseNode);
                         }
                     }
@@ -203,14 +202,13 @@ const StudentGamePage: React.FC = () => {
         };
     }, [isStudentDecisionTime, decisionPhaseTimerEndTime]);
 
-
     useEffect(() => {
         if (isStudentDecisionTimeRef.current && timeRemainingSeconds === 0 &&
             currentActivePhase?.phase_type === 'choice' &&
             submissionStatusRef.current !== 'success' &&
             submissionStatusRef.current !== 'submitting') {
 
-            console.log(`[StudentGamePage] Timer ended for CHOICE phase ${currentActivePhase.id}. Auto-submitting default.`);
+            console.log(`[CompanyDisplayPage] Timer ended for CHOICE phase ${currentActivePhase.id}. Auto-submitting default.`);
 
             const optionsKey = decisionOptionsKey || currentActivePhase.id;
             const options = gameStructure.all_challenge_options[optionsKey] || [];
@@ -242,14 +240,13 @@ const StudentGamePage: React.FC = () => {
                         setTimeout(() => setIsSubmissionFeedbackModalOpen(false), 3000);
                     })
                     .catch(err => {
-                        console.error("[StudentGamePage] Auto-submit error:", err);
+                        console.error("[CompanyDisplayPage] Auto-submit error:", err);
                         setSubmissionStatus('error');
                         setSubmissionMessage("Failed to auto-submit default choice. Please inform your facilitator.");
                     });
             }
         }
     }, [timeRemainingSeconds, currentActivePhase, gameStructure, decisionOptionsKey, loggedInTeamId, sessionId]);
-
 
     useEffect(() => {
         if (loggedInTeamId && currentActivePhase) {
@@ -302,7 +299,7 @@ const StudentGamePage: React.FC = () => {
                 setIsSubmissionFeedbackModalOpen(false);
             }, 3000);
         } catch (err) {
-            console.error("[StudentGamePage] Error submitting decision:", err);
+            console.error("[CompanyDisplayPage] Error submitting decision:", err);
             setSubmissionStatus('error');
             submissionStatusRef.current = 'error';
             setSubmissionMessage(err instanceof Error ? `Submission Error: ${err.message}` : "Failed to submit decisions. Please try again or notify facilitator.");
@@ -331,7 +328,6 @@ const StudentGamePage: React.FC = () => {
         return [];
     }, [currentActivePhase, gameStructure, loggedInTeamId]);
 
-
     if (pageError) {
         return (
             <div className="min-h-screen bg-red-900 text-white flex flex-col items-center justify-center p-4">
@@ -356,10 +352,9 @@ const StudentGamePage: React.FC = () => {
         return <TeamLogin sessionId={sessionId} onLoginSuccess={handleLoginSuccess}/>;
     }
 
-    // Determine kpiRoundLabel safely, even if currentActivePhase is null initially
     const kpiRoundLabel = currentActivePhase?.round_number ?
         `RD-${currentActivePhase.round_number} ${currentActivePhase.phase_type === 'kpi' || currentActivePhase.phase_type === 'leaderboard' ? 'Final ' : ''}Status`
-        : (loggedInTeamId ? "Connecting..." : "Game Setup"); // Show "Connecting" if logged in but no phase yet
+        : (loggedInTeamId ? "Connecting..." : "Game Setup");
 
     const budgetForInvestPhase = currentActivePhase?.phase_type === 'invest' && decisionOptionsKey && gameStructure.investment_phase_budgets?.[decisionOptionsKey]
         ? gameStructure.investment_phase_budgets[decisionOptionsKey]
@@ -367,15 +362,13 @@ const StudentGamePage: React.FC = () => {
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-900 text-white overflow-hidden">
-            {/* KpiDisplay is ALWAYS rendered after login */}
             <KpiDisplay
                 teamName={loggedInTeamName}
                 currentRoundLabel={kpiRoundLabel}
-                kpis={currentTeamKpis} // Will pass null initially, KpiDisplay handles defaults
+                kpis={currentTeamKpis}
             />
 
             <div className="flex-grow p-3 md:p-4 overflow-y-auto">
-                {/* Show main loading if no active phase yet, or if explicitly loading data */}
                 {isLoadingData || !currentActivePhase ? (
                     <div className="text-center text-gray-400 py-10">
                         <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
@@ -423,7 +416,6 @@ const StudentGamePage: React.FC = () => {
                 )}
             </div>
 
-            {/* Submission Feedback Modal */}
             {isSubmissionFeedbackModalOpen && (
                 <Modal
                     isOpen={isSubmissionFeedbackModalOpen}
@@ -462,4 +454,5 @@ const StudentGamePage: React.FC = () => {
         </div>
     );
 };
-export default StudentGamePage;
+
+export default CompanyDisplayPage;
