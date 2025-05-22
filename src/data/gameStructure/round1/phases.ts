@@ -9,7 +9,7 @@ export const round1Phases: GamePhaseNode[] = [
         icon_name: 'DollarSign',
         phase_type: 'invest',
         round_number: 1,
-        slide_ids: [6, 7, 8, 9],
+        slide_ids: [7, 8, 9],
         is_interactive_student_phase: true,
         expected_duration_minutes: 20
     },
@@ -20,7 +20,7 @@ export const round1Phases: GamePhaseNode[] = [
         icon_name: 'ListChecks',
         phase_type: 'choice',
         round_number: 1,
-        slide_ids: [11, 12, 13, 14, 15, 16, 17, 18],
+        slide_ids: [10, 11, 12, 13, 14, 15, 16, 17, 18],
         is_interactive_student_phase: true,
         expected_duration_minutes: 8
     },

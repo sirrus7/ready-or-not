@@ -44,6 +44,17 @@ export const welcomeSlides: Slide[] = [
         source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_006.mp4?alt=media',
         auto_advance_after_video: true,
     },
+    {
+        id: 6,
+        title: "What Are Investments",
+        type: 'video',
+        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_007.mp4?alt=media',
+        auto_advance_after_video: true,
+        teacher_alert: {
+            title: "Game Host Alert!",
+            message: "Game Host, hand out 1 set of RD-1 Investment Cards & 1 RD-1 Team Summary Sheet to each team now. Then click Next to proceed."
+        }
+    },
 ];
 
 export const welcomePhases: GamePhaseNode[] = [
@@ -64,7 +75,7 @@ export const welcomePhases: GamePhaseNode[] = [
         icon_name: 'Film',
         phase_type: 'narration',
         round_number: 0,
-        slide_ids: [4, 5],
+        slide_ids: [4, 5, 6],
         is_interactive_student_phase: false,
         expected_duration_minutes: 7
     },
