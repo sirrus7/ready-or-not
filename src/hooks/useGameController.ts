@@ -17,10 +17,10 @@ export interface GameControllerOutput {
     allTeamsSubmittedCurrentInteractivePhase: boolean;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
 
-    selectPhase: (phaseId: string) => void;
+    selectPhase: (phaseId: string) => Promise<void>; // Made async
     nextSlide: () => Promise<void>;
-    previousSlide: () => Promise<void>; // Made async for consistency
-    togglePlayPauseVideo: () => Promise<void>; // Made async
+    previousSlide: () => Promise<void>;
+    togglePlayPauseVideo: () => Promise<void>;
     setVideoPlaybackState: (playing: boolean, time: number, triggerSeek?: boolean) => Promise<void>;
     updateTeacherNotesForCurrentSlide: (notes: string) => void;
     clearTeacherAlert: () => Promise<void>;
@@ -32,7 +32,7 @@ export const useGameController = (
     dbSession: GameSession | null,
     gameStructure: GameStructure | null,
     updateSessionInDb: (updates: Partial<Pick<GameSession, 'current_phase_id' | 'current_slide_id_in_phase' | 'is_playing' | 'teacher_notes' | 'is_complete'>>) => Promise<void>,
-    processChoicePhaseDecisionsFunction: (phaseId: string) => Promise<void> // This is for CH1, CH2, etc.
+    processChoicePhaseDecisionsFunction: (phaseId: string) => Promise<void>
 ): GameControllerOutput => {
     const [currentPhaseIdState, setCurrentPhaseIdState] = useState<string | null>(null);
     const [currentSlideIdInPhaseState, setCurrentSlideIdInPhaseState] = useState<number | null>(0);
@@ -48,12 +48,8 @@ export const useGameController = (
     const [allTeamsSubmittedCurrentInteractivePhaseState, setAllTeamsSubmittedCurrentInteractivePhaseState] = useState<boolean>(false);
 
     const allPhasesInOrder = useMemo((): GamePhaseNode[] => {
-        if (!gameStructure) return [];
-        return [
-            ...(gameStructure.welcome_phases || []),
-            ...gameStructure.rounds.flatMap(round => round.phases || []), // Added || [] for safety
-            ...(gameStructure.game_end_phases || []),
-        ];
+        if (!gameStructure?.allPhases) return [];
+        return gameStructure.allPhases;
     }, [gameStructure]);
 
     useEffect(() => {
@@ -84,40 +80,38 @@ export const useGameController = (
 
     const currentSlideData = useMemo(() => {
         if (!currentPhaseNode || currentSlideIdInPhaseState === null || !gameStructure?.slides) return null;
-        if (currentPhaseNode.slide_ids.length === 0 && currentSlideIdInPhaseState === 0) return null;
+        if (currentPhaseNode.slide_ids.length === 0 && currentSlideIdInPhaseState === 0 && currentPhaseNode.slide_ids[0] === undefined) return null; // Handles empty slide_ids for a phase
         if (currentSlideIdInPhaseState < 0 || currentSlideIdInPhaseState >= currentPhaseNode.slide_ids.length) {
             console.warn(`[GameController] Invalid slide index ${currentSlideIdInPhaseState} for phase ${currentPhaseNode.id}. Max index: ${currentPhaseNode.slide_ids.length -1}.`);
             return null;
         }
         const slideId = currentPhaseNode.slide_ids[currentSlideIdInPhaseState];
-        return gameStructure.slides.find(s => s.id === slideId) || null;
+        const foundSlide = gameStructure.slides.find(s => s.id === slideId) || null;
+        console.log(`[GameController] currentSlideData for ID ${slideId}:`, foundSlide); // Add this log
+        return foundSlide;
     }, [currentPhaseNode, currentSlideIdInPhaseState, gameStructure?.slides]);
 
     useEffect(() => {
-        // Reset video duration when slide changes to a video type
         if (currentSlideData?.type === 'video' || (currentSlideData?.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))) {
             setCurrentVideoDurationState(null);
         }
-        // Reset submission status when slide changes, AppContext will update it based on new phase/slide context
         setAllTeamsSubmittedCurrentInteractivePhaseState(false);
     }, [currentSlideData]);
 
     const reportVideoDuration = useCallback((duration: number) => {
-        // console.log(`[GameController] Video duration reported: ${duration}`);
         setCurrentVideoDurationState(duration);
     }, []);
 
     const advanceToNextSlideInternal = useCallback(async () => {
-        if (!currentPhaseNode || currentSlideIdInPhaseState === null || !dbSession || !gameStructure) return;
+        if (!currentPhaseNode || currentSlideIdInPhaseState === null || !dbSession || !gameStructure || !allPhasesInOrder.length) return;
 
         const isLastSlideInPhase = currentSlideIdInPhaseState >= currentPhaseNode.slide_ids.length - 1;
         let nextPhaseId = currentPhaseIdState;
         let nextSlideIndexInPhase = currentSlideIdInPhaseState + 1;
 
         if (isLastSlideInPhase) {
-            // If it's the last slide of an interactive choice phase, process decisions
             if (currentPhaseNode.is_interactive_student_phase && currentPhaseNode.phase_type === 'choice') {
-                console.log(`[GameController] Processing decisions for choice phase: ${currentPhaseNode.id}`);
+                // console.log(`[GameController] Processing decisions for choice phase: ${currentPhaseNode.id}`);
                 await processChoicePhaseDecisionsFunction(currentPhaseNode.id);
             }
 
@@ -127,7 +121,7 @@ export const useGameController = (
                 nextPhaseId = nextPhaseNodeCandidate.id;
                 nextSlideIndexInPhase = 0;
             } else {
-                console.log("[GameController] End of game reached (last slide of last phase).");
+                // console.log("[GameController] End of game reached (last slide of last phase).");
                 await updateSessionInDb({is_complete: true, is_playing: false});
                 return;
             }
@@ -137,9 +131,9 @@ export const useGameController = (
         setCurrentSlideIdInPhaseState(nextSlideIndexInPhase);
         setIsPlayingVideoState(false);
         setVideoCurrentTimeState(0);
-        setTriggerVideoSeekState(true); // Seek to start of new slide's video if any
-        setAllTeamsSubmittedCurrentInteractivePhaseState(false); // Reset for new slide/phase
-        setCurrentVideoDurationState(null); // Reset video duration for new slide
+        setTriggerVideoSeekState(true);
+        setAllTeamsSubmittedCurrentInteractivePhaseState(false);
+        setCurrentVideoDurationState(null);
 
         await updateSessionInDb({
             current_phase_id: nextPhaseId,
@@ -153,21 +147,19 @@ export const useGameController = (
     const checkAndDisplayAlertForCurrentSlide = useCallback((): boolean => {
         if (!currentSlideData || currentTeacherAlertState) return false;
 
-        let alertToShow = currentSlideData.teacher_alert; // Default alert from slide data
+        let alertToShow = currentSlideData.teacher_alert;
 
-        // Special handling for Slide 8 (RD-1 Invest video timer)
         if (currentSlideData.id === 8 && currentSlideData.type === 'interactive_invest') {
             if (allTeamsSubmittedCurrentInteractivePhaseState) {
-                console.log("[GameController] All teams submitted for RD-1 Invest. Using slide's teacher_alert.");
-                // The alert defined on Slide 8 is already appropriate for "period ended"
+                // console.log("[GameController] All teams submitted for Slide 8 (Invest). Using slide's teacher_alert.");
+                // Alert from slide 8 is already "Investment Period Concluded"
             } else {
-                // If not all submitted, don't show the default "period ended" alert yet.
-                // The teacher might be forcing next, which is handled in nextSlide().
-                return false;
+                return false; // Don't show the default "period ended" alert if not all submitted for slide 8
             }
         }
 
         if (alertToShow) {
+            // console.log(`[GameController] Displaying alert: ${alertToShow.title}`);
             setCurrentTeacherAlertState(alertToShow);
             if (isPlayingVideoState) {
                 setIsPlayingVideoState(false);
@@ -181,12 +173,10 @@ export const useGameController = (
     useEffect(() => {
         if (currentSlideData?.id === 8 && currentSlideData.type === 'interactive_invest' && allTeamsSubmittedCurrentInteractivePhaseState) {
             if (!currentTeacherAlertState) {
-                console.log("[GameController] useEffect: All teams submitted for invest phase (Slide 8), attempting to show alert.");
-                checkAndDisplayAlertForCurrentSlide();
+                // console.log("[GameController] useEffect: All teams submitted for invest phase (Slide 8), attempting to show defined alert.");
+                checkAndDisplayAlertForCurrentSlide(); // This will use the alert defined on slide 8
             }
         } else if (currentSlideData?.teacher_alert && currentSlideData.id !== 8) {
-            // For other slides with alerts, check if it should be displayed.
-            // Avoid re-showing the same alert if it's already active.
             if (!currentTeacherAlertState || (currentTeacherAlertState.title !== currentSlideData.teacher_alert.title || currentTeacherAlertState.message !== currentSlideData.teacher_alert.message)) {
                 checkAndDisplayAlertForCurrentSlide();
             }
@@ -196,53 +186,46 @@ export const useGameController = (
 
     const nextSlide = useCallback(async () => {
         if (currentTeacherAlertState) {
-            // This case should ideally be handled by the modal's OK button calling clearTeacherAlert.
-            // If nextSlide is called directly while an alert is up, it might imply teacher wants to bypass something.
-            // For now, let's assume clearTeacherAlert will handle the advancement.
-            console.warn("[GameController] nextSlide called while alert is active. Alert should be cleared first.");
+            console.warn("[GameController] nextSlide called while alert is active. Alert should be cleared via its OK button.");
             return;
         }
 
-        // Specific logic for Slide 8 (RD-1 Invest video timer)
-        if (currentSlideData?.id === 8 && currentSlideData.type === 'interactive_invest') {
+        if (currentSlideData?.id === 8 && currentSlideData.type === 'interactive_invest') { // Special handling for RD-1 Invest video timer slide
             if (!allTeamsSubmittedCurrentInteractivePhaseState) {
-                const confirmAdvance = window.confirm("Not all teams have submitted their RD-1 investments. The 15-minute timer might still be running. Do you want to end the investment period early and proceed?");
+                const confirmAdvance = window.confirm("Not all teams have submitted RD-1 investments. The 15-minute timer might still be running. End the investment period early and proceed?");
                 if (!confirmAdvance) {
-                    return; // Teacher chose not to advance
-                }
-                // If teacher confirms early advance, show the slide's defined "period ended" alert.
-                // The actual advancement will happen when this alert is cleared.
-                if (currentSlideData.teacher_alert && !currentTeacherAlertState) {
-                    setCurrentTeacherAlertState(currentSlideData.teacher_alert);
-                    if (isPlayingVideoState && dbSession) updateSessionInDb({ is_playing: false });
-                    setIsPlayingVideoState(false);
-                    return;
-                }
-            } else { // All teams have submitted for Slide 8
-                // If an alert isn't already showing (e.g. from the useEffect), show it now.
-                if (!currentTeacherAlertState && currentSlideData.teacher_alert) {
-                    setCurrentTeacherAlertState(currentSlideData.teacher_alert);
-                    if (isPlayingVideoState && dbSession) updateSessionInDb({ is_playing: false });
-                    setIsPlayingVideoState(false);
                     return;
                 }
             }
-        }
-        // For other slides that might have a teacher_alert (not Slide 8's special case)
-        else if (currentSlideData?.teacher_alert) {
-            if (checkAndDisplayAlertForCurrentSlide()) { // This function now returns true if an alert was set
-                return; // Alert displayed, advancement will happen via clearTeacherAlert
+            // If all submitted OR teacher confirmed early advance, show the standard "period ended" alert.
+            // The actual advancement will happen when this alert is cleared via clearTeacherAlert.
+            if (currentSlideData.teacher_alert && !currentTeacherAlertState) {
+                setCurrentTeacherAlertState(currentSlideData.teacher_alert);
+                if (isPlayingVideoState && dbSession) {
+                    await updateSessionInDb({ is_playing: false }); // Ensure DB reflects pause
+                    setIsPlayingVideoState(false);
+                }
+                return;
+            }
+            // If alert was already shown (e.g. by allTeamsSubmitted) and teacher clicks next, this will be handled by clearTeacherAlert.
+            // If no alert defined on slide 8 for some reason, just advance.
+            if (!currentSlideData.teacher_alert) {
+                await advanceToNextSlideInternal();
+                return;
+            }
+
+        } else if (currentSlideData?.teacher_alert) {
+            if (checkAndDisplayAlertForCurrentSlide()) {
+                return;
             }
         }
 
-        // If no alerts were set or needed special handling, proceed to advance.
         await advanceToNextSlideInternal();
     }, [currentTeacherAlertState, currentSlideData, advanceToNextSlideInternal, allTeamsSubmittedCurrentInteractivePhaseState, checkAndDisplayAlertForCurrentSlide, isPlayingVideoState, dbSession, updateSessionInDb]);
 
 
     const clearTeacherAlert = useCallback(async () => {
         setCurrentTeacherAlertState(null);
-        // console.log("[GameController] Alert cleared. Advancing to next slide.");
         await advanceToNextSlideInternal();
     }, [advanceToNextSlideInternal]);
 
@@ -308,7 +291,6 @@ export const useGameController = (
             await clearTeacherAlert();
             return;
         }
-        // Allow play/pause for 'video' type or 'interactive_invest' type if it has a source_url (like our Slide 8)
         if ((currentSlideData?.type === 'video' ||
                 (currentSlideData?.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)))
             && dbSession) {
@@ -328,6 +310,9 @@ export const useGameController = (
             newGlobalIsPlayingTarget = false;
             newGlobalTriggerSeek = true;
         } else {
+            // If just play/pause from preview, we want the global state to reflect the preview's direct action.
+            // The `togglePlayPauseVideo` is for the main button. This `setVideoPlaybackState` is from preview events.
+            newGlobalIsPlayingTarget = playingFromPreview;
             newGlobalTriggerSeek = false;
         }
 

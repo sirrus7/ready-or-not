@@ -27,7 +27,7 @@ const StudentGamePage: React.FC = () => {
     const [currentActivePhase, setCurrentActivePhase] = useState<GamePhaseNode | null>(null);
 
     const [isStudentDecisionTime, setIsStudentDecisionTime] = useState<boolean>(false);
-    const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined); // Store the target end time
+    const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined);
     const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | undefined>(undefined);
 
     const [decisionOptionsKey, setDecisionOptionsKey] = useState<string | undefined>(undefined);
@@ -41,7 +41,7 @@ const StudentGamePage: React.FC = () => {
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
     const submissionStatusRef = useRef(submissionStatus);
-    const isStudentDecisionTimeRef = useRef(isStudentDecisionTime); // Ref for isStudentDecisionTime
+    const isStudentDecisionTimeRef = useRef(isStudentDecisionTime);
 
     useEffect(() => {
         submissionStatusRef.current = submissionStatus;
@@ -51,7 +51,6 @@ const StudentGamePage: React.FC = () => {
         isStudentDecisionTimeRef.current = isStudentDecisionTime;
     }, [isStudentDecisionTime]);
 
-
     const fetchInitialTeamData = useCallback(async (teamId: string, activePhase: GamePhaseNode | null) => {
         if (!sessionId || !activePhase || !teamId) {
             setCurrentTeamKpis(null);
@@ -59,38 +58,49 @@ const StudentGamePage: React.FC = () => {
             return;
         }
 
+        console.log(`[StudentGamePage] Fetching initial data for team ${teamId}, phase ${activePhase.id}, round ${activePhase.round_number}`);
         setIsLoadingData(true);
         setPageError(null);
 
         try {
+            // Fetch current KPIs using RPC
             if (activePhase.round_number > 0) {
-                const {data: kpiData, error: kpiError} = await supabase
-                    .from('team_round_data')
-                    .select('*')
-                    .eq('session_id', sessionId)
-                    .eq('team_id', teamId)
-                    .eq('round_number', activePhase.round_number)
-                    .single();
-                if (kpiError && kpiError.code !== 'PGRST116') throw kpiError;
-                setCurrentTeamKpis(kpiData as TeamRoundData | null);
+                const { data: kpiData, error: kpiError } = await supabase
+                    .rpc('get_team_kpis_for_student', {
+                        target_session_id: sessionId,
+                        target_team_id: teamId,
+                        target_round_number: activePhase.round_number
+                    });
+
+                if (kpiError) {
+                    console.error("Error fetching KPIs via RPC:", kpiError);
+                    throw kpiError; // Let error boundary catch or handle specifically
+                }
+                // RPC 'data' for SETOF will be an array. Expecting one or zero rows.
+                setCurrentTeamKpis(kpiData && kpiData.length > 0 ? kpiData[0] as TeamRoundData : null);
             } else {
                 setCurrentTeamKpis(null);
             }
 
+            // Check for existing submission for this phase using RPC
             if (activePhase.is_interactive_student_phase) {
-                const {data: existingDecision, error: decisionError} = await supabase
-                    .from('team_decisions')
-                    .select('id, submitted_at')
-                    .eq('session_id', sessionId)
-                    .eq('team_id', teamId)
-                    .eq('phase_id', activePhase.id)
-                    .single();
+                const { data: existingDecisionData, error: decisionError } = await supabase
+                    .rpc('get_student_team_decision_for_phase', {
+                        target_session_id: sessionId,
+                        target_team_id: teamId,
+                        target_phase_id: activePhase.id
+                    });
 
-                if (decisionError && decisionError.code !== 'PGRST116') throw decisionError;
+                if (decisionError) {
+                    console.error("Error fetching existing decision via RPC:", decisionError);
+                    throw decisionError;
+                }
+
+                const existingDecision = existingDecisionData && existingDecisionData.length > 0 ? existingDecisionData[0] : null;
 
                 if (existingDecision?.submitted_at) {
-                    setSubmissionStatus('success'); // Set directly
-                    submissionStatusRef.current = 'success'; // Update ref immediately
+                    setSubmissionStatus('success');
+                    submissionStatusRef.current = 'success';
                     setSubmissionMessage(`Decisions for "${activePhase.label}" were already submitted.`);
                     setIsStudentDecisionTime(false);
                     isStudentDecisionTimeRef.current = false;
@@ -105,8 +115,8 @@ const StudentGamePage: React.FC = () => {
                 setSubmissionMessage(null);
             }
         } catch (err) {
-            console.error("[StudentGamePage] Error fetching initial team data:", err);
-            setPageError("Failed to load your team's data. Please try refreshing.");
+            console.error("[StudentGamePage] Error fetching initial team data (RPC):", err);
+            setPageError("Failed to load your team's data. Please check your connection or contact the facilitator.");
         } finally {
             setIsLoadingData(false);
         }
@@ -150,14 +160,15 @@ const StudentGamePage: React.FC = () => {
                     }
                 }
 
-                if (decisionPhaseTimerEndTime !== payload.decisionPhaseTimerEndTime) { // Only update if target end time changed
+                if (decisionPhaseTimerEndTime !== payload.decisionPhaseTimerEndTime) {
                     setDecisionPhaseTimerEndTime(payload.decisionPhaseTimerEndTime);
                 }
 
-                // KPI data fetch based on round change or if KPIs are null for the current round
                 if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
                     if (currentTeamKpis?.round_number !== newPhaseNode.round_number || !currentTeamKpis) {
-                        fetchInitialTeamData(loggedInTeamId, newPhaseNode); // Will also handle submission status
+                        if (newPhaseNode.id !== previousPhaseId) { // Only fetch if phase also changed, or KPIs are null
+                            fetchInitialTeamData(loggedInTeamId, newPhaseNode);
+                        }
                     }
                 } else if (newPhaseNode?.round_number === 0) {
                     setCurrentTeamKpis(null);
@@ -168,9 +179,8 @@ const StudentGamePage: React.FC = () => {
             channel.close();
             if (timerInterval) clearInterval(timerInterval);
         };
-    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId, currentActivePhase, currentTeamKpis, decisionPhaseTimerEndTime]); // Added decisionPhaseTimerEndTime
+    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId, currentActivePhase, currentTeamKpis, decisionPhaseTimerEndTime]);
 
-    // Separate useEffect for the countdown timer itself, driven by decisionPhaseTimerEndTime
     useEffect(() => {
         let timerInterval: NodeJS.Timeout | undefined;
         if (isStudentDecisionTimeRef.current && decisionPhaseTimerEndTime && decisionPhaseTimerEndTime > Date.now()) {
@@ -182,16 +192,16 @@ const StudentGamePage: React.FC = () => {
                     clearInterval(timerInterval);
                 }
             };
-            updateTimer(); // Initial call
+            updateTimer();
             timerInterval = setInterval(updateTimer, 1000);
         } else {
-            setTimeRemainingSeconds(undefined); // No timer or timer expired
+            setTimeRemainingSeconds(undefined);
             if (timerInterval) clearInterval(timerInterval);
         }
         return () => {
             if (timerInterval) clearInterval(timerInterval);
         };
-    }, [isStudentDecisionTime, decisionPhaseTimerEndTime]); // React to changes in these states
+    }, [isStudentDecisionTime, decisionPhaseTimerEndTime]);
 
 
     useEffect(() => {
@@ -245,7 +255,7 @@ const StudentGamePage: React.FC = () => {
         if (loggedInTeamId && currentActivePhase) {
             fetchInitialTeamData(loggedInTeamId, currentActivePhase);
         }
-    }, [loggedInTeamId, currentActivePhase?.id, fetchInitialTeamData]); // Trigger fetch if phase ID changes while logged in
+    }, [loggedInTeamId, currentActivePhase?.id, fetchInitialTeamData]);
 
     const handleLoginSuccess = (teamId: string, teamName: string) => {
         localStorage.setItem(`ron_teamId_${sessionId}`, teamId);
@@ -253,8 +263,7 @@ const StudentGamePage: React.FC = () => {
         setLoggedInTeamId(teamId);
         setLoggedInTeamName(teamName);
         setPageError(null);
-        setIsLoadingData(true); // Indicate loading while initial data for phase is fetched
-        // fetchInitialTeamData will be called by the useEffect above once currentActivePhase is set/updated by broadcast
+        setIsLoadingData(true);
     };
 
     const handleDecisionSubmit = async (decisionDataPayload: any) => {
@@ -288,10 +297,9 @@ const StudentGamePage: React.FC = () => {
             setSubmissionMessage(`Decisions for ${currentActivePhase.label} submitted successfully! Waiting for facilitator.`);
             setIsStudentDecisionTime(false);
             setTimeRemainingSeconds(undefined);
-            setDecisionPhaseTimerEndTime(undefined); // Clear target end time
+            setDecisionPhaseTimerEndTime(undefined);
             setTimeout(() => {
                 setIsSubmissionFeedbackModalOpen(false);
-                // Don't clear submission message here, let passive view show it
             }, 3000);
         } catch (err) {
             console.error("[StudentGamePage] Error submitting decision:", err);
@@ -318,8 +326,6 @@ const StudentGamePage: React.FC = () => {
     const rd3InvestmentsForDoubleDown = useMemo((): InvestmentOption[] => {
         if (loggedInTeamId && currentActivePhase?.phase_type === 'double-down-select' && gameStructure) {
             const rd3InvestKey = `rd3-invest`;
-            // TODO: Future - Filter these by what the team actually invested in RD3
-            // This would require fetching/having access to previous rd3-invest decision for this team.
             return gameStructure.all_investment_options[rd3InvestKey] || [];
         }
         return [];
@@ -350,9 +356,10 @@ const StudentGamePage: React.FC = () => {
         return <TeamLogin sessionId={sessionId} onLoginSuccess={handleLoginSuccess}/>;
     }
 
+    // Determine kpiRoundLabel safely, even if currentActivePhase is null initially
     const kpiRoundLabel = currentActivePhase?.round_number ?
         `RD-${currentActivePhase.round_number} ${currentActivePhase.phase_type === 'kpi' || currentActivePhase.phase_type === 'leaderboard' ? 'Final ' : ''}Status`
-        : "Game Setup";
+        : (loggedInTeamId ? "Connecting..." : "Game Setup"); // Show "Connecting" if logged in but no phase yet
 
     const budgetForInvestPhase = currentActivePhase?.phase_type === 'invest' && decisionOptionsKey && gameStructure.investment_phase_budgets?.[decisionOptionsKey]
         ? gameStructure.investment_phase_budgets[decisionOptionsKey]
@@ -360,21 +367,25 @@ const StudentGamePage: React.FC = () => {
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-900 text-white overflow-hidden">
+            {/* KpiDisplay is ALWAYS rendered after login */}
             <KpiDisplay
                 teamName={loggedInTeamName}
                 currentRoundLabel={kpiRoundLabel}
-                kpis={currentTeamKpis}
+                kpis={currentTeamKpis} // Will pass null initially, KpiDisplay handles defaults
             />
 
             <div className="flex-grow p-3 md:p-4 overflow-y-auto">
-                {isLoadingData && !currentActivePhase && (
+                {/* Show main loading if no active phase yet, or if explicitly loading data */}
+                {isLoadingData || !currentActivePhase ? (
                     <div className="text-center text-gray-400 py-10">
                         <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
-                        Connecting and loading game data...
+                        <p>
+                            {isLoadingData && currentActivePhase ? `Loading data for ${currentActivePhase.label}...` :
+                                !currentActivePhase ? "Waiting for game to start..." :
+                                    "Loading..."}
+                        </p>
                     </div>
-                )}
-
-                {!isLoadingData && isStudentDecisionTime && currentActivePhase && submissionStatusRef.current !== 'success' ? (
+                ) : isStudentDecisionTimeRef.current && currentActivePhase && submissionStatusRef.current !== 'success' ? (
                     <DecisionPanel
                         sessionId={sessionId}
                         teamId={loggedInTeamId}
@@ -384,12 +395,12 @@ const StudentGamePage: React.FC = () => {
                         challengeOptions={challengeOptionsForCurrentPhase}
                         availableRd3Investments={rd3InvestmentsForDoubleDown}
                         onDecisionSubmit={handleDecisionSubmit}
-                        isDecisionTime={isStudentDecisionTime} // Pass the state
+                        isDecisionTime={isStudentDecisionTimeRef.current}
                         timeRemainingSeconds={timeRemainingSeconds}
                     />
-                ) : !isLoadingData && currentActiveSlide ? (
+                ) : currentActiveSlide ? (
                     <div className="text-center p-4 bg-gray-800 rounded-lg shadow-md max-w-xl mx-auto my-4">
-                        <h3 className="text-lg font-semibold text-sky-400 mb-2">{currentActiveSlide.title || "Current Activity"}</h3>
+                        <h3 className="text-lg font-semibold text-sky-400 mb-2">{currentActiveSlide.title || currentActivePhase?.label || "Current Activity"}</h3>
                         {currentActiveSlide.main_text && <p className="text-md text-gray-200 mb-1">{currentActiveSlide.main_text}</p>}
                         {currentActiveSlide.sub_text && <p className="text-sm text-gray-300">{currentActiveSlide.sub_text}</p>}
 
@@ -398,26 +409,27 @@ const StudentGamePage: React.FC = () => {
                                 <CheckCircle size={18} className="mr-2"/> Decisions submitted for {currentActivePhase?.label || "previous phase"}. Waiting for facilitator.
                             </p>
                         )}
-                        {(submissionStatusRef.current !== 'success' && !isStudentDecisionTime) &&
+                        {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current) &&
                             <p className="mt-4 text-sm text-yellow-400 flex items-center justify-center">
                                 <Hourglass size={18} className="mr-2 animate-pulse"/> Waiting for facilitator...
                             </p>
                         }
                     </div>
-                ) : !isLoadingData && (
+                ) : (
                     <div className="text-center text-gray-400 py-10">
                         <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
-                        {submissionStatusRef.current === 'success' && submissionMessage ? submissionMessage : "Waiting for facilitator to start next phase..."}
+                        {submissionStatusRef.current === 'success' && submissionMessage ? submissionMessage : `Waiting for facilitator to start ${currentActivePhase?.label || "next phase"}...`}
                     </div>
                 )}
             </div>
 
+            {/* Submission Feedback Modal */}
             {isSubmissionFeedbackModalOpen && (
                 <Modal
                     isOpen={isSubmissionFeedbackModalOpen}
                     onClose={() => {
                         setIsSubmissionFeedbackModalOpen(false);
-                        if(submissionStatus === 'error') setSubmissionMessage(null); // Clear error message on manual close
+                        if(submissionStatus === 'error') setSubmissionMessage(null);
                     }}
                     title={
                         submissionStatus === 'submitting' ? "Processing Submission..." :
