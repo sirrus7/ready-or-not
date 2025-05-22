@@ -49,7 +49,7 @@ export const useGameController = (
     const [allTeamsSubmittedCurrentInteractivePhaseState, setAllTeamsSubmittedCurrentInteractivePhaseState] = useState<boolean>(false);
 
     const justSeekedRef = useRef(false);
-    const lastManualToggleTimestamp = useRef(0); // NEW: Timestamp for last explicit play/pause
+    const lastManualToggleTimestamp = useRef(0);
 
     const allPhasesInOrder = useMemo((): GamePhaseNode[] => {
         if (!gameStructure?.allPhases) return [];
@@ -61,8 +61,6 @@ export const useGameController = (
             setCurrentPhaseIdState(dbSession.current_phase_id);
             setCurrentSlideIdInPhaseState(dbSession.current_slide_id_in_phase ?? 0);
             setTeacherNotesState(dbSession.teacher_notes || {});
-            // Initialize isPlayingVideoState from dbSession. This might be immediately
-            // overridden by the currentSlideData effect if the slide type dictates it.
             setIsPlayingVideoState(dbSession.is_playing || false);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
         } else {
@@ -87,7 +85,7 @@ export const useGameController = (
 
     const currentSlideData = useMemo(() => {
         if (!currentPhaseNode || currentSlideIdInPhaseState === null || !gameStructure?.slides) return null;
-        if (currentPhaseNode.slide_ids.length === 0 && currentPhaseNode.slide_ids[0] === undefined) return null;
+        if (currentPhaseNode.slide_ids.length === 0 && currentPhaseNode.slide_ids[0] === undefined ) return null;
         if (currentSlideIdInPhaseState < 0 || currentSlideIdInPhaseState >= currentPhaseNode.slide_ids.length) {
             return null;
         }
@@ -96,27 +94,24 @@ export const useGameController = (
     }, [currentPhaseNode, currentSlideIdInPhaseState, gameStructure?.slides]);
 
     const handleTeacherAlertDisplay = useCallback((slide: Slide | null): boolean => {
-        if (!slide || !slide.teacher_alert) return false;
+        if (!slide || !slide.teacher_alert) {
+            if(currentTeacherAlertState) setCurrentTeacherAlertState(null);
+            return false;
+        }
         if (currentTeacherAlertState?.title === slide.teacher_alert.title && currentTeacherAlertState?.message === slide.teacher_alert.message) {
             return true;
         }
         setCurrentTeacherAlertState(slide.teacher_alert);
-        if (isPlayingVideoState) { // If an alert pops up, ensure video is paused
+        if (isPlayingVideoState) {
             setIsPlayingVideoState(false);
             if (dbSession && dbSession.is_playing) updateSessionInDb({is_playing: false});
         }
         return true;
     }, [dbSession, updateSessionInDb, isPlayingVideoState, currentTeacherAlertState]);
 
-    // Effect to manage video playback and alerts when currentSlideData changes
     useEffect(() => {
         if (currentSlideData) {
-            // If an alert was triggered by a previous slide and we are now on a new slide without its own alert, clear the old one.
-            if (!currentSlideData.teacher_alert && currentTeacherAlertState) {
-                setCurrentTeacherAlertState(null);
-            }
-            // Then, attempt to display an alert for the NEW current slide
-            const alertShown = handleTeacherAlertDisplay(currentSlideData);
+            const alertShownForThisSlide = handleTeacherAlertDisplay(currentSlideData);
 
             const isVideo = currentSlideData.type === 'video' ||
                 (currentSlideData.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
@@ -124,48 +119,56 @@ export const useGameController = (
 
             if (isVideo) {
                 setCurrentVideoDurationState(null);
-                // Only auto-play if no alert was just shown for this slide.
-                // And if the last explicit toggle wasn't very recent (to avoid overriding it).
                 const timeSinceLastToggle = Date.now() - lastManualToggleTimestamp.current;
-                if (!alertShown && timeSinceLastToggle > 500) { // 500ms grace period for manual toggle
-                    const shouldAutoplay = !!currentSlideData.auto_advance_after_video; // Simplified: only auto_advance slides truly autoplay on load
-                    if (isPlayingVideoState !== shouldAutoplay) {
-                        setIsPlayingVideoState(shouldAutoplay);
-                        if (dbSession && dbSession.is_playing !== shouldAutoplay) {
-                            updateSessionInDb({is_playing: shouldAutoplay});
-                        }
-                    }
-                } else if (alertShown && isPlayingVideoState) { // If alert was shown, ensure video is paused
-                    setIsPlayingVideoState(false);
-                    if (dbSession && dbSession.is_playing) updateSessionInDb({is_playing: false});
-                }
 
-            } else { // Not a video slide
+                let shouldPlayNow = isPlayingVideoState;
+
+                if (!alertShownForThisSlide && timeSinceLastToggle > 500) {
+                    if (currentSlideData.id === 8 && currentSlideData.type === 'interactive_invest') {
+                        shouldPlayNow = true;
+                    } else if (currentSlideData.auto_advance_after_video) { // This makes slide 4 & 6 auto play
+                        shouldPlayNow = true;
+                    } else {
+                        // For non-auto-advancing videos (that are not slide 8),
+                        // maintain current play state unless alert stopped it.
+                        // If dbSession.is_playing was true when this slide loaded, that would have set isPlayingVideoState.
+                        // If no alert, it just continues.
+                        shouldPlayNow = isPlayingVideoState; // No change unless alert paused it
+                    }
+                } else if (alertShownForThisSlide) {
+                    shouldPlayNow = false; // Ensure paused if alert is up
+                }
+                // else: if timeSinceLastToggle <= 500, respect isPlayingVideoState (which reflects the recent manual toggle)
+
+                if (isPlayingVideoState !== shouldPlayNow) {
+                    setIsPlayingVideoState(shouldPlayNow);
+                }
+                // Sync DB only if the determined state differs from DB, or if it's a new slide load from DB.
+                // This prevents fighting if DB is already correct.
+                if (dbSession && dbSession.is_playing !== shouldPlayNow) {
+                    updateSessionInDb({ is_playing: shouldPlayNow });
+                }
+            } else {
                 if (isPlayingVideoState) {
                     setIsPlayingVideoState(false);
                     if (dbSession && dbSession.is_playing) {
-                        updateSessionInDb({is_playing: false});
+                        updateSessionInDb({ is_playing: false });
                     }
                 }
             }
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
         } else {
-            if (isPlayingVideoState) {
-                setIsPlayingVideoState(false);
-                if (dbSession && dbSession.is_playing) {
-                    updateSessionInDb({is_playing: false});
-                }
-            }
-            if (currentTeacherAlertState) setCurrentTeacherAlertState(null); // Clear alert if no slide
+            if (isPlayingVideoState) setIsPlayingVideoState(false);
+            if (currentTeacherAlertState) setCurrentTeacherAlertState(null);
         }
-    }, [currentSlideData, dbSession, updateSessionInDb, handleTeacherAlertDisplay]); // Removed isPlayingVideoState & currentTeacherAlertState to break potential loops
+    }, [currentSlideData, dbSession, updateSessionInDb, handleTeacherAlertDisplay]);
 
 
     const reportVideoDuration = useCallback((duration: number) => {
         setCurrentVideoDurationState(duration);
     }, []);
 
-    const advanceToNextSlideInternal = useCallback(async (forceIsPlaying?: boolean) => { // Added optional forceIsPlaying
+    const advanceToNextSlideInternal = useCallback(async () => {
         if (!currentPhaseNode || currentSlideIdInPhaseState === null || !dbSession || !gameStructure || !allPhasesInOrder.length) return;
 
         const isLastSlideInPhase = currentSlideIdInPhaseState >= currentPhaseNode.slide_ids.length - 1;
@@ -190,37 +193,44 @@ export const useGameController = (
         setCurrentPhaseIdState(nextPhaseId);
         setCurrentSlideIdInPhaseState(nextSlideIndexInPhase);
 
-        // isPlayingVideoState will be set by the useEffect watching currentSlideData
-        // Forcing a play state is now only done by togglePlayPauseVideo or initial slide load effect
-
+        // The isPlayingVideoState for the NEW slide will be determined by the useEffect watching currentSlideData
         setVideoCurrentTimeState(0);
         setTriggerVideoSeekState(true);
         setAllTeamsSubmittedCurrentInteractivePhaseState(false);
         setCurrentVideoDurationState(null);
 
-        // Determine the play state for the DB based on the *new* slide's properties
-        let newSlidePlayState = false;
-        const targetPhaseForNextSlide = allPhasesInOrder.find(p => p.id === nextPhaseId);
-        if (targetPhaseForNextSlide && gameStructure?.slides && nextSlideIndexInPhase < targetPhaseForNextSlide.slide_ids.length) {
-            const upcomingSlideId = targetPhaseForNextSlide.slide_ids[nextSlideIndexInPhase];
-            const upcomingSlideData = gameStructure.slides.find(s => s.id === upcomingSlideId);
-            if (upcomingSlideData && (upcomingSlideData.type === 'video' || (upcomingSlideData.type === 'interactive_invest' && !!upcomingSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)))) {
-                if (!upcomingSlideData.teacher_alert && upcomingSlideData.auto_advance_after_video) { // More specific condition for auto-play
-                    newSlidePlayState = true;
-                } else if (!upcomingSlideData.teacher_alert && upcomingSlideData.type === 'interactive_invest' && upcomingSlideData.id === 8) { // Slide 8 should play
-                    newSlidePlayState = true;
-                }
-            }
-        }
-
         await updateSessionInDb({
             current_phase_id: nextPhaseId,
             current_slide_id_in_phase: nextSlideIndexInPhase,
-            is_playing: forceIsPlaying !== undefined ? forceIsPlaying : newSlidePlayState // Allow override
+            is_playing: false // Default to false; useEffect on currentSlideData will decide play state
         });
         requestAnimationFrame(() => setTriggerVideoSeekState(false));
 
     }, [currentPhaseNode, currentSlideIdInPhaseState, dbSession, gameStructure, allPhasesInOrder, updateSessionInDb, processChoicePhaseDecisionsFunction, currentPhaseIdState, currentSlideData]);
+
+    const handleAutoAdvanceAfterVideoEnded = useCallback(async () => {
+        // console.log(`[GameController] Preview video ended. Slide: ${currentSlideData?.id}, auto_advance: ${currentSlideData?.auto_advance_after_video}, alert: ${!!currentTeacherAlertState}`);
+        // Ensure video is marked as not playing since it ended
+        if (isPlayingVideoState) {
+            setIsPlayingVideoState(false);
+            if (dbSession && dbSession.is_playing) {
+                await updateSessionInDb({ is_playing: false });
+            }
+        }
+        // Only advance if auto_advance is true AND no alert is currently blocking interaction
+        if (currentSlideData?.auto_advance_after_video && !currentTeacherAlertState) {
+            // console.log(`[GameController] Auto-advancing from slide ${currentSlideData.id}.`);
+            await advanceToNextSlideInternal();
+        } else {
+            // console.log("[GameController] Video ended, but not auto-advancing due to conditions.");
+            // If it was Slide 8 (invest timer) and it ended, we might want to trigger its specific alert.
+            if (currentSlideData?.id === 8 && currentSlideData.type === 'interactive_invest' && currentSlideData.teacher_alert && !currentTeacherAlertState) {
+                // console.log("[GameController] Slide 8 video ended, triggering its specific alert.");
+                handleTeacherAlertDisplay(currentSlideData);
+            }
+        }
+    }, [currentSlideData, advanceToNextSlideInternal, isPlayingVideoState, dbSession, updateSessionInDb, currentTeacherAlertState, handleTeacherAlertDisplay]);
+
 
     useEffect(() => {
         if (currentSlideData?.id === 8 && currentSlideData.type === 'interactive_invest' && allTeamsSubmittedCurrentInteractivePhaseState) {
@@ -265,15 +275,6 @@ export const useGameController = (
     const selectPhase = useCallback(async (phaseId: string) => {
         const targetPhase = allPhasesInOrder.find(p => p.id === phaseId);
         if (targetPhase && dbSession && gameStructure?.slides) {
-            const firstSlideIdOfTargetPhase = targetPhase.slide_ids[0];
-            const firstSlideDataOfTargetPhase = gameStructure.slides.find(s => s.id === firstSlideIdOfTargetPhase);
-            let newSlideIsVideoAndShouldPlay = false;
-            if (firstSlideDataOfTargetPhase && (firstSlideDataOfTargetPhase.type === 'video' ||
-                (firstSlideDataOfTargetPhase.type === 'interactive_invest' && !!firstSlideDataOfTargetPhase.source_url?.match(/\.(mp4|webm|ogg)$/i)))) {
-                if (!firstSlideDataOfTargetPhase.teacher_alert && (firstSlideDataOfTargetPhase.auto_advance_after_video || firstSlideDataOfTargetPhase.id === 8)) {
-                    newSlideIsVideoAndShouldPlay = true;
-                }
-            }
 
             setCurrentPhaseIdState(phaseId);
             setCurrentSlideIdInPhaseState(0);
@@ -282,10 +283,11 @@ export const useGameController = (
             setTriggerVideoSeekState(true);
             setCurrentVideoDurationState(null);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
+            // The useEffect watching currentSlideData will determine the correct initial is_playing state
             await updateSessionInDb({
                 current_phase_id: phaseId,
                 current_slide_id_in_phase: 0,
-                is_playing: newSlideIsVideoAndShouldPlay,
+                is_playing: false, // Default to false, useEffect on currentSlideData will set actual
                 teacher_notes: teacherNotesState
             });
             requestAnimationFrame(() => setTriggerVideoSeekState(false));
@@ -297,7 +299,6 @@ export const useGameController = (
         if (currentPhaseNode && currentSlideIdInPhaseState !== null && dbSession && gameStructure?.slides) {
             let newPhaseId = currentPhaseIdState;
             let newSlideIndex = currentSlideIdInPhaseState;
-            let newSlideIsVideoAndShouldPlay = false;
 
             if (currentSlideIdInPhaseState > 0) {
                 newSlideIndex = currentSlideIdInPhaseState - 1;
@@ -312,27 +313,17 @@ export const useGameController = (
                 }
             }
 
-            const targetPhaseNode = allPhasesInOrder.find(p => p.id === newPhaseId);
-            if (targetPhaseNode && newSlideIndex >= 0 && newSlideIndex < targetPhaseNode.slide_ids.length) {
-                const targetSlideId = targetPhaseNode.slide_ids[newSlideIndex];
-                const targetSlideData = gameStructure.slides.find(s => s.id === targetSlideId);
-                if (targetSlideData && (targetSlideData.type === 'video' || (targetSlideData.type === 'interactive_invest' && !!targetSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)))) {
-                    if (!targetSlideData.teacher_alert && (targetSlideData.auto_advance_after_video || targetSlideData.id === 8)) {
-                        newSlideIsVideoAndShouldPlay = true;
-                    }
-                }
-            }
-
             setCurrentPhaseIdState(newPhaseId);
             setCurrentSlideIdInPhaseState(newSlideIndex);
             setVideoCurrentTimeState(0);
             setTriggerVideoSeekState(true);
             setCurrentVideoDurationState(null);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
+            // The useEffect watching currentSlideData will determine the correct initial is_playing state
             await updateSessionInDb({
                 current_phase_id: newPhaseId,
                 current_slide_id_in_phase: newSlideIndex,
-                is_playing: newSlideIsVideoAndShouldPlay
+                is_playing: false // Default to false, useEffect will set actual
             });
             requestAnimationFrame(() => setTriggerVideoSeekState(false));
         }
@@ -347,10 +338,10 @@ export const useGameController = (
                 (currentSlideData?.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)))
             && dbSession) {
             const newIsPlaying = !isPlayingVideoState;
-            lastManualToggleTimestamp.current = Date.now(); // Record manual toggle
-            setIsPlayingVideoState(newIsPlaying);
+            lastManualToggleTimestamp.current = Date.now();
+            setIsPlayingVideoState(newIsPlaying); // Explicitly set local state
             setTriggerVideoSeekState(false);
-            await updateSessionInDb({is_playing: newIsPlaying});
+            await updateSessionInDb({is_playing: newIsPlaying}); // Sync with DB
         }
     }, [currentSlideData, dbSession, isPlayingVideoState, updateSessionInDb, currentTeacherAlertState, clearTeacherAlert]);
 
@@ -363,23 +354,26 @@ export const useGameController = (
 
         let newGlobalIsPlayingTarget = playingFromPreview;
         let newGlobalTriggerSeek = false;
+        let shouldUpdateDbPlayState = false;
 
         if (seekTriggeredByPreview) {
             newGlobalIsPlayingTarget = false;
             newGlobalTriggerSeek = true;
             justSeekedRef.current = true;
-            setTimeout(() => {
-                justSeekedRef.current = false;
-            }, 500);
-        } else {
-            // If it's a play/pause from preview, reflect that intended state
+            setTimeout(() => { justSeekedRef.current = false; }, 500);
+            if (dbSession.is_playing) {
+                shouldUpdateDbPlayState = true;
+            }
+        } else { // Play/pause from preview controls
             newGlobalIsPlayingTarget = playingFromPreview;
             newGlobalTriggerSeek = false;
-            // Record this as a "manual" toggle from the preview controls
-            lastManualToggleTimestamp.current = Date.now();
+            if (isPlayingVideoState !== newGlobalIsPlayingTarget) {
+                shouldUpdateDbPlayState = true;
+                lastManualToggleTimestamp.current = Date.now(); // Treat as a manual toggle
+            }
         }
 
-        setIsPlayingVideoState(newGlobalIsPlayingTarget);
+        setIsPlayingVideoState(newGlobalIsPlayingTarget); // Update local state immediately
         setVideoCurrentTimeState(timeFromPreview);
 
         if (newGlobalTriggerSeek) {
@@ -389,8 +383,11 @@ export const useGameController = (
             setTriggerVideoSeekState(false);
         }
 
-        if (dbSession.is_playing !== newGlobalIsPlayingTarget || newGlobalTriggerSeek) {
-            await updateSessionInDb({is_playing: newGlobalIsPlayingTarget});
+        if (shouldUpdateDbPlayState) {
+            await updateSessionInDb({ is_playing: newGlobalIsPlayingTarget });
+        } else if (newGlobalTriggerSeek && dbSession.is_playing !== newGlobalIsPlayingTarget) {
+            // If it's a seek, and the target play state (which is 'false' for seeks) is different from DB, update DB.
+            await updateSessionInDb({ is_playing: newGlobalIsPlayingTarget });
         }
     }, [dbSession, updateSessionInDb, isPlayingVideoState]);
 
@@ -402,25 +399,6 @@ export const useGameController = (
             await updateSessionInDb({teacher_notes: newTeacherNotes});
         }
     }, [currentSlideData, dbSession, teacherNotesState, updateSessionInDb]);
-
-    const handleAutoAdvanceAfterVideoEnded = useCallback(async () => {
-        if (currentSlideData?.auto_advance_after_video && !currentTeacherAlertState) {
-            if (isPlayingVideoState) { // Ensure video is marked as not playing
-                setIsPlayingVideoState(false);
-                if (dbSession && dbSession.is_playing) {
-                    await updateSessionInDb({is_playing: false});
-                }
-            }
-            await advanceToNextSlideInternal();
-        } else {
-            if (isPlayingVideoState) { // If not auto-advancing, still ensure it's marked as paused
-                setIsPlayingVideoState(false);
-                if (dbSession && dbSession.is_playing) {
-                    await updateSessionInDb({is_playing: false});
-                }
-            }
-        }
-    }, [currentSlideData, advanceToNextSlideInternal, isPlayingVideoState, dbSession, updateSessionInDb, currentTeacherAlertState]);
 
     return {
         currentPhaseId: currentPhaseIdState, currentSlideIdInPhase: currentSlideIdInPhaseState,
