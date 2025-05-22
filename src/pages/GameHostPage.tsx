@@ -9,15 +9,17 @@ const GameHostPage: React.FC = () => {
     const {
         state,
         currentSlideData,
-        isPlayingVideo,
-        videoCurrentTime,    // This should be exposed by AppContextProps
-        triggerVideoSeek,    // This should be exposed by AppContextProps
-        setVideoPlaybackStateFromPreview
+        isPlayingVideo,        // This is gameController.isPlayingVideo
+        videoCurrentTime,      // This is gameController.videoCurrentTime
+        triggerVideoSeek,      // This is gameController.triggerVideoSeek
+        setVideoPlaybackStateFromPreview,
+        reportVideoDuration    // Get this from context
     } = useAppContext();
 
     const {currentSessionId, gameStructure, isStudentWindowOpen} = state;
 
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
+        // ... (loading/error state)
         return (
             <div
                 className="min-h-screen bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 flex flex-col items-center justify-center p-4 text-center">
@@ -35,6 +37,7 @@ const GameHostPage: React.FC = () => {
         <div
             className="min-h-screen bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 p-3 md:p-4 lg:p-6 overflow-hidden">
             <div className="max-w-screen-2xl mx-auto h-full flex flex-col">
+                {/* ... (header) ... */}
                 <header
                     className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center flex-shrink-0">
                     <div>
@@ -52,6 +55,7 @@ const GameHostPage: React.FC = () => {
             </span>
                     )}
                 </header>
+
 
                 <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 min-h-0">
                     <div
@@ -76,6 +80,7 @@ const GameHostPage: React.FC = () => {
                                 triggerSeekEvent={triggerVideoSeek}
                                 isForTeacherPreview={true}
                                 onPreviewVideoStateChange={setVideoPlaybackStateFromPreview}
+                                onPreviewVideoDuration={reportVideoDuration}
                             />
                         </div>
                     </div>

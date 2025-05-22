@@ -4,17 +4,21 @@ import {useParams} from 'react-router-dom';
 import TeamLogin from '../components/StudentGame/TeamLogin';
 import KpiDisplay from '../components/StudentGame/KpiDisplay';
 import DecisionPanel from '../components/StudentGame/DecisionPanel';
-import SlideRenderer from '../components/StudentDisplay/SlideRenderer';
+// SlideRenderer is not typically used directly on StudentGamePage, content comes via DecisionPanel/KPIs
+// import SlideRenderer from '../components/StudentDisplay/SlideRenderer';
 import {
     TeamRoundData,
-    Slide,
+    Slide, // Slide type might be useful for context, but not for direct rendering here
     GamePhaseNode,
-    TeamDecision,
-    TeacherBroadcastPayload
+    TeamDecision, // For type checking existing decisions
+    TeacherBroadcastPayload,
+    InvestmentOption,
+    ChallengeOption
 } from '../types';
 import {supabase} from '../lib/supabase';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
-import {Hourglass} from 'lucide-react';
+import {Hourglass, CheckCircle, AlertTriangle} from 'lucide-react';
+import Modal from '../components/UI/Modal'; // Assuming generic Modal
 
 const StudentGamePage: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
@@ -22,104 +26,135 @@ const StudentGamePage: React.FC = () => {
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(localStorage.getItem(`ron_teamName_${sessionId}`));
 
     const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
-    const [currentSlideForDisplay, setCurrentSlideForDisplay] = useState<Slide | null>(null);
-    const [currentPhase, setCurrentPhase] = useState<GamePhaseNode | null>(null);
+    const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null); // Slide from teacher
+    const [currentActivePhase, setCurrentActivePhase] = useState<GamePhaseNode | null>(null);
 
-    const [isDecisionTime, setIsDecisionTime] = useState<boolean>(false);
+    const [isStudentDecisionTime, setIsStudentDecisionTime] = useState<boolean>(false);
+    const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined);
     const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | undefined>(undefined);
-    // decisionTimerEndTime is now managed internally by the countdown derived from broadcast
 
-    const [isLoading, setIsLoading] = useState<boolean>(false); // For initial data fetching
-    const [pageError, setPageError] = useState<string | null>(null); // For page-level errors
+    const [decisionOptionsKey, setDecisionOptionsKey] = useState<string | undefined>(undefined);
+
+    const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
+    const [pageError, setPageError] = useState<string | null>(null);
+
     const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
+    const [isSubmissionFeedbackModalOpen, setIsSubmissionFeedbackModalOpen] = useState(false);
+
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
     const fetchInitialTeamData = useCallback(async (teamId: string, activePhase: GamePhaseNode | null) => {
-        if (!sessionId || !activePhase || activePhase.round_number === 0) {
+        if (!sessionId || !activePhase || !teamId) {
             setCurrentTeamKpis(null);
+            setIsLoadingData(false);
             return;
         }
-        setIsLoading(true);
+
+        console.log(`[StudentGamePage] Fetching initial data for team ${teamId}, phase ${activePhase.id}, round ${activePhase.round_number}`);
+        setIsLoadingData(true);
         setPageError(null);
+
         try {
-            // Fetch current KPIs
-            const {data: kpiData, error: kpiError} = await supabase
-                .from('team_round_data')
-                .select('*')
-                .eq('session_id', sessionId)
-                .eq('team_id', teamId)
-                .eq('round_number', activePhase.round_number)
-                .single();
-            if (kpiError && kpiError.code !== 'PGRST116') throw kpiError;
-            setCurrentTeamKpis(kpiData as TeamRoundData | null);
+            // Fetch current KPIs if in a round
+            if (activePhase.round_number > 0) {
+                const {data: kpiData, error: kpiError} = await supabase
+                    .from('team_round_data')
+                    .select('*')
+                    .eq('session_id', sessionId)
+                    .eq('team_id', teamId)
+                    .eq('round_number', activePhase.round_number)
+                    .single();
+                if (kpiError && kpiError.code !== 'PGRST116') throw kpiError; // PGRST116 = no rows, ok if first time
+                setCurrentTeamKpis(kpiData as TeamRoundData | null);
+            } else {
+                setCurrentTeamKpis(null); // No KPIs for welcome/setup phases
+            }
 
             // Check for existing submission for this phase
             if (activePhase.is_interactive_student_phase) {
                 const {data: existingDecision, error: decisionError} = await supabase
                     .from('team_decisions')
-                    .select('id, submitted_at') // Only need to know if it exists
+                    .select('id, submitted_at')
                     .eq('session_id', sessionId)
                     .eq('team_id', teamId)
                     .eq('phase_id', activePhase.id)
                     .single();
+
                 if (decisionError && decisionError.code !== 'PGRST116') throw decisionError;
 
                 if (existingDecision?.submitted_at) {
                     setSubmissionStatus('success');
-                    setSubmissionMessage("You've already submitted for this phase.");
-                    setIsDecisionTime(false); // Override broadcast if already submitted
+                    setSubmissionMessage(`Decisions for "${activePhase.label}" were already submitted.`);
+                    setIsStudentDecisionTime(false);
                 } else {
-                    // If no existing decision, ensure status is idle for a new interactive phase
+                    // Reset for a new interactive phase if no prior submission
                     setSubmissionStatus('idle');
                     setSubmissionMessage(null);
                 }
+            } else {
+                setSubmissionStatus('idle'); // Not an interactive phase
+                setSubmissionMessage(null);
             }
         } catch (err) {
-            console.error("Error fetching initial team data:", err);
-            setPageError("Failed to load your team's data. Please try refreshing or contact your facilitator.");
+            console.error("[StudentGamePage] Error fetching initial team data:", err);
+            setPageError("Failed to load your team's data. Please try refreshing.");
         } finally {
-            setIsLoading(false);
+            setIsLoadingData(false);
         }
     }, [sessionId]);
 
     useEffect(() => {
-        if (!sessionId) return;
+        if (!sessionId) {
+            setPageError("No game session ID found in the URL.");
+            return;
+        }
+        console.log(`[StudentGamePage] Setting up BroadcastChannel for session: ${sessionId}`);
         const channel = new BroadcastChannel(`classroom-${sessionId}`);
         let timerInterval: NodeJS.Timeout | undefined;
 
         channel.onmessage = (event) => {
             if (event.data.type === 'TEACHER_STATE_UPDATE') {
                 const payload = event.data.payload as TeacherBroadcastPayload;
+                // console.log('[StudentGamePage] Received TEACHER_STATE_UPDATE:', payload);
 
                 const newPhaseNode = payload.currentPhaseId ? gameStructure.allPhases.find(p => p.id === payload.currentPhaseId) || null : null;
                 const newSlide = payload.currentSlideId !== null ? gameStructure.slides.find(s => s.id === payload.currentSlideId) || null : null;
 
-                const previousPhaseId = currentPhase?.id;
-                setCurrentPhase(newPhaseNode);
-                setCurrentSlideForDisplay(newSlide);
+                const previousPhaseId = currentActivePhase?.id;
+                setCurrentActivePhase(newPhaseNode);
+                setCurrentActiveSlide(newSlide);
+                setDecisionOptionsKey(payload.decisionOptionsKey);
 
                 const decisionPhaseNowActive = payload.isStudentDecisionPhaseActive || false;
 
-                // Only transition to decision time if not already submitted for this NEW phase
-                if (decisionPhaseNowActive && newPhaseNode && newPhaseNode.id !== previousPhaseId) {
-                    fetchInitialTeamData(loggedInTeamId!, newPhaseNode).then(() => {
-                        // This callback runs after fetchInitialTeamData completes.
-                        // Check submissionStatus again as it might have been updated by fetchInitialTeamData
-                        if (submissionStatus !== 'success') { // Use the latest submissionStatus
-                            setIsDecisionTime(true);
-                        } else {
-                            setIsDecisionTime(false); // Already submitted for this new phase
-                        }
-                    });
-                } else if (decisionPhaseNowActive && submissionStatus !== 'success') {
-                    setIsDecisionTime(true); // Keep decision time if same phase and not submitted
-                } else {
-                    setIsDecisionTime(false);
+                // If phase changes, fetch initial data (KPIs, check existing submission)
+                if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== previousPhaseId) {
+                    fetchInitialTeamData(loggedInTeamId, newPhaseNode);
                 }
 
+                // This logic now needs to be careful not to override submissionStatus if fetchInitialTeamData found a submission
+                // setIsStudentDecisionTime is set *after* fetchInitialTeamData potentially modifies submissionStatus
+                if (newPhaseNode && newPhaseNode.id !== previousPhaseId) {
+                    // If it's a new phase, rely on fetchInitialTeamData to set submission status, then decide if it's decision time
+                    fetchInitialTeamData(loggedInTeamId!, newPhaseNode).then(() => {
+                        // This check is now inside the .then()
+                        if (decisionPhaseNowActive && submissionStatusRef.current !== 'success') {
+                            setIsStudentDecisionTime(true);
+                        } else {
+                            setIsStudentDecisionTime(false);
+                        }
+                    });
+                } else if (decisionPhaseNowActive && submissionStatusRef.current !== 'success') { // Same phase, but not yet submitted
+                    setIsStudentDecisionTime(true);
+                } else { // Not decision time or already submitted
+                    setIsStudentDecisionTime(false);
+                }
+
+
                 if (decisionPhaseNowActive && payload.decisionPhaseTimerEndTime) {
+                    setDecisionPhaseTimerEndTime(payload.decisionPhaseTimerEndTime);
                     const now = Date.now();
                     const remaining = Math.max(0, Math.round((payload.decisionPhaseTimerEndTime - now) / 1000));
                     setTimeRemainingSeconds(remaining);
@@ -129,166 +164,271 @@ const StudentGamePage: React.FC = () => {
                         timerInterval = setInterval(() => {
                             const currentRemaining = Math.max(0, Math.round((payload.decisionPhaseTimerEndTime! - Date.now()) / 1000));
                             setTimeRemainingSeconds(currentRemaining);
-                            if (currentRemaining <= 0) clearInterval(timerInterval);
+                            if (currentRemaining <= 0) {
+                                clearInterval(timerInterval);
+                                // Auto-submit logic is handled in a separate useEffect watching timeRemainingSeconds
+                            }
                         }, 1000);
                     }
                 } else {
+                    setDecisionPhaseTimerEndTime(undefined);
                     setTimeRemainingSeconds(undefined);
                     if (timerInterval) clearInterval(timerInterval);
-                }
-
-                if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
-                    if (currentTeamKpis?.round_number !== newPhaseNode.round_number || !currentTeamKpis || newPhaseNode.id !== previousPhaseId) {
-                        fetchInitialTeamData(loggedInTeamId, newPhaseNode);
-                    }
-                } else if (newPhaseNode?.round_number === 0) {
-                    setCurrentTeamKpis(null);
-                }
-
-                if (newPhaseNode && newPhaseNode.id !== previousPhaseId && !decisionPhaseNowActive) {
-                    setSubmissionStatus('idle');
-                    setSubmissionMessage(null);
                 }
             }
         };
         return () => {
+            console.log(`[StudentGamePage] Closing BroadcastChannel for session: ${sessionId}`);
             channel.close();
             if (timerInterval) clearInterval(timerInterval);
         };
-    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId, currentTeamKpis, currentPhase, submissionStatus]);
+    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId]);
+
+    // Ref for submissionStatus to use in broadcast onmessage
+    const submissionStatusRef = React.useRef(submissionStatus);
+    useEffect(() => {
+        submissionStatusRef.current = submissionStatus;
+    }, [submissionStatus]);
+
+    // Auto-submit for choice phases when timer runs out
+    useEffect(() => {
+        if (isStudentDecisionTime && timeRemainingSeconds === 0 &&
+            currentActivePhase?.phase_type === 'choice' &&
+            submissionStatusRef.current !== 'success' && // Use ref here
+            submissionStatusRef.current !== 'submitting') {
+
+            console.log(`[StudentGamePage] Timer ended for CHOICE phase ${currentActivePhase.id}. Auto-submitting default.`);
+
+            const options = gameStructure.all_challenge_options[decisionOptionsKey || currentActivePhase.id] || [];
+            const defaultOption = options.find(opt => opt.is_default_choice) || (options.length > 0 ? options[options.length-1] : null);
+
+            if (defaultOption && loggedInTeamId && sessionId && currentActivePhase) {
+                setSubmissionStatus('submitting');
+                setSubmissionMessage('Time up! Submitting default choice...');
+                setIsSubmissionFeedbackModalOpen(true);
+
+                const decisionData = {
+                    session_id: sessionId,
+                    team_id: loggedInTeamId,
+                    phase_id: currentActivePhase.id,
+                    round_number: currentActivePhase.round_number,
+                    selected_challenge_option_id: defaultOption.id,
+                    submitted_at: new Date().toISOString(),
+                };
+                supabase.from('team_decisions').insert(decisionData)
+                    .then(({ error }) => {
+                        if (error) {
+                            throw error;
+                        }
+                        setSubmissionStatus('success');
+                        setSubmissionMessage(`Time's up! Default choice (${defaultOption.text.substring(0,20)}...) submitted.`);
+                        setIsStudentDecisionTime(false);
+                        setTimeRemainingSeconds(undefined);
+                    })
+                    .catch(err => {
+                        console.error("[StudentGamePage] Auto-submit error:", err);
+                        setSubmissionStatus('error');
+                        setSubmissionMessage("Failed to auto-submit default choice. Please inform your facilitator.");
+                    });
+            }
+        }
+    }, [timeRemainingSeconds, isStudentDecisionTime, currentActivePhase, gameStructure, decisionOptionsKey, loggedInTeamId, sessionId]);
+
 
     useEffect(() => {
-        if (loggedInTeamId && currentPhase) {
-            fetchInitialTeamData(loggedInTeamId, currentPhase);
+        if (loggedInTeamId && currentActivePhase) {
+            fetchInitialTeamData(loggedInTeamId, currentActivePhase);
         }
-    }, [loggedInTeamId]); // Removed currentPhase, fetchInitialTeamData to avoid loop with its own update. This means initial fetch on login.
+    }, [loggedInTeamId]); // Re-fetch if loggedInTeamId changes (after login)
 
-    const handleLoginSuccess = (teamId: string, teamName: string) => { /* ... same as before ... */
+    const handleLoginSuccess = (teamId: string, teamName: string) => {
         localStorage.setItem(`ron_teamId_${sessionId}`, teamId);
         localStorage.setItem(`ron_teamName_${sessionId}`, teamName);
         setLoggedInTeamId(teamId);
         setLoggedInTeamName(teamName);
         setPageError(null);
-        if (currentPhase) fetchInitialTeamData(teamId, currentPhase);
+        // fetchInitialTeamData will be called by the effect watching loggedInTeamId if currentActivePhase is set
+        // Or, if currentActivePhase is not yet set (e.g. page just loaded), we might need an initial fetch here
+        // or ensure the broadcast listener fetches once loggedInTeamId is available.
+        // The current broadcast listener effect should handle fetching when new phase data arrives post-login.
     };
 
-    const handleDecisionSubmitSuccess = () => { /* ... same as before ... */
-        setSubmissionStatus('success');
-        setSubmissionMessage(`Decisions for ${currentPhase?.label || 'current phase'} submitted!`);
-        setIsDecisionTime(false);
-        setTimeRemainingSeconds(undefined);
-        // KPIs will be updated when teacher advances and new data is broadcasted or fetched
-        setTimeout(() => {
-            setSubmissionMessage(null); /* Keep submissionStatus as 'success' until new phase */
-        }, 5000);
+    const handleDecisionSubmit = async (decisionDataPayload: any) => {
+        if (!sessionId || !loggedInTeamId || !currentActivePhase) {
+            setSubmissionStatus('error');
+            setSubmissionMessage("Cannot submit: Critical information missing.");
+            setIsSubmissionFeedbackModalOpen(true);
+            return;
+        }
+
+        setSubmissionStatus('submitting');
+        setSubmissionMessage(`Submitting decisions for ${currentActivePhase.label}...`);
+        setIsSubmissionFeedbackModalOpen(true);
+
+        const submissionPayload = {
+            ...decisionDataPayload, // This comes from DecisionPanel
+            session_id: sessionId,
+            team_id: loggedInTeamId,
+            phase_id: currentActivePhase.id,
+            round_number: currentActivePhase.round_number,
+            submitted_at: new Date().toISOString(),
+        };
+
+        try {
+            const {error} = await supabase.from('team_decisions').insert(submissionPayload);
+            if (error) throw error;
+
+            setSubmissionStatus('success');
+            setSubmissionMessage(`Decisions for ${currentActivePhase.label} submitted successfully! Waiting for facilitator.`);
+            setIsStudentDecisionTime(false); // Turn off decision panel locally
+            setTimeRemainingSeconds(undefined); // Clear timer
+            // KPIs will be updated via broadcast when teacher processes and advances
+        } catch (err) {
+            console.error("[StudentGamePage] Error submitting decision:", err);
+            setSubmissionStatus('error');
+            setSubmissionMessage(err instanceof Error ? `Submission Error: ${err.message}` : "Failed to submit decisions. Please try again or notify facilitator.");
+        }
+        // Keep modal open for success/error feedback for a bit
+        // setTimeout(() => setIsSubmissionFeedbackModalOpen(false), submissionStatus === 'success' ? 3000 : 5000);
+        // Better to let user close error, auto-close success via another timer if needed
     };
 
-    const investmentOptionsForCurrentPhase = useMemo(() => { /* ... same as before ... */
-        if (currentPhase?.phase_type === 'invest' && currentPhase.id && gameStructure) {
-            const key = currentSlideForDisplay?.interactive_data_key || currentPhase.id;
-            return gameStructure.all_investment_options[key] || [];
+    const investmentOptionsForCurrentPhase = useMemo((): InvestmentOption[] => {
+        if (currentActivePhase?.phase_type === 'invest' && decisionOptionsKey && gameStructure) {
+            return gameStructure.all_investment_options[decisionOptionsKey] || [];
         }
         return [];
-    }, [currentPhase, gameStructure, currentSlideForDisplay]);
+    }, [currentActivePhase, gameStructure, decisionOptionsKey]);
 
-    const challengeOptionsForCurrentPhase = useMemo(() => { /* ... same as before, using currentSlideForDisplay.interactive_data_key ... */
-        if (currentPhase && (currentPhase.phase_type === 'choice' || currentPhase.phase_type === 'double-down-prompt') && gameStructure) {
-            const key = currentSlideForDisplay?.interactive_data_key || currentPhase.id;
-            if (currentPhase.phase_type === 'double-down-prompt') {
-                return [
-                    {id: "yes_dd", text: "Yes, I want to Double Down!", is_default_choice: false},
-                    {id: "no_dd", text: "No, I'll stick with my current RD-3 investments.", is_default_choice: true}
-                ];
-            }
-            return gameStructure.all_challenge_options[key] || [];
+    const challengeOptionsForCurrentPhase = useMemo((): ChallengeOption[] => {
+        if (currentActivePhase && (currentActivePhase.phase_type === 'choice' || currentActivePhase.phase_type === 'double-down-prompt') && decisionOptionsKey && gameStructure) {
+            return gameStructure.all_challenge_options[decisionOptionsKey] || [];
         }
         return [];
-    }, [currentPhase, gameStructure, currentSlideForDisplay]);
+    }, [currentActivePhase, gameStructure, decisionOptionsKey]);
 
-    const rd3InvestmentsForDoubleDown = useMemo(() => { /* ... same as before, but fetch team decisions from Supabase if not in local state yet ... */
-        // This part needs robust fetching of team's RD3 investments if not already loaded.
-        // For simplicity, assuming `state.teamDecisions` (from AppContext, passed if needed, or fetched here)
-        // has the data. In a real scenario, StudentGamePage might need its own `teamDecisions` state.
-        if (loggedInTeamId && currentPhase?.phase_type === 'double-down-select' && gameStructure) {
-            const rd3InvestPhaseId = `rd${currentPhase.round_number}-invest`;
-            // This component doesn't have direct access to AppContext.state.teamDecisions.
-            // It would need to fetch its own team's decisions or receive them.
-            // For now, we'll use a placeholder and this indicates a data flow to refine.
-            // const teamsRd3Decision = previouslyFetchedDecisions[rd3InvestPhaseId];
-            // const teamRd3InvestmentIds = teamsRd3Decision?.selected_investment_ids || [];
-            const allRd3Options = gameStructure.all_investment_options[rd3InvestPhaseId] || [];
-            // return allRd3Options.filter(opt => teamRd3InvestmentIds.includes(opt.id));
-            return allRd3Options; // Placeholder: Show all RD3 options. Needs filtering based on actual selection.
+    const rd3InvestmentsForDoubleDown = useMemo((): InvestmentOption[] => {
+        if (loggedInTeamId && currentActivePhase?.phase_type === 'double-down-select' && gameStructure) {
+            const rd3InvestPhaseId = `rd3-invest`; // Key for RD3 investment options
+            // Ideally, filter by what the team actually invested in RD3
+            // This requires fetching and using team's RD3 decision
+            // For now, showing all RD3 options as a placeholder:
+            return gameStructure.all_investment_options[rd3InvestPhaseId] || [];
         }
         return [];
-    }, [currentPhase, gameStructure, loggedInTeamId]);
+    }, [currentActivePhase, gameStructure, loggedInTeamId]);
 
-    const teamDecisionDataForPhase = useCallback((phaseId: string): TeamDecision | undefined => {
-        // This would ideally fetch from Supabase if needed, or use a local cache of this team's decisions
-        // For now, it's a placeholder, as this page doesn't have AppContext.state.teamDecisions
-        console.warn("teamDecisionDataForPhase needs implementation to fetch/use student's own decisions");
-        return undefined;
-    }, [sessionId, loggedInTeamId]);
 
-    const getInitialSpentBudget = useCallback(() => { /* ... same as before, using teamDecisionDataForPhase ... */
-        if (currentPhase?.phase_type === 'invest') {
-            const decision = teamDecisionDataForPhase(currentPhase.id);
-            return decision?.total_spent_budget || 0;
-        }
-        return 0;
-    }, [currentPhase, teamDecisionDataForPhase]);
-
-    if (!sessionId) { /* ... */
+    if (pageError) {
+        return (
+            <div className="min-h-screen bg-red-900 text-white flex flex-col items-center justify-center p-4">
+                <AlertTriangle size={48} className="mb-4 text-yellow-300"/>
+                <h1 className="text-2xl font-bold mb-2">Connection Error</h1>
+                <p className="text-center mb-4">{pageError}</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="px-6 py-2 bg-yellow-400 text-red-900 font-semibold rounded hover:bg-yellow-300"
+                >
+                    Try Reloading Page
+                </button>
+            </div>
+        );
     }
+
+    if (!sessionId) {
+        return <div className="min-h-screen bg-gray-800 text-white flex items-center justify-center p-4">Invalid session link.</div>;
+    }
+
     if (!loggedInTeamId || !loggedInTeamName) {
         return <TeamLogin sessionId={sessionId} onLoginSuccess={handleLoginSuccess}/>;
     }
 
-    const kpiRoundLabel = currentPhase?.round_number ? `RD-${currentPhase.round_number} ${currentPhase.phase_type === 'kpi' || currentPhase.phase_type === 'leaderboard' ? 'Final ' : ''}KPIs` : "Game KPIs";
+    const kpiRoundLabel = currentActivePhase?.round_number ? `RD-${currentActivePhase.round_number} Status` : "Pre-Game";
+    const budgetForInvestPhase = currentActivePhase?.phase_type === 'invest' && decisionOptionsKey && gameStructure.investment_phase_budgets?.[decisionOptionsKey]
+        ? gameStructure.investment_phase_budgets[decisionOptionsKey]
+        : 0;
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-900 text-white overflow-hidden">
-            {currentPhase && (currentPhase.round_number > 0 || currentPhase.phase_type.endsWith('kpi')) && ( // Show KPIs if in a round or specifically on a KPI phase
-                <KpiDisplay teamName={loggedInTeamName} currentRoundLabel={kpiRoundLabel} kpis={currentTeamKpis}/>
-            )}
+            {/* Always show KPIs if available for current round, or a placeholder */}
+            <KpiDisplay
+                teamName={loggedInTeamName}
+                currentRoundLabel={kpiRoundLabel}
+                kpis={currentTeamKpis}
+            />
 
             <div className="flex-grow p-3 md:p-4 overflow-y-auto">
-                {/* ... Loading and Error UI ... */}
-                {!isLoading && !pageError && (
-                    <>
-                        {isDecisionTime && currentPhase && submissionStatus !== 'success' ? (
-                            <DecisionPanel
-                                sessionId={sessionId}
-                                teamId={loggedInTeamId}
-                                currentPhase={currentPhase}
-                                investmentOptions={investmentOptionsForCurrentPhase}
-                                investUpToBudget={
-                                    currentPhase?.phase_type === 'invest' && currentPhase.id && gameStructure.investment_phase_budgets?.[currentPhase.interactive_data_key || currentPhase.id]
-                                        ? gameStructure.investment_phase_budgets[currentPhase.interactive_data_key || currentPhase.id]
-                                        : 0
-                                }
-                                challengeOptions={challengeOptionsForCurrentPhase}
-                                availableRd3Investments={rd3InvestmentsForDoubleDown}
-                                onDecisionSubmit={handleDecisionSubmitSuccess}
-                                isDecisionTime={isDecisionTime}
-                                timeRemainingSeconds={timeRemainingSeconds}
-                                currentSpentBudgetForInvestments={getInitialSpentBudget()}
-                            />
-                        ) : currentSlideForDisplay ? (
-                            <div
-                                className="h-[calc(100vh-(currentPhase && (currentPhase.round_number > 0 || currentPhase.phase_type.endsWith('kpi')) ? 200px : 50px))] md:h-[calc(100vh-(currentPhase && (currentPhase.round_number > 0 || currentPhase.phase_type.endsWith('kpi')) ? 250px : 80px))]">
-                                <SlideRenderer slide={currentSlideForDisplay} isPlaying={false} isStudentView={true}/>
-                            </div>
-                        ) : (
-                            <div className="text-center text-gray-400 py-10">
-                                <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
-                                {submissionStatus === 'success' && submissionMessage ? submissionMessage : "Waiting for facilitator..."}
-                            </div>
-                        )}
-                    </>
+                {isLoadingData && (
+                    <div className="text-center text-gray-400 py-10">
+                        <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
+                        Loading team data...
+                    </div>
+                )}
+
+                {!isLoadingData && isStudentDecisionTime && currentActivePhase && submissionStatus !== 'success' ? (
+                    <DecisionPanel
+                        sessionId={sessionId}
+                        teamId={loggedInTeamId}
+                        currentPhase={currentActivePhase}
+                        investmentOptions={investmentOptionsForCurrentPhase}
+                        investUpToBudget={budgetForInvestPhase}
+                        challengeOptions={challengeOptionsForCurrentPhase}
+                        availableRd3Investments={rd3InvestmentsForDoubleDown}
+                        onDecisionSubmit={handleDecisionSubmit}
+                        isDecisionTime={isStudentDecisionTime}
+                        timeRemainingSeconds={timeRemainingSeconds}
+                        // currentSpentBudgetForInvestments could be fetched if needed for resuming
+                    />
+                ) : !isLoadingData && currentActiveSlide ? (
+                    // Passive view: Show a simplified version of the current slide from teacher
+                    // This is NOT the main student display, just a small contextual view on their device.
+                    <div className="text-center p-4 bg-gray-800 rounded-lg shadow-md max-w-xl mx-auto">
+                        <h3 className="text-lg font-semibold text-sky-300 mb-2">{currentActiveSlide.title || "Current Activity"}</h3>
+                        {currentActiveSlide.main_text && <p className="text-md text-gray-300 mb-1">{currentActiveSlide.main_text}</p>}
+                        {currentActiveSlide.sub_text && <p className="text-sm text-gray-400">{currentActiveSlide.sub_text}</p>}
+                        {submissionStatus === 'success' && submissionMessage &&
+                            <p className="mt-3 text-sm text-green-400 flex items-center justify-center"><CheckCircle size={16} className="mr-1"/> {submissionMessage}</p>
+                        }
+                        {submissionStatus !== 'success' && !isStudentDecisionTime &&
+                            <p className="mt-3 text-sm text-yellow-400 flex items-center justify-center"><Hourglass size={16} className="mr-1 animate-pulse"/> Waiting for facilitator...</p>
+                        }
+                    </div>
+                ) : !isLoadingData && (
+                    <div className="text-center text-gray-400 py-10">
+                        <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
+                        {submissionStatus === 'success' && submissionMessage ? submissionMessage : "Waiting for facilitator to start next phase..."}
+                    </div>
                 )}
             </div>
-            {/* ... Submission Status Modals ... */}
+
+            {isSubmissionFeedbackModalOpen && (
+                <Modal
+                    isOpen={isSubmissionFeedbackModalOpen}
+                    onClose={() => setIsSubmissionFeedbackModalOpen(false)}
+                    title={
+                        submissionStatus === 'submitting' ? "Processing..." :
+                            submissionStatus === 'success' ? "Submission Successful!" :
+                                submissionStatus === 'error' ? "Submission Failed" :
+                                    "Status"
+                    }
+                    size="sm"
+                >
+                    <div className="p-2 text-center">
+                        {submissionStatus === 'submitting' && <Hourglass size={24} className="mx-auto mb-2 text-blue-500 animate-pulse" />}
+                        {submissionStatus === 'success' && <CheckCircle size={24} className="mx-auto mb-2 text-green-500" />}
+                        {submissionStatus === 'error' && <AlertTriangle size={24} className="mx-auto mb-2 text-red-500" />}
+                        <p className={`text-sm ${submissionStatus === 'error' ? 'text-red-600' : 'text-gray-600'}`}>{submissionMessage || "Updating..."}</p>
+                        {(submissionStatus === 'success' || submissionStatus === 'error') && (
+                            <button
+                                onClick={() => setIsSubmissionFeedbackModalOpen(false)}
+                                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
+                            >
+                                OK
+                            </button>
+                        )}
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 };
