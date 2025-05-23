@@ -132,6 +132,7 @@ export const useGameController = (
 
         if (currentSlideData) {
             slideLoadTimestamp.current = Date.now();
+            console.log(`[GameController] Processing slide ${currentSlideData.id}, isNew: ${isNewActualSlide}, type: ${currentSlideData.type}`);
 
             if (isNewActualSlide && currentTeacherAlertState && currentTeacherAlertState.message !== SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE) {
                 setCurrentTeacherAlertState(null);
@@ -179,10 +180,11 @@ export const useGameController = (
                     pauseVideoIfNeeded();
                 }
             }
+
             if (isNewActualSlide) {
                 setAllTeamsSubmittedCurrentInteractivePhaseState(false);
-                // Sync on slide change
-                setTimeout(triggerStateSync, 0);
+                // Important: Trigger sync on new slide
+                setTimeout(triggerStateSync, 50);
             }
         } else {
             if (isPlayingVideoState) pauseVideoIfNeeded();
@@ -191,7 +193,7 @@ export const useGameController = (
             }
         }
         previousSlideIdRef.current = currentSlideData?.id;
-    }, [currentSlideData, dbSession, updateSessionInDb, pauseVideoIfNeeded, SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE, triggerStateSync]);
+    }, [currentSlideData, dbSession, updateSessionInDb, pauseVideoIfNeeded, SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE, triggerStateSync, isPlayingVideoState, currentTeacherAlertState]);
 
     const reportVideoDuration = useCallback((duration: number) => {
         setCurrentVideoDurationState(duration);
@@ -258,6 +260,24 @@ export const useGameController = (
             pauseVideoIfNeeded();
         }
     }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData, setCurrentTeacherAlertState, pauseVideoIfNeeded, SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE, SLIDE_7_ALL_SUBMIT_ALERT_TITLE]);
+
+    useEffect(() => {
+        console.log(`[GameController] Slide/Phase changed - Phase: ${currentPhaseNode?.id}, Slide: ${currentSlideData?.id}, Type: ${currentSlideData?.type}`);
+
+        // Trigger state sync when slide or phase changes
+        if (onStateChange && currentSlideData && currentPhaseNode) {
+            console.log(`[GameController] Triggering state sync for slide change`);
+            setTimeout(() => {
+                onStateChange({
+                    isPlayingVideo: isPlayingVideoState,
+                    videoCurrentTime: videoCurrentTimeState,
+                    triggerVideoSeek: false,
+                    currentSlideData,
+                    currentPhaseNode
+                });
+            }, 100); // Small delay to ensure state is settled
+        }
+    }, [currentSlideData?.id, currentPhaseNode?.id, onStateChange, currentSlideData, currentPhaseNode, isPlayingVideoState, videoCurrentTimeState]);
 
     const nextSlide = useCallback(async () => {
         if (currentTeacherAlertState) {

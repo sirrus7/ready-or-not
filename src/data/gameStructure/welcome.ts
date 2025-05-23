@@ -56,7 +56,7 @@ export const welcomeSlides: Slide[] = [
         auto_advance_after_video: false, // REQ-2.2: Should NOT auto-advance, alert pops up
         teacher_alert: { // REQ-2.2
             title: "Game Host Action",
-            message: "Game Host, hand out 1 set of RD-1 Investment Cards & 1 RD-1 Team Summary Sheet to each team now. Then click Next to proceed."
+            message: "Please hand out one set of RD-1 Investment Cards and one RD-1 Team Summary Sheet to each team."
         }
     },
 ];
