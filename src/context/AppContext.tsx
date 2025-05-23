@@ -21,6 +21,7 @@ import {useSessionManager} from '../hooks/useSessionManager';
 import {useGameController} from '../hooks/useGameController';
 import {useTeamDataManager} from '../hooks/useTeamDataManager';
 import {ServerCrash} from 'lucide-react';
+import { createMonitoredChannel } from '../lib/supabase';
 
 interface AppContextProps {
     state: AppState;
@@ -524,7 +525,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             }
 
             // Setup Supabase real-time for CompanyDisplayPage (different devices/origins)
-            const realtimeChannel = supabase.channel(realtimeChannelName);
+            const realtimeChannel = createMonitoredChannel(realtimeChannelName);
 
             realtimeChannel.subscribe((status) => {
                 console.log(`[AppContext] Supabase subscription status: ${status}`);
@@ -672,7 +673,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                     broadcastChannel.close();
                     broadcastChannel = null;
                 }
-                supabase.removeChannel(realtimeChannel);
+                if (realtimeChannel.unsubscribe) {
+                    realtimeChannel.unsubscribe();
+                }
             };
         }
     }, [
