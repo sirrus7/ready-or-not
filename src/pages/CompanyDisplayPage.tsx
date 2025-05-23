@@ -14,7 +14,7 @@ import {
 } from '../types';
 import {supabase} from '../lib/supabase';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
-import {Hourglass, CheckCircle, AlertTriangle} from 'lucide-react';
+import {Hourglass, CheckCircle, AlertTriangle, Smartphone} from 'lucide-react';
 import Modal from '../components/UI/Modal';
 
 const CompanyDisplayPage: React.FC = () => {
@@ -39,6 +39,19 @@ const CompanyDisplayPage: React.FC = () => {
     const currentActivePhaseRef = useRef<GamePhaseNode | null>(null);
     const currentTeamKpisRef = useRef<TeamRoundData | null>(null);
     const decisionPhaseTimerEndTimeRef = useRef<number | undefined>(undefined);
+
+    // Check if we're on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    // Set initial viewport for mobile
+    useEffect(() => {
+        if (isMobile) {
+            const viewport = document.querySelector('meta[name=viewport]');
+            if (viewport) {
+                viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+            }
+        }
+    }, [isMobile]);
 
     useEffect(() => {
         submissionStatusRef.current = submissionStatus;
@@ -153,7 +166,7 @@ const CompanyDisplayPage: React.FC = () => {
             setCurrentActiveSlide(newSlide);
             setDecisionOptionsKey(teacherPayload.decisionOptionsKey);
 
-            // Decision activation logic (keep existing logic)
+            // Decision activation logic
             const shouldActivateDecisions = teacherPayload.isStudentDecisionPhaseActive &&
                 loggedInTeamId &&
                 newPhaseNode?.is_interactive_student_phase &&
@@ -179,18 +192,18 @@ const CompanyDisplayPage: React.FC = () => {
                 isStudentDecisionTimeRef.current = false;
             }
 
-            // Handle timer (keep existing logic)
+            // Handle timer
             if (teacherPayload.decisionPhaseTimerEndTime !== decisionPhaseTimerEndTimeRef.current) {
                 setDecisionPhaseTimerEndTime(teacherPayload.decisionPhaseTimerEndTime);
             }
 
-            // Handle phase changes for data fetching (keep existing logic)
+            // Handle phase changes for data fetching
             if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== currentActivePhaseRef.current?.id) {
                 console.log(`[CompanyDisplayPage] Phase changed, fetching data for ${newPhaseNode.id}`);
                 fetchInitialTeamData(loggedInTeamId, newPhaseNode);
             }
 
-            // Handle KPI updates for round changes (keep existing logic)
+            // Handle KPI updates for round changes
             if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
                 if (currentTeamKpisRef.current?.round_number !== newPhaseNode.round_number || !currentTeamKpisRef.current) {
                     if (newPhaseNode.id !== currentActivePhaseRef.current?.id) {
@@ -302,35 +315,6 @@ const CompanyDisplayPage: React.FC = () => {
         setIsLoadingData(true);
     };
 
-    const debugSupabaseConnection = async () => {
-        console.log('[CompanyDisplayPage] Testing Supabase connection...');
-
-        // Test basic connection
-        try {
-            const { data: testData, error: testError } = await supabase
-                .from('team_decisions')
-                .select('count')
-                .limit(1);
-
-            console.log('[CompanyDisplayPage] Supabase connection test:', { testData, testError });
-        } catch (err) {
-            console.error('[CompanyDisplayPage] Supabase connection failed:', err);
-        }
-
-        // Test if we can read the teams table (should work)
-        try {
-            const { data: teamsData, error: teamsError } = await supabase
-                .from('teams')
-                .select('*')
-                .eq('session_id', sessionId)
-                .limit(1);
-
-            console.log('[CompanyDisplayPage] Teams table test:', { teamsData, teamsError });
-        } catch (err) {
-            console.error('[CompanyDisplayPage] Teams table access failed:', err);
-        }
-    };
-
     const handleDecisionSubmit = async (decisionDataPayload: any) => {
         console.log('[CompanyDisplayPage] === DECISION SUBMIT START ===');
         console.log('[CompanyDisplayPage] sessionId:', sessionId);
@@ -351,9 +335,6 @@ const CompanyDisplayPage: React.FC = () => {
             return;
         }
 
-        // Run debug test first
-        await debugSupabaseConnection();
-
         setSubmissionStatus('submitting');
         submissionStatusRef.current = 'submitting';
         setSubmissionMessage(`Submitting decisions for ${currentActivePhase.label}...`);
@@ -372,7 +353,6 @@ const CompanyDisplayPage: React.FC = () => {
         console.log('[CompanyDisplayPage] Full payload:', JSON.stringify(submissionPayload, null, 2));
 
         try {
-            // First, let's try without .select().single() to see if that's the issue
             console.log('[CompanyDisplayPage] Attempting insert...');
 
             const { data, error, status, statusText } = await supabase
@@ -414,8 +394,6 @@ const CompanyDisplayPage: React.FC = () => {
         } catch (err) {
             console.error('[CompanyDisplayPage] === SUBMISSION FAILED ===');
             console.error('[CompanyDisplayPage] Error details:', err);
-            console.error('[CompanyDisplayPage] Error type:', typeof err);
-            console.error('[CompanyDisplayPage] Error constructor:', err?.constructor?.name);
 
             setSubmissionStatus('error');
             submissionStatusRef.current = 'error';
@@ -433,9 +411,7 @@ const CompanyDisplayPage: React.FC = () => {
 
     const investmentOptionsForCurrentPhase = useMemo((): InvestmentOption[] => {
         if (currentActivePhase?.phase_type === 'invest' && decisionOptionsKey && gameStructure) {
-            console.log(`[CompanyDisplayPage] Looking for investment options with key: ${decisionOptionsKey}`);
             const options = gameStructure.all_investment_options[decisionOptionsKey] || [];
-            console.log(`[CompanyDisplayPage] Found ${options.length} investment options:`, options);
             return options;
         }
         return [];
@@ -460,11 +436,11 @@ const CompanyDisplayPage: React.FC = () => {
         return (
             <div className="min-h-screen bg-red-900 text-white flex flex-col items-center justify-center p-4">
                 <AlertTriangle size={48} className="mb-4 text-yellow-300"/>
-                <h1 className="text-2xl font-bold mb-2">Application Error</h1>
-                <p className="text-center mb-4">{pageError}</p>
+                <h1 className="text-2xl font-bold mb-2 text-center">Application Error</h1>
+                <p className="text-center mb-4 px-4">{pageError}</p>
                 <button
                     onClick={() => window.location.reload()}
-                    className="px-6 py-2 bg-yellow-400 text-red-900 font-semibold rounded hover:bg-yellow-300"
+                    className="px-6 py-3 bg-yellow-400 text-red-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors"
                 >
                     Try Reloading Page
                 </button>
@@ -473,7 +449,14 @@ const CompanyDisplayPage: React.FC = () => {
     }
 
     if (!sessionId) {
-        return <div className="min-h-screen bg-gray-800 text-white flex items-center justify-center p-4">Error: Invalid session link. Please check the URL.</div>;
+        return (
+            <div className="min-h-screen bg-gray-800 text-white flex items-center justify-center p-4">
+                <div className="text-center">
+                    <Smartphone size={48} className="mx-auto mb-4 text-red-400"/>
+                    <p className="text-lg">Error: Invalid session link. Please check the URL.</p>
+                </div>
+            </div>
+        );
     }
 
     if (!loggedInTeamId || !loggedInTeamName) {
@@ -488,60 +471,30 @@ const CompanyDisplayPage: React.FC = () => {
         ? gameStructure.investment_phase_budgets[decisionOptionsKey]
         : 0;
 
-    // Debug logging for decision time
-    console.log(`[CompanyDisplayPage] Render - isStudentDecisionTime: ${isStudentDecisionTimeRef.current}, phase: ${currentActivePhase?.id}, phase_type: ${currentActivePhase?.phase_type}, submissionStatus: ${submissionStatusRef.current}`);
-
-    console.log(`[CompanyDisplayPage] RENDER DECISION:`, {
-        isLoadingData,
-        hasActivePhase: !!currentActivePhase,
-        isStudentDecisionTimeRef: isStudentDecisionTimeRef.current,
-        submissionStatusRef: submissionStatusRef.current,
-        hasInvestmentOptions: investmentOptionsForCurrentPhase.length,
-        budgetForInvestPhase,
-        renderDecision: (isStudentDecisionTimeRef.current && currentActivePhase && submissionStatusRef.current !== 'success') ? 'DECISION_PANEL' : 'WAITING'
-    });
-
     return (
-        <div className="min-h-screen flex flex-col bg-gray-900 text-white overflow-hidden">
-            <KpiDisplay
-                teamName={loggedInTeamName}
-                currentRoundLabel={kpiRoundLabel}
-                kpis={currentTeamKpis}
-            />
+        <div className={`min-h-screen flex flex-col bg-gray-900 text-white ${isMobile ? 'touch-manipulation' : ''}`}>
+            {/* KPI Display - Fixed header */}
+            <div className="flex-shrink-0">
+                <KpiDisplay
+                    teamName={loggedInTeamName}
+                    currentRoundLabel={kpiRoundLabel}
+                    kpis={currentTeamKpis}
+                />
+            </div>
 
-            {process.env.NODE_ENV === 'development' && (
-                <div className="p-2 bg-yellow-900 text-yellow-100">
-                    <button
-                        onClick={debugSupabaseConnection}
-                        className="bg-yellow-600 text-yellow-100 px-2 py-1 rounded text-xs"
-                    >
-                        Test Supabase Connection
-                    </button>
-                    <div className="text-xs mt-1">
-                        SessionId: {sessionId}<br/>
-                        TeamId: {loggedInTeamId}<br/>
-                        Phase: {currentActivePhase?.id}<br/>
-                        DecisionTime: {isStudentDecisionTime ? 'YES' : 'NO'}
-                    </div>
-                </div>
-            )}
-
-            <div className="flex-grow p-3 md:p-4 overflow-y-auto">
-                {isLoadingData || !currentActivePhase ? (
-                    <div className="text-center text-gray-400 py-10">
-                        <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
-                        <p>
-                            {isLoadingData && currentActivePhase ? `Loading data for ${currentActivePhase.label}...` :
-                                !currentActivePhase ? "Waiting for game to start..." :
-                                    "Loading..."}
-                        </p>
-                    </div>
-                ) : isStudentDecisionTimeRef.current && currentActivePhase && submissionStatusRef.current !== 'success' ? (
-                    <>
-                        {/* DEBUG INFO - Remove this in production */}
-                        <div className="bg-yellow-900 text-yellow-100 p-2 mb-4 text-xs">
-                            DEBUG: Decision Panel Active - Phase: {currentActivePhase.id}, Options: {investmentOptionsForCurrentPhase.length}, Budget: {budgetForInvestPhase}
+            {/* Main Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto">
+                <div className="p-3 md:p-4 pb-safe">
+                    {isLoadingData || !currentActivePhase ? (
+                        <div className="text-center text-gray-400 py-12">
+                            <Hourglass size={40} className="mx-auto mb-4 animate-pulse"/>
+                            <p className="text-lg">
+                                {isLoadingData && currentActivePhase ? `Loading data for ${currentActivePhase.label}...` :
+                                    !currentActivePhase ? "Waiting for game to start..." :
+                                        "Loading..."}
+                            </p>
                         </div>
+                    ) : isStudentDecisionTimeRef.current && currentActivePhase && submissionStatusRef.current !== 'success' ? (
                         <DecisionPanel
                             sessionId={sessionId}
                             teamId={loggedInTeamId}
@@ -554,41 +507,55 @@ const CompanyDisplayPage: React.FC = () => {
                             isDecisionTime={isStudentDecisionTimeRef.current}
                             timeRemainingSeconds={timeRemainingSeconds}
                         />
-                    </>
-                ) : (
-                    <>
-                        {/* DEBUG INFO - Remove this in production */}
-                        <div className="bg-blue-900 text-blue-100 p-2 mb-4 text-xs">
-                            DEBUG: Waiting State - Phase: {currentActivePhase?.id}, DecisionTime: {isStudentDecisionTimeRef.current ? 'true' : 'false'}, SubmissionStatus: {submissionStatusRef.current}
-                        </div>
-                        {currentActiveSlide ? (
-                            <div className="text-center p-4 bg-gray-800 rounded-lg shadow-md max-w-xl mx-auto my-4">
-                                <h3 className="text-lg font-semibold text-sky-400 mb-2">{currentActiveSlide.title || currentActivePhase?.label || "Current Activity"}</h3>
-                                {currentActiveSlide.main_text && <p className="text-md text-gray-200 mb-1">{currentActiveSlide.main_text}</p>}
-                                {currentActiveSlide.sub_text && <p className="text-sm text-gray-300">{currentActiveSlide.sub_text}</p>}
+                    ) : (
+                        <div className="max-w-xl mx-auto">
+                            {currentActiveSlide ? (
+                                <div className="text-center p-6 bg-gray-800 rounded-xl shadow-lg">
+                                    <h3 className="text-xl font-semibold text-sky-400 mb-3">
+                                        {currentActiveSlide.title || currentActivePhase?.label || "Current Activity"}
+                                    </h3>
+                                    {currentActiveSlide.main_text && (
+                                        <p className="text-lg text-gray-200 mb-2">{currentActiveSlide.main_text}</p>
+                                    )}
+                                    {currentActiveSlide.sub_text && (
+                                        <p className="text-sm text-gray-300 mb-4">{currentActiveSlide.sub_text}</p>
+                                    )}
 
-                                {submissionStatusRef.current === 'success' && (
-                                    <p className="mt-4 text-sm text-green-400 flex items-center justify-center">
-                                        <CheckCircle size={18} className="mr-2"/> Decisions submitted for {currentActivePhase?.label || "previous phase"}. Waiting for facilitator.
+                                    {submissionStatusRef.current === 'success' && (
+                                        <div className="mt-6 p-4 bg-green-900/50 rounded-lg border border-green-700">
+                                            <p className="text-green-400 flex items-center justify-center">
+                                                <CheckCircle size={20} className="mr-2"/>
+                                                Decisions submitted for {currentActivePhase?.label || "previous phase"}.
+                                                Waiting for facilitator.
+                                            </p>
+                                        </div>
+                                    )}
+                                    {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current) && (
+                                        <div className="mt-6 p-4 bg-yellow-900/50 rounded-lg border border-yellow-700">
+                                            <p className="text-yellow-400 flex items-center justify-center">
+                                                <Hourglass size={20} className="mr-2 animate-pulse"/>
+                                                Waiting for facilitator...
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="text-center text-gray-400 py-12">
+                                    <Hourglass size={40} className="mx-auto mb-4 animate-pulse"/>
+                                    <p className="text-lg">
+                                        {submissionStatusRef.current === 'success' && submissionMessage ?
+                                            submissionMessage :
+                                            `Waiting for facilitator to start ${currentActivePhase?.label || "next phase"}...`
+                                        }
                                     </p>
-                                )}
-                                {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current) &&
-                                    <p className="mt-4 text-sm text-yellow-400 flex items-center justify-center">
-                                        <Hourglass size={18} className="mr-2 animate-pulse"/> Waiting for facilitator...
-                                    </p>
-                                }
-                            </div>
-                        ) : (
-                            <div className="text-center text-gray-400 py-10">
-                                <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
-                                {submissionStatusRef.current === 'success' && submissionMessage ? submissionMessage : `Waiting for facilitator to start ${currentActivePhase?.label || "next phase"}...`}
-                            </div>
-                        )}
-                    </>
-                )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Modal remains the same */}
+            {/* Submission Feedback Modal */}
             {isSubmissionFeedbackModalOpen && (
                 <Modal
                     isOpen={isSubmissionFeedbackModalOpen}
@@ -608,7 +575,9 @@ const CompanyDisplayPage: React.FC = () => {
                         {submissionStatus === 'submitting' && <Hourglass size={32} className="mx-auto mb-3 text-blue-500 animate-pulse" />}
                         {submissionStatus === 'success' && <CheckCircle size={32} className="mx-auto mb-3 text-green-500" />}
                         {submissionStatus === 'error' && <AlertTriangle size={32} className="mx-auto mb-3 text-red-500" />}
-                        <p className={`text-sm ${submissionStatus === 'error' ? 'text-red-700' : 'text-gray-700'}`}>{submissionMessage || "Updating..."}</p>
+                        <p className={`text-sm ${submissionStatus === 'error' ? 'text-red-700' : 'text-gray-700'}`}>
+                            {submissionMessage || "Updating..."}
+                        </p>
 
                         {(submissionStatus === 'success' || submissionStatus === 'error') && (
                             <button
@@ -616,7 +585,7 @@ const CompanyDisplayPage: React.FC = () => {
                                     setIsSubmissionFeedbackModalOpen(false);
                                     if(submissionStatus === 'error') setSubmissionMessage(null);
                                 }}
-                                className="mt-5 px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                className="mt-5 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                             >
                                 OK
                             </button>
@@ -624,6 +593,9 @@ const CompanyDisplayPage: React.FC = () => {
                     </div>
                 </Modal>
             )}
+
+            {/* Mobile safe area bottom padding */}
+            {isMobile && <div className="h-safe-area-inset-bottom bg-gray-900"></div>}
         </div>
     );
 };
