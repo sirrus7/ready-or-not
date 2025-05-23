@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
     ChevronLeft,
     ChevronRight,
@@ -14,6 +14,7 @@ import {useAppContext} from '../../context/AppContext';
 import Modal from '../UI/Modal';
 import {openStudentDisplay} from '../../utils/windowUtils';
 import {useNavigate} from 'react-router-dom';
+import QRCode from 'qrcode';
 
 const TeacherGameControls: React.FC = () => {
     const {
@@ -35,6 +36,7 @@ const TeacherGameControls: React.FC = () => {
     const [isJoinCompanyModalOpen, setIsJoinCompanyModalOpen] = useState(false);
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
     const [isExitConfirmModalOpen, setisExitConfirmModalOpen] = useState(false);
+    const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
@@ -105,6 +107,28 @@ const TeacherGameControls: React.FC = () => {
 
     const currentNotes = currentSlideData ? state.teacherNotes[String(currentSlideData.id)] || '' : '';
     const CompanyDisplayBaseUrl = `${window.location.origin}/student-game`;
+    const studentJoinUrl = `${CompanyDisplayBaseUrl}/${state.currentSessionId}`;
+
+    // Generate QR code when modal opens or session ID changes
+    useEffect(() => {
+        if (isJoinCompanyModalOpen && state.currentSessionId) {
+            QRCode.toDataURL(studentJoinUrl, {
+                width: 200,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            })
+                .then(url => {
+                    setQrCodeDataUrl(url);
+                })
+                .catch(err => {
+                    console.error('Error generating QR code:', err);
+                    setQrCodeDataUrl(null);
+                });
+        }
+    }, [isJoinCompanyModalOpen, studentJoinUrl, state.currentSessionId]);
 
     const isFirstSlideOverall = currentPhaseNode?.id === state.gameStructure?.welcome_phases[0]?.id && state.currentSlideIdInPhase === 0;
     const gameEndPhaseIds = state.gameStructure?.game_end_phases.map(p => p.id) || [];
@@ -246,23 +270,37 @@ const TeacherGameControls: React.FC = () => {
                     </div>
                 </Modal>
             )}
-            
+
             {/* This is the Modal that shows the students how to join the Company page */}
             <Modal isOpen={isJoinCompanyModalOpen} onClose={closeJoinCompanyModal} title="Company Join Information" size="md">
                 <div className="p-2 text-center">
                     <p className="text-sm text-gray-600 mb-2">Students join at:</p>
                     <div className="bg-gray-100 p-3 rounded-md mb-3">
-                        <a href={`${CompanyDisplayBaseUrl}/${state.currentSessionId}`} target="_blank"
+                        <a href={studentJoinUrl} target="_blank"
                            rel="noopener noreferrer"
                            className="font-mono text-blue-600 hover:text-blue-800 break-all text-lg">
-                            {`${CompanyDisplayBaseUrl}/${state.currentSessionId}`}
+                            {studentJoinUrl}
                         </a>
                     </div>
-                    {state.currentSessionId && (
+                    {state.currentSessionId && qrCodeDataUrl && (
                         <div className="flex justify-center my-4">
-                            <div
-                                className="w-40 h-40 bg-gray-200 flex items-center justify-center text-gray-500 text-xs p-2">
-                                [QR Code for student join link]
+                            <div className="p-4 bg-white rounded-lg shadow-md border border-gray-200">
+                                <img
+                                    src={qrCodeDataUrl}
+                                    alt="QR Code for student join link"
+                                    className="w-48 h-48"
+                                />
+                                <p className="text-xs text-gray-500 mt-2">Scan to join game</p>
+                            </div>
+                        </div>
+                    )}
+                    {state.currentSessionId && !qrCodeDataUrl && (
+                        <div className="flex justify-center my-4">
+                            <div className="w-48 h-48 bg-gray-200 flex items-center justify-center text-gray-500 text-xs p-2 rounded-lg">
+                                <div className="text-center">
+                                    <QrCode size={32} className="mx-auto mb-2 opacity-50" />
+                                    <p>Generating QR Code...</p>
+                                </div>
                             </div>
                         </div>
                     )}

@@ -11,6 +11,7 @@ import {
     RefreshCw,
     Save
 } from 'lucide-react';
+import QRCode from 'qrcode';
 
 // Internal state for this component can use an 'id' for React keys
 interface LocalTeamConfig extends AppTeamConfig {
@@ -97,18 +98,32 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
         );
     };
 
-    const printLogins = (multiplePerPage: boolean) => {
+    const printLogins = async (multiplePerPage: boolean) => {
+        // Generate QR codes for each team
+        const baseUrl = `${window.location.origin}/student-game`;
+        const sessionPlaceholder = '[SESSION_ID]'; // Placeholder since session isn't created yet
+        const qrDataUrl = await QRCode.toDataURL(`${baseUrl}/${sessionPlaceholder}`, {
+            width: 120,
+            margin: 1,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        }).catch(() => null);
+
         let content = localTeams.map(team => {
-            // Basic QR code placeholder - a real implementation would use a library
-            const qrPlaceholder = `<div style="width:80px; height:80px; background-color: #f0f0f0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.7em; color:#888; margin:10px auto; border:1px dashed #ccc;">QR for Session</div>`;
+            const qrCodeHtml = qrDataUrl
+                ? `<img src="${qrDataUrl}" style="width:80px; height:80px; margin:10px auto; display:block;" alt="QR Code" />`
+                : `<div style="width:80px; height:80px; background-color: #f0f0f0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.7em; color:#888; margin:10px auto; border:1px dashed #ccc;">QR for Session</div>`;
 
             return `<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; width: ${multiplePerPage ? 'calc(50% - 20px)' : 'calc(100% - 30px)'}; box-sizing: border-box; display: inline-block; vertical-align: top; margin-right: ${multiplePerPage ? '10px' : '0'};">
                     <h3 style="margin-top: 0; color: #333; font-size: 1.1em;">Ready Or Not Game Login</h3>
                     <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Name:</strong> ${team.name}</p>
-                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Login URL/Instructions:</strong> Provided by Facilitator</p>
-                    ${qrPlaceholder}
+                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Login URL:</strong> ${baseUrl}/[SESSION_ID]</p>
+                    ${qrCodeHtml}
                     <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Passcode:</strong> <span style="font-size: 1.3em; color: #007bff; font-weight: bold;">${team.passcode}</span></p>
                     <p style="color:red; font-size:0.8em; margin-top: 10px;">Keep your passcode secret within your team!</p>
+                    <p style="color:#666; font-size:0.7em; margin-top: 5px; font-style: italic;">*The actual Session ID will be provided by your facilitator when the game starts.</p>
                 </div>`;
         }).join(multiplePerPage ? '' : '<div style="page-break-after: always;"></div>');
 
