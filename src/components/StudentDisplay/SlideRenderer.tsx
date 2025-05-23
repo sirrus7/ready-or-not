@@ -1,3 +1,4 @@
+// src/components/StudentDisplay/SlideRenderer.tsx
 import React, { useEffect, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Slide } from '../../types';
@@ -15,7 +16,6 @@ interface SlideRendererProps {
     onPreviewVideoEnded?: () => void;
 }
 
-
 const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          slide,
                                                          isPlayingTarget,
@@ -29,7 +29,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const videoRef = useRef<HTMLVideoElement>(null);
     const lastBroadcastedTime = useRef<number | undefined>(undefined);
     const isPreviewSeekingRef = useRef(false);
-    const initialSyncDoneRef = useRef(false); // Track if initial sync is complete
+    const initialSyncDoneRef = useRef(false);
+    const pendingSyncTimeRef = useRef<number | undefined>(undefined); // Track pending sync time
+    const autoResumeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track auto-resume timeout
     const { state } = useAppContext();
 
     useEffect(() => {
@@ -53,23 +55,56 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     }
                 }
             } else {
-                // Student Display: More aggressive sync handling
+                // Student Display: Improved sync handling
                 if (triggerSeekEvent && videoTimeTarget !== undefined) {
                     // Always seek when explicitly triggered
-                    if (Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
-                        console.log(`[${context}] Seeking to ${videoTimeTarget} from ${videoElement.currentTime}`);
-                        videoElement.currentTime = videoTimeTarget;
+                    console.log(`[${context}] Explicit seek triggered to ${videoTimeTarget} from ${videoElement.currentTime}`);
+                    videoElement.currentTime = videoTimeTarget;
+                    pendingSyncTimeRef.current = undefined; // Clear any pending sync
+
+                    // For the advanced sync: differentiate between sync pause and play resume
+                    if (isPlayingTarget) {
+                        // This is likely a play resume after sync - wait a bit longer for alignment
+                        setTimeout(() => {
+                            if (videoElement.paused) {
+                                videoElement.play().catch(e => console.warn(`[${context}] Play after sync error:`, e));
+                            }
+                        }, 150); // Slightly less than teacher's 250ms to ensure student is ready first
+                    } else {
+                        // This is a pause for sync - apply immediately
+                        if (!videoElement.paused) {
+                            videoElement.pause();
+                        }
                     }
-                    // Apply play state after seek
-                    setTimeout(() => {
+                } else if (videoTimeTarget !== undefined && !initialSyncDoneRef.current) {
+                    // Store the target time for initial sync once video is ready
+                    pendingSyncTimeRef.current = videoTimeTarget;
+                    console.log(`[${context}] Pending initial sync to time: ${videoTimeTarget}`);
+                } else if (videoTimeTarget !== undefined && initialSyncDoneRef.current) {
+                    // Handle time updates during playback or after pause/seek
+                    const timeDifference = Math.abs(videoElement.currentTime - videoTimeTarget);
+                    if (timeDifference > 1.0) { // Only seek if significantly out of sync
+                        console.log(`[${context}] Correcting time drift: ${videoElement.currentTime} -> ${videoTimeTarget}`);
+                        videoElement.currentTime = videoTimeTarget;
+
+                        // Apply play state after correction
+                        setTimeout(() => {
+                            if (isPlayingTarget && videoElement.paused) {
+                                videoElement.play().catch(e => console.warn(`[${context}] Play after correction error:`, e));
+                            } else if (!isPlayingTarget && !videoElement.paused) {
+                                videoElement.pause();
+                            }
+                        }, 50);
+                    } else {
+                        // Just apply play/pause state without seeking
                         if (isPlayingTarget && videoElement.paused) {
-                            videoElement.play().catch(e => console.warn(`[${context}] Play after seek error:`, e));
+                            videoElement.play().catch(e => console.warn(`[${context}] Video play error:`, e));
                         } else if (!isPlayingTarget && !videoElement.paused) {
                             videoElement.pause();
                         }
-                    }, 50);
+                    }
                 } else {
-                    // Normal play/pause control
+                    // Normal play/pause control without time change
                     if (isPlayingTarget && videoElement.paused) {
                         videoElement.play().catch(e => console.warn(`[${context}] Video play error:`, e));
                     } else if (!isPlayingTarget && !videoElement.paused) {
@@ -83,23 +118,41 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const handlePreviewPlay = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {
             isPreviewSeekingRef.current = false;
-            onPreviewVideoStateChange(true, videoRef.current.currentTime, false);
+            const currentTime = videoRef.current.currentTime;
+
+            // For manual play (not auto-resume), just broadcast normally
+            // Auto-resume is handled in handlePreviewSeeked
+            onPreviewVideoStateChange(true, currentTime, false);
+            lastBroadcastedTime.current = currentTime;
+
+            console.log(`[TeacherPreview] Manual play at time: ${currentTime}`);
         }
     };
 
     const handlePreviewPause = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {
             if (!videoRef.current.ended && !isPreviewSeekingRef.current) {
-                onPreviewVideoStateChange(false, videoRef.current.currentTime, false);
+                const currentTime = videoRef.current.currentTime;
+                onPreviewVideoStateChange(false, currentTime, false);
+                lastBroadcastedTime.current = currentTime;
+
+                console.log(`[TeacherPreview] Paused at time: ${currentTime}`);
             }
         }
     };
 
     const handlePreviewTimeUpdate = () => {
-        if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current && !isPreviewSeekingRef.current && !videoRef.current.paused) {
+        if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current && !isPreviewSeekingRef.current) {
             const currentTime = videoRef.current.currentTime;
-            if (lastBroadcastedTime.current === undefined || Math.abs(currentTime - lastBroadcastedTime.current) >= 0.25) {
-                onPreviewVideoStateChange(true, currentTime, false);
+            const isPlaying = !videoRef.current.paused;
+
+            // Broadcast time updates when playing, or if there's a significant time change while paused
+            // (this can happen with manual seeking or programmatic time changes)
+            const shouldBroadcast = isPlaying ||
+                (lastBroadcastedTime.current !== undefined && Math.abs(currentTime - lastBroadcastedTime.current) >= 0.25);
+
+            if (lastBroadcastedTime.current === undefined || shouldBroadcast) {
+                onPreviewVideoStateChange(isPlaying, currentTime, false);
                 lastBroadcastedTime.current = currentTime;
             }
         }
@@ -114,8 +167,53 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const handlePreviewSeeked = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {
             isPreviewSeekingRef.current = false;
-            videoRef.current.pause()
-            onPreviewVideoStateChange(!videoRef.current.paused, videoRef.current.currentTime, true);
+
+            // Clear any pending auto-resume
+            if (autoResumeTimeoutRef.current) {
+                clearTimeout(autoResumeTimeoutRef.current);
+                autoResumeTimeoutRef.current = null;
+            }
+
+            const wasPlaying = !videoRef.current.paused;
+            const currentTime = videoRef.current.currentTime;
+
+            if (wasPlaying) {
+                // Pause both displays for sync
+                videoRef.current.pause();
+                onPreviewVideoStateChange(false, currentTime, true);
+
+                console.log(`[TeacherPreview] Seeked to ${currentTime}, sync pause initiated`);
+
+                // Brief pause to ensure student display catches up, then auto-resume
+                autoResumeTimeoutRef.current = setTimeout(() => {
+                    if (videoRef.current && videoRef.current.paused) {
+                        // Double-check we're still at the right time before resuming
+                        if (Math.abs(videoRef.current.currentTime - currentTime) > 0.1) {
+                            videoRef.current.currentTime = currentTime;
+                        }
+
+                        videoRef.current.play().then(() => {
+                            if (onPreviewVideoStateChange && videoRef.current) {
+                                onPreviewVideoStateChange(true, videoRef.current.currentTime, true);
+                                console.log(`[TeacherPreview] Auto-resumed after sync pause at ${videoRef.current.currentTime}`);
+                            }
+                        }).catch(e => {
+                            console.warn(`[TeacherPreview] Auto-resume failed:`, e);
+                            // Fallback: just broadcast the paused state
+                            if (onPreviewVideoStateChange) {
+                                onPreviewVideoStateChange(false, currentTime, false);
+                            }
+                        });
+                    }
+                    autoResumeTimeoutRef.current = null;
+                }, 250); // 250ms should be enough for sync
+            } else {
+                // Was already paused, just update position
+                onPreviewVideoStateChange(false, currentTime, true);
+                console.log(`[TeacherPreview] Seeked while paused to time: ${currentTime}`);
+            }
+
+            lastBroadcastedTime.current = currentTime;
         }
     };
 
@@ -123,38 +221,63 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         const videoElement = videoRef.current;
         if (videoElement) {
             lastBroadcastedTime.current = undefined;
-            initialSyncDoneRef.current = false; // Reset on new video
+            initialSyncDoneRef.current = false;
 
             if (isForTeacherPreview && onPreviewVideoDuration && videoElement.duration && !isNaN(videoElement.duration) && videoElement.duration !== Infinity) {
                 onPreviewVideoDuration(videoElement.duration);
             }
 
-            // Apply initial time and state
-            if (videoTimeTarget !== undefined && Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
-                console.log(`[${isForTeacherPreview ? 'TeacherPreview' : 'StudentDisplay'}] Initial time sync: ${videoTimeTarget}`);
-                videoElement.currentTime = videoTimeTarget;
-            }
-
-            // For Student Display, be more aggressive about initial sync
+            // For Student Display: Handle initial time sync more robustly
             if (!isForTeacherPreview) {
-                const syncPlayState = () => {
+                const performInitialSync = () => {
+                    const targetTime = pendingSyncTimeRef.current ?? videoTimeTarget ?? 0;
+
+                    console.log(`[StudentDisplay] Performing initial sync - targetTime: ${targetTime}, currentTime: ${videoElement.currentTime}`);
+
+                    // Always set the time on initial load for student display
+                    if (targetTime !== undefined && Math.abs(videoElement.currentTime - targetTime) > 0.1) {
+                        console.log(`[StudentDisplay] Setting initial video time to: ${targetTime}`);
+                        videoElement.currentTime = targetTime;
+                    }
+
+                    // Wait for the time to be set, then apply play state
+                    const syncPlayState = () => {
+                        if (isPlayingTarget && videoElement.paused) {
+                            console.log(`[StudentDisplay] Starting playback after initial sync`);
+                            videoElement.play().catch(e => console.warn(`[StudentDisplay] Initial play error:`, e));
+                        } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) {
+                            console.log(`[StudentDisplay] Pausing after initial sync`);
+                            videoElement.pause();
+                        }
+                        initialSyncDoneRef.current = true;
+                        pendingSyncTimeRef.current = undefined;
+                    };
+
+                    // Give time for the seek to complete
+                    if (targetTime > 0) {
+                        setTimeout(syncPlayState, 200);
+                    } else {
+                        setTimeout(syncPlayState, 50);
+                    }
+                };
+
+                // Perform initial sync after metadata is loaded
+                setTimeout(performInitialSync, 100);
+
+            } else if (isForTeacherPreview) {
+                // Teacher Preview: Apply initial state with better time sync
+                const targetTime = videoTimeTarget ?? 0;
+                if (targetTime > 0 && Math.abs(videoElement.currentTime - targetTime) > 0.1) {
+                    videoElement.currentTime = targetTime;
+                }
+
+                setTimeout(() => {
                     if (isPlayingTarget && videoElement.paused) {
-                        videoElement.play().catch(e => console.warn(`[StudentDisplay] Initial play error:`, e));
+                        videoElement.play().catch(e => console.warn(`[TeacherPreview] Initial play on load error for slide ${slide?.id}:`, e));
                     } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) {
                         videoElement.pause();
                     }
-                    initialSyncDoneRef.current = true;
-                };
-
-                // Wait a bit for time sync, then apply play state
-                setTimeout(syncPlayState, 100);
-            } else if (isForTeacherPreview) {
-                // Teacher Preview initial state
-                if (isPlayingTarget && videoElement.paused) {
-                    videoElement.play().catch(e => console.warn(`[TeacherPreview] Initial play on load error for slide ${slide?.id}:`, e));
-                } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) {
-                    videoElement.pause();
-                }
+                }, 100);
             }
         }
     };
@@ -164,6 +287,18 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             onPreviewVideoEnded();
         }
     };
+
+    // Reset sync state when slide changes
+    useEffect(() => {
+        initialSyncDoneRef.current = false;
+        pendingSyncTimeRef.current = undefined;
+
+        // Clear any pending auto-resume when slide changes
+        if (autoResumeTimeoutRef.current) {
+            clearTimeout(autoResumeTimeoutRef.current);
+            autoResumeTimeoutRef.current = null;
+        }
+    }, [slide?.id]);
 
     if (!slide) {
         return (
@@ -365,4 +500,5 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         </div>
     );
 };
+
 export default SlideRenderer;

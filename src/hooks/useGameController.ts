@@ -334,7 +334,9 @@ export const useGameController = (
     ) => {
         if (!dbSession) return;
 
+        // Always update the current time state immediately for accurate broadcasting
         setVideoCurrentTimeState(timeFromPreview);
+
         if (isPlayingVideoState !== playingFromPreview) {
             setIsPlayingVideoState(playingFromPreview);
         }
@@ -342,24 +344,52 @@ export const useGameController = (
         if (seekTriggeredByPreview) {
             internalSeekFlag.current = true;
             setTriggerVideoSeekState(true);
+
+            // Trigger immediate sync when seeking
+            if (onStateChange) {
+                onStateChange({
+                    isPlayingVideo: playingFromPreview,
+                    videoCurrentTime: timeFromPreview,
+                    triggerVideoSeek: true,
+                    currentSlideData,
+                    currentPhaseNode
+                });
+            }
+
             requestAnimationFrame(() => {
                 setTriggerVideoSeekState(false);
                 internalSeekFlag.current = false;
-                // Immediate sync after seek
-                triggerStateSync();
+                // Sync again after seek is complete
+                if (onStateChange) {
+                    onStateChange({
+                        isPlayingVideo: playingFromPreview,
+                        videoCurrentTime: timeFromPreview,
+                        triggerVideoSeek: false,
+                        currentSlideData,
+                        currentPhaseNode
+                    });
+                }
             });
         } else {
             if (triggerVideoSeekState && !internalSeekFlag.current) {
                 setTriggerVideoSeekState(false);
             }
             // Immediate sync for time/play state changes
-            triggerStateSync();
+            if (onStateChange) {
+                onStateChange({
+                    isPlayingVideo: playingFromPreview,
+                    videoCurrentTime: timeFromPreview,
+                    triggerVideoSeek: false,
+                    currentSlideData,
+                    currentPhaseNode
+                });
+            }
         }
 
         if (dbSession.is_playing !== playingFromPreview) {
             await updateSessionInDb({ is_playing: playingFromPreview });
         }
-    }, [dbSession, updateSessionInDb, isPlayingVideoState, triggerVideoSeekState, triggerStateSync]);
+    }, [dbSession, updateSessionInDb, isPlayingVideoState, triggerVideoSeekState, onStateChange, currentSlideData, currentPhaseNode]);
 
     const updateTeacherNotesForCurrentSlide = useCallback(async (notes: string) => {
         if (currentSlideData && dbSession) {
