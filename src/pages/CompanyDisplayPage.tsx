@@ -132,6 +132,7 @@ const CompanyDisplayPage: React.FC = () => {
         channel.onmessage = (event) => {
             if (event.data.type === 'TEACHER_STATE_UPDATE') {
                 const payload = event.data.payload as TeacherBroadcastPayload;
+                console.log(`[CompanyDisplayPage] Received teacher broadcast:`, payload);
 
                 const newPhaseNode = payload.currentPhaseId ? gameStructure.allPhases.find(p => p.id === payload.currentPhaseId) || null : null;
                 const newSlide = payload.currentSlideId !== null ? gameStructure.slides.find(s => s.id === payload.currentSlideId) || null : null;
@@ -141,20 +142,29 @@ const CompanyDisplayPage: React.FC = () => {
                 setCurrentActiveSlide(newSlide);
                 setDecisionOptionsKey(payload.decisionOptionsKey);
 
+                // Fixed decision phase detection logic
                 const decisionPhaseNowActive = payload.isStudentDecisionPhaseActive || false;
+                console.log(`[CompanyDisplayPage] Decision phase active: ${decisionPhaseNowActive}, Phase: ${newPhaseNode?.id}, Slide: ${newSlide?.id}`);
 
                 if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== previousPhaseId) {
+                    console.log(`[CompanyDisplayPage] Phase changed from ${previousPhaseId} to ${newPhaseNode.id}`);
                     fetchInitialTeamData(loggedInTeamId, newPhaseNode).then(() => {
+                        // Only set decision time if we haven't already submitted AND the phase is actually active
                         if (decisionPhaseNowActive && submissionStatusRef.current !== 'success') {
+                            console.log(`[CompanyDisplayPage] Setting decision time to true for phase ${newPhaseNode.id}`);
                             setIsStudentDecisionTime(true);
                         } else {
+                            console.log(`[CompanyDisplayPage] NOT setting decision time - decisionActive: ${decisionPhaseNowActive}, submissionStatus: ${submissionStatusRef.current}`);
                             setIsStudentDecisionTime(false);
                         }
                     });
                 } else {
+                    // Phase didn't change, just update decision time based on broadcast
                     if (decisionPhaseNowActive && submissionStatusRef.current !== 'success') {
+                        console.log(`[CompanyDisplayPage] Setting decision time to true (same phase) for ${newPhaseNode?.id}`);
                         setIsStudentDecisionTime(true);
                     } else {
+                        console.log(`[CompanyDisplayPage] Setting decision time to false (same phase) for ${newPhaseNode?.id}`);
                         setIsStudentDecisionTime(false);
                     }
                 }
@@ -308,7 +318,10 @@ const CompanyDisplayPage: React.FC = () => {
 
     const investmentOptionsForCurrentPhase = useMemo((): InvestmentOption[] => {
         if (currentActivePhase?.phase_type === 'invest' && decisionOptionsKey && gameStructure) {
-            return gameStructure.all_investment_options[decisionOptionsKey] || [];
+            console.log(`[CompanyDisplayPage] Looking for investment options with key: ${decisionOptionsKey}`);
+            const options = gameStructure.all_investment_options[decisionOptionsKey] || [];
+            console.log(`[CompanyDisplayPage] Found ${options.length} investment options:`, options);
+            return options;
         }
         return [];
     }, [currentActivePhase, gameStructure, decisionOptionsKey]);
@@ -359,6 +372,9 @@ const CompanyDisplayPage: React.FC = () => {
     const budgetForInvestPhase = currentActivePhase?.phase_type === 'invest' && decisionOptionsKey && gameStructure.investment_phase_budgets?.[decisionOptionsKey]
         ? gameStructure.investment_phase_budgets[decisionOptionsKey]
         : 0;
+
+    // Debug logging for decision time
+    console.log(`[CompanyDisplayPage] Render - isStudentDecisionTime: ${isStudentDecisionTimeRef.current}, phase: ${currentActivePhase?.id}, phase_type: ${currentActivePhase?.phase_type}, submissionStatus: ${submissionStatusRef.current}`);
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-900 text-white overflow-hidden">
