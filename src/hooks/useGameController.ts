@@ -12,16 +12,14 @@ export interface GameControllerOutput {
     triggerVideoSeek: boolean;
     currentTeacherAlert: { title: string; message: string } | null;
     allPhasesInOrder: GamePhaseNode[];
-
     allTeamsSubmittedCurrentInteractivePhase: boolean;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
-
     selectPhase: (phaseId: string) => Promise<void>;
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
     setVideoPlaybackState: (playing: boolean, time: number, triggerSeek?: boolean) => Promise<void>;
     updateTeacherNotesForCurrentSlide: (notes: string) => void;
-    clearTeacherAlertAndAdvance: () => Promise<void>;
+    clearTeacherAlert: () => Promise<void>;
     currentVideoDuration: number | null;
     reportVideoDuration: (duration: number) => void;
     handlePreviewVideoEnded: () => Promise<void>;
@@ -40,10 +38,7 @@ export const useGameController = (
     const [isPlayingVideoState, setIsPlayingVideoState] = useState<boolean>(false);
     const [videoCurrentTimeState, setVideoCurrentTimeState] = useState<number>(0);
     const [triggerVideoSeekState, setTriggerVideoSeekState] = useState<boolean>(false);
-    const [currentTeacherAlertState, setCurrentTeacherAlertState] = useState<{
-        title: string;
-        message: string
-    } | null>(null);
+    const [currentTeacherAlertState, setCurrentTeacherAlertState] = useState<{title: string; message: string} | null>(null);
     const [currentVideoDurationState, setCurrentVideoDurationState] = useState<number | null>(null);
     const [allTeamsSubmittedCurrentInteractivePhaseState, setAllTeamsSubmittedCurrentInteractivePhaseState] = useState<boolean>(false);
 
@@ -241,7 +236,7 @@ export const useGameController = (
     const nextSlide = useCallback(async () => {
         if (currentTeacherAlertState) {
             // If any alert is active, "Next" on teacher controls should do nothing.
-            // The modal's "Next/OK" button (calling clearTeacherAlertAndAdvance) is the way to proceed.
+            // The modal's "Next/OK" button (calling clearTeacherAlert) is the way to proceed.
             return;
         }
 
@@ -257,9 +252,7 @@ export const useGameController = (
         await advanceToNextSlideInternal();
     }, [currentTeacherAlertState, currentSlideData, advanceToNextSlideInternal, pauseVideoIfNeeded, setCurrentTeacherAlertState]);
 
-    // This function is called by the modal's "Next" or "OK" button.
-    // It will ALWAYS clear the alert and ALWAYS advance to the next slide.
-    const clearTeacherAlertAndAdvance = useCallback(async () => {
+    const clearTeacherAlert = useCallback(async () => {
         setCurrentTeacherAlertState(null);
         await advanceToNextSlideInternal();
     }, [advanceToNextSlideInternal]);
@@ -366,10 +359,10 @@ export const useGameController = (
         previousSlide,
         setVideoPlaybackState,
         updateTeacherNotesForCurrentSlide,
-        clearTeacherAlertAndAdvance, // This is for the modal's "Next/OK" button
+        clearTeacherAlert,
         currentVideoDuration: currentVideoDurationState,
         reportVideoDuration,
         handlePreviewVideoEnded: handlePreviewVideoEnded,
-        setCurrentTeacherAlertState, // This is for simple dismissal (X, Close, Overlay)
+        setCurrentTeacherAlertState,
     };
 };
