@@ -1,4 +1,4 @@
-// src/App.tsx - Final version with ErrorBoundary
+// src/App.tsx - Fixed version with AppProvider for StudentDisplayPage
 import React from 'react';
 import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from './context/AuthContext';
@@ -18,6 +18,16 @@ const SessionAwareAppProvider: React.FC<{ children: React.ReactNode }> = ({child
     return <AppProvider passedSessionId={sessionId}>{children}</AppProvider>;
 };
 
+// Wrapper for StudentDisplayPage that provides AppContext without auth
+const StudentDisplayWrapper: React.FC = () => {
+    const {sessionId} = useParams<{ sessionId: string | undefined }>();
+    return (
+        <AppProvider passedSessionId={sessionId}>
+            <StudentDisplayPage />
+        </AppProvider>
+    );
+};
+
 function App() {
     return (
         <ErrorBoundary>
@@ -31,7 +41,7 @@ function App() {
                     }/>
                     <Route path="/student-display/:sessionId" element={
                         <ErrorBoundary>
-                            <StudentDisplayPage/>
+                            <StudentDisplayWrapper />
                         </ErrorBoundary>
                     }/>
 
