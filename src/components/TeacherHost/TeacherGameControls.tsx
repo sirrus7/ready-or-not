@@ -9,7 +9,6 @@ import {
     ExternalLink,
     Lightbulb,
     LogOut,
-    X // For modal close button
 } from 'lucide-react';
 import {useAppContext} from '../../context/AppContext';
 import Modal from '../UI/Modal';
@@ -33,9 +32,9 @@ const TeacherGameControls: React.FC = () => {
 
     const navigate = useNavigate();
     const [showNotes, setShowNotes] = useState(false);
-    const [isJoinInfoModalOpen, setIsJoinInfoModalOpen] = useState(false);
+    const [isJoinCompanyModalOpen, setIsJoinCompanyModalOpen] = useState(false);
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
-    const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false);
+    const [isExitConfirmModalOpen, setisExitConfirmModalOpen] = useState(false);
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
@@ -60,11 +59,10 @@ const TeacherGameControls: React.FC = () => {
         }
     };
 
-    const openJoinInfoModal = () => setIsJoinInfoModalOpen(true);
-    const closeJoinInfoModal = () => setIsJoinInfoModalOpen(false);
-
+    const openJoinInfoModal = () => setIsJoinCompanyModalOpen(true);
+    const closeJoinCompanyModal = () => setIsJoinCompanyModalOpen(false);
     const openTeamCodesModal = () => setIsTeamCodesModalOpen(true);
-    const closeTeamCodesModal = () => setIsTeamCodesModalOpen(false);
+    const closeCompanyCodesModal = () => setIsTeamCodesModalOpen(false);
 
     const showCurrentRoundLeaderboard = () => {
         if (currentPhaseNode && currentPhaseNode.round_number > 0) {
@@ -83,16 +81,16 @@ const TeacherGameControls: React.FC = () => {
     };
 
     const handleExitGameClick = () => {
-        setIsExitConfirmModalOpen(true);
+        setisExitConfirmModalOpen(true);
     };
 
     const confirmExitGame = () => {
-        setIsExitConfirmModalOpen(false);
+        setisExitConfirmModalOpen(false);
         navigate('/dashboard');
     };
 
     const currentNotes = currentSlideData ? state.teacherNotes[String(currentSlideData.id)] || '' : '';
-    const studentAppBaseUrl = `${window.location.origin}/student-game`;
+    const CompanyDisplayBaseUrl = `${window.location.origin}/student-game`;
 
     const isFirstSlideOverall = currentPhaseNode?.id === state.gameStructure?.welcome_phases[0]?.id && state.currentSlideIdInPhase === 0;
     const gameEndPhaseIds = state.gameStructure?.game_end_phases.map(p => p.id) || [];
@@ -113,7 +111,7 @@ const TeacherGameControls: React.FC = () => {
                 <div className="flex items-center space-x-1 sm:space-x-2">
                     <button
                         onClick={previousSlide}
-                        disabled={isFirstSlideOverall || !!state.currentTeacherAlert}
+                        disabled={isFirstSlideOverall}
                         className="p-2.5 rounded-full text-gray-600 hover:bg-gray-200 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                         aria-label="Previous Slide"
                     >
@@ -121,7 +119,7 @@ const TeacherGameControls: React.FC = () => {
                     </button>
                     <button
                         onClick={nextSlide}
-                        disabled={isLastSlideOverall || !!state.currentTeacherAlert}
+                        disabled={isLastSlideOverall}
                         className="p-2.5 rounded-full text-gray-600 hover:bg-gray-200 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                         aria-label="Next Slide"
                     >
@@ -197,15 +195,12 @@ const TeacherGameControls: React.FC = () => {
                 </div>
             )}
 
+            {/* The Modal for teacher alerts. This is used to notify the teacher they need to take action! */}
             {state.currentTeacherAlert && (
                 <Modal
                     isOpen={!!state.currentTeacherAlert}
-                    onClose={() => {
-                        // Overlay click or Esc key ALWAYS just dismisses the alert.
-                        setCurrentTeacherAlertState(null);
-                    }}
+                    onClose={() => { setCurrentTeacherAlertState(null); }}
                     title={state.currentTeacherAlert.title || "Game Host Alert!"}
-                    // The "X" in the modal header should always be available for dismissal.
                     hideCloseButton={false}
                 >
                     <div className="p-1">
@@ -237,14 +232,16 @@ const TeacherGameControls: React.FC = () => {
                     </div>
                 </Modal>
             )}
-            <Modal isOpen={isJoinInfoModalOpen} onClose={closeJoinInfoModal} title="Student Join Information" size="md">
+            
+            {/* This is the Modal that shows the students how to join the Company page */}
+            <Modal isOpen={isJoinCompanyModalOpen} onClose={closeJoinCompanyModal} title="Company Join Information" size="md">
                 <div className="p-2 text-center">
                     <p className="text-sm text-gray-600 mb-2">Students join at:</p>
                     <div className="bg-gray-100 p-3 rounded-md mb-3">
-                        <a href={`${studentAppBaseUrl}/${state.currentSessionId}`} target="_blank"
+                        <a href={`${CompanyDisplayBaseUrl}/${state.currentSessionId}`} target="_blank"
                            rel="noopener noreferrer"
                            className="font-mono text-blue-600 hover:text-blue-800 break-all text-lg">
-                            {`${studentAppBaseUrl}/${state.currentSessionId}`}
+                            {`${CompanyDisplayBaseUrl}/${state.currentSessionId}`}
                         </a>
                     </div>
                     {state.currentSessionId && (
@@ -257,12 +254,14 @@ const TeacherGameControls: React.FC = () => {
                     )}
                     <p className="text-xs text-gray-500 mb-3">Students will also need their Team Name and Team
                         Passcode.</p>
-                    <button onClick={closeJoinInfoModal}
+                    <button onClick={closeJoinCompanyModal}
                             className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition">Close
                     </button>
                 </div>
             </Modal>
-            <Modal isOpen={isTeamCodesModalOpen} onClose={closeTeamCodesModal} title="Team Access Codes" size="sm">
+
+            {/* This model shows the team codes */}
+            <Modal isOpen={isTeamCodesModalOpen} onClose={closeCompanyCodesModal} title="Team Access Codes" size="sm">
                 <div className="p-2">
                     {state.teams.length > 0 ? (
                         <ul className="space-y-1.5 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
@@ -280,15 +279,17 @@ const TeacherGameControls: React.FC = () => {
                             teams are set up.</p>
                     )}
                     <div className="mt-4 text-right">
-                        <button onClick={closeTeamCodesModal}
+                        <button onClick={closeCompanyCodesModal}
                                 className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition">Close
                         </button>
                     </div>
                 </div>
             </Modal>
+
+            {/* This Modal confirms that the teacher wants to exist the game */}
             <Modal
                 isOpen={isExitConfirmModalOpen}
-                onClose={() => setIsExitConfirmModalOpen(false)}
+                onClose={() => setisExitConfirmModalOpen(false)}
                 title="Confirm Exit Game"
                 size="sm"
             >
@@ -310,7 +311,7 @@ const TeacherGameControls: React.FC = () => {
                         <button
                             type="button"
                             className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm w-full sm:w-auto"
-                            onClick={() => setIsExitConfirmModalOpen(false)}
+                            onClick={() => setisExitConfirmModalOpen(false)}
                         >
                             Cancel
                         </button>
