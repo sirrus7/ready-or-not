@@ -502,15 +502,41 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             }
             broadcastChannel.onmessage = (event) => {
                 if (event.data.type === 'STUDENT_DISPLAY_READY') {
-                    // Broadcast current state immediately when student display connects
+                    console.log('[AppContext] Student display connected, broadcasting current state');
+
+                    // Get the most current video time from the teacher preview if it's a video slide
+                    let currentVideoTime = gameController.videoCurrentTime;
+
+                    // If there's a video element in the teacher preview, get its actual current time
+                    const teacherVideoElements = document.querySelectorAll('video[src]');
+                    if (teacherVideoElements.length > 0) {
+                        const latestVideo = teacherVideoElements[teacherVideoElements.length - 1] as HTMLVideoElement;
+                        if (!latestVideo.paused || latestVideo.currentTime > 0) {
+                            currentVideoTime = latestVideo.currentTime;
+                            console.log(`[AppContext] Using actual video time from teacher preview: ${currentVideoTime}`);
+                        }
+                    }
+
                     // Force a seek event to sync video time exactly
                     broadcastStateImmediately({
                         isPlayingVideo: gameController.isPlayingVideo,
-                        videoCurrentTime: gameController.videoCurrentTime,
+                        videoCurrentTime: currentVideoTime,
                         triggerVideoSeek: true, // Force seek to sync time
                         currentSlideData: gameController.currentSlideData,
                         currentPhaseNode: gameController.currentPhaseNode
                     });
+
+                    // Send a second broadcast without seek trigger after a brief delay
+                    // This ensures the student display gets the correct play state
+                    setTimeout(() => {
+                        broadcastStateImmediately({
+                            isPlayingVideo: gameController.isPlayingVideo,
+                            videoCurrentTime: currentVideoTime,
+                            triggerVideoSeek: false,
+                            currentSlideData: gameController.currentSlideData,
+                            currentPhaseNode: gameController.currentPhaseNode
+                        });
+                    }, 300);
                 }
             };
             return () => {
@@ -520,7 +546,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 }
             };
         }
-    }, [currentDbSession?.id, broadcastStateImmediately]);
+    }, [currentDbSession?.id, broadcastStateImmediately, gameController.isPlayingVideo, gameController.videoCurrentTime, gameController.currentSlideData, gameController.currentPhaseNode]);
+
 
     const fetchWrapperTeams = useCallback(() => {
         if (currentDbSession?.id && currentDbSession.id !== 'new') fetchTeamsFromHook(currentDbSession.id);
