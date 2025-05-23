@@ -501,17 +501,20 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                             }
                         }
 
+                        // Send initial state immediately
                         broadcastChannel?.postMessage({
                             type: 'TEACHER_STATE_UPDATE',
-                            payload: createBroadcastPayload(gameController, currentVideoTime, true)
+                            payload: createBroadcastPayload(gameController, currentVideoTime, false)
                         });
 
+                        // Send again after a short delay to ensure sync
                         setTimeout(() => {
                             broadcastChannel?.postMessage({
                                 type: 'TEACHER_STATE_UPDATE',
                                 payload: createBroadcastPayload(gameController, currentVideoTime, false)
                             });
                         }, 300);
+
                     } else if (event.data.type === 'STUDENT_DISPLAY_REQUEST_STATE') {
                         console.log('[AppContext] Student display requesting current state');
 
@@ -529,6 +532,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                             type: 'TEACHER_STATE_UPDATE',
                             payload: createBroadcastPayload(gameController, currentVideoTime, false)
                         });
+
+                    } else if (event.data.type === 'STUDENT_DISPLAY_CLOSING') {
+                        console.log('[AppContext] Student display disconnecting');
+                        // Optional: Update UI to show student display is no longer active
                     }
                 };
             }
