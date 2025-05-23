@@ -96,7 +96,7 @@ export const useGameController = (
                 currentPhaseNode,
             });
         }
-    }, [onStateChange, isPlayingVideoState, videoCurrentTimeState, triggerVideoSeekState, currentSlideData, currentPhaseNode, currentTeacherAlertState]);
+    }, [onStateChange, isPlayingVideoState, videoCurrentTimeState, triggerVideoSeekState, currentSlideData, currentPhaseNode]);
 
     useEffect(() => {
         if (dbSession) {

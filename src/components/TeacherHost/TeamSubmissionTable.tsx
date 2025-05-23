@@ -1,20 +1,68 @@
 // src/components/TeacherHost/TeamSubmissionTable.tsx
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {useAppContext} from '../../context/AppContext';
 import {TeamDecision} from '../../types';
-import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, RefreshCw} from 'lucide-react';
+import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, Wifi, WifiOff} from 'lucide-react';
+import {supabase} from '../../lib/supabase';
 
 interface TeamSubmissionTableProps {
     // No props needed directly, it will consume from AppContext
 }
 
 const TeamSubmissionTable: React.FC<TeamSubmissionTableProps> = () => {
-    const {state, currentPhaseNode, resetTeamDecisionForPhase } = useAppContext();
+    const {state, currentPhaseNode, resetTeamDecisionForPhase, fetchTeamsForSession} = useAppContext();
     const {teams, teamDecisions, currentSessionId, gameStructure} = state;
 
     const currentPhaseIdFromNode = currentPhaseNode?.id;
 
     const [isLoadingReset, setIsLoadingReset] = useState<Record<string, boolean>>({});
+    const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+    const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
+
+    // Set up real-time subscription for team decisions
+    useEffect(() => {
+        if (!currentSessionId || currentSessionId === 'new' || !currentPhaseIdFromNode) {
+            setRealtimeStatus('disconnected');
+            return;
+        }
+
+        console.log(`[TeamSubmissionTable] Setting up real-time subscription for session ${currentSessionId}, phase ${currentPhaseIdFromNode}`);
+        setRealtimeStatus('connecting');
+
+        const channelName = `team-decisions-realtime-${currentSessionId}`;
+        const channel = supabase.channel(channelName);
+
+        channel
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'team_decisions',
+                filter: `session_id=eq.${currentSessionId}`
+            }, (payload) => {
+                console.log(`[TeamSubmissionTable] Real-time team decision update:`, payload);
+
+                // Update the last update time
+                setLastUpdateTime(new Date().toLocaleTimeString());
+
+                // The AppContext already handles team decision updates via its own subscription,
+                // so we don't need to manually update state here. This is just for status tracking.
+            })
+            .subscribe((status) => {
+                console.log(`[TeamSubmissionTable] Real-time subscription status: ${status}`);
+                if (status === 'SUBSCRIBED') {
+                    setRealtimeStatus('connected');
+                } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                    setRealtimeStatus('disconnected');
+                } else {
+                    setRealtimeStatus('connecting');
+                }
+            });
+
+        return () => {
+            console.log(`[TeamSubmissionTable] Cleaning up real-time subscription`);
+            supabase.removeChannel(channel);
+        };
+    }, [currentSessionId, currentPhaseIdFromNode]);
 
     const getTeamDecisionForCurrentPhase = (teamId: string): TeamDecision | undefined => {
         if (!currentPhaseIdFromNode) return undefined;
@@ -69,7 +117,7 @@ const TeamSubmissionTable: React.FC<TeamSubmissionTableProps> = () => {
                 return "No DD Selection Made";
             }
 
-            let details = [];
+            const details = [];
             if(dd.investmentToSacrificeId) {
                 const sacrificeOpt = rd3InvestmentOptions.find(o => o.id === dd.investmentToSacrificeId);
                 details.push(`Sacrifice: ${sacrificeOpt ? sacrificeOpt.name.replace(/^\d+\.\s*/, '') : `ID ${dd.investmentToSacrificeId.substring(dd.investmentToSacrificeId.length - 4)}`}`);
@@ -110,6 +158,19 @@ const TeamSubmissionTable: React.FC<TeamSubmissionTableProps> = () => {
         }
     };
 
+    const handleManualRefresh = async () => {
+        if (!currentSessionId || currentSessionId === 'new') return;
+
+        console.log(`[TeamSubmissionTable] Manual refresh triggered`);
+        try {
+            // Refresh teams data without reloading the page
+            await fetchTeamsForSession();
+            setLastUpdateTime(new Date().toLocaleTimeString());
+        } catch (error) {
+            console.error('[TeamSubmissionTable] Error during manual refresh:', error);
+        }
+    };
+
     if (!currentPhaseNode?.is_interactive_student_phase) {
         return (
             <div className="bg-gray-50 p-3 my-4 rounded-lg shadow-inner text-center text-gray-500 text-sm">
@@ -123,29 +184,59 @@ const TeamSubmissionTable: React.FC<TeamSubmissionTableProps> = () => {
         return <div className="text-center p-4 text-gray-500">No teams have joined the session yet.</div>;
     }
 
-    const handleRefreshSubmissions = async () => {
-        if (currentSessionId && currentPhaseIdFromNode) {
-            console.log(`[TeamSubmissionTable] Manually refreshing submissions for phase ${currentPhaseIdFromNode}`);
-            // Trigger a re-fetch of team decisions
-            window.location.reload(); // Simple refresh for now
-        }
-    };
+    const submittedCount = teams.filter(team => {
+        const decision = getTeamDecisionForCurrentPhase(team.id);
+        return !!decision?.submitted_at;
+    }).length;
 
     return (
         <div className="bg-white p-3 md:p-4 rounded-lg shadow-md border border-gray-200 mt-4">
             <div className="flex justify-between items-center mb-3">
-                <h3 className="text-base md:text-lg font-semibold text-gray-800">
-                    Team Submissions: <span className="text-blue-600">{currentPhaseNode?.label || 'Current Interactive Phase'}</span>
-                    {currentPhaseNode && <span className="text-xs text-gray-500 ml-2">(Phase ID: {currentPhaseNode.id})</span>}
-                </h3>
-                <button
-                    onClick={handleRefreshSubmissions}
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300"
-                    title="Refresh submissions"
-                >
-                    <RefreshCw size={14}/> Refresh
-                </button>
+                <div>
+                    <h3 className="text-base md:text-lg font-semibold text-gray-800">
+                        Team Submissions: <span className="text-blue-600">{currentPhaseNode?.label || 'Current Interactive Phase'}</span>
+                        <span className="ml-2 text-sm font-normal text-gray-600">({submittedCount}/{teams.length})</span>
+                    </h3>
+                    {currentPhaseNode && <span className="text-xs text-gray-500">Phase ID: {currentPhaseNode.id}</span>}
+                </div>
+                <div className="flex items-center gap-3">
+                    {/* Real-time status indicator */}
+                    <div className="flex items-center gap-1 text-xs">
+                        {realtimeStatus === 'connected' ? (
+                            <Wifi size={14} className="text-green-500" />
+                        ) : realtimeStatus === 'connecting' ? (
+                            <Wifi size={14} className="text-yellow-500 animate-pulse" />
+                        ) : (
+                            <WifiOff size={14} className="text-red-500" />
+                        )}
+                        <span className={`${
+                            realtimeStatus === 'connected' ? 'text-green-600' :
+                                realtimeStatus === 'connecting' ? 'text-yellow-600' :
+                                    'text-red-600'
+                        }`}>
+                            {realtimeStatus === 'connected' ? 'Live' :
+                                realtimeStatus === 'connecting' ? 'Connecting...' :
+                                    'Disconnected'}
+                        </span>
+                    </div>
+
+                    {/* Manual refresh button - now safe to use */}
+                    <button
+                        onClick={handleManualRefresh}
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300"
+                        title="Manually refresh team data"
+                    >
+                        <RotateCcw size={14}/> Refresh
+                    </button>
+                </div>
             </div>
+
+            {lastUpdateTime && (
+                <div className="text-xs text-gray-500 mb-2">
+                    Last update: {lastUpdateTime}
+                </div>
+            )}
+
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-100">
