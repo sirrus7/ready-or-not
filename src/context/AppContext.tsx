@@ -528,11 +528,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
 
                 console.log(`[AppContext] Creating broadcast payload:`, {
                     slideId: controller.currentSlideData?.id,
+                    slideTitle: controller.currentSlideData?.title,
                     phaseId: controller.currentPhaseNode?.id,
                     phaseType: controller.currentPhaseNode?.phase_type,
                     isInteractive: controller.currentPhaseNode?.is_interactive_student_phase,
                     slideType: controller.currentSlideData?.type,
-                    hasTeacherAlert: !!controller.currentTeacherAlert
+                    hasTeacherAlert: !!controller.currentTeacherAlert,
+                    isPlaying: controller.isPlayingVideo,
+                    videoTime: videoTime,
+                    triggerSeek: triggerSeek
                 });
 
                 if (controller.currentPhaseNode?.is_interactive_student_phase && controller.currentSlideData) {
