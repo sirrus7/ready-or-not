@@ -43,9 +43,12 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             ((slide?.type === 'consequence_reveal' || slide?.type === 'payoff_reveal') && slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
 
         if (videoElement && isVideoSlideType && slide?.source_url) {
+            console.log(`[${context}] Processing video sync - slide: ${slide.id}, playing: ${isPlayingTarget}, time: ${videoTimeTarget}, seek: ${triggerSeekEvent}`);
+
             if (isForTeacherPreview) {
                 if (triggerSeekEvent && videoTimeTarget !== undefined) {
                     if (Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
+                        console.log(`[${context}] Seeking from ${videoElement.currentTime} to ${videoTimeTarget}`);
                         videoElement.currentTime = videoTimeTarget;
                     }
                     if (isPlayingTarget && videoElement.paused) {
@@ -55,65 +58,70 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     }
                 }
             } else {
-                // Student Display: Improved sync handling
+                // Student Display: More robust sync handling
                 if (triggerSeekEvent && videoTimeTarget !== undefined) {
-                    // Always seek when explicitly triggered
                     console.log(`[${context}] Explicit seek triggered to ${videoTimeTarget} from ${videoElement.currentTime}`);
                     videoElement.currentTime = videoTimeTarget;
-                    pendingSyncTimeRef.current = undefined; // Clear any pending sync
+                    pendingSyncTimeRef.current = undefined;
 
-                    // For the advanced sync: differentiate between sync pause and play resume
-                    if (isPlayingTarget) {
-                        // This is likely a play resume after sync - wait a bit longer for alignment
-                        setTimeout(() => {
-                            if (videoElement.paused) {
-                                videoElement.play().catch(e => console.warn(`[${context}] Play after sync error:`, e));
-                            }
-                        }, 150); // Slightly less than teacher's 250ms to ensure student is ready first
-                    } else {
-                        // This is a pause for sync - apply immediately
-                        if (!videoElement.paused) {
+                    // Apply play state after seek with better timing
+                    const applyPlayState = () => {
+                        if (isPlayingTarget && videoElement.paused) {
+                            console.log(`[${context}] Playing after seek`);
+                            videoElement.play().catch(e => console.warn(`[${context}] Play after sync error:`, e));
+                        } else if (!isPlayingTarget && !videoElement.paused) {
+                            console.log(`[${context}] Pausing after seek`);
                             videoElement.pause();
                         }
+                    };
+
+                    if (videoElement.seeking) {
+                        videoElement.addEventListener('seeked', applyPlayState, { once: true });
+                    } else {
+                        setTimeout(applyPlayState, 50);
                     }
+
                 } else if (videoTimeTarget !== undefined && !initialSyncDoneRef.current) {
-                    // Store the target time for initial sync once video is ready
+                    // Store for initial sync
                     pendingSyncTimeRef.current = videoTimeTarget;
                     console.log(`[${context}] Pending initial sync to time: ${videoTimeTarget}`);
                 } else if (videoTimeTarget !== undefined && initialSyncDoneRef.current) {
-                    // Handle time updates during playback or after pause/seek
+                    // Handle drift correction during playback
                     const timeDifference = Math.abs(videoElement.currentTime - videoTimeTarget);
-                    if (timeDifference > 1.0) { // Only seek if significantly out of sync
-                        console.log(`[${context}] Correcting time drift: ${videoElement.currentTime} -> ${videoTimeTarget}`);
+                    if (timeDifference > 1.5) { // Increased threshold for better stability
+                        console.log(`[${context}] Correcting time drift: ${videoElement.currentTime} -> ${videoTimeTarget} (diff: ${timeDifference})`);
                         videoElement.currentTime = videoTimeTarget;
 
-                        // Apply play state after correction
                         setTimeout(() => {
                             if (isPlayingTarget && videoElement.paused) {
                                 videoElement.play().catch(e => console.warn(`[${context}] Play after correction error:`, e));
                             } else if (!isPlayingTarget && !videoElement.paused) {
                                 videoElement.pause();
                             }
-                        }, 50);
+                        }, 100);
                     } else {
                         // Just apply play/pause state without seeking
                         if (isPlayingTarget && videoElement.paused) {
+                            console.log(`[${context}] Playing (no seek needed)`);
                             videoElement.play().catch(e => console.warn(`[${context}] Video play error:`, e));
                         } else if (!isPlayingTarget && !videoElement.paused) {
+                            console.log(`[${context}] Pausing (no seek needed)`);
                             videoElement.pause();
                         }
                     }
                 } else {
                     // Normal play/pause control without time change
                     if (isPlayingTarget && videoElement.paused) {
+                        console.log(`[${context}] Normal play`);
                         videoElement.play().catch(e => console.warn(`[${context}] Video play error:`, e));
                     } else if (!isPlayingTarget && !videoElement.paused) {
+                        console.log(`[${context}] Normal pause`);
                         videoElement.pause();
                     }
                 }
             }
         }
-    }, [slide?.id, slide?.source_url, isPlayingTarget, videoTimeTarget, triggerSeekEvent, isForTeacherPreview]);
+    }, [slide?.id, slide?.source_url, slide?.type, isPlayingTarget, videoTimeTarget, triggerSeekEvent, isForTeacherPreview]);
 
     const handlePreviewPlay = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {

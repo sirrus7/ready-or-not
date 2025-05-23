@@ -1,5 +1,5 @@
 // src/pages/StudentDisplayPage.tsx
-import React, {useEffect, useState, useMemo} from 'react';
+import React, {useEffect, useState, useMemo, useRef} from 'react';
 import { useParams } from 'react-router-dom';
 import StudentDisplayView from '../components/StudentDisplay/StudentDisplayView';
 import {Slide, TeacherBroadcastPayload} from '../types';
@@ -23,6 +23,8 @@ const StudentDisplayPage: React.FC = () => {
     const [statusMessage, setStatusMessage] = useState<string>("Initializing Student Display...");
 
     const gameStructureInstance = useMemo(() => readyOrNotGame_2_0_DD, []);
+    const channelRef = useRef<BroadcastChannel | null>(null);
+    const lastProcessedPayloadRef = useRef<string>('');
 
     useEffect(() => {
         document.title = `Student Display - Session ${sessionId || 'N/A'}`;
@@ -48,10 +50,33 @@ const StudentDisplayPage: React.FC = () => {
         const channelName = `classroom-${sessionId}`;
         console.log('[StudentDisplayPage] Creating BroadcastChannel:', channelName);
 
+        // Clean up any existing channel
+        if (channelRef.current) {
+            channelRef.current.close();
+        }
+
         const channel = new BroadcastChannel(channelName);
+        channelRef.current = channel;
 
         channel.onmessage = (event) => {
             console.log('[StudentDisplayPage] Received broadcast message:', event.data);
+
+            // Create a unique identifier for this payload to prevent duplicate processing
+            const payloadId = JSON.stringify({
+                type: event.data.type,
+                slideId: event.data.payload?.currentSlideId,
+                isPlaying: event.data.payload?.isPlayingVideo,
+                videoTime: event.data.payload?.videoCurrentTime,
+                triggerSeek: event.data.payload?.triggerVideoSeek,
+                timestamp: Math.floor((event.data.payload?.videoCurrentTime || 0) * 10) // Round to 100ms precision
+            });
+
+            // Skip if we just processed this exact payload (prevents rapid duplicate updates)
+            if (payloadId === lastProcessedPayloadRef.current) {
+                console.log('[StudentDisplayPage] Skipping duplicate payload');
+                return;
+            }
+            lastProcessedPayloadRef.current = payloadId;
 
             if (event.data.type === 'TEACHER_STATE_UPDATE') {
                 const payload = event.data.payload as TeacherBroadcastPayload;
@@ -60,37 +85,75 @@ const StudentDisplayPage: React.FC = () => {
                 console.log('[StudentDisplayPage] Processing teacher state update:', {
                     slideId: payload.currentSlideId,
                     slideFound: !!slideData,
-                    isPlaying: payload.isPlayingVideo
+                    slideTitle: slideData?.title,
+                    isPlaying: payload.isPlayingVideo,
+                    videoTime: payload.videoCurrentTime,
+                    triggerSeek: payload.triggerVideoSeek
                 });
 
-                setCurrentSlide(slideData);
-                setIsPlayingTargetState(payload.isPlayingVideo);
-                setVideoTimeTargetState(payload.videoCurrentTime);
-                setTriggerSeekEventState(payload.triggerVideoSeek || false);
-                if (payload.triggerVideoSeek) {
-                    setTimeout(() => setTriggerSeekEventState(false), 100);
+                // Update slide first
+                if (slideData?.id !== currentSlide?.id) {
+                    console.log('[StudentDisplayPage] Slide changed:', currentSlide?.id, '->', slideData?.id);
+                    setCurrentSlide(slideData);
                 }
+
+                // Update video states
+                setIsPlayingTargetState(payload.isPlayingVideo);
+
+                if (payload.videoCurrentTime !== undefined) {
+                    setVideoTimeTargetState(payload.videoCurrentTime);
+                }
+
+                if (payload.triggerVideoSeek) {
+                    console.log('[StudentDisplayPage] Triggering seek to:', payload.videoCurrentTime);
+                    setTriggerSeekEventState(true);
+                    // Clear the seek trigger after a short delay
+                    setTimeout(() => {
+                        setTriggerSeekEventState(false);
+                    }, 100);
+                } else {
+                    setTriggerSeekEventState(false);
+                }
+
                 setStatusMessage("");
             } else if (event.data.type === 'SESSION_ENDED_BY_TEACHER') {
                 console.log('[StudentDisplayPage] Session ended by teacher');
                 setCurrentSlide(null);
                 setIsPlayingTargetState(false);
                 setStatusMessage("The game session has ended. You can close this window.");
-                channel.close();
+                if (channelRef.current) {
+                    channelRef.current.close();
+                    channelRef.current = null;
+                }
             }
         };
 
-        // Notify that student display is ready
+        channel.onmessageerror = (error) => {
+            console.error('[StudentDisplayPage] BroadcastChannel error:', error);
+            setStatusMessage("Connection error. Please refresh the page.");
+        };
+
+        // Notify that student display is ready and request current state
         console.log('[StudentDisplayPage] Posting STUDENT_DISPLAY_READY message');
         channel.postMessage({type: 'STUDENT_DISPLAY_READY', payload: {sessionId}});
-        setStatusMessage(`Waiting for game updates for session: ${sessionId}...`);
+
+        // Also request current state explicitly
+        setTimeout(() => {
+            console.log('[StudentDisplayPage] Requesting current state');
+            channel.postMessage({type: 'STUDENT_DISPLAY_REQUEST_STATE', payload: {sessionId}});
+        }, 500);
+
+        setStatusMessage(`Connected to session: ${sessionId}. Waiting for content...`);
 
         return () => {
             console.log('[StudentDisplayPage] Cleanup: posting STUDENT_DISPLAY_CLOSING and closing channel');
-            channel.postMessage({type: 'STUDENT_DISPLAY_CLOSING', payload: {sessionId}});
-            channel.close();
+            if (channelRef.current) {
+                channelRef.current.postMessage({type: 'STUDENT_DISPLAY_CLOSING', payload: {sessionId}});
+                channelRef.current.close();
+                channelRef.current = null;
+            }
         };
-    }, [sessionId, gameStructureInstance]);
+    }, [sessionId, gameStructureInstance, currentSlide?.id]);
 
     if (!sessionId) {
         return (
@@ -120,6 +183,11 @@ const StudentDisplayPage: React.FC = () => {
                     <Hourglass size={48} className="mb-4 text-blue-400 animate-pulse"/>
                     <p className="text-xl">{statusMessage}</p>
                     <p className="text-sm text-gray-400 mt-2">Session ID: {sessionId}</p>
+                    {sessionId && (
+                        <p className="text-xs text-gray-500 mt-4">
+                            If content doesn't appear, try refreshing both the teacher dashboard and this window.
+                        </p>
+                    )}
                 </div>
             )}
         </div>
