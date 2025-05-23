@@ -103,8 +103,6 @@ export const useGameController = (
         if (currentSlideData) {
             slideLoadTimestamp.current = Date.now();
 
-            // On new slide load, clear any non-programmatic (non-slide-7-all-submit) alert.
-            // Alerts for video end or specific "Next" clicks will be set by their respective handlers.
             if (isNewActualSlide && currentTeacherAlertState && currentTeacherAlertState.message !== SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE) {
                 setCurrentTeacherAlertState(null);
             }

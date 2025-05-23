@@ -23,64 +23,68 @@ function App() {
             <AuthProvider>
                 <Routes>
                     {/* Publicly accessible student-facing routes */}
-                    <Route path="/student-game/:sessionId" element={<CompanyDisplayPage />} />
-                    <Route path="/student-display/:sessionId" element={<StudentDisplayPage/>}/>
+                    <Route path="/student-game/:sessionId" element={
+                        <CompanyDisplayPage/>
+                    }/>
+                    <Route path="/student-display/:sessionId" element={
+                        <SessionAwareAppProvider>
+                            <StudentDisplayPage/>
+                        </SessionAwareAppProvider>
+                    }/>
 
                     {/* Teacher Login - Publicly accessible */}
-                    <Route path="/login" element={<AppProvider><LoginPage/></AppProvider>}/>
+                    <Route path="/login" element={
+                        <SessionAwareAppProvider>
+                            <LoginPage/>
+                        </SessionAwareAppProvider>
+                    }/>
 
                     {/* Teacher-only authenticated routes */}
-                    <Route
-                        path="/dashboard"
-                        element={<PrivateRoute><AppProvider><DashboardPage/></AppProvider></PrivateRoute>}
-                    />
-                    <Route
-                        path="/create-game"
-                        element={<PrivateRoute><AppProvider><CreateGamePage/></AppProvider></PrivateRoute>}
-                    />
-                    <Route
-                        path="/classroom/:sessionId"
-                        element={
-                            <PrivateRoute>
-                                <SessionAwareAppProvider>
-                                    <GameHostPage/>
-                                </SessionAwareAppProvider>
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/classroom"
-                        element={
-                            <PrivateRoute>
-                                <AppProvider passedSessionId="new">
-                                    <GameHostPage />
-                                </AppProvider>
-                            </PrivateRoute>
-                        }
-                    />
+                    <Route path="/dashboard" element={
+                        <PrivateRoute>
+                            <SessionAwareAppProvider>
+                                <DashboardPage/>
+                            </SessionAwareAppProvider>
+                        </PrivateRoute>
+                    }/>
+                    <Route path="/create-game" element={
+                        <PrivateRoute>
+                            <SessionAwareAppProvider>
+                                <CreateGamePage/>
+                            </SessionAwareAppProvider>
+                        </PrivateRoute>
+                    }/>
+                    <Route path="/classroom/:sessionId" element={
+                        <PrivateRoute>
+                            <SessionAwareAppProvider>
+                                <GameHostPage/>
+                            </SessionAwareAppProvider>
+                        </PrivateRoute>
+                    }/>
+                    <Route path="/classroom" element={
+                        <PrivateRoute>
+                            <AppProvider passedSessionId="new">
+                                <GameHostPage/>
+                            </AppProvider>
+                        </PrivateRoute>
+                    }/>
 
                     {/* Default authenticated route */}
-                    <Route
-                        path="/"
-                        element={
-                            <PrivateRoute>
-                                <AppProvider>
-                                    <Navigate to="/dashboard" replace/>
-                                </AppProvider>
-                            </PrivateRoute>
-                        }
-                    />
+                    <Route path="/" element={
+                        <PrivateRoute>
+                            <AppProvider>
+                                <Navigate to="/dashboard" replace/>
+                            </AppProvider>
+                        </PrivateRoute>
+                    }/>
                     {/* Fallback for any other authenticated paths */}
-                    <Route
-                        path="*"
-                        element={
-                            <PrivateRoute>
-                                <AppProvider>
-                                    <Navigate to="/dashboard" replace/>
-                                </AppProvider>
-                            </PrivateRoute>
-                        }
-                    />
+                    <Route path="*" element={
+                        <PrivateRoute>
+                            <AppProvider>
+                                <Navigate to="/dashboard" replace/>
+                            </AppProvider>
+                        </PrivateRoute>
+                    }/>
                 </Routes>
             </AuthProvider>
         </BrowserRouter>

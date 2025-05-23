@@ -45,7 +45,7 @@ const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
                 isForTeacherPreview={isForTeacherPreview}
                 onPreviewVideoStateChange={onPreviewVideoStateChange}
                 onPreviewVideoDuration={onPreviewVideoDuration}
-                onPreviewVideoEnded={onPreviewVideoEnded} // Pass it to SlideRenderer
+                onPreviewVideoEnded={onPreviewVideoEnded}
             />
         </div>
     );

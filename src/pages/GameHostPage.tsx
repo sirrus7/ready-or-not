@@ -20,7 +20,6 @@ const GameHostPage: React.FC = () => {
     const {currentSessionId, gameStructure, isStudentWindowOpen} = state;
 
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
-        // ... (loading/error state)
         return (
             <div
                 className="min-h-screen bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 flex flex-col items-center justify-center p-4 text-center">
@@ -38,7 +37,6 @@ const GameHostPage: React.FC = () => {
         <div
             className="min-h-screen bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 p-3 md:p-4 lg:p-6 overflow-hidden">
             <div className="max-w-screen-2xl mx-auto h-full flex flex-col">
-                {/* ... (header) ... */}
                 <header
                     className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center flex-shrink-0">
                     <div>
@@ -52,8 +50,8 @@ const GameHostPage: React.FC = () => {
                     {isStudentWindowOpen && (
                         <span
                             className="mt-2 sm:mt-0 text-xs bg-green-100 text-green-800 px-3 py-1.5 rounded-full font-medium shadow-sm border border-green-200 flex items-center">
-              <Users2 size={14} className="mr-1.5"/> External Student Display Active
-            </span>
+                            <Users2 size={14} className="mr-1.5"/> External Student Display Active
+                        </span>
                     )}
                 </header>
 
