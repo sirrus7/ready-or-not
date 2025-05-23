@@ -26,23 +26,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     console.log("AuthContext: useEffect for getSession and onAuthStateChange running");
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("AuthContext: Initial session data:", session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+
+    // Get initial session with a longer timeout for student display scenarios
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log("AuthContext: Initial session data:", session, "Error:", error);
+
+        if (error) {
+          console.error("AuthContext: Error getting session:", error);
+        }
+
+        setUser(session?.user ?? null);
+        setLoading(false);
+      } catch (err) {
+        console.error("AuthContext: Exception getting session:", err);
+        setUser(null);
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("AuthContext: onAuthStateChange event:", event, "session:", session);
       setUser(session?.user ?? null);
+
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
-        // setLoading(false) might be useful here if an initial load was pending
+        setLoading(false);
       }
       if (event === 'SIGNED_OUT') {
-        setUser(null); // Explicitly set user to null on sign out
-        setLoading(false); // Ensure loading is false after sign out
+        setUser(null);
+        setLoading(false);
       }
     });
 
@@ -64,22 +80,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     console.log("AuthContext: signOut called");
-    setLoading(true); // Optional: set loading true during sign out process
+    setLoading(true);
     const { error } = await supabase.auth.signOut();
-    // The onAuthStateChange listener should handle setting user to null and loading to false.
+
     if (error) {
       console.error("AuthContext: Error during signOut:", error);
-      setLoading(false); // Ensure loading is false on error
+      setLoading(false);
       throw error;
     }
     console.log("AuthContext: supabase.auth.signOut() completed successfully.");
-    // setUser(null); // Redundant if onAuthStateChange handles it, but safe
-    // setLoading(false); // Redundant if onAuthStateChange handles it
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+        {children}
+      </AuthContext.Provider>
   );
 };
