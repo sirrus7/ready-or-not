@@ -62,8 +62,8 @@ export const useGameController = (
     const internalSeekFlag = useRef(false);
     const previousSlideIdRef = useRef<number | undefined>(undefined);
 
-    const SLIDE_7_ALL_SUBMIT_ALERT_TITLE = "All Teams Submitted";
-    const SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE = "All teams have submitted their RD-1 Investments. Please verify and then click Next to proceed.";
+    const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted";
+    const ALL_SUBMIT_ALERT_MESSAGE = "Please verify all teams are happy with their submission. Then click Next to proceed.";
 
     const allPhasesInOrder = useMemo((): GamePhaseNode[] => {
         if (!gameStructure?.allPhases) return [];
@@ -94,7 +94,6 @@ export const useGameController = (
                 triggerVideoSeek: triggerVideoSeekState,
                 currentSlideData,
                 currentPhaseNode,
-                currentTeacherAlert: currentTeacherAlertState // Add this line
             });
         }
     }, [onStateChange, isPlayingVideoState, videoCurrentTimeState, triggerVideoSeekState, currentSlideData, currentPhaseNode, currentTeacherAlertState]);
@@ -136,13 +135,13 @@ export const useGameController = (
             slideLoadTimestamp.current = Date.now();
             console.log(`[GameController] Processing slide ${currentSlideData.id}, isNew: ${isNewActualSlide}, type: ${currentSlideData.type}`);
 
-            if (isNewActualSlide && currentTeacherAlertState && currentTeacherAlertState.message !== SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE) {
+            if (isNewActualSlide && currentTeacherAlertState) {
                 setCurrentTeacherAlertState(null);
             }
 
-            const isVideo = currentSlideData.type === 'video' ||
-                (currentSlideData.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
-                ((currentSlideData.type === 'consequence_reveal' || currentSlideData.type === 'payoff_reveal') && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i));
+            const isVideo = currentSlideData.type !== 'image'
+
+            console.log(`[GameController] Slide ${currentSlideData.id} is video: ${isVideo}`);
 
             if (isVideo) {
                 if (isNewActualSlide) {
@@ -150,6 +149,12 @@ export const useGameController = (
                     setVideoCurrentTimeState(0);
                     internalSeekFlag.current = true;
                     setTriggerVideoSeekState(true);
+                    setIsPlayingVideoState(true)
+
+                    if (dbSession && !dbSession.is_playing) {
+                        updateSessionInDb({is_playing: true});
+                    }
+
                     requestAnimationFrame(() => {
                         setTriggerVideoSeekState(false);
                         internalSeekFlag.current = false;
@@ -157,45 +162,10 @@ export const useGameController = (
                         triggerStateSync();
                     });
                 }
-
-                let desiredPlayState = false;
-                if (isNewActualSlide) {
-                    if (!currentTeacherAlertState) {
-                        if (currentSlideData.id === 4 || currentSlideData.id === 5 || currentSlideData.id === 6 || currentSlideData.id === 7 || currentSlideData.auto_advance_after_video) {
-                            desiredPlayState = true;
-                        }
-                    }
-                } else {
-                    desiredPlayState = currentTeacherAlertState ? false : isPlayingVideoState;
-                }
-
-                if (isPlayingVideoState !== desiredPlayState) {
-                    setIsPlayingVideoState(desiredPlayState);
-                    if (dbSession && dbSession.is_playing !== desiredPlayState) {
-                        updateSessionInDb({is_playing: desiredPlayState});
-                    }
-                    // Immediate sync after play state change
-                    setTimeout(triggerStateSync, 0);
-                }
-            } else {
-                if (isPlayingVideoState) {
-                    pauseVideoIfNeeded();
-                }
-            }
-
-            if (isNewActualSlide) {
-                setAllTeamsSubmittedCurrentInteractivePhaseState(false);
-                // Important: Trigger sync on new slide
-                setTimeout(triggerStateSync, 50);
-            }
-        } else {
-            if (isPlayingVideoState) pauseVideoIfNeeded();
-            if (currentTeacherAlertState && currentTeacherAlertState.message !== SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE) {
-                setCurrentTeacherAlertState(null);
             }
         }
         previousSlideIdRef.current = currentSlideData?.id;
-    }, [currentSlideData, dbSession, updateSessionInDb, pauseVideoIfNeeded, SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE, triggerStateSync, isPlayingVideoState, currentTeacherAlertState]);
+    }, [currentSlideData, dbSession, updateSessionInDb, pauseVideoIfNeeded, triggerStateSync, isPlayingVideoState, currentTeacherAlertState]);
 
     const reportVideoDuration = useCallback((duration: number) => {
         setCurrentVideoDurationState(duration);
@@ -243,25 +213,21 @@ export const useGameController = (
         if (currentTeacherAlertState) return;
 
         if (currentSlideData?.teacher_alert) {
-            if (currentSlideData.id === 7 && currentTeacherAlertState?.message === SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE) {
-                // Keep the "all submitted" alert
-            } else {
-                setCurrentTeacherAlertState(currentSlideData.teacher_alert);
-            }
+            setCurrentTeacherAlertState(currentSlideData.teacher_alert);
             return;
         }
 
         if (currentSlideData?.auto_advance_after_video) {
             await advanceToNextSlideInternal();
         }
-    }, [currentSlideData, advanceToNextSlideInternal, pauseVideoIfNeeded, currentTeacherAlertState, setCurrentTeacherAlertState, SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE]);
+    }, [currentSlideData, advanceToNextSlideInternal, pauseVideoIfNeeded, currentTeacherAlertState]);
 
     useEffect(() => {
-        if (currentSlideData?.id === 7 && allTeamsSubmittedCurrentInteractivePhaseState) {
-            setCurrentTeacherAlertState({ title: SLIDE_7_ALL_SUBMIT_ALERT_TITLE, message: SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE });
+        if (allTeamsSubmittedCurrentInteractivePhaseState) {
+            setCurrentTeacherAlertState({ title: ALL_SUBMIT_ALERT_TITLE, message: ALL_SUBMIT_ALERT_MESSAGE });
             pauseVideoIfNeeded();
         }
-    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData, setCurrentTeacherAlertState, pauseVideoIfNeeded, SLIDE_7_ALL_SUBMIT_ALERT_MESSAGE, SLIDE_7_ALL_SUBMIT_ALERT_TITLE]);
+    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData, setCurrentTeacherAlertState, pauseVideoIfNeeded, ALL_SUBMIT_ALERT_TITLE, ALL_SUBMIT_ALERT_MESSAGE]);
 
     useEffect(() => {
         console.log(`[GameController] Slide/Phase changed - Phase: ${currentPhaseNode?.id}, Slide: ${currentSlideData?.id}, Type: ${currentSlideData?.type}`);
@@ -276,7 +242,6 @@ export const useGameController = (
                     triggerVideoSeek: false,
                     currentSlideData,
                     currentPhaseNode,
-                    currentTeacherAlert: currentTeacherAlertState // Add this line
                 });
             }, 100); // Small delay to ensure state is settled
         }
@@ -376,7 +341,6 @@ export const useGameController = (
                     triggerVideoSeek: true,
                     currentSlideData,
                     currentPhaseNode,
-                    currentTeacherAlert: currentTeacherAlertState // Add this line
                 });
             }
 
@@ -391,7 +355,6 @@ export const useGameController = (
                         triggerVideoSeek: false,
                         currentSlideData,
                         currentPhaseNode,
-                        currentTeacherAlert: currentTeacherAlertState // Add this line
                     });
                 }
             });
@@ -407,7 +370,6 @@ export const useGameController = (
                     triggerVideoSeek: false,
                     currentSlideData,
                     currentPhaseNode,
-                    currentTeacherAlert: currentTeacherAlertState // Add this line
                 });
             }
         }

@@ -21,28 +21,21 @@ const CompanyDisplayPage: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(localStorage.getItem(`ron_teamId_${sessionId}`));
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(localStorage.getItem(`ron_teamName_${sessionId}`));
-
     const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
     const [currentActivePhase, setCurrentActivePhase] = useState<GamePhaseNode | null>(null);
-
     const [isStudentDecisionTime, setIsStudentDecisionTime] = useState<boolean>(false);
     const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined);
     const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | undefined>(undefined);
-
     const [decisionOptionsKey, setDecisionOptionsKey] = useState<string | undefined>(undefined);
-
     const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
     const [pageError, setPageError] = useState<string | null>(null);
-
     const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
     const [isSubmissionFeedbackModalOpen, setIsSubmissionFeedbackModalOpen] = useState(false);
-
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
     const submissionStatusRef = useRef(submissionStatus);
     const isStudentDecisionTimeRef = useRef(isStudentDecisionTime);
-
     const currentActivePhaseRef = useRef<GamePhaseNode | null>(null);
     const currentTeamKpisRef = useRef<TeamRoundData | null>(null);
     const decisionPhaseTimerEndTimeRef = useRef<number | undefined>(undefined);
