@@ -1,10 +1,11 @@
-// src/components/StudentDisplay/StudentDisplayWrapper.tsx
+// src/components/StudentDisplay/StudentDisplayWrapper.tsx - Updated version
+
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import StudentDisplayView from './StudentDisplayView';
 import { Slide, TeacherBroadcastPayload } from '../../types';
 import { readyOrNotGame_2_0_DD } from '../../data/gameStructure';
-import { createMonitoredChannel, addConnectionListener, getConnectionStatus } from '../../lib/supabase';
+import { createMonitoredChannel, supabase } from '../../lib/supabase';
 import { Hourglass, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 
 const StudentDisplayWrapper: React.FC = () => {
@@ -13,56 +14,21 @@ const StudentDisplayWrapper: React.FC = () => {
     const [isPlayingTargetState, setIsPlayingTargetState] = useState<boolean>(false);
     const [videoTimeTargetState, setVideoTimeTargetState] = useState<number | undefined>(undefined);
     const [triggerSeekEventState, setTriggerSeekEventState] = useState<boolean>(false);
-    const [statusMessage, setStatusMessage] = useState<string>("Initializing Student Display...");
+    const [statusMessage, setStatusMessage] = useState<string>("Connecting to game session...");
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [connectionType, setConnectionType] = useState<'broadcast' | 'supabase' | 'none'>('none');
     const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
-    const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<string>('disconnected');
 
     const gameStructureInstance = useMemo(() => readyOrNotGame_2_0_DD, []);
     const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
     const supabaseChannelRef = useRef<any>(null);
-    const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastSlideIdRef = useRef<number | null>(null);
-    const reconnectAttempts = useRef<number>(0);
-    const maxReconnectAttempts = 5;
+    const connectionAttempts = useRef<number>(0);
+    const maxConnectionAttempts = 10;
 
     useEffect(() => {
         document.title = `Student Display - Session ${sessionId || 'N/A'}`;
     }, [sessionId]);
-
-    // Monitor Supabase connection status
-    useEffect(() => {
-        console.log('[StudentDisplayWrapper] Setting up Supabase connection monitoring');
-
-        const removeConnectionListener = addConnectionListener((status) => {
-            console.log(`[StudentDisplayWrapper] Supabase connection status: ${status}`);
-            setSupabaseConnectionStatus(status);
-
-            if (status === 'connected' && connectionType === 'supabase') {
-                setIsConnected(true);
-                reconnectAttempts.current = 0;
-            } else if (status === 'error' || status === 'disconnected') {
-                if (connectionType === 'supabase') {
-                    setIsConnected(false);
-
-                    // Attempt to reconnect if we haven't exceeded max attempts
-                    if (reconnectAttempts.current < maxReconnectAttempts) {
-                        reconnectAttempts.current++;
-                        console.log(`[StudentDisplayWrapper] Attempting reconnection ${reconnectAttempts.current}/${maxReconnectAttempts}`);
-
-                        setTimeout(() => {
-                            setupSupabaseChannel();
-                        }, 2000 * reconnectAttempts.current); // Exponential backoff
-                    } else {
-                        setStatusMessage("Connection failed after multiple attempts. Please refresh the page or check with your teacher.");
-                    }
-                }
-            }
-        });
-
-        return removeConnectionListener;
-    }, [connectionType]);
 
     // Helper function to update slide state
     const updateSlideState = (payload: TeacherBroadcastPayload, source: string) => {
@@ -93,6 +59,7 @@ const StudentDisplayWrapper: React.FC = () => {
         setStatusMessage("");
         setIsConnected(true);
         setLastUpdateTime(new Date().toLocaleTimeString());
+        connectionAttempts.current = 0; // Reset on successful update
     };
 
     // Setup BroadcastChannel (works for same-origin, same-browser-context)
@@ -102,37 +69,52 @@ const StudentDisplayWrapper: React.FC = () => {
         const channelName = `classroom-${sessionId}`;
         console.log(`[StudentDisplayWrapper] Setting up BroadcastChannel: ${channelName}`);
 
-        broadcastChannelRef.current = new BroadcastChannel(channelName);
+        try {
+            broadcastChannelRef.current = new BroadcastChannel(channelName);
 
-        broadcastChannelRef.current.onmessage = (event) => {
-            console.log(`[StudentDisplayWrapper] BroadcastChannel message:`, event.data);
-            setConnectionType('broadcast');
+            broadcastChannelRef.current.onmessage = (event) => {
+                console.log(`[StudentDisplayWrapper] BroadcastChannel message:`, event.data);
+                setConnectionType('broadcast');
 
-            if (event.data.type === 'TEACHER_STATE_UPDATE') {
-                updateSlideState(event.data.payload, 'BroadcastChannel');
-            } else if (event.data.type === 'SESSION_ENDED_BY_TEACHER') {
-                setCurrentSlide(null);
-                setIsPlayingTargetState(false);
-                setStatusMessage("The game session has ended. You can close this window.");
-                setIsConnected(false);
-            }
-        };
+                if (event.data.type === 'TEACHER_STATE_UPDATE') {
+                    updateSlideState(event.data.payload, 'BroadcastChannel');
+                } else if (event.data.type === 'SESSION_ENDED_BY_TEACHER') {
+                    setCurrentSlide(null);
+                    setIsPlayingTargetState(false);
+                    setStatusMessage("The game session has ended. You can close this window.");
+                    setIsConnected(false);
+                }
+            };
 
-        // Announce ready and request state
-        broadcastChannelRef.current.postMessage({
-            type: 'STUDENT_DISPLAY_READY',
-            payload: { sessionId }
-        });
+            broadcastChannelRef.current.onerror = (error) => {
+                console.error(`[StudentDisplayWrapper] BroadcastChannel error:`, error);
+            };
 
-        // Request initial state
-        setTimeout(() => {
-            broadcastChannelRef.current?.postMessage({
-                type: 'STUDENT_DISPLAY_REQUEST_STATE',
+            // Announce ready and request state
+            broadcastChannelRef.current.postMessage({
+                type: 'STUDENT_DISPLAY_READY',
                 payload: { sessionId }
             });
-        }, 1000);
 
-        console.log(`[StudentDisplayWrapper] BroadcastChannel setup complete`);
+            // Request initial state multiple times
+            setTimeout(() => {
+                broadcastChannelRef.current?.postMessage({
+                    type: 'STUDENT_DISPLAY_REQUEST_STATE',
+                    payload: { sessionId }
+                });
+            }, 500);
+
+            setTimeout(() => {
+                broadcastChannelRef.current?.postMessage({
+                    type: 'STUDENT_DISPLAY_REQUEST_STATE',
+                    payload: { sessionId }
+                });
+            }, 2000);
+
+            console.log(`[StudentDisplayWrapper] BroadcastChannel setup complete`);
+        } catch (error) {
+            console.error(`[StudentDisplayWrapper] BroadcastChannel setup failed:`, error);
+        }
     };
 
     // Setup Supabase real-time (works across different origins/devices)
@@ -142,41 +124,84 @@ const StudentDisplayWrapper: React.FC = () => {
         const realtimeChannelName = `teacher-updates-${sessionId}`;
         console.log(`[StudentDisplayWrapper] Setting up Supabase channel: ${realtimeChannelName}`);
 
-        // Clean up existing channel first
-        if (supabaseChannelRef.current) {
-            console.log(`[StudentDisplayWrapper] Cleaning up existing Supabase channel`);
-            // Use the new cleanup method from the updated supabase.ts
-            if (supabaseChannelRef.current.unsubscribe) {
-                supabaseChannelRef.current.unsubscribe();
-            }
-            supabaseChannelRef.current = null;
-        }
-
-        // Use the new createMonitoredChannel function
-        supabaseChannelRef.current = createMonitoredChannel(realtimeChannelName);
-
-        supabaseChannelRef.current.on('broadcast', { event: 'teacher_state_update' }, (payload: any) => {
-            console.log(`[StudentDisplayWrapper] Supabase broadcast received:`, payload.payload);
-            setConnectionType('supabase');
-            updateSlideState(payload.payload, 'Supabase');
-        });
-
-        supabaseChannelRef.current.subscribe((status: string) => {
-            console.log(`[StudentDisplayWrapper] Supabase subscription status: ${status}`);
-            if (status === 'SUBSCRIBED') {
-                console.log(`[StudentDisplayWrapper] Successfully subscribed to Supabase real-time`);
-                setIsConnected(true);
-                setConnectionType('supabase');
-                reconnectAttempts.current = 0; // Reset on successful connection
-            } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-                console.log(`[StudentDisplayWrapper] Supabase connection lost: ${status}`);
-                if (connectionType === 'supabase') {
-                    setIsConnected(false);
+        try {
+            // Clean up existing channel first
+            if (supabaseChannelRef.current) {
+                console.log(`[StudentDisplayWrapper] Cleaning up existing Supabase channel`);
+                if (supabaseChannelRef.current.unsubscribe) {
+                    supabaseChannelRef.current.unsubscribe();
                 }
+                supabaseChannelRef.current = null;
             }
-        });
 
-        console.log(`[StudentDisplayWrapper] Supabase channel setup complete`);
+            supabaseChannelRef.current = createMonitoredChannel(realtimeChannelName);
+
+            supabaseChannelRef.current.on('broadcast', { event: 'teacher_state_update' }, (payload: any) => {
+                console.log(`[StudentDisplayWrapper] Supabase broadcast received:`, payload.payload);
+                setConnectionType('supabase');
+                updateSlideState(payload.payload, 'Supabase');
+            });
+
+            supabaseChannelRef.current.subscribe((status: string) => {
+                console.log(`[StudentDisplayWrapper] Supabase subscription status: ${status}`);
+                if (status === 'SUBSCRIBED') {
+                    console.log(`[StudentDisplayWrapper] Successfully subscribed to Supabase real-time`);
+                    setConnectionType('supabase');
+                    setIsConnected(true);
+                    connectionAttempts.current = 0;
+                } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                    console.log(`[StudentDisplayWrapper] Supabase connection lost: ${status}`);
+                    if (connectionType === 'supabase' || connectionType === 'none') {
+                        setIsConnected(false);
+                        attemptReconnection();
+                    }
+                }
+            });
+
+            console.log(`[StudentDisplayWrapper] Supabase channel setup complete`);
+        } catch (error) {
+            console.error(`[StudentDisplayWrapper] Supabase setup failed:`, error);
+            attemptReconnection();
+        }
+    };
+
+    const attemptReconnection = () => {
+        if (connectionAttempts.current < maxConnectionAttempts) {
+            connectionAttempts.current++;
+            const delay = Math.min(1000 * Math.pow(2, connectionAttempts.current - 1), 10000); // Exponential backoff, max 10s
+
+            console.log(`[StudentDisplayWrapper] Attempting reconnection ${connectionAttempts.current}/${maxConnectionAttempts} in ${delay}ms`);
+            setStatusMessage(`Connection lost. Reconnecting... (${connectionAttempts.current}/${maxConnectionAttempts})`);
+
+            setTimeout(() => {
+                setupSupabaseChannel();
+            }, delay);
+        } else {
+            setStatusMessage("Connection failed after multiple attempts. Please refresh the page or check with your teacher.");
+        }
+    };
+
+    // Test connection with a simple query
+    const testSupabaseConnection = async () => {
+        try {
+            console.log(`[StudentDisplayWrapper] Testing Supabase connection`);
+            const { data, error } = await supabase
+                .from('sessions')
+                .select('id')
+                .eq('id', sessionId)
+                .limit(1);
+
+            if (error) {
+                console.error(`[StudentDisplayWrapper] Supabase test query failed:`, error);
+                return false;
+            }
+
+            console.log(`[StudentDisplayWrapper] Supabase connection test successful`);
+            return true;
+        } catch (error) {
+            console.error(`[StudentDisplayWrapper] Supabase connection test error:`, error);
+            return false;
+        }
     };
 
     useEffect(() => {
@@ -185,36 +210,42 @@ const StudentDisplayWrapper: React.FC = () => {
             return;
         }
 
+        console.log(`[StudentDisplayWrapper] Initializing for session: ${sessionId}`);
         setStatusMessage(`Connecting to game session: ${sessionId}...`);
 
-        // Setup both communication methods
-        setupBroadcastChannel();
-        setupSupabaseChannel();
+        // Test Supabase connection first
+        testSupabaseConnection().then(isSupabaseWorking => {
+            if (isSupabaseWorking) {
+                console.log(`[StudentDisplayWrapper] Supabase is working, setting up channels`);
+                setupBroadcastChannel();
+                setupSupabaseChannel();
+            } else {
+                console.log(`[StudentDisplayWrapper] Supabase connection failed, trying broadcast only`);
+                setupBroadcastChannel();
+                setStatusMessage("Limited connection mode. Make sure you're using the same browser as the teacher.");
+            }
+        });
 
         // Set timeout to show connection status
-        connectionTimeoutRef.current = setTimeout(() => {
+        const connectionTimeout = setTimeout(() => {
             if (!isConnected) {
-                setStatusMessage(`Still connecting to session: ${sessionId}... Make sure the teacher has started the game.`);
+                setStatusMessage(`Still connecting to session: ${sessionId}... Make sure the teacher has started the game and this window was opened from the teacher's control panel.`);
             }
         }, 5000);
 
-        // Set a longer timeout to show which connection method is working
-        setTimeout(() => {
-            if (isConnected) {
-                console.log(`[StudentDisplayWrapper] Connection established via: ${connectionType}`);
-            } else {
-                console.log(`[StudentDisplayWrapper] No connection established after 10 seconds`);
-                const { status } = getConnectionStatus();
-                setStatusMessage(`Connection timeout. Supabase status: ${status}. Please check if the teacher has started the game session.`);
+        // Set a longer timeout for final status
+        const finalTimeout = setTimeout(() => {
+            if (!isConnected) {
+                console.log(`[StudentDisplayWrapper] No connection established after 15 seconds`);
+                setStatusMessage(`Connection timeout. Please make sure:\n1. The teacher has started the game session\n2. This window was opened from the teacher's control panel\n3. You're connected to the internet`);
             }
-        }, 10000);
+        }, 15000);
 
         return () => {
             console.log(`[StudentDisplayWrapper] Cleaning up connections`);
 
-            if (connectionTimeoutRef.current) {
-                clearTimeout(connectionTimeoutRef.current);
-            }
+            clearTimeout(connectionTimeout);
+            clearTimeout(finalTimeout);
 
             if (broadcastChannelRef.current) {
                 broadcastChannelRef.current.postMessage({
@@ -234,53 +265,30 @@ const StudentDisplayWrapper: React.FC = () => {
         };
     }, [sessionId]);
 
-    // Debug information component
-    const DebugInfo = () => (
-        <div className="absolute top-0 right-0 bg-black/90 text-white p-3 text-xs z-50 max-w-sm border-l-2 border-blue-500">
-            <div className="font-bold text-blue-400 mb-2">Student Display Debug</div>
-            <div className="space-y-1">
-                <div>Session: {sessionId}</div>
-                <div className="flex items-center gap-2">
-                    <span>Status:</span>
-                    {isConnected ? (
-                        <span className="flex items-center gap-1 text-green-400">
-                            <Wifi size={12} />
-                            Connected via {connectionType}
-                        </span>
-                    ) : (
-                        <span className="flex items-center gap-1 text-red-400">
-                            <WifiOff size={12} />
-                            Disconnected
-                        </span>
-                    )}
-                </div>
-                <div>Supabase: {supabaseConnectionStatus}</div>
-                <div>Reconnect Attempts: {reconnectAttempts.current}/{maxReconnectAttempts}</div>
-                {lastUpdateTime && (
-                    <div>Last Update: {lastUpdateTime}</div>
-                )}
-                {currentSlide && (
-                    <>
-                        <div className="border-t border-gray-600 pt-2 mt-2">
-                            <div>Slide ID: {currentSlide.id}</div>
-                            <div>Type: {currentSlide.type}</div>
-                            <div>Title: {currentSlide.title || 'Untitled'}</div>
-                            <div>Has Source: {currentSlide.source_url ? 'Yes' : 'No'}</div>
-                            <div>Playing: {isPlayingTargetState ? 'Yes' : 'No'}</div>
-                            {videoTimeTargetState !== undefined && (
-                                <div>Video Time: {videoTimeTargetState.toFixed(1)}s</div>
-                            )}
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-
     return (
         <div className="h-screen w-screen overflow-hidden bg-gray-900 relative">
-            {/* Debug Info - remove in production */}
-            <DebugInfo />
+            {/* Connection status indicator */}
+            <div className="absolute top-4 right-4 z-50 bg-black/90 text-white px-3 py-2 rounded-lg text-xs">
+                <div className="flex items-center gap-2">
+                    {isConnected ? (
+                        <>
+                            <Wifi size={14} className="text-green-400" />
+                            <span className="text-green-400">Connected ({connectionType})</span>
+                        </>
+                    ) : (
+                        <>
+                            <WifiOff size={14} className="text-red-400" />
+                            <span className="text-red-400">Connecting...</span>
+                        </>
+                    )}
+                </div>
+                {lastUpdateTime && (
+                    <div className="text-gray-400 mt-1">Last: {lastUpdateTime}</div>
+                )}
+                {connectionAttempts.current > 0 && (
+                    <div className="text-yellow-400 mt-1">Retry: {connectionAttempts.current}/{maxConnectionAttempts}</div>
+                )}
+            </div>
 
             {currentSlide ? (
                 <StudentDisplayView
@@ -292,7 +300,7 @@ const StudentDisplayWrapper: React.FC = () => {
                 />
             ) : (
                 <div className="h-full flex flex-col items-center justify-center text-white p-8">
-                    <div className="text-center max-w-md">
+                    <div className="text-center max-w-lg">
                         {isConnected ? (
                             <Hourglass size={48} className="mb-4 text-blue-400 animate-pulse mx-auto" />
                         ) : (
@@ -300,22 +308,21 @@ const StudentDisplayWrapper: React.FC = () => {
                                 <AlertCircle size={48} className="text-yellow-400 mx-auto mb-2" />
                                 <div className="flex items-center justify-center gap-2 text-sm">
                                     <WifiOff size={16} />
-                                    <span>Connection Status: {connectionType}</span>
+                                    <span>Connection: {connectionType}</span>
                                 </div>
                             </div>
                         )}
 
-                        <p className="text-xl mb-4">{statusMessage}</p>
+                        <p className="text-xl mb-4 whitespace-pre-line">{statusMessage}</p>
 
                         <div className="text-sm text-gray-400 space-y-2">
                             <p>Session ID: {sessionId}</p>
-                            <p>Connection: {isConnected ? `✓ ${connectionType}` : '✗ Not connected'}</p>
-                            <p>Supabase: {supabaseConnectionStatus}</p>
-                            {reconnectAttempts.current > 0 && (
-                                <p>Reconnect attempts: {reconnectAttempts.current}/{maxReconnectAttempts}</p>
+                            <p>Status: {isConnected ? `✓ Connected via ${connectionType}` : '✗ Not connected'}</p>
+                            {connectionAttempts.current > 0 && (
+                                <p>Reconnection attempts: {connectionAttempts.current}/{maxConnectionAttempts}</p>
                             )}
                             {lastUpdateTime && (
-                                <p>Last Update: {lastUpdateTime}</p>
+                                <p>Last update: {lastUpdateTime}</p>
                             )}
                         </div>
 
@@ -324,11 +331,12 @@ const StudentDisplayWrapper: React.FC = () => {
                                 <p className="text-yellow-400 text-sm font-semibold mb-2">Troubleshooting:</p>
                                 <ul className="text-xs text-yellow-300 space-y-1 text-left">
                                     <li>• Make sure the teacher has started the game session</li>
+                                    <li>• This window should be opened from the teacher's "Launch Student Display" button</li>
                                     <li>• Check that you're using the correct session URL</li>
                                     <li>• Try refreshing this page</li>
-                                    <li>• Ensure your browser allows real-time connections</li>
-                                    {reconnectAttempts.current >= maxReconnectAttempts && (
-                                        <li className="text-red-300">• Max reconnection attempts reached - refresh the page</li>
+                                    <li>• Ensure your internet connection is stable</li>
+                                    {connectionAttempts.current >= maxConnectionAttempts && (
+                                        <li className="text-red-300">• Max reconnection attempts reached - please refresh the page</li>
                                     )}
                                 </ul>
                             </div>

@@ -48,6 +48,20 @@ const TeacherGameControls: React.FC = () => {
         const studentWindow = openStudentDisplay(state.currentSessionId);
         if (studentWindow) {
             setStudentWindowOpen(true);
+
+            // Force immediate broadcast when student display opens
+            setTimeout(() => {
+                console.log('[TeacherGameControls] Student display opened, forcing state broadcast');
+                // Trigger a state change to force broadcast
+                const currentSlide = currentSlideData;
+                const currentPhase = currentPhaseNode;
+
+                if (currentSlide && currentPhase) {
+                    // This will trigger the broadcast via the AppContext
+                    updateTeacherNotesForCurrentSlide(currentNotes); // This is a safe no-op that triggers state sync
+                }
+            }, 1000);
+
             const checkIfClosed = setInterval(() => {
                 if (studentWindow.closed) {
                     clearInterval(checkIfClosed);
