@@ -488,6 +488,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 broadcastChannel = new BroadcastChannel(channelName);
                 broadcastChannel.onmessage = (event) => {
                     console.log(`[AppContext] Received BroadcastChannel message:`, event.data);
+
                     if (event.data.type === 'STUDENT_DISPLAY_READY') {
                         console.log('[AppContext] Student display connected, broadcasting current state');
 
@@ -511,6 +512,23 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                                 payload: createBroadcastPayload(gameController, currentVideoTime, false)
                             });
                         }, 300);
+                    } else if (event.data.type === 'STUDENT_DISPLAY_REQUEST_STATE') {
+                        console.log('[AppContext] Student display requesting current state');
+
+                        // Send current state immediately
+                        let currentVideoTime = gameController.videoCurrentTime;
+                        const teacherVideoElements = document.querySelectorAll('video[src]');
+                        if (teacherVideoElements.length > 0) {
+                            const latestVideo = teacherVideoElements[teacherVideoElements.length - 1] as HTMLVideoElement;
+                            if (!latestVideo.paused || latestVideo.currentTime > 0) {
+                                currentVideoTime = latestVideo.currentTime;
+                            }
+                        }
+
+                        broadcastChannel?.postMessage({
+                            type: 'TEACHER_STATE_UPDATE',
+                            payload: createBroadcastPayload(gameController, currentVideoTime, false)
+                        });
                     }
                 };
             }
