@@ -1,13 +1,15 @@
 // src/pages/StudentDisplayPage.tsx
 import React, {useEffect, useState, useMemo} from 'react';
-import {useParams} from 'react-router-dom';
 import StudentDisplayView from '../components/StudentDisplay/StudentDisplayView';
 import {Slide, TeacherBroadcastPayload} from '../types';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure'; // For slide definitions
 import {Hourglass} from 'lucide-react';
 
-const StudentDisplayPage: React.FC = () => {
-    const {sessionId} = useParams<{ sessionId: string }>();
+interface StudentDisplayPageProps {
+    sessionId?: string;
+}
+
+const StudentDisplayPage: React.FC<StudentDisplayPageProps> = ({ sessionId }) => {
     const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
     const [isPlayingTargetState, setIsPlayingTargetState] = useState<boolean>(false);
     const [videoTimeTargetState, setVideoTimeTargetState] = useState<number | undefined>(undefined);
@@ -75,4 +77,5 @@ const StudentDisplayPage: React.FC = () => {
         </div>
     );
 };
+
 export default StudentDisplayPage;
