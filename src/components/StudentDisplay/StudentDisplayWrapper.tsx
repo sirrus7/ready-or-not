@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import StudentDisplayView from './StudentDisplayView';
 import { Slide, TeacherBroadcastPayload } from '../../types';
 import { readyOrNotGame_2_0_DD } from '../../data/gameStructure';
-import { supabase } from '../../lib/supabase';
+import { createMonitoredChannel, addConnectionListener, getConnectionStatus } from '../../lib/supabase';
 import { Hourglass, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 
 const StudentDisplayWrapper: React.FC = () => {
@@ -17,16 +17,52 @@ const StudentDisplayWrapper: React.FC = () => {
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [connectionType, setConnectionType] = useState<'broadcast' | 'supabase' | 'none'>('none');
     const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
+    const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<string>('disconnected');
 
     const gameStructureInstance = useMemo(() => readyOrNotGame_2_0_DD, []);
     const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
     const supabaseChannelRef = useRef<any>(null);
     const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastSlideIdRef = useRef<number | null>(null);
+    const reconnectAttempts = useRef<number>(0);
+    const maxReconnectAttempts = 5;
 
     useEffect(() => {
         document.title = `Student Display - Session ${sessionId || 'N/A'}`;
     }, [sessionId]);
+
+    // Monitor Supabase connection status
+    useEffect(() => {
+        console.log('[StudentDisplayWrapper] Setting up Supabase connection monitoring');
+
+        const removeConnectionListener = addConnectionListener((status) => {
+            console.log(`[StudentDisplayWrapper] Supabase connection status: ${status}`);
+            setSupabaseConnectionStatus(status);
+
+            if (status === 'connected' && connectionType === 'supabase') {
+                setIsConnected(true);
+                reconnectAttempts.current = 0;
+            } else if (status === 'error' || status === 'disconnected') {
+                if (connectionType === 'supabase') {
+                    setIsConnected(false);
+
+                    // Attempt to reconnect if we haven't exceeded max attempts
+                    if (reconnectAttempts.current < maxReconnectAttempts) {
+                        reconnectAttempts.current++;
+                        console.log(`[StudentDisplayWrapper] Attempting reconnection ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+
+                        setTimeout(() => {
+                            setupSupabaseChannel();
+                        }, 2000 * reconnectAttempts.current); // Exponential backoff
+                    } else {
+                        setStatusMessage("Connection failed after multiple attempts. Please refresh the page or check with your teacher.");
+                    }
+                }
+            }
+        });
+
+        return removeConnectionListener;
+    }, [connectionType]);
 
     // Helper function to update slide state
     const updateSlideState = (payload: TeacherBroadcastPayload, source: string) => {
@@ -109,11 +145,15 @@ const StudentDisplayWrapper: React.FC = () => {
         // Clean up existing channel first
         if (supabaseChannelRef.current) {
             console.log(`[StudentDisplayWrapper] Cleaning up existing Supabase channel`);
-            supabase.removeChannel(supabaseChannelRef.current);
+            // Use the new cleanup method from the updated supabase.ts
+            if (supabaseChannelRef.current.unsubscribe) {
+                supabaseChannelRef.current.unsubscribe();
+            }
             supabaseChannelRef.current = null;
         }
 
-        supabaseChannelRef.current = supabase.channel(realtimeChannelName);
+        // Use the new createMonitoredChannel function
+        supabaseChannelRef.current = createMonitoredChannel(realtimeChannelName);
 
         supabaseChannelRef.current.on('broadcast', { event: 'teacher_state_update' }, (payload: any) => {
             console.log(`[StudentDisplayWrapper] Supabase broadcast received:`, payload.payload);
@@ -127,38 +167,17 @@ const StudentDisplayWrapper: React.FC = () => {
                 console.log(`[StudentDisplayWrapper] Successfully subscribed to Supabase real-time`);
                 setIsConnected(true);
                 setConnectionType('supabase');
+                reconnectAttempts.current = 0; // Reset on successful connection
             } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-                console.log(`[StudentDisplayWrapper] Supabase connection lost, attempting reconnect in 3 seconds`);
+                console.log(`[StudentDisplayWrapper] Supabase connection lost: ${status}`);
                 if (connectionType === 'supabase') {
                     setIsConnected(false);
-
-                    // Attempt to reconnect after a delay
-                    setTimeout(() => {
-                        console.log(`[StudentDisplayWrapper] Attempting Supabase reconnection`);
-                        setupSupabaseChannel();
-                    }, 3000);
                 }
             }
         });
 
         console.log(`[StudentDisplayWrapper] Supabase channel setup complete`);
     };
-
-    useEffect(() => {
-        if (!isConnected && sessionId) {
-            const reconnectInterval = setInterval(() => {
-                console.log(`[StudentDisplayWrapper] Connection lost, attempting to reconnect...`);
-
-                // Try to reconnect both channels
-                setupBroadcastChannel();
-                setupSupabaseChannel();
-            }, 10000); // Reconnect every 10 seconds
-
-            return () => {
-                clearInterval(reconnectInterval);
-            };
-        }
-    }, [isConnected, sessionId, setupBroadcastChannel, setupSupabaseChannel]);
 
     useEffect(() => {
         if (!sessionId) {
@@ -185,7 +204,8 @@ const StudentDisplayWrapper: React.FC = () => {
                 console.log(`[StudentDisplayWrapper] Connection established via: ${connectionType}`);
             } else {
                 console.log(`[StudentDisplayWrapper] No connection established after 10 seconds`);
-                setStatusMessage("Connection timeout. Please check if the teacher has started the game session.");
+                const { status } = getConnectionStatus();
+                setStatusMessage(`Connection timeout. Supabase status: ${status}. Please check if the teacher has started the game session.`);
             }
         }, 10000);
 
@@ -206,7 +226,9 @@ const StudentDisplayWrapper: React.FC = () => {
             }
 
             if (supabaseChannelRef.current) {
-                supabase.removeChannel(supabaseChannelRef.current);
+                if (supabaseChannelRef.current.unsubscribe) {
+                    supabaseChannelRef.current.unsubscribe();
+                }
                 supabaseChannelRef.current = null;
             }
         };
@@ -232,6 +254,8 @@ const StudentDisplayWrapper: React.FC = () => {
                         </span>
                     )}
                 </div>
+                <div>Supabase: {supabaseConnectionStatus}</div>
+                <div>Reconnect Attempts: {reconnectAttempts.current}/{maxReconnectAttempts}</div>
                 {lastUpdateTime && (
                     <div>Last Update: {lastUpdateTime}</div>
                 )}
@@ -286,6 +310,10 @@ const StudentDisplayWrapper: React.FC = () => {
                         <div className="text-sm text-gray-400 space-y-2">
                             <p>Session ID: {sessionId}</p>
                             <p>Connection: {isConnected ? `✓ ${connectionType}` : '✗ Not connected'}</p>
+                            <p>Supabase: {supabaseConnectionStatus}</p>
+                            {reconnectAttempts.current > 0 && (
+                                <p>Reconnect attempts: {reconnectAttempts.current}/{maxReconnectAttempts}</p>
+                            )}
                             {lastUpdateTime && (
                                 <p>Last Update: {lastUpdateTime}</p>
                             )}
@@ -299,6 +327,9 @@ const StudentDisplayWrapper: React.FC = () => {
                                     <li>• Check that you're using the correct session URL</li>
                                     <li>• Try refreshing this page</li>
                                     <li>• Ensure your browser allows real-time connections</li>
+                                    {reconnectAttempts.current >= maxReconnectAttempts && (
+                                        <li className="text-red-300">• Max reconnection attempts reached - refresh the page</li>
+                                    )}
                                 </ul>
                             </div>
                         )}

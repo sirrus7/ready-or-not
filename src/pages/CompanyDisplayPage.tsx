@@ -1,20 +1,20 @@
 // src/pages/CompanyDisplayPage.tsx
-import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import TeamLogin from '../components/StudentGame/TeamLogin';
 import KpiDisplay from '../components/StudentGame/KpiDisplay';
 import DecisionPanel from '../components/StudentGame/DecisionPanel';
 import {
-    TeamRoundData,
-    Slide,
+    ChallengeOption,
     GamePhaseNode,
-    TeacherBroadcastPayload,
     InvestmentOption,
-    ChallengeOption
+    Slide,
+    TeacherBroadcastPayload,
+    TeamRoundData
 } from '../types';
-import {supabase} from '../lib/supabase';
+import {addConnectionListener, createMonitoredChannel, supabase} from '../lib/supabase';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
-import {Hourglass, CheckCircle, AlertTriangle, Smartphone} from 'lucide-react';
+import {AlertTriangle, CheckCircle, Hourglass, Smartphone} from 'lucide-react';
 import Modal from '../components/UI/Modal';
 
 const CompanyDisplayPage: React.FC = () => {
@@ -43,6 +43,8 @@ const CompanyDisplayPage: React.FC = () => {
     // Check if we're on mobile/tablet
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const isTablet = /iPad|Android.*(?:(?!Mobile)|(?=.*Tablet))|KFAPWI/i.test(navigator.userAgent);
+
+    const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<string>('disconnected');
 
     // Set initial viewport for mobile
     useEffect(() => {
@@ -73,6 +75,17 @@ const CompanyDisplayPage: React.FC = () => {
     useEffect(() => {
         decisionPhaseTimerEndTimeRef.current = decisionPhaseTimerEndTime;
     }, [decisionPhaseTimerEndTime]);
+
+    useEffect(() => {
+        return addConnectionListener((status) => {
+            setSupabaseConnectionStatus(status);
+            console.log(`[CompanyDisplayPage] Supabase connection status: ${status}`);
+
+            if (status === 'error' || status === 'disconnected') {
+                setPageError("Connection to game server lost. Please refresh the page.");
+            }
+        });
+    }, [supabaseConnectionStatus]);
 
     const fetchInitialTeamData = useCallback(async (teamId: string, activePhase: GamePhaseNode | null) => {
         if (!sessionId || !activePhase || !teamId) {
@@ -153,7 +166,7 @@ const CompanyDisplayPage: React.FC = () => {
         const realtimeChannelName = `teacher-updates-${sessionId}`;
         console.log(`[CompanyDisplayPage] Subscribing to Supabase real-time: ${realtimeChannelName}`);
 
-        const realtimeChannel = supabase.channel(realtimeChannelName);
+        const realtimeChannel = createMonitoredChannel(realtimeChannelName);
 
         realtimeChannel.on('broadcast', { event: 'teacher_state_update' }, (payload) => {
             console.log(`[CompanyDisplayPage] Received teacher broadcast:`, payload.payload);
@@ -229,7 +242,9 @@ const CompanyDisplayPage: React.FC = () => {
 
         return () => {
             console.log(`[CompanyDisplayPage] Cleaning up Supabase real-time subscription`);
-            supabase.removeChannel(realtimeChannel);
+            if (realtimeChannel.unsubscribe) {
+                realtimeChannel.unsubscribe();
+            }
         };
     }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId]);
 
