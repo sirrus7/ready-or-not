@@ -121,17 +121,36 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
             console.error("resetTeamDecisionInDb: Missing required IDs");
             throw new Error("Missing session, team, or phase ID for reset.");
         }
+
         console.log(`useTeamDataManager: Resetting decision in DB for session ${sessionId}, team ${teamId}, phase ${phaseId}`);
+
         const {error: deleteError} = await supabase
             .from('team_decisions')
             .delete()
             .eq('session_id', sessionId)
             .eq('team_id', teamId)
             .eq('phase_id', phaseId);
+
         if (deleteError) {
             console.error("useTeamDataManager: Error deleting team decision from DB:", deleteError);
             throw deleteError;
         }
+
+        console.log(`useTeamDataManager: Successfully deleted decision from DB, now updating local state`);
+
+        // FIXED: Immediately update local state to reflect the deletion
+        setTeamDecisions(prev => {
+            const updated = JSON.parse(JSON.stringify(prev)); // Deep clone
+            if (updated[teamId] && updated[teamId][phaseId]) {
+                delete updated[teamId][phaseId];
+                // If this was the last decision for this team, remove the team entry entirely
+                if (Object.keys(updated[teamId]).length === 0) {
+                    delete updated[teamId];
+                }
+                console.log(`useTeamDataManager: Updated local state after reset - removed ${teamId}/${phaseId}`);
+            }
+            return updated;
+        });
     }, []);
 
     // Initial fetch when sessionId becomes available
@@ -174,6 +193,7 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
                             if (updated[oldDecision.team_id]) {
                                 delete updated[oldDecision.team_id][oldDecision.phase_id];
                                 if (Object.keys(updated[oldDecision.team_id]).length === 0) delete updated[oldDecision.team_id];
+                                console.log(`useTeamDataManager: Removed decision for team ${oldDecision.team_id}, phase ${oldDecision.phase_id}`);
                             }
                         }
                         return updated;
