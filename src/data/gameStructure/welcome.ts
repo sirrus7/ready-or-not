@@ -42,16 +42,20 @@ export const welcomeSlides: Slide[] = [
         title: "Let's Get It On!",
         type: 'video',
         source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_006.mp4?alt=media',
-        auto_advance_after_video: true,
+        auto_advance_after_video: false, // REQ-1.6: Should NOT auto-advance, alert pops up
+        teacher_alert: { // REQ-1.6
+            title: "Time's Up!",
+            message: "Time's Up. When you're ready, click Next to proceed."
+        }
     },
-    {
+    { // This is now Slide 6 in the sequence
         id: 6,
-        title: "What Are Investments",
+        title: "What Are Investments", // Previously Slide 6
         type: 'video',
         source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_007.mp4?alt=media',
-        auto_advance_after_video: true,
-        teacher_alert: {
-            title: "Game Host Alert!",
+        auto_advance_after_video: false, // REQ-2.2: Should NOT auto-advance, alert pops up
+        teacher_alert: { // REQ-2.2
+            title: "Game Host Action",
             message: "Game Host, hand out 1 set of RD-1 Investment Cards & 1 RD-1 Team Summary Sheet to each team now. Then click Next to proceed."
         }
     },
@@ -70,13 +74,13 @@ export const welcomePhases: GamePhaseNode[] = [
         expected_duration_minutes: 3
     },
     {
-        id: 'game-setup',
+        id: 'game-setup', // This phase now includes slides 4, 5, and 6
         label: "GAME SETUP",
-        icon_name: 'Film',
-        phase_type: 'narration',
+        icon_name: 'Film', // Consider changing if it's not just film anymore
+        phase_type: 'narration', // Or 'setup' if more appropriate
         round_number: 0,
-        slide_ids: [4, 5, 6],
+        slide_ids: [4, 5, 6], // Slide 6 is now the "What are Investments" video
         is_interactive_student_phase: false,
-        expected_duration_minutes: 7
+        expected_duration_minutes: 7 // Adjust duration
     },
 ];
