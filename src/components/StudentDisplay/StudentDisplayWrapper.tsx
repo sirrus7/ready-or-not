@@ -41,9 +41,15 @@ const StudentDisplayWrapper: React.FC = () => {
                 const payload = event.data.payload as TeacherBroadcastPayload;
                 console.log(`[StudentDisplayWrapper] Processing teacher state update:`, payload);
 
+                // Debug: Log slide lookup
+                console.log(`[StudentDisplayWrapper] Looking for slide ID: ${payload.currentSlideId}`);
+                console.log(`[StudentDisplayWrapper] Available slides:`, gameStructureInstance.slides.map(s => ({ id: s.id, title: s.title, type: s.type })));
+
                 const slideData = payload.currentSlideId !== null
                     ? gameStructureInstance.slides.find(s => s.id === payload.currentSlideId) || null
                     : null;
+
+                console.log(`[StudentDisplayWrapper] Found slide data:`, slideData);
 
                 setCurrentSlide(slideData);
                 setIsPlayingTargetState(payload.isPlayingVideo);
@@ -97,13 +103,23 @@ const StudentDisplayWrapper: React.FC = () => {
     return (
         <div className="h-screen w-screen overflow-hidden bg-gray-900">
             {currentSlide ? (
-                <StudentDisplayView
-                    slide={currentSlide}
-                    isPlayingTarget={isPlayingTargetState}
-                    videoTimeTarget={videoTimeTargetState}
-                    triggerSeekEvent={triggerSeekEventState}
-                    isForTeacherPreview={false}
-                />
+                <>
+                    {/* Debug info - remove this later */}
+                    <div className="absolute top-0 right-0 bg-black/80 text-white p-2 text-xs z-50 max-w-xs">
+                        <div>Slide ID: {currentSlide.id}</div>
+                        <div>Type: {currentSlide.type}</div>
+                        <div>Title: {currentSlide.title || 'No title'}</div>
+                        <div>Source: {currentSlide.source_url ? 'Yes' : 'No'}</div>
+                    </div>
+
+                    <StudentDisplayView
+                        slide={currentSlide}
+                        isPlayingTarget={isPlayingTargetState}
+                        videoTimeTarget={videoTimeTargetState}
+                        triggerSeekEvent={triggerSeekEventState}
+                        isForTeacherPreview={false}
+                    />
+                </>
             ) : (
                 <div className="h-full flex flex-col items-center justify-center text-white p-8">
                     <Hourglass size={48} className={`mb-4 text-blue-400 ${isConnected ? '' : 'animate-pulse'}`}/>
