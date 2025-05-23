@@ -6,7 +6,7 @@ import {AppProvider} from './context/AppContext';
 import PrivateRoute from './components/PrivateRoute';
 import LoginPage from './pages/LoginPage';
 import GameHostPage from './pages/GameHostPage';
-import StudentDisplayPage from './pages/StudentDisplayPage';
+import StudentDisplayWrapper from './components/StudentDisplay/StudentDisplayWrapper';
 import DashboardPage from './pages/DashboardPage';
 import CreateGamePage from './pages/CreateGamePage';
 import CompanyDisplayPage from './pages/CompanyDisplayPage';
@@ -22,14 +22,12 @@ function App() {
         <BrowserRouter>
             <AuthProvider>
                 <Routes>
-                    {/* Publicly accessible student-facing routes */}
+                    {/* Publicly accessible student-facing routes - NO AUTH REQUIRED */}
                     <Route path="/student-game/:sessionId" element={
                         <CompanyDisplayPage/>
                     }/>
                     <Route path="/student-display/:sessionId" element={
-                        <SessionAwareAppProvider>
-                            <StudentDisplayPage/>
-                        </SessionAwareAppProvider>
+                        <StudentDisplayWrapper/>
                     }/>
 
                     {/* Teacher Login - Publicly accessible */}
