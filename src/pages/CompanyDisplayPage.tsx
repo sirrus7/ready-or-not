@@ -127,7 +127,6 @@ const CompanyDisplayPage: React.FC = () => {
             return;
         }
         const channel = new BroadcastChannel(`classroom-${sessionId}`);
-        let timerInterval: NodeJS.Timeout | undefined;
 
         channel.onmessage = (event) => {
             if (event.data.type === 'TEACHER_STATE_UPDATE') {
@@ -137,45 +136,50 @@ const CompanyDisplayPage: React.FC = () => {
                 const newPhaseNode = payload.currentPhaseId ? gameStructure.allPhases.find(p => p.id === payload.currentPhaseId) || null : null;
                 const newSlide = payload.currentSlideId !== null ? gameStructure.slides.find(s => s.id === payload.currentSlideId) || null : null;
 
-                const previousPhaseId = currentActivePhase?.id;
+                // Update state immediately
                 setCurrentActivePhase(newPhaseNode);
                 setCurrentActiveSlide(newSlide);
                 setDecisionOptionsKey(payload.decisionOptionsKey);
 
-                // Fixed decision phase detection logic
-                const decisionPhaseNowActive = payload.isStudentDecisionPhaseActive || false;
-                console.log(`[CompanyDisplayPage] Decision phase active: ${decisionPhaseNowActive}, Phase: ${newPhaseNode?.id}, Slide: ${newSlide?.id}`);
+                // Handle decision phase activation - SIMPLIFIED LOGIC
+                const shouldActivateDecisions = payload.isStudentDecisionPhaseActive &&
+                    newPhaseNode?.is_interactive_student_phase &&
+                    loggedInTeamId &&
+                    submissionStatusRef.current !== 'success';
 
-                if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== previousPhaseId) {
-                    console.log(`[CompanyDisplayPage] Phase changed from ${previousPhaseId} to ${newPhaseNode.id}`);
-                    fetchInitialTeamData(loggedInTeamId, newPhaseNode).then(() => {
-                        // Only set decision time if we haven't already submitted AND the phase is actually active
-                        if (decisionPhaseNowActive && submissionStatusRef.current !== 'success') {
-                            console.log(`[CompanyDisplayPage] Setting decision time to true for phase ${newPhaseNode.id}`);
-                            setIsStudentDecisionTime(true);
-                        } else {
-                            console.log(`[CompanyDisplayPage] NOT setting decision time - decisionActive: ${decisionPhaseNowActive}, submissionStatus: ${submissionStatusRef.current}`);
-                            setIsStudentDecisionTime(false);
-                        }
-                    });
+                console.log(`[CompanyDisplayPage] Decision activation check:`, {
+                    isStudentDecisionPhaseActive: payload.isStudentDecisionPhaseActive,
+                    isInteractivePhase: newPhaseNode?.is_interactive_student_phase,
+                    hasTeamId: !!loggedInTeamId,
+                    submissionStatus: submissionStatusRef.current,
+                    shouldActivate: shouldActivateDecisions
+                });
+
+                if (shouldActivateDecisions) {
+                    console.log(`[CompanyDisplayPage] ACTIVATING decision time for phase ${newPhaseNode?.id}, slide ${newSlide?.id}`);
+                    setIsStudentDecisionTime(true);
+                    isStudentDecisionTimeRef.current = true;
                 } else {
-                    // Phase didn't change, just update decision time based on broadcast
-                    if (decisionPhaseNowActive && submissionStatusRef.current !== 'success') {
-                        console.log(`[CompanyDisplayPage] Setting decision time to true (same phase) for ${newPhaseNode?.id}`);
-                        setIsStudentDecisionTime(true);
-                    } else {
-                        console.log(`[CompanyDisplayPage] Setting decision time to false (same phase) for ${newPhaseNode?.id}`);
-                        setIsStudentDecisionTime(false);
-                    }
+                    console.log(`[CompanyDisplayPage] NOT activating decision time`);
+                    setIsStudentDecisionTime(false);
+                    isStudentDecisionTimeRef.current = false;
                 }
 
-                if (decisionPhaseTimerEndTime !== payload.decisionPhaseTimerEndTime) {
+                // Handle timer
+                if (payload.decisionPhaseTimerEndTime !== decisionPhaseTimerEndTime) {
                     setDecisionPhaseTimerEndTime(payload.decisionPhaseTimerEndTime);
                 }
 
+                // Handle phase changes for data fetching
+                if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== currentActivePhase?.id) {
+                    console.log(`[CompanyDisplayPage] Phase changed, fetching data for ${newPhaseNode.id}`);
+                    fetchInitialTeamData(loggedInTeamId, newPhaseNode);
+                }
+
+                // Handle KPI updates for round changes
                 if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
                     if (currentTeamKpis?.round_number !== newPhaseNode.round_number || !currentTeamKpis) {
-                        if (newPhaseNode.id !== previousPhaseId) {
+                        if (newPhaseNode.id !== currentActivePhase?.id) {
                             fetchInitialTeamData(loggedInTeamId, newPhaseNode);
                         }
                     }
@@ -184,11 +188,21 @@ const CompanyDisplayPage: React.FC = () => {
                 }
             }
         };
+
         return () => {
             channel.close();
-            if (timerInterval) clearInterval(timerInterval);
         };
-    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId, currentActivePhase, currentTeamKpis, decisionPhaseTimerEndTime]);
+    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId, currentActivePhase?.id, currentTeamKpis?.round_number, decisionPhaseTimerEndTime]);
+
+    useEffect(() => {
+        console.log(`[CompanyDisplayPage] Decision time state changed:`, {
+            isStudentDecisionTime: isStudentDecisionTime,
+            isStudentDecisionTimeRef: isStudentDecisionTimeRef.current,
+            currentPhase: currentActivePhase?.id,
+            currentSlide: currentActiveSlide?.id,
+            submissionStatus: submissionStatusRef.current
+        });
+    }, [isStudentDecisionTime, currentActivePhase?.id, currentActiveSlide?.id]);
 
     useEffect(() => {
         let timerInterval: NodeJS.Timeout | undefined;
@@ -376,6 +390,16 @@ const CompanyDisplayPage: React.FC = () => {
     // Debug logging for decision time
     console.log(`[CompanyDisplayPage] Render - isStudentDecisionTime: ${isStudentDecisionTimeRef.current}, phase: ${currentActivePhase?.id}, phase_type: ${currentActivePhase?.phase_type}, submissionStatus: ${submissionStatusRef.current}`);
 
+    console.log(`[CompanyDisplayPage] RENDER DECISION:`, {
+        isLoadingData,
+        hasActivePhase: !!currentActivePhase,
+        isStudentDecisionTimeRef: isStudentDecisionTimeRef.current,
+        submissionStatusRef: submissionStatusRef.current,
+        hasInvestmentOptions: investmentOptionsForCurrentPhase.length,
+        budgetForInvestPhase,
+        renderDecision: (isStudentDecisionTimeRef.current && currentActivePhase && submissionStatusRef.current !== 'success') ? 'DECISION_PANEL' : 'WAITING'
+    });
+
     return (
         <div className="min-h-screen flex flex-col bg-gray-900 text-white overflow-hidden">
             <KpiDisplay
@@ -395,43 +419,58 @@ const CompanyDisplayPage: React.FC = () => {
                         </p>
                     </div>
                 ) : isStudentDecisionTimeRef.current && currentActivePhase && submissionStatusRef.current !== 'success' ? (
-                    <DecisionPanel
-                        sessionId={sessionId}
-                        teamId={loggedInTeamId}
-                        currentPhase={currentActivePhase}
-                        investmentOptions={investmentOptionsForCurrentPhase}
-                        investUpToBudget={budgetForInvestPhase}
-                        challengeOptions={challengeOptionsForCurrentPhase}
-                        availableRd3Investments={rd3InvestmentsForDoubleDown}
-                        onDecisionSubmit={handleDecisionSubmit}
-                        isDecisionTime={isStudentDecisionTimeRef.current}
-                        timeRemainingSeconds={timeRemainingSeconds}
-                    />
-                ) : currentActiveSlide ? (
-                    <div className="text-center p-4 bg-gray-800 rounded-lg shadow-md max-w-xl mx-auto my-4">
-                        <h3 className="text-lg font-semibold text-sky-400 mb-2">{currentActiveSlide.title || currentActivePhase?.label || "Current Activity"}</h3>
-                        {currentActiveSlide.main_text && <p className="text-md text-gray-200 mb-1">{currentActiveSlide.main_text}</p>}
-                        {currentActiveSlide.sub_text && <p className="text-sm text-gray-300">{currentActiveSlide.sub_text}</p>}
-
-                        {submissionStatusRef.current === 'success' && (
-                            <p className="mt-4 text-sm text-green-400 flex items-center justify-center">
-                                <CheckCircle size={18} className="mr-2"/> Decisions submitted for {currentActivePhase?.label || "previous phase"}. Waiting for facilitator.
-                            </p>
-                        )}
-                        {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current) &&
-                            <p className="mt-4 text-sm text-yellow-400 flex items-center justify-center">
-                                <Hourglass size={18} className="mr-2 animate-pulse"/> Waiting for facilitator...
-                            </p>
-                        }
-                    </div>
+                    <>
+                        {/* DEBUG INFO - Remove this in production */}
+                        <div className="bg-yellow-900 text-yellow-100 p-2 mb-4 text-xs">
+                            DEBUG: Decision Panel Active - Phase: {currentActivePhase.id}, Options: {investmentOptionsForCurrentPhase.length}, Budget: {budgetForInvestPhase}
+                        </div>
+                        <DecisionPanel
+                            sessionId={sessionId}
+                            teamId={loggedInTeamId}
+                            currentPhase={currentActivePhase}
+                            investmentOptions={investmentOptionsForCurrentPhase}
+                            investUpToBudget={budgetForInvestPhase}
+                            challengeOptions={challengeOptionsForCurrentPhase}
+                            availableRd3Investments={rd3InvestmentsForDoubleDown}
+                            onDecisionSubmit={handleDecisionSubmit}
+                            isDecisionTime={isStudentDecisionTimeRef.current}
+                            timeRemainingSeconds={timeRemainingSeconds}
+                        />
+                    </>
                 ) : (
-                    <div className="text-center text-gray-400 py-10">
-                        <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
-                        {submissionStatusRef.current === 'success' && submissionMessage ? submissionMessage : `Waiting for facilitator to start ${currentActivePhase?.label || "next phase"}...`}
-                    </div>
+                    <>
+                        {/* DEBUG INFO - Remove this in production */}
+                        <div className="bg-blue-900 text-blue-100 p-2 mb-4 text-xs">
+                            DEBUG: Waiting State - Phase: {currentActivePhase?.id}, DecisionTime: {isStudentDecisionTimeRef.current ? 'true' : 'false'}, SubmissionStatus: {submissionStatusRef.current}
+                        </div>
+                        {currentActiveSlide ? (
+                            <div className="text-center p-4 bg-gray-800 rounded-lg shadow-md max-w-xl mx-auto my-4">
+                                <h3 className="text-lg font-semibold text-sky-400 mb-2">{currentActiveSlide.title || currentActivePhase?.label || "Current Activity"}</h3>
+                                {currentActiveSlide.main_text && <p className="text-md text-gray-200 mb-1">{currentActiveSlide.main_text}</p>}
+                                {currentActiveSlide.sub_text && <p className="text-sm text-gray-300">{currentActiveSlide.sub_text}</p>}
+
+                                {submissionStatusRef.current === 'success' && (
+                                    <p className="mt-4 text-sm text-green-400 flex items-center justify-center">
+                                        <CheckCircle size={18} className="mr-2"/> Decisions submitted for {currentActivePhase?.label || "previous phase"}. Waiting for facilitator.
+                                    </p>
+                                )}
+                                {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current) &&
+                                    <p className="mt-4 text-sm text-yellow-400 flex items-center justify-center">
+                                        <Hourglass size={18} className="mr-2 animate-pulse"/> Waiting for facilitator...
+                                    </p>
+                                }
+                            </div>
+                        ) : (
+                            <div className="text-center text-gray-400 py-10">
+                                <Hourglass size={32} className="mx-auto mb-3 animate-pulse"/>
+                                {submissionStatusRef.current === 'success' && submissionMessage ? submissionMessage : `Waiting for facilitator to start ${currentActivePhase?.label || "next phase"}...`}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
+            {/* Modal remains the same */}
             {isSubmissionFeedbackModalOpen && (
                 <Modal
                     isOpen={isSubmissionFeedbackModalOpen}
