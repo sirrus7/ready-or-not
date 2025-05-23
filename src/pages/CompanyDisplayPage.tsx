@@ -141,26 +141,35 @@ const CompanyDisplayPage: React.FC = () => {
                 setCurrentActiveSlide(newSlide);
                 setDecisionOptionsKey(payload.decisionOptionsKey);
 
-                // Handle decision phase activation - SIMPLIFIED LOGIC
+                // SIMPLIFIED decision activation - trust the broadcast
                 const shouldActivateDecisions = payload.isStudentDecisionPhaseActive &&
-                    newPhaseNode?.is_interactive_student_phase &&
                     loggedInTeamId &&
                     submissionStatusRef.current !== 'success';
 
                 console.log(`[CompanyDisplayPage] Decision activation check:`, {
-                    isStudentDecisionPhaseActive: payload.isStudentDecisionPhaseActive,
-                    isInteractivePhase: newPhaseNode?.is_interactive_student_phase,
+                    broadcastSaysActive: payload.isStudentDecisionPhaseActive,
                     hasTeamId: !!loggedInTeamId,
                     submissionStatus: submissionStatusRef.current,
-                    shouldActivate: shouldActivateDecisions
+                    shouldActivate: shouldActivateDecisions,
+                    slideId: newSlide?.id,
+                    slideType: newSlide?.type,
+                    phaseId: newPhaseNode?.id,
+                    decisionOptionsKey: payload.decisionOptionsKey
                 });
 
                 if (shouldActivateDecisions) {
                     console.log(`[CompanyDisplayPage] ACTIVATING decision time for phase ${newPhaseNode?.id}, slide ${newSlide?.id}`);
                     setIsStudentDecisionTime(true);
                     isStudentDecisionTimeRef.current = true;
-                } else {
-                    console.log(`[CompanyDisplayPage] NOT activating decision time`);
+
+                    // Clear any previous submission status when starting new decisions
+                    if (submissionStatusRef.current !== 'idle') {
+                        setSubmissionStatus('idle');
+                        submissionStatusRef.current = 'idle';
+                        setSubmissionMessage(null);
+                    }
+                } else if (!payload.isStudentDecisionPhaseActive) {
+                    console.log(`[CompanyDisplayPage] DEACTIVATING decision time - broadcast says not active`);
                     setIsStudentDecisionTime(false);
                     isStudentDecisionTimeRef.current = false;
                 }
