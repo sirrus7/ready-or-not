@@ -43,6 +43,10 @@ const CompanyDisplayPage: React.FC = () => {
     const submissionStatusRef = useRef(submissionStatus);
     const isStudentDecisionTimeRef = useRef(isStudentDecisionTime);
 
+    const currentActivePhaseRef = useRef<GamePhaseNode | null>(null);
+    const currentTeamKpisRef = useRef<TeamRoundData | null>(null);
+    const decisionPhaseTimerEndTimeRef = useRef<number | undefined>(undefined);
+
     useEffect(() => {
         submissionStatusRef.current = submissionStatus;
     }, [submissionStatus]);
@@ -50,6 +54,18 @@ const CompanyDisplayPage: React.FC = () => {
     useEffect(() => {
         isStudentDecisionTimeRef.current = isStudentDecisionTime;
     }, [isStudentDecisionTime]);
+
+    useEffect(() => {
+        currentActivePhaseRef.current = currentActivePhase;
+    }, [currentActivePhase]);
+
+    useEffect(() => {
+        currentTeamKpisRef.current = currentTeamKpis;
+    }, [currentTeamKpis]);
+
+    useEffect(() => {
+        decisionPhaseTimerEndTimeRef.current = decisionPhaseTimerEndTime;
+    }, [decisionPhaseTimerEndTime]);
 
     const fetchInitialTeamData = useCallback(async (teamId: string, activePhase: GamePhaseNode | null) => {
         if (!sessionId || !activePhase || !teamId) {
@@ -141,18 +157,24 @@ const CompanyDisplayPage: React.FC = () => {
                 setCurrentActiveSlide(newSlide);
                 setDecisionOptionsKey(payload.decisionOptionsKey);
 
-                // SIMPLIFIED decision activation - trust the broadcast
+                // FIXED: More robust decision activation logic
                 const shouldActivateDecisions = payload.isStudentDecisionPhaseActive &&
                     loggedInTeamId &&
+                    newPhaseNode?.is_interactive_student_phase &&
+                    (newSlide?.type === 'interactive_invest' ||
+                        newSlide?.type === 'interactive_choice' ||
+                        newSlide?.type === 'interactive_double_down_prompt' ||
+                        newSlide?.type === 'interactive_double_down_select') &&
                     submissionStatusRef.current !== 'success';
 
                 console.log(`[CompanyDisplayPage] Decision activation check:`, {
                     broadcastSaysActive: payload.isStudentDecisionPhaseActive,
                     hasTeamId: !!loggedInTeamId,
+                    phaseIsInteractive: newPhaseNode?.is_interactive_student_phase,
+                    slideType: newSlide?.type,
                     submissionStatus: submissionStatusRef.current,
                     shouldActivate: shouldActivateDecisions,
                     slideId: newSlide?.id,
-                    slideType: newSlide?.type,
                     phaseId: newPhaseNode?.id,
                     decisionOptionsKey: payload.decisionOptionsKey
                 });
@@ -174,21 +196,21 @@ const CompanyDisplayPage: React.FC = () => {
                     isStudentDecisionTimeRef.current = false;
                 }
 
-                // Handle timer
-                if (payload.decisionPhaseTimerEndTime !== decisionPhaseTimerEndTime) {
+                // Handle timer - using ref to avoid stale closure
+                if (payload.decisionPhaseTimerEndTime !== decisionPhaseTimerEndTimeRef.current) {
                     setDecisionPhaseTimerEndTime(payload.decisionPhaseTimerEndTime);
                 }
 
-                // Handle phase changes for data fetching
-                if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== currentActivePhase?.id) {
+                // Handle phase changes for data fetching - using ref to avoid stale closure
+                if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== currentActivePhaseRef.current?.id) {
                     console.log(`[CompanyDisplayPage] Phase changed, fetching data for ${newPhaseNode.id}`);
                     fetchInitialTeamData(loggedInTeamId, newPhaseNode);
                 }
 
-                // Handle KPI updates for round changes
+                // Handle KPI updates for round changes - using ref to avoid stale closure
                 if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
-                    if (currentTeamKpis?.round_number !== newPhaseNode.round_number || !currentTeamKpis) {
-                        if (newPhaseNode.id !== currentActivePhase?.id) {
+                    if (currentTeamKpisRef.current?.round_number !== newPhaseNode.round_number || !currentTeamKpisRef.current) {
+                        if (newPhaseNode.id !== currentActivePhaseRef.current?.id) {
                             fetchInitialTeamData(loggedInTeamId, newPhaseNode);
                         }
                     }
@@ -201,7 +223,7 @@ const CompanyDisplayPage: React.FC = () => {
         return () => {
             channel.close();
         };
-    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId, currentActivePhase?.id, currentTeamKpis?.round_number, decisionPhaseTimerEndTime]);
+    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId]);
 
     useEffect(() => {
         console.log(`[CompanyDisplayPage] Decision time state changed:`, {
@@ -285,7 +307,7 @@ const CompanyDisplayPage: React.FC = () => {
         if (loggedInTeamId && currentActivePhase) {
             fetchInitialTeamData(loggedInTeamId, currentActivePhase);
         }
-    }, [loggedInTeamId, currentActivePhase?.id, fetchInitialTeamData]);
+    }, [loggedInTeamId, currentActivePhase, fetchInitialTeamData]);
 
     const handleLoginSuccess = (teamId: string, teamName: string) => {
         localStorage.setItem(`ron_teamId_${sessionId}`, teamId);
