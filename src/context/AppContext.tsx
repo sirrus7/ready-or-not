@@ -111,7 +111,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         triggerVideoSeek: boolean;
         currentSlideData: Slide | null;
         currentPhaseNode: GamePhaseNode | null;
-        currentTeacherAlert?: { title: string; message: string } | null; // Add this parameter
+        currentTeacherAlert?: { title: string; message: string } | null;
     }) => {
         if (currentDbSession?.id && currentDbSession.id !== 'new' && broadcastChannel) {
             let isStudentDecisionActive = false;
@@ -123,30 +123,38 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             if (state.currentPhaseNode?.is_interactive_student_phase && state.currentSlideData) {
                 console.log(`[AppContext] Phase is interactive: ${state.currentPhaseNode.id}, slide type: ${state.currentSlideData.type}`);
 
-                // Check if this is an interactive slide type AND not blocked by teacher alert
+                // FIXED: Check if this is an interactive slide type
                 const isInteractiveSlideType = state.currentSlideData.type === 'interactive_invest' ||
                     state.currentSlideData.type === 'interactive_choice' ||
                     state.currentSlideData.type === 'interactive_double_down_prompt' ||
                     state.currentSlideData.type === 'interactive_double_down_select';
 
-                // Key fix: Check teacher alert from the passed state instead of gameController
+                // FIXED: More robust teacher alert blocking logic
                 const noTeacherAlertBlocking = !state.currentTeacherAlert;
+
+                console.log(`[AppContext] Interactive slide check:`, {
+                    isInteractiveSlideType,
+                    noTeacherAlertBlocking,
+                    slideType: state.currentSlideData.type,
+                    slideId: state.currentSlideData.id,
+                    hasTeacherAlert: !!state.currentTeacherAlert
+                });
 
                 if (isInteractiveSlideType && noTeacherAlertBlocking) {
                     isStudentDecisionActive = true;
                     decisionOptionsKey = state.currentSlideData.interactive_data_key || state.currentPhaseNode.id;
 
-                    console.log(`[AppContext] ACTIVATING decision active - Phase: ${state.currentPhaseNode.id}, OptionsKey: ${decisionOptionsKey}, NoAlert: ${noTeacherAlertBlocking}`);
+                    console.log(`[AppContext] ACTIVATING decision active - Phase: ${state.currentPhaseNode.id}, OptionsKey: ${decisionOptionsKey}`);
 
                     // Timer logic for investment phases
                     if (state.currentSlideData.type === 'interactive_invest' &&
                         state.currentSlideData.source_url &&
                         currentVideoDurationRef.current &&
                         currentVideoDurationRef.current > 0) {
-                            const videoAlreadyPlayed = state.videoCurrentTime > 0 ? state.videoCurrentTime : 0;
-                            const remainingVideoDuration = Math.max(0, currentVideoDurationRef.current - videoAlreadyPlayed);
-                            decisionPhaseTimerEndTime = Date.now() + (remainingVideoDuration * 1000);
-                            console.log(`[AppContext] Setting video timer - Duration: ${currentVideoDurationRef.current}, Played: ${videoAlreadyPlayed}, Remaining: ${remainingVideoDuration}`);
+                        const videoAlreadyPlayed = state.videoCurrentTime > 0 ? state.videoCurrentTime : 0;
+                        const remainingVideoDuration = Math.max(0, currentVideoDurationRef.current - videoAlreadyPlayed);
+                        decisionPhaseTimerEndTime = Date.now() + (remainingVideoDuration * 1000);
+                        console.log(`[AppContext] Setting video timer - Duration: ${currentVideoDurationRef.current}, Played: ${videoAlreadyPlayed}, Remaining: ${remainingVideoDuration}`);
                     } else if (state.currentSlideData.timer_duration_seconds) {
                         const slideActivationTime = currentDbSession?.updated_at ? new Date(currentDbSession.updated_at).getTime() : Date.now();
                         decisionPhaseTimerEndTime = slideActivationTime + (state.currentSlideData.timer_duration_seconds * 1000);
