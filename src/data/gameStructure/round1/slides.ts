@@ -14,7 +14,7 @@ export const round1Slides: Slide[] = [
         background_css: 'bg-slate-800',
         teacher_alert: { // REQ-2.12 (timer end version is the default for this slide)
             title: "Investment Period Over",
-            message: "The 15-minute investment timer has ended. Click Next to proceed."
+            message: "Please verify all teams have locked in their investment deicions. Then click Next to proceed."
         }
     },
     {
