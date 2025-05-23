@@ -7,4 +7,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+console.log('[Supabase] Initializing client with:', {
+  url: supabaseUrl,
+  hasAnonKey: !!supabaseAnonKey,
+  anonKeyLength: supabaseAnonKey?.length
+});
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false, // Since we're using anonymous access
+    autoRefreshToken: false
+  }
+});

@@ -132,18 +132,7 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
             console.error("useTeamDataManager: Error deleting team decision from DB:", deleteError);
             throw deleteError;
         }
-        // The real-time subscription in AppContext should handle updating the local state.
-        // Or, could manually update local state here:
-        // setTeamDecisions(prev => {
-        //   const updated = { ...prev };
-        //   if (updated[teamId]) {
-        //     delete updated[teamId][phaseId];
-        //     if (Object.keys(updated[teamId]).length === 0) delete updated[teamId];
-        //   }
-        //   return updated;
-        // });
     }, []);
-
 
     // Initial fetch when sessionId becomes available
     useEffect(() => {
@@ -159,7 +148,6 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         }
     }, [initialSessionId, fetchTeamsForSession, fetchTeamDecisionsForSession, fetchTeamRoundDataForSession]);
 
-    // Real-time subscription for team_decisions (moved from AppContext)
     useEffect(() => {
         if (!initialSessionId || initialSessionId === 'new') return;
 
@@ -175,11 +163,13 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
                     console.log('useTeamDataManager: Team decision change received:', payload);
                     const newDecision = payload.new as TeamDecision;
                     const oldDecision = payload.old as TeamDecision;
+
                     setTeamDecisions(prev => {
                         const updated = JSON.parse(JSON.stringify(prev)); // Deep clone
                         if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                             if (!updated[newDecision.team_id]) updated[newDecision.team_id] = {};
                             updated[newDecision.team_id][newDecision.phase_id] = newDecision;
+                            console.log(`useTeamDataManager: Updated decision for team ${newDecision.team_id}, phase ${newDecision.phase_id}`);
                         } else if (payload.eventType === 'DELETE' && oldDecision?.team_id && oldDecision?.phase_id) {
                             if (updated[oldDecision.team_id]) {
                                 delete updated[oldDecision.team_id][oldDecision.phase_id];
@@ -189,14 +179,15 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
                         return updated;
                     });
                 }
-            ).subscribe();
+            ).subscribe((status) => {
+                console.log(`useTeamDataManager: Team decisions subscription status: ${status}`);
+            });
 
         return () => {
+            console.log('useTeamDataManager: Unsubscribing from team decisions');
             supabase.removeChannel(decisionsChannel);
         };
     }, [initialSessionId]);
-
-    // TODO: Add real-time subscription for team_round_data if live KPI updates are desired
 
     return {
         teams, teamDecisions, teamRoundData,
