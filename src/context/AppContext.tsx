@@ -41,7 +41,7 @@ interface AppContextProps {
     fetchTeamRoundDataForSession: (sessionId: string) => Promise<void>;
     resetTeamDecisionForPhase: (teamId: string, phaseId: string) => Promise<void>;
     processChoicePhaseDecisions: (phaseId: string, associatedSlide: Slide | null) => Promise<void>;
-    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3, currentPhaseId: string | null) => Promise<void>; // Added currentPhaseId
+    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3, currentPhaseId: string | null) => Promise<void>;
     processDoubleDownPayoff: () => Promise<void>;
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     resetGameProgress: () => void;
@@ -102,6 +102,53 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         return gameStructureInstance.allPhases;
     }, [gameStructureInstance]);
 
+    // Immediate broadcast function - called synchronously when state changes
+    const broadcastStateImmediately = useCallback((state: {
+        isPlayingVideo: boolean;
+        videoCurrentTime: number;
+        triggerVideoSeek: boolean;
+        currentSlideData: Slide | null;
+        currentPhaseNode: GamePhaseNode | null;
+    }) => {
+        if (currentDbSession?.id && currentDbSession.id !== 'new' && broadcastChannel) {
+            let isStudentDecisionActive = false;
+            let decisionPhaseTimerEndTime: number | undefined = undefined;
+            let decisionOptionsKey: string | undefined = undefined;
+
+            if (state.currentPhaseNode?.is_interactive_student_phase && state.currentSlideData) {
+                if (state.currentSlideData.type.startsWith('interactive_')) {
+                    isStudentDecisionActive = true;
+                    decisionOptionsKey = state.currentSlideData.interactive_data_key;
+
+                    if (state.currentSlideData.id === 8 && state.currentSlideData.type === 'interactive_invest' && state.currentSlideData.source_url && gameController.currentVideoDuration && gameController.currentVideoDuration > 0) {
+                        const videoAlreadyPlayed = state.videoCurrentTime > 0 ? state.videoCurrentTime : 0;
+                        const remainingVideoDuration = Math.max(0, gameController.currentVideoDuration - videoAlreadyPlayed);
+                        decisionPhaseTimerEndTime = Date.now() + (remainingVideoDuration * 1000);
+                    } else if (state.currentSlideData.timer_duration_seconds) {
+                        const slideActivationTime = currentDbSession?.updated_at ? new Date(currentDbSession.updated_at).getTime() : Date.now();
+                        decisionPhaseTimerEndTime = slideActivationTime + (state.currentSlideData.timer_duration_seconds * 1000);
+                    }
+                }
+            }
+
+            const payload: TeacherBroadcastPayload = {
+                currentSlideId: state.currentSlideData?.id || null,
+                currentPhaseId: state.currentPhaseNode?.id || null,
+                currentPhaseType: state.currentPhaseNode?.phase_type || null,
+                currentRoundNumber: state.currentPhaseNode?.round_number || null,
+                isPlayingVideo: state.isPlayingVideo,
+                videoCurrentTime: state.videoCurrentTime,
+                triggerVideoSeek: state.triggerVideoSeek,
+                isStudentDecisionPhaseActive: isStudentDecisionActive,
+                decisionOptionsKey: decisionOptionsKey,
+                decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
+            };
+
+            broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
+        }
+    }, [currentDbSession]);
+
+    // All other AppContext logic remains the same...
     const applyKpiEffects = useCallback((currentKpisInput: TeamRoundData, effects: KpiEffect[], kpiContext: string = "Effect"): TeamRoundData => {
         const updatedKpis = JSON.parse(JSON.stringify(currentKpisInput));
         effects.forEach(effect => {
@@ -212,7 +259,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         return insertedData as TeamRoundData;
     }, [teamRoundData, setTeamRoundDataDirectly]);
 
-    // processChoicePhaseDecisionsInternal is now passed to useGameController and called from there
     const processChoicePhaseDecisionsInternal = useCallback(async (phaseId: string, associatedSlide: Slide | null) => {
         const currentPhaseForProcessing = allPhasesInOrder.find(p => p.id === phaseId);
         if (!currentDbSession?.id || !gameStructureInstance || !currentPhaseForProcessing || !associatedSlide || teams.length === 0 || currentPhaseForProcessing.phase_type !== 'choice') {
@@ -231,7 +277,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 const effectsToApply: KpiEffect[] = [];
                 let narrativeDesc = `${currentPhaseForProcessing.label} - Team ${team.name}`;
 
-                // Use interactive_data_key from the SLIDE that triggered the interaction
                 const optionsKey = associatedSlide.interactive_data_key || phaseId;
                 const optionsForPhase = gameStructureInstance.all_challenge_options[optionsKey] || [];
                 const selectedOptionId = decisionForPhase?.selected_challenge_option_id || optionsForPhase.find(opt => opt.is_default_choice)?.id;
@@ -276,15 +321,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         }
     }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData, applyKpiEffects, storePermanentAdjustments, fetchTeamRoundDataFromHook, allPhasesInOrder, setTeamRoundDataDirectly]);
 
+    // Initialize game controller with immediate broadcast callback
     const gameController = useGameController(
         currentDbSession,
         gameStructureInstance,
         updateSessionInDb,
-        (phaseId) => { // Wrapper to pass currentSlideData to processChoicePhaseDecisionsInternal
+        (phaseId) => {
             const currentPhaseNodeForDecision = allPhasesInOrder.find(p => p.id === phaseId);
-            const slideForDecision = currentPhaseNodeForDecision && gameStructureInstance.slides.find(s => s.id === currentPhaseNodeForDecision.slide_ids[currentPhaseNodeForDecision.slide_ids.length - 1]); // assume decision is on last slide of phase
+            const slideForDecision = currentPhaseNodeForDecision && gameStructureInstance.slides.find(s => s.id === currentPhaseNodeForDecision.slide_ids[currentPhaseNodeForDecision.slide_ids.length - 1]);
             return processChoicePhaseDecisionsInternal(phaseId, slideForDecision || null);
-        }
+        },
+        broadcastStateImmediately // Pass the immediate broadcast callback
     );
 
     const setCurrentTeacherAlertState = gameController.setCurrentTeacherAlertState;
@@ -304,7 +351,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         error: sessionError || localUiState.errorProcessing,
         currentTeacherAlert: gameController.currentTeacherAlert,
     }), [currentDbSession, gameStructureInstance, gameController, teams, teamDecisions, teamRoundData, localUiState, isLoadingSession, authLoading, isLoadingTeams, sessionError]);
-
 
     useEffect(() => {
         if (gameController.currentPhaseNode?.is_interactive_student_phase && teams.length > 0 && currentDbSession?.id) {
@@ -326,7 +372,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         }
     }, [teamDecisions, teams, gameController.currentPhaseNode, gameController.setAllTeamsSubmittedCurrentInteractivePhase, currentDbSession?.id, gameController.allTeamsSubmittedCurrentInteractivePhase]);
 
-
+    // All other processing functions remain the same...
     const processInvestmentPayoffsInternal = useCallback(async (roundNumber: 1 | 2 | 3, currentPhaseIdForPayoff: string | null) => {
         if (!currentDbSession?.id || !gameStructureInstance || teams.length === 0) return;
         setLocalUiState(s => ({...s, isLoadingProcessing: true, errorProcessing: null}));
@@ -351,7 +397,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                         effectsToApply.push(...payoff.effects);
                     }
                 });
-                // Apply unspent budget as cost reduction for RD-1 if this is the RD-1 payoff phase
                 if (roundNumber === 1 && currentPhaseIdForPayoff === 'rd1-payoff') {
                     const budgetForRd1 = gameStructureInstance.investment_phase_budgets['rd1-invest'];
                     const spentOnRd1 = teamInvestmentsDecision?.total_spent_budget ?? 0;
@@ -445,50 +490,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         await gameController.nextSlide();
     }, [gameController, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal, calculateAndFinalizeRoundKPIsInternal]);
 
-    const syncAndBroadcastAppState = useCallback(() => {
-        if (currentDbSession?.id && currentDbSession.id !== 'new' && broadcastChannel) {
-            const currentSlide = gameController.currentSlideData;
-            const currentPhase = gameController.currentPhaseNode;
-
-            let isStudentDecisionActive = false;
-            let decisionPhaseTimerEndTime: number | undefined = undefined;
-            let decisionOptionsKey: string | undefined = undefined;
-
-            if (currentPhase?.is_interactive_student_phase && currentSlide) {
-                if (currentSlide.type.startsWith('interactive_')) {
-                    isStudentDecisionActive = true;
-                    decisionOptionsKey = currentSlide.interactive_data_key;
-
-                    if (currentSlide.id === 8 && currentSlide.type === 'interactive_invest' && currentSlide.source_url && gameController.currentVideoDuration && gameController.currentVideoDuration > 0) {
-                        const videoAlreadyPlayed = gameController.videoCurrentTime > 0 ? gameController.videoCurrentTime : 0;
-                        const remainingVideoDuration = Math.max(0, gameController.currentVideoDuration - videoAlreadyPlayed);
-                        decisionPhaseTimerEndTime = Date.now() + (remainingVideoDuration * 1000);
-                    } else if (currentSlide.timer_duration_seconds) {
-                        const slideActivationTime = currentDbSession?.updated_at ? new Date(currentDbSession.updated_at).getTime() : Date.now();
-                        decisionPhaseTimerEndTime = slideActivationTime + (currentSlide.timer_duration_seconds * 1000);
-                    }
-                }
-            }
-
-            const payload: TeacherBroadcastPayload = {
-                currentSlideId: currentSlide?.id || null,
-                currentPhaseId: currentPhase?.id || null,
-                currentPhaseType: currentPhase?.phase_type || null,
-                currentRoundNumber: currentPhase?.round_number || null,
-                isPlayingVideo: gameController.isPlayingVideo,
-                videoCurrentTime: gameController.videoCurrentTime,
-                triggerVideoSeek: gameController.triggerVideoSeek,
-                isStudentDecisionPhaseActive: isStudentDecisionActive,
-                decisionOptionsKey: decisionOptionsKey,
-                decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
-            };
-
-            broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
-        } else {
-            console.error("[AppContext] Broadcast skipped: No valid session or channel.");
-        }
-    }, [currentDbSession, gameController]);
-
+    // Setup broadcast channel
     useEffect(() => {
         if (currentDbSession?.id && currentDbSession.id !== 'new') {
             if (broadcastChannel && broadcastChannel.name !== `classroom-${currentDbSession.id}`) {
@@ -500,10 +502,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             }
             broadcastChannel.onmessage = (event) => {
                 if (event.data.type === 'STUDENT_DISPLAY_READY') {
-                    syncAndBroadcastAppState();
+                    // Broadcast current state immediately when student display connects
+                    // Force a seek event to sync video time exactly
+                    broadcastStateImmediately({
+                        isPlayingVideo: gameController.isPlayingVideo,
+                        videoCurrentTime: gameController.videoCurrentTime,
+                        triggerVideoSeek: true, // Force seek to sync time
+                        currentSlideData: gameController.currentSlideData,
+                        currentPhaseNode: gameController.currentPhaseNode
+                    });
                 }
             };
-            syncAndBroadcastAppState();
             return () => {
                 if (broadcastChannel) {
                     broadcastChannel.close();
@@ -511,22 +520,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 }
             };
         }
-    }, [currentDbSession?.id, syncAndBroadcastAppState]);
-
-    useEffect(() => {
-        if (currentDbSession?.id && currentDbSession.id !== 'new') {
-            syncAndBroadcastAppState();
-        }
-    }, [
-        gameController.currentPhaseNode,
-        gameController.currentSlideData,
-        gameController.isPlayingVideo,
-        gameController.videoCurrentTime,
-        gameController.triggerVideoSeek,
-        gameController.currentVideoDuration,
-        syncAndBroadcastAppState,
-        currentDbSession?.id
-    ]);
+    }, [currentDbSession?.id, broadcastStateImmediately]);
 
     const fetchWrapperTeams = useCallback(() => {
         if (currentDbSession?.id && currentDbSession.id !== 'new') fetchTeamsFromHook(currentDbSession.id);
@@ -589,7 +583,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     }, [currentDbSession?.id, isLoadingSession, authLoading, fetchWrapperTeams, fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook]);
 
     const contextValue: AppContextProps = useMemo(() => ({
-        state: combinedAppState, // combinedAppState is defined below now
+        state: combinedAppState,
         currentPhaseNode: gameController.currentPhaseNode,
         currentSlideData: gameController.currentSlideData,
         allPhasesInOrder,
@@ -613,12 +607,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         fetchTeamsForSession: fetchWrapperTeams,
         fetchTeamRoundDataForSession: (sessionIdToFetch: string) => fetchTeamRoundDataFromHook(sessionIdToFetch || currentDbSession?.id || ''),
         resetTeamDecisionForPhase: resetWrapperTeamDecision,
-        processChoicePhaseDecisions: (phaseId) => { // Wrapper to include associatedSlide
+        processChoicePhaseDecisions: (phaseId) => {
             const phaseNode = allPhasesInOrder.find(p => p.id === phaseId);
             const slide = phaseNode && gameStructureInstance?.slides.find(s => s.id === phaseNode.slide_ids[phaseNode.slide_ids.length - 1]);
             return processChoicePhaseDecisionsInternal(phaseId, slide || null);
         },
-        processInvestmentPayoffs: (roundNumber, currentPhaseId) => processInvestmentPayoffsInternal(roundNumber, currentPhaseId), // Pass currentPhaseId
+        processInvestmentPayoffs: (roundNumber, currentPhaseId) => processInvestmentPayoffsInternal(roundNumber, currentPhaseId),
         processDoubleDownPayoff: processDoubleDownPayoffInternal,
         calculateAndFinalizeRoundKPIs: calculateAndFinalizeRoundKPIsInternal,
         resetGameProgress: resetGameProgressInternal,
@@ -627,6 +621,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         videoCurrentTime: gameController.videoCurrentTime,
         triggerVideoSeek: gameController.triggerVideoSeek,
         handlePreviewVideoEnded: gameController.handlePreviewVideoEnded,
+        setCurrentTeacherAlertState,
     }), [
         combinedAppState, gameController, allPhasesInOrder, isLoadingSession, sessionError, clearSessionError,
         localUiState.isStudentWindowOpen, teams, teamDecisions, teamRoundData, isLoadingTeams,

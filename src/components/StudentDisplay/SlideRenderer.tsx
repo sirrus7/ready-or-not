@@ -28,9 +28,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                      }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const lastBroadcastedTime = useRef<number | undefined>(undefined);
-    const isPreviewSeekingRef = useRef(false); // Tracks if user is actively seeking on preview controls
-    const { state } = useAppContext(); // For LeaderboardChartDisplay
-
+    const isPreviewSeekingRef = useRef(false);
+    const initialSyncDoneRef = useRef(false); // Track if initial sync is complete
+    const { state } = useAppContext();
 
     useEffect(() => {
         const videoElement = videoRef.current;
@@ -53,19 +53,23 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     }
                 }
             } else {
-                // Student Display: Passively reflects the controller's state.
+                // Student Display: More aggressive sync handling
                 if (triggerSeekEvent && videoTimeTarget !== undefined) {
+                    // Always seek when explicitly triggered
                     if (Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
+                        console.log(`[${context}] Seeking to ${videoTimeTarget} from ${videoElement.currentTime}`);
                         videoElement.currentTime = videoTimeTarget;
                     }
-                    // Ensure play state matches target after seek
-                    if (isPlayingTarget && videoElement.paused) {
-                        setTimeout(() => videoElement.play().catch(e => console.warn(`[${context}] Play after seek error:`, e)), 100);
-                    } else if (!isPlayingTarget && !videoElement.paused) {
-                        videoElement.pause();
-                    }
+                    // Apply play state after seek
+                    setTimeout(() => {
+                        if (isPlayingTarget && videoElement.paused) {
+                            videoElement.play().catch(e => console.warn(`[${context}] Play after seek error:`, e));
+                        } else if (!isPlayingTarget && !videoElement.paused) {
+                            videoElement.pause();
+                        }
+                    }, 50);
                 } else {
-                    // Normal play/pause control if not seeking
+                    // Normal play/pause control
                     if (isPlayingTarget && videoElement.paused) {
                         videoElement.play().catch(e => console.warn(`[${context}] Video play error:`, e));
                     } else if (!isPlayingTarget && !videoElement.paused) {
@@ -76,17 +80,15 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     }, [slide?.id, slide?.source_url, isPlayingTarget, videoTimeTarget, triggerSeekEvent, isForTeacherPreview]);
 
-
     const handlePreviewPlay = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {
-            isPreviewSeekingRef.current = false; // Ensure seeking is false when play is initiated
+            isPreviewSeekingRef.current = false;
             onPreviewVideoStateChange(true, videoRef.current.currentTime, false);
         }
     };
 
     const handlePreviewPause = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current) {
-            // Only report pause if not due to 'ended' or during an active user seek on the preview controls.
             if (!videoRef.current.ended && !isPreviewSeekingRef.current) {
                 onPreviewVideoStateChange(false, videoRef.current.currentTime, false);
             }
@@ -96,9 +98,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const handlePreviewTimeUpdate = () => {
         if (isForTeacherPreview && onPreviewVideoStateChange && videoRef.current && !isPreviewSeekingRef.current && !videoRef.current.paused) {
             const currentTime = videoRef.current.currentTime;
-            // Report frequently enough for smooth sync, but not excessively.
             if (lastBroadcastedTime.current === undefined || Math.abs(currentTime - lastBroadcastedTime.current) >= 0.25) {
-                onPreviewVideoStateChange(true, currentTime, false); // Video is playing if timeupdate fires and not paused
+                onPreviewVideoStateChange(true, currentTime, false);
                 lastBroadcastedTime.current = currentTime;
             }
         }
@@ -121,23 +122,37 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const handlePreviewLoadedMetadata = () => {
         const videoElement = videoRef.current;
         if (videoElement) {
-            lastBroadcastedTime.current = undefined; // Reset for new video
+            lastBroadcastedTime.current = undefined;
+            initialSyncDoneRef.current = false; // Reset on new video
+
             if (isForTeacherPreview && onPreviewVideoDuration && videoElement.duration && !isNaN(videoElement.duration) && videoElement.duration !== Infinity) {
                 onPreviewVideoDuration(videoElement.duration);
             }
 
-            // Apply initial time if target is set and different (for both preview and student)
-            // This is critical for when a new slide loads or is jumped to.
+            // Apply initial time and state
             if (videoTimeTarget !== undefined && Math.abs(videoElement.currentTime - videoTimeTarget) > 0.1) {
+                console.log(`[${isForTeacherPreview ? 'TeacherPreview' : 'StudentDisplay'}] Initial time sync: ${videoTimeTarget}`);
                 videoElement.currentTime = videoTimeTarget;
             }
 
-            // Apply initial play state for Teacher Preview.
-            // Student display relies on the main useEffect for this as its state is purely driven by props.
-            if (isForTeacherPreview) {
+            // For Student Display, be more aggressive about initial sync
+            if (!isForTeacherPreview) {
+                const syncPlayState = () => {
+                    if (isPlayingTarget && videoElement.paused) {
+                        videoElement.play().catch(e => console.warn(`[StudentDisplay] Initial play error:`, e));
+                    } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) {
+                        videoElement.pause();
+                    }
+                    initialSyncDoneRef.current = true;
+                };
+
+                // Wait a bit for time sync, then apply play state
+                setTimeout(syncPlayState, 100);
+            } else if (isForTeacherPreview) {
+                // Teacher Preview initial state
                 if (isPlayingTarget && videoElement.paused) {
                     videoElement.play().catch(e => console.warn(`[TeacherPreview] Initial play on load error for slide ${slide?.id}:`, e));
-                } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) { // Add !videoElement.seeking here
+                } else if (!isPlayingTarget && !videoElement.paused && !videoElement.seeking) {
                     videoElement.pause();
                 }
             }
@@ -145,15 +160,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     };
 
     const handlePreviewVideoEnded = () => {
-        // const context = isForTeacherPreview ? "TeacherPreview" : "StudentDisplay";
         if (isForTeacherPreview && onPreviewVideoEnded) {
-            // Inform the controller that the video ended.
-            // The controller will then decide if it needs to auto-advance or show an alert.
             onPreviewVideoEnded();
         }
-        // For student display, if it ends, it just ends. Controller state will dictate overall flow.
     };
-
 
     if (!slide) {
         return (
@@ -331,7 +341,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     />
                 );
             default:
-                // const _exhaustiveCheck: never = slide.type; // Will cause build error if types don't match
                 console.warn("[SlideRenderer] Fallback: Unsupported slide type encountered:", (slide as any).type, slide);
                 return (
                     <div className="text-center p-6 bg-red-800/50 rounded-lg">
