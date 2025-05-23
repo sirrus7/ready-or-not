@@ -501,17 +501,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                             }
                         }
 
-                        // Create and send broadcast payload
                         const payload = createBroadcastPayload(gameController, currentVideoTime, false);
                         console.log('[AppContext] Broadcasting state to student display:', payload);
 
-                        // Send to BroadcastChannel
                         broadcastChannel?.postMessage({
                             type: 'TEACHER_STATE_UPDATE',
                             payload: payload
                         });
 
-                        // Also send to Supabase for redundancy
                         if (realtimeChannel) {
                             realtimeChannel.send({
                                 type: 'broadcast',
@@ -617,13 +614,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                     hasRealtimeChannel: !!realtimeChannel
                 });
 
-                // Send to BroadcastChannel (StudentDisplayWrapper)
                 if (broadcastChannel) {
                     broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
                     console.log('[AppContext] Sent to BroadcastChannel');
                 }
 
-                // Send to Supabase real-time (CompanyDisplayPage and backup for StudentDisplay)
                 if (realtimeChannel) {
                     realtimeChannel.send({
                         type: 'broadcast',
@@ -634,7 +629,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 }
             };
 
-            // Update the broadcastStateImmediately function to use both channels
             currentBroadcastFunction.current = (state: {
                 isPlayingVideo: boolean;
                 videoCurrentTime: number;
@@ -653,7 +647,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 broadcastToAllChannels(gameController, state.videoCurrentTime, state.triggerVideoSeek);
             };
 
-            // Initial broadcast after setup
             const broadcastCurrentState = () => {
                 if (gameController.currentSlideData && gameController.currentPhaseNode) {
                     console.log('[AppContext] Broadcasting current state:', {
@@ -670,11 +663,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 }
             };
 
-            // Broadcast at multiple intervals to ensure connection
             setTimeout(broadcastCurrentState, 100);
-            setTimeout(broadcastCurrentState, 500);
             setTimeout(broadcastCurrentState, 1000);
-            setTimeout(broadcastCurrentState, 2000);
 
             return () => {
                 console.log(`[AppContext] Cleaning up dual broadcast channels`);
@@ -687,12 +677,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         }
     }, [
         currentDbSession?.id,
-        gameController.currentSlideData?.id,
-        gameController.currentPhaseNode?.id,
-        gameController.isPlayingVideo,
-        gameController.videoCurrentTime,
+        gameController, // This is stable
         currentDbSession?.updated_at,
-        gameController,
     ]);
 
 

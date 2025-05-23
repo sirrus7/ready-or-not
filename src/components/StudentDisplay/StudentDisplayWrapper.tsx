@@ -106,6 +106,13 @@ const StudentDisplayWrapper: React.FC = () => {
         const realtimeChannelName = `teacher-updates-${sessionId}`;
         console.log(`[StudentDisplayWrapper] Setting up Supabase channel: ${realtimeChannelName}`);
 
+        // Clean up existing channel first
+        if (supabaseChannelRef.current) {
+            console.log(`[StudentDisplayWrapper] Cleaning up existing Supabase channel`);
+            supabase.removeChannel(supabaseChannelRef.current);
+            supabaseChannelRef.current = null;
+        }
+
         supabaseChannelRef.current = supabase.channel(realtimeChannelName);
 
         supabaseChannelRef.current.on('broadcast', { event: 'teacher_state_update' }, (payload: any) => {
@@ -121,15 +128,37 @@ const StudentDisplayWrapper: React.FC = () => {
                 setIsConnected(true);
                 setConnectionType('supabase');
             } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-                console.log(`[StudentDisplayWrapper] Supabase connection lost`);
+                console.log(`[StudentDisplayWrapper] Supabase connection lost, attempting reconnect in 3 seconds`);
                 if (connectionType === 'supabase') {
                     setIsConnected(false);
+
+                    // Attempt to reconnect after a delay
+                    setTimeout(() => {
+                        console.log(`[StudentDisplayWrapper] Attempting Supabase reconnection`);
+                        setupSupabaseChannel();
+                    }, 3000);
                 }
             }
         });
 
         console.log(`[StudentDisplayWrapper] Supabase channel setup complete`);
     };
+
+    useEffect(() => {
+        if (!isConnected && sessionId) {
+            const reconnectInterval = setInterval(() => {
+                console.log(`[StudentDisplayWrapper] Connection lost, attempting to reconnect...`);
+
+                // Try to reconnect both channels
+                setupBroadcastChannel();
+                setupSupabaseChannel();
+            }, 10000); // Reconnect every 10 seconds
+
+            return () => {
+                clearInterval(reconnectInterval);
+            };
+        }
+    }, [isConnected, sessionId, setupBroadcastChannel, setupSupabaseChannel]);
 
     useEffect(() => {
         if (!sessionId) {
