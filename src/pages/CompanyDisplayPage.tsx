@@ -40,18 +40,19 @@ const CompanyDisplayPage: React.FC = () => {
     const currentTeamKpisRef = useRef<TeamRoundData | null>(null);
     const decisionPhaseTimerEndTimeRef = useRef<number | undefined>(undefined);
 
-    // Check if we're on mobile
+    // Check if we're on mobile/tablet
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isTablet = /iPad|Android.*(?:(?!Mobile)|(?=.*Tablet))|KFAPWI/i.test(navigator.userAgent);
 
     // Set initial viewport for mobile
     useEffect(() => {
-        if (isMobile) {
+        if (isMobile || isTablet) {
             const viewport = document.querySelector('meta[name=viewport]');
             if (viewport) {
-                viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+                viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
             }
         }
-    }, [isMobile]);
+    }, [isMobile, isTablet]);
 
     useEffect(() => {
         submissionStatusRef.current = submissionStatus;
@@ -472,9 +473,11 @@ const CompanyDisplayPage: React.FC = () => {
         : 0;
 
     return (
-        <div className={`min-h-screen flex flex-col bg-gray-900 text-white ${isMobile ? 'touch-manipulation' : ''}`}>
+        <div className={`min-h-screen bg-gray-900 text-white flex flex-col ${isMobile || isTablet ? 'touch-manipulation' : ''}`}
+             style={{ minHeight: '100vh', minHeight: '100dvh' }}>
+
             {/* KPI Display - Fixed header */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 sticky top-0 z-10">
                 <KpiDisplay
                     teamName={loggedInTeamName}
                     currentRoundLabel={kpiRoundLabel}
@@ -482,76 +485,89 @@ const CompanyDisplayPage: React.FC = () => {
                 />
             </div>
 
-            {/* Main Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto">
-                <div className="p-3 md:p-4 pb-safe">
-                    {isLoadingData || !currentActivePhase ? (
-                        <div className="text-center text-gray-400 py-12">
-                            <Hourglass size={40} className="mx-auto mb-4 animate-pulse"/>
-                            <p className="text-lg">
-                                {isLoadingData && currentActivePhase ? `Loading data for ${currentActivePhase.label}...` :
-                                    !currentActivePhase ? "Waiting for game to start..." :
-                                        "Loading..."}
-                            </p>
-                        </div>
-                    ) : isStudentDecisionTimeRef.current && currentActivePhase && submissionStatusRef.current !== 'success' ? (
-                        <DecisionPanel
-                            sessionId={sessionId}
-                            teamId={loggedInTeamId}
-                            currentPhase={currentActivePhase}
-                            investmentOptions={investmentOptionsForCurrentPhase}
-                            investUpToBudget={budgetForInvestPhase}
-                            challengeOptions={challengeOptionsForCurrentPhase}
-                            availableRd3Investments={rd3InvestmentsForDoubleDown}
-                            onDecisionSubmit={handleDecisionSubmit}
-                            isDecisionTime={isStudentDecisionTimeRef.current}
-                            timeRemainingSeconds={timeRemainingSeconds}
-                        />
-                    ) : (
-                        <div className="max-w-xl mx-auto">
-                            {currentActiveSlide ? (
-                                <div className="text-center p-6 bg-gray-800 rounded-xl shadow-lg">
-                                    <h3 className="text-xl font-semibold text-sky-400 mb-3">
-                                        {currentActiveSlide.title || currentActivePhase?.label || "Current Activity"}
-                                    </h3>
-                                    {currentActiveSlide.main_text && (
-                                        <p className="text-lg text-gray-200 mb-2">{currentActiveSlide.main_text}</p>
-                                    )}
-                                    {currentActiveSlide.sub_text && (
-                                        <p className="text-sm text-gray-300 mb-4">{currentActiveSlide.sub_text}</p>
-                                    )}
-
-                                    {submissionStatusRef.current === 'success' && (
-                                        <div className="mt-6 p-4 bg-green-900/50 rounded-lg border border-green-700">
-                                            <p className="text-green-400 flex items-center justify-center">
-                                                <CheckCircle size={20} className="mr-2"/>
-                                                Decisions submitted for {currentActivePhase?.label || "previous phase"}.
-                                                Waiting for facilitator.
-                                            </p>
-                                        </div>
-                                    )}
-                                    {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current) && (
-                                        <div className="mt-6 p-4 bg-yellow-900/50 rounded-lg border border-yellow-700">
-                                            <p className="text-yellow-400 flex items-center justify-center">
-                                                <Hourglass size={20} className="mr-2 animate-pulse"/>
-                                                Waiting for facilitator...
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="text-center text-gray-400 py-12">
+            {/* Main Content - Single scroll container */}
+            <div className="flex-1 min-h-0">
+                <div className="h-full overflow-y-auto">
+                    <div className="p-3 md:p-4 min-h-full flex flex-col">
+                        {isLoadingData || !currentActivePhase ? (
+                            <div className="flex-1 flex items-center justify-center text-center text-gray-400 py-12">
+                                <div>
                                     <Hourglass size={40} className="mx-auto mb-4 animate-pulse"/>
                                     <p className="text-lg">
-                                        {submissionStatusRef.current === 'success' && submissionMessage ?
-                                            submissionMessage :
-                                            `Waiting for facilitator to start ${currentActivePhase?.label || "next phase"}...`
-                                        }
+                                        {isLoadingData && currentActivePhase ? `Loading data for ${currentActivePhase.label}...` :
+                                            !currentActivePhase ? "Waiting for game to start..." :
+                                                "Loading..."}
                                     </p>
                                 </div>
-                            )}
-                        </div>
-                    )}
+                            </div>
+                        ) : isStudentDecisionTimeRef.current && currentActivePhase && submissionStatusRef.current !== 'success' ? (
+                            <div className="flex-1">
+                                <DecisionPanel
+                                    sessionId={sessionId}
+                                    teamId={loggedInTeamId}
+                                    currentPhase={currentActivePhase}
+                                    investmentOptions={investmentOptionsForCurrentPhase}
+                                    investUpToBudget={budgetForInvestPhase}
+                                    challengeOptions={challengeOptionsForCurrentPhase}
+                                    availableRd3Investments={rd3InvestmentsForDoubleDown}
+                                    onDecisionSubmit={handleDecisionSubmit}
+                                    isDecisionTime={isStudentDecisionTimeRef.current}
+                                    timeRemainingSeconds={timeRemainingSeconds}
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center">
+                                <div className="max-w-xl w-full">
+                                    {currentActiveSlide ? (
+                                        <div className="text-center p-6 bg-gray-800 rounded-xl shadow-lg">
+                                            <h3 className="text-xl font-semibold text-sky-400 mb-3">
+                                                {currentActiveSlide.title || currentActivePhase?.label || "Current Activity"}
+                                            </h3>
+                                            {currentActiveSlide.main_text && (
+                                                <p className="text-lg text-gray-200 mb-2">{currentActiveSlide.main_text}</p>
+                                            )}
+                                            {currentActiveSlide.sub_text && (
+                                                <p className="text-sm text-gray-300 mb-4">{currentActiveSlide.sub_text}</p>
+                                            )}
+
+                                            {submissionStatusRef.current === 'success' && (
+                                                <div className="mt-6 p-4 bg-green-900/50 rounded-lg border border-green-700">
+                                                    <p className="text-green-400 flex items-center justify-center">
+                                                        <CheckCircle size={20} className="mr-2"/>
+                                                        Decisions submitted for {currentActivePhase?.label || "previous phase"}.
+                                                        Waiting for facilitator.
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current) && (
+                                                <div className="mt-6 p-4 bg-yellow-900/50 rounded-lg border border-yellow-700">
+                                                    <p className="text-yellow-400 flex items-center justify-center">
+                                                        <Hourglass size={20} className="mr-2 animate-pulse"/>
+                                                        Waiting for facilitator...
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center text-gray-400 py-12">
+                                            <Hourglass size={40} className="mx-auto mb-4 animate-pulse"/>
+                                            <p className="text-lg">
+                                                {submissionStatusRef.current === 'success' && submissionMessage ?
+                                                    submissionMessage :
+                                                    `Waiting for facilitator to start ${currentActivePhase?.label || "next phase"}...`
+                                                }
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Safe area padding for mobile */}
+                        {(isMobile || isTablet) && (
+                            <div className="h-4 flex-shrink-0" style={{ height: 'env(safe-area-inset-bottom, 1rem)' }}></div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -593,9 +609,6 @@ const CompanyDisplayPage: React.FC = () => {
                     </div>
                 </Modal>
             )}
-
-            {/* Mobile safe area bottom padding */}
-            {isMobile && <div className="h-safe-area-inset-bottom bg-gray-900"></div>}
         </div>
     );
 };
