@@ -1,4 +1,4 @@
-// src/App.tsx - Fixed version with AppProvider for StudentDisplayPage
+// src/App.tsx - Fixed version with proper StudentDisplay routing
 import React from 'react';
 import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from './context/AuthContext';
@@ -18,6 +18,21 @@ const SessionAwareAppProvider: React.FC<{ children: React.ReactNode }> = ({child
     return <AppProvider passedSessionId={sessionId}>{children}</AppProvider>;
 };
 
+// Special wrapper for StudentDisplayPage that handles auth gracefully
+const StudentDisplayWrapper: React.FC = () => {
+    const {sessionId} = useParams<{ sessionId: string | undefined }>();
+
+    return (
+        <AuthProvider>
+            <ErrorBoundary>
+                <AppProvider passedSessionId={sessionId}>
+                    <StudentDisplayPage />
+                </AppProvider>
+            </ErrorBoundary>
+        </AuthProvider>
+    );
+};
+
 function App() {
     return (
         <ErrorBoundary>
@@ -29,6 +44,9 @@ function App() {
                             <CompanyDisplayPage/>
                         </ErrorBoundary>
                     }/>
+
+                    {/* Student Display - Special handling for same-browser different tab */}
+                    <Route path="/student-display/:sessionId" element={<StudentDisplayWrapper />} />
 
                     {/* All other routes wrapped in AuthProvider */}
                     <Route path="/*" element={
@@ -67,15 +85,6 @@ function App() {
                                         <ErrorBoundary>
                                             <SessionAwareAppProvider>
                                                 <GameHostPage/>
-                                            </SessionAwareAppProvider>
-                                        </ErrorBoundary>
-                                    </PrivateRoute>
-                                }/>
-                                <Route path="/student-display/:sessionId" element={
-                                    <PrivateRoute>
-                                        <ErrorBoundary>
-                                            <SessionAwareAppProvider>
-                                                <StudentDisplayPage/>
                                             </SessionAwareAppProvider>
                                         </ErrorBoundary>
                                     </PrivateRoute>
