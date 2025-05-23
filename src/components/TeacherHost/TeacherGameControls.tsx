@@ -1,10 +1,7 @@
-// src/components/TeacherHost/TeacherGameControls.tsx
 import React, {useState} from 'react';
 import {
     ChevronLeft,
     ChevronRight,
-    Play,
-    Pause,
     Users,
     QrCode,
     Trophy,
@@ -12,7 +9,7 @@ import {
     ExternalLink,
     Lightbulb,
     LogOut,
-    X // Added X icon for close button
+    X // For modal close button
 } from 'lucide-react';
 import {useAppContext} from '../../context/AppContext';
 import Modal from '../UI/Modal';
@@ -24,7 +21,6 @@ const TeacherGameControls: React.FC = () => {
         state,
         previousSlide,
         nextSlide,
-        togglePlayPauseVideo,
         updateTeacherNotesForCurrentSlide,
         currentSlideData,
         currentPhaseNode,
@@ -99,8 +95,6 @@ const TeacherGameControls: React.FC = () => {
     const studentAppBaseUrl = `${window.location.origin}/student-game`;
 
     const isFirstSlideOverall = currentPhaseNode?.id === state.gameStructure?.welcome_phases[0]?.id && state.currentSlideIdInPhase === 0;
-
-    const lastMainGamePhase = state.gameStructure?.rounds.flatMap(r => r.phases).slice(-1)[0] || state.gameStructure?.welcome_phases.slice(-1)[0];
     const gameEndPhaseIds = state.gameStructure?.game_end_phases.map(p => p.id) || [];
 
     let isLastSlideOverall = false;
@@ -113,46 +107,27 @@ const TeacherGameControls: React.FC = () => {
         }
     }
 
-    // Check if the current alert is our custom one
-    const isCustomAlert = state.currentTeacherAlert?.message === "Time's Up. When you're ready, click Next to proceed.";
-
     return (
         <div className="bg-white p-3 md:p-4 rounded-lg shadow-md border border-gray-200">
-            {/* Top Row: Main Navigation & Launch Display */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-3">
                 <div className="flex items-center space-x-1 sm:space-x-2">
                     <button
                         onClick={previousSlide}
                         disabled={isFirstSlideOverall || !!state.currentTeacherAlert}
-                        className="p-2 rounded-full text-gray-600 hover:bg-gray-200 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        className="p-2.5 rounded-full text-gray-600 hover:bg-gray-200 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                         aria-label="Previous Slide"
                     >
                         <ChevronLeft size={24}/>
                     </button>
-
-                    <button
-                        onClick={togglePlayPauseVideo}
-                        disabled={(currentSlideData?.type !== 'video' && !(currentSlideData?.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))) || !!state.currentTeacherAlert}
-                        className={`p-3 rounded-lg text-white shadow transition-colors
-                        ${(currentSlideData?.type !== 'video' && !(currentSlideData?.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))) || !!state.currentTeacherAlert
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : state.isPlaying ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-500 hover:bg-green-600'
-                        }`}
-                        aria-label={state.isPlaying ? "Pause Video" : "Play Video"}
-                    >
-                        {state.isPlaying ? <Pause size={20}/> : <Play size={20}/>}
-                    </button>
-
                     <button
                         onClick={nextSlide}
                         disabled={isLastSlideOverall || !!state.currentTeacherAlert}
-                        className="p-2 rounded-full text-gray-600 hover:bg-gray-200 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        className="p-2.5 rounded-full text-gray-600 hover:bg-gray-200 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                         aria-label="Next Slide"
                     >
                         <ChevronRight size={24}/>
                     </button>
                 </div>
-
                 <button
                     onClick={handleOpenStudentDisplay}
                     className="flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 px-5 rounded-lg hover:bg-blue-700 transition-colors shadow-md text-sm font-medium w-full sm:w-auto"
@@ -162,7 +137,6 @@ const TeacherGameControls: React.FC = () => {
                 </button>
             </div>
 
-            {/* Second Row: Utility Controls */}
             <div
                 className="flex flex-wrap items-center justify-center sm:justify-start gap-2 border-t border-gray-200 pt-3">
                 <button
@@ -226,11 +200,13 @@ const TeacherGameControls: React.FC = () => {
             {state.currentTeacherAlert && (
                 <Modal
                     isOpen={!!state.currentTeacherAlert}
-                    onClose={isCustomAlert ? () => {
+                    onClose={() => {
+                        // Overlay click or Esc key ALWAYS just dismisses the alert.
                         setCurrentTeacherAlertState(null);
-                    } : clearTeacherAlert}
+                    }}
                     title={state.currentTeacherAlert.title || "Game Host Alert!"}
-                    hideCloseButton={!isCustomAlert}
+                    // The "X" in the modal header should always be available for dismissal.
+                    hideCloseButton={false}
                 >
                     <div className="p-1">
                         <div className="flex items-start">
@@ -241,31 +217,26 @@ const TeacherGameControls: React.FC = () => {
                             <div className="ml-3 text-left">
                                 <p className="text-sm text-gray-600 mt-1">{state.currentTeacherAlert.message}</p>
                             </div>
-                            {isCustomAlert && (
-                                <button
-                                    onClick={() => {
-                                        setCurrentTeacherAlertState(null);
-                                    }}
-                                    className="ml-auto -mt-1 -mr-1 p-1 rounded-full hover:bg-gray-100"
-                                    aria-label="Close alert"
-                                >
-                                    <X size={20} className="text-gray-500 hover:text-gray-700"/>
-                                </button>
-                            )}
                         </div>
                         <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
                             <button
                                 type="button"
                                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                onClick={isCustomAlert ? clearTeacherAlert : clearTeacherAlert}
+                                onClick={clearTeacherAlert}
                             >
-                                {isCustomAlert ? "Next" : "OK"}
+                                Next
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentTeacherAlertState(null)}
+                                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm sm:mr-3"
+                            >
+                                Close
                             </button>
                         </div>
                     </div>
                 </Modal>
             )}
-
             <Modal isOpen={isJoinInfoModalOpen} onClose={closeJoinInfoModal} title="Student Join Information" size="md">
                 <div className="p-2 text-center">
                     <p className="text-sm text-gray-600 mb-2">Students join at:</p>
@@ -291,7 +262,6 @@ const TeacherGameControls: React.FC = () => {
                     </button>
                 </div>
             </Modal>
-
             <Modal isOpen={isTeamCodesModalOpen} onClose={closeTeamCodesModal} title="Team Access Codes" size="sm">
                 <div className="p-2">
                     {state.teams.length > 0 ? (
@@ -316,7 +286,6 @@ const TeacherGameControls: React.FC = () => {
                     </div>
                 </div>
             </Modal>
-
             <Modal
                 isOpen={isExitConfirmModalOpen}
                 onClose={() => setIsExitConfirmModalOpen(false)}
@@ -351,5 +320,4 @@ const TeacherGameControls: React.FC = () => {
         </div>
     );
 };
-
 export default TeacherGameControls;
