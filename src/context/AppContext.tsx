@@ -478,7 +478,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
 
             console.log(`[AppContext] Setting up dual broadcast - BroadcastChannel: ${channelName}, Supabase: ${realtimeChannelName}`);
 
-            // Setup BroadcastChannel for StudentDisplayPage (same browser context)
+            // Setup BroadcastChannel for StudentDisplayWrapper (same browser context)
             if (broadcastChannel && broadcastChannel.name !== channelName) {
                 broadcastChannel.close();
                 broadcastChannel = null;
@@ -489,8 +489,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 broadcastChannel.onmessage = (event) => {
                     console.log(`[AppContext] Received BroadcastChannel message:`, event.data);
 
-                    if (event.data.type === 'STUDENT_DISPLAY_READY') {
-                        console.log('[AppContext] Student display connected, broadcasting current state');
+                    if (event.data.type === 'STUDENT_DISPLAY_READY' || event.data.type === 'STUDENT_DISPLAY_REQUEST_STATE') {
+                        console.log('[AppContext] Student display requesting state, broadcasting immediately');
 
                         let currentVideoTime = gameController.videoCurrentTime;
                         const teacherVideoElements = document.querySelectorAll('video[src]');
@@ -501,58 +501,54 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                             }
                         }
 
-                        // Send initial state immediately
+                        // Create and send broadcast payload
+                        const payload = createBroadcastPayload(gameController, currentVideoTime, false);
+                        console.log('[AppContext] Broadcasting state to student display:', payload);
+
+                        // Send to BroadcastChannel
                         broadcastChannel?.postMessage({
                             type: 'TEACHER_STATE_UPDATE',
-                            payload: createBroadcastPayload(gameController, currentVideoTime, false)
+                            payload: payload
                         });
 
-                        // Send again after a short delay to ensure sync
-                        setTimeout(() => {
-                            broadcastChannel?.postMessage({
-                                type: 'TEACHER_STATE_UPDATE',
-                                payload: createBroadcastPayload(gameController, currentVideoTime, false)
+                        // Also send to Supabase for redundancy
+                        if (realtimeChannel) {
+                            realtimeChannel.send({
+                                type: 'broadcast',
+                                event: 'teacher_state_update',
+                                payload: payload
                             });
-                        }, 300);
-
-                    } else if (event.data.type === 'STUDENT_DISPLAY_REQUEST_STATE') {
-                        console.log('[AppContext] Student display requesting current state');
-
-                        // Send current state immediately
-                        let currentVideoTime = gameController.videoCurrentTime;
-                        const teacherVideoElements = document.querySelectorAll('video[src]');
-                        if (teacherVideoElements.length > 0) {
-                            const latestVideo = teacherVideoElements[teacherVideoElements.length - 1] as HTMLVideoElement;
-                            if (!latestVideo.paused || latestVideo.currentTime > 0) {
-                                currentVideoTime = latestVideo.currentTime;
-                            }
                         }
-
-                        broadcastChannel?.postMessage({
-                            type: 'TEACHER_STATE_UPDATE',
-                            payload: createBroadcastPayload(gameController, currentVideoTime, false)
-                        });
 
                     } else if (event.data.type === 'STUDENT_DISPLAY_CLOSING') {
                         console.log('[AppContext] Student display disconnecting');
-                        // Optional: Update UI to show student display is no longer active
                     }
                 };
             }
 
-            // Setup Supabase real-time for CompanyDisplayPage (different devices)
+            // Setup Supabase real-time for CompanyDisplayPage (different devices/origins)
             const realtimeChannel = supabase.channel(realtimeChannelName);
 
             realtimeChannel.subscribe((status) => {
+                console.log(`[AppContext] Supabase subscription status: ${status}`);
                 if (status === 'SUBSCRIBED') {
                     console.log(`[AppContext] Subscribed to Supabase real-time: ${realtimeChannelName}`);
 
                     // Broadcast current state when successfully subscribed
                     if (gameController.currentSlideData && gameController.currentPhaseNode) {
                         setTimeout(() => {
-                            broadcastToAllChannels(gameController, gameController.videoCurrentTime, false);
+                            const payload = createBroadcastPayload(gameController, gameController.videoCurrentTime, false);
+                            console.log('[AppContext] Broadcasting initial state via Supabase:', payload);
+
+                            realtimeChannel.send({
+                                type: 'broadcast',
+                                event: 'teacher_state_update',
+                                payload: payload
+                            });
                         }, 500);
                     }
+                } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                    console.log(`[AppContext] Supabase connection lost: ${status}`);
                 }
             });
 
@@ -561,6 +557,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 let isStudentDecisionActive = false;
                 let decisionPhaseTimerEndTime: number | undefined = undefined;
                 let decisionOptionsKey: string | undefined = undefined;
+
+                console.log(`[AppContext] Creating broadcast payload:`, {
+                    slideId: controller.currentSlideData?.id,
+                    phaseId: controller.currentPhaseNode?.id,
+                    phaseType: controller.currentPhaseNode?.phase_type,
+                    isInteractive: controller.currentPhaseNode?.is_interactive_student_phase,
+                    slideType: controller.currentSlideData?.type,
+                    hasTeacherAlert: !!controller.currentTeacherAlert
+                });
 
                 if (controller.currentPhaseNode?.is_interactive_student_phase && controller.currentSlideData) {
                     const isInteractiveSlideType = controller.currentSlideData.type === 'interactive_invest' ||
@@ -606,15 +611,27 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             const broadcastToAllChannels = (controller: any, videoTime: number, triggerSeek: boolean) => {
                 const payload = createBroadcastPayload(controller, videoTime, triggerSeek);
 
-                // Send to BroadcastChannel (StudentDisplayPage)
-                broadcastChannel?.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
-
-                // Send to Supabase real-time (CompanyDisplayPage)
-                realtimeChannel.send({
-                    type: 'broadcast',
-                    event: 'teacher_state_update',
-                    payload: payload
+                console.log('[AppContext] Broadcasting to all channels:', {
+                    payload,
+                    hasBroadcastChannel: !!broadcastChannel,
+                    hasRealtimeChannel: !!realtimeChannel
                 });
+
+                // Send to BroadcastChannel (StudentDisplayWrapper)
+                if (broadcastChannel) {
+                    broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
+                    console.log('[AppContext] Sent to BroadcastChannel');
+                }
+
+                // Send to Supabase real-time (CompanyDisplayPage and backup for StudentDisplay)
+                if (realtimeChannel) {
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'teacher_state_update',
+                        payload: payload
+                    });
+                    console.log('[AppContext] Sent to Supabase real-time');
+                }
             };
 
             // Update the broadcastStateImmediately function to use both channels
@@ -626,18 +643,38 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 currentPhaseNode: GamePhaseNode | null;
                 currentTeacherAlert?: { title: string; message: string } | null;
             }) => {
+                console.log('[AppContext] Broadcasting state change:', {
+                    slideId: state.currentSlideData?.id,
+                    phaseId: state.currentPhaseNode?.id,
+                    isPlaying: state.isPlayingVideo,
+                    videoTime: state.videoCurrentTime,
+                    triggerSeek: state.triggerVideoSeek
+                });
                 broadcastToAllChannels(gameController, state.videoCurrentTime, state.triggerVideoSeek);
             };
 
-            // Broadcast current state immediately when channel is set up
+            // Initial broadcast after setup
             const broadcastCurrentState = () => {
                 if (gameController.currentSlideData && gameController.currentPhaseNode) {
+                    console.log('[AppContext] Broadcasting current state:', {
+                        slideId: gameController.currentSlideData.id,
+                        slideTitle: gameController.currentSlideData.title,
+                        phaseId: gameController.currentPhaseNode.id
+                    });
                     broadcastToAllChannels(gameController, gameController.videoCurrentTime, false);
+                } else {
+                    console.log('[AppContext] Cannot broadcast - missing slide or phase data:', {
+                        hasSlide: !!gameController.currentSlideData,
+                        hasPhase: !!gameController.currentPhaseNode
+                    });
                 }
             };
 
+            // Broadcast at multiple intervals to ensure connection
             setTimeout(broadcastCurrentState, 100);
             setTimeout(broadcastCurrentState, 500);
+            setTimeout(broadcastCurrentState, 1000);
+            setTimeout(broadcastCurrentState, 2000);
 
             return () => {
                 console.log(`[AppContext] Cleaning up dual broadcast channels`);
