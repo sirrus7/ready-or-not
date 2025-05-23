@@ -187,6 +187,32 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         broadcastStateImmediately // Pass the broadcast callback
     );
 
+    useEffect(() => {
+        // Trigger broadcast whenever key game state changes
+        console.log(`[AppContext] Game state changed - triggering broadcast`);
+        console.log(`[AppContext] Current state: Phase=${gameController.currentPhaseNode?.id}, Slide=${gameController.currentSlideData?.id}, SlideType=${gameController.currentSlideData?.type}`);
+
+        if (gameController.currentSlideData && gameController.currentPhaseNode) {
+            const broadcastState = {
+                isPlayingVideo: gameController.isPlayingVideo,
+                videoCurrentTime: gameController.videoCurrentTime,
+                triggerVideoSeek: gameController.triggerVideoSeek,
+                currentSlideData: gameController.currentSlideData,
+                currentPhaseNode: gameController.currentPhaseNode
+            };
+
+            console.log(`[AppContext] Broadcasting state change:`, broadcastState);
+            broadcastStateImmediately(broadcastState);
+        }
+    }, [
+        gameController.currentSlideData?.id,
+        gameController.currentPhaseNode?.id,
+        gameController.isPlayingVideo,
+        gameController.videoCurrentTime,
+        gameController.triggerVideoSeek,
+        broadcastStateImmediately
+    ]);
+
     const updateVideoDuration = useCallback((duration: number) => {
         currentVideoDurationRef.current = duration;
         console.log(`[AppContext] Updated video duration ref: ${duration}`);
@@ -583,16 +609,23 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 };
             }
 
-            // Broadcast current state immediately when channel is set up
-            setTimeout(() => {
-                broadcastStateImmediately({
-                    isPlayingVideo: gameController.isPlayingVideo,
-                    videoCurrentTime: gameController.videoCurrentTime,
-                    triggerVideoSeek: false,
-                    currentSlideData: gameController.currentSlideData,
-                    currentPhaseNode: gameController.currentPhaseNode
-                });
-            }, 100);
+            // Broadcast current state immediately when channel is set up AND when dependencies change
+            const broadcastCurrentState = () => {
+                if (gameController.currentSlideData && gameController.currentPhaseNode) {
+                    console.log(`[AppContext] Broadcasting current state on channel setup/change`);
+                    broadcastStateImmediately({
+                        isPlayingVideo: gameController.isPlayingVideo,
+                        videoCurrentTime: gameController.videoCurrentTime,
+                        triggerVideoSeek: false,
+                        currentSlideData: gameController.currentSlideData,
+                        currentPhaseNode: gameController.currentPhaseNode
+                    });
+                }
+            };
+
+            // Broadcast immediately and after a short delay to ensure channel is ready
+            setTimeout(broadcastCurrentState, 100);
+            setTimeout(broadcastCurrentState, 500);
 
             return () => {
                 if (broadcastChannel) {
@@ -602,7 +635,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 }
             };
         }
-    }, [currentDbSession?.id, broadcastStateImmediately]);
+    }, [
+        currentDbSession?.id,
+        broadcastStateImmediately,
+        gameController.currentSlideData?.id,
+        gameController.currentPhaseNode?.id,
+        gameController.isPlayingVideo,
+        gameController.videoCurrentTime
+    ]);
 
 
     const fetchWrapperTeams = useCallback(() => {
