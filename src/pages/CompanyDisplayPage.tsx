@@ -15,7 +15,6 @@ import {
 import {addConnectionListener, createMonitoredChannel, supabase} from '../lib/supabase';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {AlertTriangle, CheckCircle, Hourglass, Smartphone} from 'lucide-react';
-import Modal from '../components/UI/Modal';
 
 const CompanyDisplayPage: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
@@ -296,7 +295,7 @@ const CompanyDisplayPage: React.FC = () => {
         };
     }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId, pageError]);
 
-    // Rest of the component remains the same...
+    // Timer effect
     useEffect(() => {
         let timerInterval: NodeJS.Timeout | undefined;
         if (isStudentDecisionTimeRef.current && decisionPhaseTimerEndTime && decisionPhaseTimerEndTime > Date.now()) {
@@ -319,6 +318,7 @@ const CompanyDisplayPage: React.FC = () => {
         };
     }, [isStudentDecisionTime, decisionPhaseTimerEndTime]);
 
+    // Auto-submit on timer end
     useEffect(() => {
         if (isStudentDecisionTimeRef.current && timeRemainingSeconds === 0 &&
             currentActivePhase?.phase_type === 'choice' &&
@@ -335,7 +335,6 @@ const CompanyDisplayPage: React.FC = () => {
                 setSubmissionStatus('submitting');
                 submissionStatusRef.current = 'submitting';
                 setSubmissionMessage('Time is up! Submitting the default choice...');
-                setIsSubmissionFeedbackModalOpen(true);
 
                 const decisionData = {
                     session_id: sessionId,
@@ -354,7 +353,7 @@ const CompanyDisplayPage: React.FC = () => {
                         setSubmissionMessage(`Time's up! Default choice "${defaultOption.text.substring(0,20)}..." submitted.`);
                         setIsStudentDecisionTime(false);
                         setTimeRemainingSeconds(undefined);
-                        setTimeout(() => setIsSubmissionFeedbackModalOpen(false), 3000);
+                        setTimeout(() => setSubmissionMessage(null), 5000);
                     })
                     .catch(err => {
                         console.error("[CompanyDisplayPage] Auto-submit error:", err);
@@ -380,7 +379,6 @@ const CompanyDisplayPage: React.FC = () => {
         setIsLoadingData(true);
     };
 
-    // handleDecisionSubmit and other methods remain exactly the same...
     const handleDecisionSubmit = async (decisionDataPayload: any) => {
         console.log('[CompanyDisplayPage] === DECISION SUBMIT START ===');
         console.log('[CompanyDisplayPage] sessionId:', sessionId);
@@ -404,7 +402,6 @@ const CompanyDisplayPage: React.FC = () => {
         setSubmissionStatus('submitting');
         submissionStatusRef.current = 'submitting';
         setSubmissionMessage(`Submitting decisions for ${currentActivePhase.label}...`);
-        setIsSubmissionFeedbackModalOpen(true);
 
         const submissionPayload = {
             ...decisionDataPayload,
@@ -453,9 +450,10 @@ const CompanyDisplayPage: React.FC = () => {
             setTimeRemainingSeconds(undefined);
             setDecisionPhaseTimerEndTime(undefined);
 
+            // Show success feedback without modal - integrate into main UI
             setTimeout(() => {
-                setIsSubmissionFeedbackModalOpen(false);
-            }, 3000);
+                setSubmissionMessage(null);
+            }, 5000); // Give more time to see success message
 
         } catch (err) {
             console.error('[CompanyDisplayPage] === SUBMISSION FAILED ===');
@@ -475,7 +473,7 @@ const CompanyDisplayPage: React.FC = () => {
         }
     };
 
-    // Rest of component logic remains exactly the same...
+    // Computed values for current phase
     const investmentOptionsForCurrentPhase = useMemo((): InvestmentOption[] => {
         if (currentActivePhase?.phase_type === 'invest' && decisionOptionsKey && gameStructure) {
             const options = gameStructure.all_investment_options[decisionOptionsKey] || [];
@@ -584,6 +582,39 @@ const CompanyDisplayPage: React.FC = () => {
                         ) : (
                             <div className="flex-1 flex items-center justify-center">
                                 <div className="max-w-xl w-full">
+                                    {/* Show submission status prominently when available */}
+                                    {submissionMessage && (
+                                        <div className={`mb-6 p-4 rounded-xl border-2 shadow-lg text-center ${
+                                            submissionStatus === 'submitting' ? 'bg-blue-900/50 border-blue-600 text-blue-200' :
+                                                submissionStatus === 'success' ? 'bg-green-900/50 border-green-600 text-green-200' :
+                                                    submissionStatus === 'error' ? 'bg-red-900/50 border-red-600 text-red-200' :
+                                                        'bg-gray-800 border-gray-600 text-gray-200'
+                                        }`}>
+                                            <div className="flex items-center justify-center mb-2">
+                                                {submissionStatus === 'submitting' && <Hourglass size={24} className="mr-2 animate-pulse" />}
+                                                {submissionStatus === 'success' && <CheckCircle size={24} className="mr-2" />}
+                                                {submissionStatus === 'error' && <AlertTriangle size={24} className="mr-2" />}
+                                                <span className="text-lg font-semibold">
+                                                    {submissionStatus === 'submitting' ? 'Submitting...' :
+                                                        submissionStatus === 'success' ? 'Success!' :
+                                                            submissionStatus === 'error' ? 'Error' : 'Status Update'}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm">{submissionMessage}</p>
+                                            {submissionStatus === 'error' && (
+                                                <button
+                                                    onClick={() => {
+                                                        setSubmissionMessage(null);
+                                                        setSubmissionStatus('idle');
+                                                    }}
+                                                    className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+                                                >
+                                                    Dismiss
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {currentActiveSlide ? (
                                         <div className="text-center p-6 bg-gray-800 rounded-xl shadow-lg">
                                             <h3 className="text-xl font-semibold text-sky-400 mb-3">
@@ -596,7 +627,7 @@ const CompanyDisplayPage: React.FC = () => {
                                                 <p className="text-sm text-gray-300 mb-4">{currentActiveSlide.sub_text}</p>
                                             )}
 
-                                            {submissionStatusRef.current === 'success' && (
+                                            {submissionStatusRef.current === 'success' && !submissionMessage && (
                                                 <div className="mt-6 p-4 bg-green-900/50 rounded-lg border border-green-700">
                                                     <p className="text-green-400 flex items-center justify-center">
                                                         <CheckCircle size={20} className="mr-2"/>
@@ -605,7 +636,7 @@ const CompanyDisplayPage: React.FC = () => {
                                                     </p>
                                                 </div>
                                             )}
-                                            {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current) && (
+                                            {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current && !submissionMessage) && (
                                                 <div className="mt-6 p-4 bg-yellow-900/50 rounded-lg border border-yellow-700">
                                                     <p className="text-yellow-400 flex items-center justify-center">
                                                         <Hourglass size={20} className="mr-2 animate-pulse"/>
@@ -618,8 +649,8 @@ const CompanyDisplayPage: React.FC = () => {
                                         <div className="text-center text-gray-400 py-12">
                                             <Hourglass size={40} className="mx-auto mb-4 animate-pulse"/>
                                             <p className="text-lg">
-                                                {submissionStatusRef.current === 'success' && submissionMessage ?
-                                                    submissionMessage :
+                                                {submissionStatusRef.current === 'success' && !submissionMessage ?
+                                                    "Decisions submitted. Waiting for facilitator..." :
                                                     `Waiting for facilitator to start ${currentActivePhase?.label || "next phase"}...`
                                                 }
                                             </p>
@@ -637,43 +668,40 @@ const CompanyDisplayPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Submission Feedback Modal */}
-            {isSubmissionFeedbackModalOpen && (
-                <Modal
-                    isOpen={isSubmissionFeedbackModalOpen}
-                    onClose={() => {
-                        setIsSubmissionFeedbackModalOpen(false);
-                        if(submissionStatus === 'error') setSubmissionMessage(null);
-                    }}
-                    title={
-                        submissionStatus === 'submitting' ? "Processing Submission..." :
-                            submissionStatus === 'success' ? "Submission Confirmed!" :
-                                submissionStatus === 'error' ? "Submission Problem" :
-                                    "Decision Status"
-                    }
-                    size="sm"
-                >
-                    <div className="p-2 text-center">
-                        {submissionStatus === 'submitting' && <Hourglass size={32} className="mx-auto mb-3 text-blue-500 animate-pulse" />}
-                        {submissionStatus === 'success' && <CheckCircle size={32} className="mx-auto mb-3 text-green-500" />}
-                        {submissionStatus === 'error' && <AlertTriangle size={32} className="mx-auto mb-3 text-red-500" />}
-                        <p className={`text-sm ${submissionStatus === 'error' ? 'text-red-700' : 'text-gray-700'}`}>
-                            {submissionMessage || "Updating..."}
+            {/* Submission Feedback Modal - Only for critical errors or submission in progress */}
+            {isSubmissionFeedbackModalOpen && submissionStatus === 'submitting' && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
+                        <Hourglass size={32} className="mx-auto mb-3 text-blue-500 animate-pulse" />
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Processing Submission...</h3>
+                        <p className="text-sm text-gray-600">
+                            {submissionMessage || "Submitting your decisions..."}
                         </p>
-
-                        {(submissionStatus === 'success' || submissionStatus === 'error') && (
-                            <button
-                                onClick={() => {
-                                    setIsSubmissionFeedbackModalOpen(false);
-                                    if(submissionStatus === 'error') setSubmissionMessage(null);
-                                }}
-                                className="mt-5 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                            >
-                                OK
-                            </button>
-                        )}
                     </div>
-                </Modal>
+                </div>
+            )}
+
+            {/* Critical Error Modal */}
+            {isSubmissionFeedbackModalOpen && submissionStatus === 'error' && submissionMessage?.includes('Cannot submit') && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
+                        <AlertTriangle size={32} className="mx-auto mb-3 text-red-500" />
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Submission Error</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            {submissionMessage}
+                        </p>
+                        <button
+                            onClick={() => {
+                                setIsSubmissionFeedbackModalOpen(false);
+                                setSubmissionMessage(null);
+                                setSubmissionStatus('idle');
+                            }}
+                            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );
