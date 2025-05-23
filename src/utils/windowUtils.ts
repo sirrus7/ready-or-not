@@ -6,7 +6,11 @@ export const openStudentDisplay = (sessionId: string | null) => {
         return null;
     }
 
+    // Fix: Use the correct route format that matches your App.tsx routing
     const studentDisplayUrl = `/student-display/${sessionId}`;
+
+    console.log(`[windowUtils] Opening student display with URL: ${studentDisplayUrl}`);
+    console.log(`[windowUtils] Session ID: ${sessionId}`);
 
     // Try to open in a new tab first (no features = new tab in most browsers)
     const studentWindow = window.open(studentDisplayUrl, `StudentDisplay_${sessionId}`);
