@@ -24,13 +24,14 @@ export interface GameControllerOutput {
     reportVideoDuration: (duration: number) => void;
     handlePreviewVideoEnded: () => Promise<void>;
     setCurrentTeacherAlertState: (alert: { title: string; message: string } | null) => void;
-    // Add callback for immediate broadcast sync
+    // Update callback interface to include teacher alert
     onStateChange?: (state: {
         isPlayingVideo: boolean;
         videoCurrentTime: number;
         triggerVideoSeek: boolean;
         currentSlideData: Slide | null;
         currentPhaseNode: GamePhaseNode | null;
+        currentTeacherAlert?: { title: string; message: string } | null;
     }) => void;
 }
 
@@ -92,10 +93,11 @@ export const useGameController = (
                 videoCurrentTime: videoCurrentTimeState,
                 triggerVideoSeek: triggerVideoSeekState,
                 currentSlideData,
-                currentPhaseNode
+                currentPhaseNode,
+                currentTeacherAlert: currentTeacherAlertState // Add this line
             });
         }
-    }, [onStateChange, isPlayingVideoState, videoCurrentTimeState, triggerVideoSeekState, currentSlideData, currentPhaseNode]);
+    }, [onStateChange, isPlayingVideoState, videoCurrentTimeState, triggerVideoSeekState, currentSlideData, currentPhaseNode, currentTeacherAlertState]);
 
     useEffect(() => {
         if (dbSession) {
@@ -273,11 +275,12 @@ export const useGameController = (
                     videoCurrentTime: videoCurrentTimeState,
                     triggerVideoSeek: false,
                     currentSlideData,
-                    currentPhaseNode
+                    currentPhaseNode,
+                    currentTeacherAlert: currentTeacherAlertState // Add this line
                 });
             }, 100); // Small delay to ensure state is settled
         }
-    }, [currentSlideData?.id, currentPhaseNode?.id, onStateChange, currentSlideData, currentPhaseNode, isPlayingVideoState, videoCurrentTimeState]);
+    }, [currentSlideData?.id, currentPhaseNode?.id, onStateChange, currentSlideData, currentPhaseNode, isPlayingVideoState, videoCurrentTimeState, currentTeacherAlertState]);
 
     const nextSlide = useCallback(async () => {
         if (currentTeacherAlertState) {
@@ -372,7 +375,8 @@ export const useGameController = (
                     videoCurrentTime: timeFromPreview,
                     triggerVideoSeek: true,
                     currentSlideData,
-                    currentPhaseNode
+                    currentPhaseNode,
+                    currentTeacherAlert: currentTeacherAlertState // Add this line
                 });
             }
 
@@ -386,7 +390,8 @@ export const useGameController = (
                         videoCurrentTime: timeFromPreview,
                         triggerVideoSeek: false,
                         currentSlideData,
-                        currentPhaseNode
+                        currentPhaseNode,
+                        currentTeacherAlert: currentTeacherAlertState // Add this line
                     });
                 }
             });
@@ -401,7 +406,8 @@ export const useGameController = (
                     videoCurrentTime: timeFromPreview,
                     triggerVideoSeek: false,
                     currentSlideData,
-                    currentPhaseNode
+                    currentPhaseNode,
+                    currentTeacherAlert: currentTeacherAlertState // Add this line
                 });
             }
         }
@@ -409,7 +415,7 @@ export const useGameController = (
         if (dbSession.is_playing !== playingFromPreview) {
             await updateSessionInDb({ is_playing: playingFromPreview });
         }
-    }, [dbSession, updateSessionInDb, isPlayingVideoState, triggerVideoSeekState, onStateChange, currentSlideData, currentPhaseNode]);
+    }, [dbSession, updateSessionInDb, isPlayingVideoState, triggerVideoSeekState, onStateChange, currentSlideData, currentPhaseNode, currentTeacherAlertState]);
 
     const updateTeacherNotesForCurrentSlide = useCallback(async (notes: string) => {
         if (currentSlideData && dbSession) {

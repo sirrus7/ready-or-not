@@ -111,6 +111,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         triggerVideoSeek: boolean;
         currentSlideData: Slide | null;
         currentPhaseNode: GamePhaseNode | null;
+        currentTeacherAlert?: { title: string; message: string } | null; // Add this parameter
     }) => {
         if (currentDbSession?.id && currentDbSession.id !== 'new' && broadcastChannel) {
             let isStudentDecisionActive = false;
@@ -122,29 +123,37 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             if (state.currentPhaseNode?.is_interactive_student_phase && state.currentSlideData) {
                 console.log(`[AppContext] Phase is interactive: ${state.currentPhaseNode.id}, slide type: ${state.currentSlideData.type}`);
 
-                // Check if this is an interactive slide type
-                if (state.currentSlideData.type === 'interactive_invest' ||
+                // Check if this is an interactive slide type AND not blocked by teacher alert
+                const isInteractiveSlideType = state.currentSlideData.type === 'interactive_invest' ||
                     state.currentSlideData.type === 'interactive_choice' ||
                     state.currentSlideData.type === 'interactive_double_down_prompt' ||
-                    state.currentSlideData.type === 'interactive_double_down_select') {
+                    state.currentSlideData.type === 'interactive_double_down_select';
 
+                // Key fix: Check teacher alert from the passed state instead of gameController
+                const noTeacherAlertBlocking = !state.currentTeacherAlert;
+
+                if (isInteractiveSlideType && noTeacherAlertBlocking) {
                     isStudentDecisionActive = true;
                     decisionOptionsKey = state.currentSlideData.interactive_data_key || state.currentPhaseNode.id;
 
-                    console.log(`[AppContext] Setting decision active - Phase: ${state.currentPhaseNode.id}, OptionsKey: ${decisionOptionsKey}`);
+                    console.log(`[AppContext] ACTIVATING decision active - Phase: ${state.currentPhaseNode.id}, OptionsKey: ${decisionOptionsKey}, NoAlert: ${noTeacherAlertBlocking}`);
 
                     // Timer logic for investment phases
-                    if (state.currentSlideData.id === 7 && state.currentSlideData.type === 'interactive_invest' &&
-                        state.currentSlideData.source_url && currentVideoDurationRef.current && currentVideoDurationRef.current > 0) {
-                        const videoAlreadyPlayed = state.videoCurrentTime > 0 ? state.videoCurrentTime : 0;
-                        const remainingVideoDuration = Math.max(0, currentVideoDurationRef.current - videoAlreadyPlayed);
-                        decisionPhaseTimerEndTime = Date.now() + (remainingVideoDuration * 1000);
-                        console.log(`[AppContext] Setting video timer - Duration: ${currentVideoDurationRef.current}, Played: ${videoAlreadyPlayed}, Remaining: ${remainingVideoDuration}`);
+                    if (state.currentSlideData.type === 'interactive_invest' &&
+                        state.currentSlideData.source_url &&
+                        currentVideoDurationRef.current &&
+                        currentVideoDurationRef.current > 0) {
+                            const videoAlreadyPlayed = state.videoCurrentTime > 0 ? state.videoCurrentTime : 0;
+                            const remainingVideoDuration = Math.max(0, currentVideoDurationRef.current - videoAlreadyPlayed);
+                            decisionPhaseTimerEndTime = Date.now() + (remainingVideoDuration * 1000);
+                            console.log(`[AppContext] Setting video timer - Duration: ${currentVideoDurationRef.current}, Played: ${videoAlreadyPlayed}, Remaining: ${remainingVideoDuration}`);
                     } else if (state.currentSlideData.timer_duration_seconds) {
                         const slideActivationTime = currentDbSession?.updated_at ? new Date(currentDbSession.updated_at).getTime() : Date.now();
                         decisionPhaseTimerEndTime = slideActivationTime + (state.currentSlideData.timer_duration_seconds * 1000);
                         console.log(`[AppContext] Setting slide timer - Duration: ${state.currentSlideData.timer_duration_seconds}s`);
                     }
+                } else {
+                    console.log(`[AppContext] NOT activating decision - InteractiveSlide: ${isInteractiveSlideType}, NoAlert: ${noTeacherAlertBlocking}, Alert: ${state.currentTeacherAlert?.title || 'none'}`);
                 }
             }
 
@@ -211,6 +220,48 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         gameController.videoCurrentTime,
         gameController.triggerVideoSeek,
         broadcastStateImmediately
+    ]);
+
+    useEffect(() => {
+        // Force broadcast when Slide 7 (investment) becomes active
+        if (gameController.currentSlideData?.id === 7 &&
+            gameController.currentPhaseNode?.id === 'rd1-invest' &&
+            gameController.currentSlideData.type === 'interactive_invest') {
+
+            console.log(`[AppContext] Slide 7 detected - forcing decision broadcast`);
+
+            // Add a small delay to ensure everything is ready
+            setTimeout(() => {
+                broadcastStateImmediately({
+                    isPlayingVideo: gameController.isPlayingVideo,
+                    videoCurrentTime: gameController.videoCurrentTime,
+                    triggerVideoSeek: false,
+                    currentSlideData: gameController.currentSlideData,
+                    currentPhaseNode: gameController.currentPhaseNode,
+                    currentTeacherAlert: gameController.currentTeacherAlert // Pass the alert state
+                });
+            }, 100);
+
+            // Also broadcast again after a longer delay to ensure student displays catch it
+            setTimeout(() => {
+                broadcastStateImmediately({
+                    isPlayingVideo: gameController.isPlayingVideo,
+                    videoCurrentTime: gameController.videoCurrentTime,
+                    triggerVideoSeek: false,
+                    currentSlideData: gameController.currentSlideData,
+                    currentPhaseNode: gameController.currentPhaseNode,
+                    currentTeacherAlert: gameController.currentTeacherAlert
+                });
+            }, 500);
+        }
+    }, [
+        gameController.currentSlideData?.id,
+        gameController.currentPhaseNode?.id,
+        gameController.currentSlideData?.type,
+        broadcastStateImmediately,
+        gameController.isPlayingVideo,
+        gameController.videoCurrentTime,
+        gameController.currentTeacherAlert
     ]);
 
     const updateVideoDuration = useCallback((duration: number) => {
