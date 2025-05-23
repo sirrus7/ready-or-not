@@ -18,16 +18,6 @@ const SessionAwareAppProvider: React.FC<{ children: React.ReactNode }> = ({child
     return <AppProvider passedSessionId={sessionId}>{children}</AppProvider>;
 };
 
-// Wrapper for StudentDisplayPage that provides AppContext without auth
-const StudentDisplayWrapper: React.FC = () => {
-    const {sessionId} = useParams<{ sessionId: string | undefined }>();
-    return (
-        <AppProvider passedSessionId={sessionId}>
-            <StudentDisplayPage />
-        </AppProvider>
-    );
-};
-
 function App() {
     return (
         <ErrorBoundary>
@@ -37,11 +27,6 @@ function App() {
                     <Route path="/student-game/:sessionId" element={
                         <ErrorBoundary>
                             <CompanyDisplayPage/>
-                        </ErrorBoundary>
-                    }/>
-                    <Route path="/student-display/:sessionId" element={
-                        <ErrorBoundary>
-                            <StudentDisplayWrapper />
                         </ErrorBoundary>
                     }/>
 
@@ -82,6 +67,15 @@ function App() {
                                         <ErrorBoundary>
                                             <SessionAwareAppProvider>
                                                 <GameHostPage/>
+                                            </SessionAwareAppProvider>
+                                        </ErrorBoundary>
+                                    </PrivateRoute>
+                                }/>
+                                <Route path="/student-display/:sessionId" element={
+                                    <PrivateRoute>
+                                        <ErrorBoundary>
+                                            <SessionAwareAppProvider>
+                                                <StudentDisplayPage/>
                                             </SessionAwareAppProvider>
                                         </ErrorBoundary>
                                     </PrivateRoute>
