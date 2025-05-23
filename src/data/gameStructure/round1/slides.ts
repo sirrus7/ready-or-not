@@ -13,8 +13,8 @@ export const round1Slides: Slide[] = [
         auto_advance_after_video: false, // Alert will handle progression
         background_css: 'bg-slate-800',
         teacher_alert: { // REQ-2.12 (timer end version is the default for this slide)
-            title: "Investment Period Over",
-            message: "Please verify all teams have locked in their investment deicions. Then click Next to proceed."
+            title: "Investment Period Complete",
+            message: "Before proceeding, please confirm that all teams have finalized and submitted their investment decisions. Once verified, click 'Next' to continue to the next phase."
         }
     },
     {
