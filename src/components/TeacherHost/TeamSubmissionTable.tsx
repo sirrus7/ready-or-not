@@ -2,7 +2,7 @@
 import React, {useState} from 'react';
 import {useAppContext} from '../../context/AppContext';
 import {TeamDecision} from '../../types';
-import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info} from 'lucide-react';
+import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, RefreshCw} from 'lucide-react';
 
 interface TeamSubmissionTableProps {
     // No props needed directly, it will consume from AppContext
@@ -123,13 +123,29 @@ const TeamSubmissionTable: React.FC<TeamSubmissionTableProps> = () => {
         return <div className="text-center p-4 text-gray-500">No teams have joined the session yet.</div>;
     }
 
+    const handleRefreshSubmissions = async () => {
+        if (currentSessionId && currentPhaseIdFromNode) {
+            console.log(`[TeamSubmissionTable] Manually refreshing submissions for phase ${currentPhaseIdFromNode}`);
+            // Trigger a re-fetch of team decisions
+            window.location.reload(); // Simple refresh for now
+        }
+    };
+
     return (
         <div className="bg-white p-3 md:p-4 rounded-lg shadow-md border border-gray-200 mt-4">
-            <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-3">
-                Team Submissions: <span
-                className="text-blue-600">{currentPhaseNode?.label || 'Current Interactive Phase'}</span>
-                {currentPhaseNode && <span className="text-xs text-gray-500 ml-2">(Phase ID: {currentPhaseNode.id})</span>}
-            </h3>
+            <div className="flex justify-between items-center mb-3">
+                <h3 className="text-base md:text-lg font-semibold text-gray-800">
+                    Team Submissions: <span className="text-blue-600">{currentPhaseNode?.label || 'Current Interactive Phase'}</span>
+                    {currentPhaseNode && <span className="text-xs text-gray-500 ml-2">(Phase ID: {currentPhaseNode.id})</span>}
+                </h3>
+                <button
+                    onClick={handleRefreshSubmissions}
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300"
+                    title="Refresh submissions"
+                >
+                    <RefreshCw size={14}/> Refresh
+                </button>
+            </div>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-100">

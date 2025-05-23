@@ -1,10 +1,18 @@
 // src/context/AppContext.tsx
-import React, {createContext, useContext, useState, useEffect, useCallback, useMemo, useRef} from 'react';
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {
-    AppState, GamePhaseNode, Slide, Team, TeamDecision,
-    TeamRoundData, TeacherBroadcastPayload, KpiEffect, KpiKey,
-    PermanentKpiAdjustment, GameStructure
+    AppState,
+    GamePhaseNode,
+    GameStructure,
+    KpiEffect,
+    KpiKey,
+    PermanentKpiAdjustment,
+    Slide,
+    TeacherBroadcastPayload,
+    Team,
+    TeamDecision,
+    TeamRoundData
 } from '../types';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {supabase} from '../lib/supabase';
@@ -103,93 +111,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     }, [gameStructureInstance]);
 
     const currentVideoDurationRef = useRef<number | null>(null);
-
-    // Immediate broadcast function - called synchronously when state changes
-    const broadcastStateImmediately = useCallback((state: {
-        isPlayingVideo: boolean;
-        videoCurrentTime: number;
-        triggerVideoSeek: boolean;
-        currentSlideData: Slide | null;
-        currentPhaseNode: GamePhaseNode | null;
-        currentTeacherAlert?: { title: string; message: string } | null;
-    }) => {
-        if (currentDbSession?.id && currentDbSession.id !== 'new' && broadcastChannel) {
-            let isStudentDecisionActive = false;
-            let decisionPhaseTimerEndTime: number | undefined = undefined;
-            let decisionOptionsKey: string | undefined = undefined;
-
-            console.log(`[AppContext] Broadcasting state - Phase: ${state.currentPhaseNode?.id}, Slide: ${state.currentSlideData?.id}, SlideType: ${state.currentSlideData?.type}`);
-
-            if (state.currentPhaseNode?.is_interactive_student_phase && state.currentSlideData) {
-                console.log(`[AppContext] Phase is interactive: ${state.currentPhaseNode.id}, slide type: ${state.currentSlideData.type}`);
-
-                // FIXED: Check if this is an interactive slide type
-                const isInteractiveSlideType = state.currentSlideData.type === 'interactive_invest' ||
-                    state.currentSlideData.type === 'interactive_choice' ||
-                    state.currentSlideData.type === 'interactive_double_down_prompt' ||
-                    state.currentSlideData.type === 'interactive_double_down_select';
-
-                // FIXED: More robust teacher alert blocking logic
-                const noTeacherAlertBlocking = !state.currentTeacherAlert;
-
-                console.log(`[AppContext] Interactive slide check:`, {
-                    isInteractiveSlideType,
-                    noTeacherAlertBlocking,
-                    slideType: state.currentSlideData.type,
-                    slideId: state.currentSlideData.id,
-                    hasTeacherAlert: !!state.currentTeacherAlert
-                });
-
-                if (isInteractiveSlideType && noTeacherAlertBlocking) {
-                    isStudentDecisionActive = true;
-                    decisionOptionsKey = state.currentSlideData.interactive_data_key || state.currentPhaseNode.id;
-
-                    console.log(`[AppContext] ACTIVATING decision active - Phase: ${state.currentPhaseNode.id}, OptionsKey: ${decisionOptionsKey}`);
-
-                    // Timer logic for investment phases
-                    if (state.currentSlideData.type === 'interactive_invest' &&
-                        state.currentSlideData.source_url &&
-                        currentVideoDurationRef.current &&
-                        currentVideoDurationRef.current > 0) {
-                        const videoAlreadyPlayed = state.videoCurrentTime > 0 ? state.videoCurrentTime : 0;
-                        const remainingVideoDuration = Math.max(0, currentVideoDurationRef.current - videoAlreadyPlayed);
-                        decisionPhaseTimerEndTime = Date.now() + (remainingVideoDuration * 1000);
-                        console.log(`[AppContext] Setting video timer - Duration: ${currentVideoDurationRef.current}, Played: ${videoAlreadyPlayed}, Remaining: ${remainingVideoDuration}`);
-                    } else if (state.currentSlideData.timer_duration_seconds) {
-                        const slideActivationTime = currentDbSession?.updated_at ? new Date(currentDbSession.updated_at).getTime() : Date.now();
-                        decisionPhaseTimerEndTime = slideActivationTime + (state.currentSlideData.timer_duration_seconds * 1000);
-                        console.log(`[AppContext] Setting slide timer - Duration: ${state.currentSlideData.timer_duration_seconds}s`);
-                    }
-                } else {
-                    console.log(`[AppContext] NOT activating decision - InteractiveSlide: ${isInteractiveSlideType}, NoAlert: ${noTeacherAlertBlocking}, Alert: ${state.currentTeacherAlert?.title || 'none'}`);
-                }
-            }
-
-            const payload: TeacherBroadcastPayload = {
-                currentSlideId: state.currentSlideData?.id || null,
-                currentPhaseId: state.currentPhaseNode?.id || null,
-                currentPhaseType: state.currentPhaseNode?.phase_type || null,
-                currentRoundNumber: state.currentPhaseNode?.round_number || null,
-                isPlayingVideo: state.isPlayingVideo,
-                videoCurrentTime: state.videoCurrentTime,
-                triggerVideoSeek: state.triggerVideoSeek,
-                isStudentDecisionPhaseActive: isStudentDecisionActive,
-                decisionOptionsKey: decisionOptionsKey,
-                decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
-            };
-
-            console.log(`[AppContext] Broadcasting payload:`, payload);
-
-            try {
-                broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
-                console.log(`[AppContext] Broadcast sent successfully`);
-            } catch (error) {
-                console.error(`[AppContext] Broadcast error:`, error);
-            }
-        } else {
-            console.log(`[AppContext] Not broadcasting - Session: ${currentDbSession?.id}, Channel: ${!!broadcastChannel}`);
-        }
-    }, [currentDbSession]);
+    const currentBroadcastFunction = useRef<((state: any) => void) | null>(null);
 
     // Initialize game controller with immediate broadcast callback
     const gameController = useGameController(
@@ -201,76 +123,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             const slideForDecision = currentPhaseNodeForDecision && gameStructureInstance.slides.find(s => s.id === currentPhaseNodeForDecision.slide_ids[currentPhaseNodeForDecision.slide_ids.length - 1]);
             return processChoicePhaseDecisionsInternal(phaseId, slideForDecision || null);
         },
-        broadcastStateImmediately // Pass the broadcast callback
+        // Pass the broadcast function that will be created in the useEffect
+        (state) => {
+            // This will be set by the useEffect below
+            if (currentBroadcastFunction.current) {
+                currentBroadcastFunction.current(state);
+            }
+        }
     );
-
-    useEffect(() => {
-        // Trigger broadcast whenever key game state changes
-        console.log(`[AppContext] Game state changed - triggering broadcast`);
-        console.log(`[AppContext] Current state: Phase=${gameController.currentPhaseNode?.id}, Slide=${gameController.currentSlideData?.id}, SlideType=${gameController.currentSlideData?.type}`);
-
-        if (gameController.currentSlideData && gameController.currentPhaseNode) {
-            const broadcastState = {
-                isPlayingVideo: gameController.isPlayingVideo,
-                videoCurrentTime: gameController.videoCurrentTime,
-                triggerVideoSeek: gameController.triggerVideoSeek,
-                currentSlideData: gameController.currentSlideData,
-                currentPhaseNode: gameController.currentPhaseNode
-            };
-
-            console.log(`[AppContext] Broadcasting state change:`, broadcastState);
-            broadcastStateImmediately(broadcastState);
-        }
-    }, [
-        gameController.currentSlideData?.id,
-        gameController.currentPhaseNode?.id,
-        gameController.isPlayingVideo,
-        gameController.videoCurrentTime,
-        gameController.triggerVideoSeek,
-        broadcastStateImmediately
-    ]);
-
-    useEffect(() => {
-        // Force broadcast when Slide 7 (investment) becomes active
-        if (gameController.currentSlideData?.id === 7 &&
-            gameController.currentPhaseNode?.id === 'rd1-invest' &&
-            gameController.currentSlideData.type === 'interactive_invest') {
-
-            console.log(`[AppContext] Slide 7 detected - forcing decision broadcast`);
-
-            // Add a small delay to ensure everything is ready
-            setTimeout(() => {
-                broadcastStateImmediately({
-                    isPlayingVideo: gameController.isPlayingVideo,
-                    videoCurrentTime: gameController.videoCurrentTime,
-                    triggerVideoSeek: false,
-                    currentSlideData: gameController.currentSlideData,
-                    currentPhaseNode: gameController.currentPhaseNode,
-                    currentTeacherAlert: gameController.currentTeacherAlert // Pass the alert state
-                });
-            }, 100);
-
-            // Also broadcast again after a longer delay to ensure student displays catch it
-            setTimeout(() => {
-                broadcastStateImmediately({
-                    isPlayingVideo: gameController.isPlayingVideo,
-                    videoCurrentTime: gameController.videoCurrentTime,
-                    triggerVideoSeek: false,
-                    currentSlideData: gameController.currentSlideData,
-                    currentPhaseNode: gameController.currentPhaseNode,
-                    currentTeacherAlert: gameController.currentTeacherAlert
-                });
-            }, 500);
-        }
-    }, [
-        gameController.currentSlideData?.id,
-        gameController.currentPhaseNode?.id,
-        gameController.currentSlideData?.type,
-        broadcastStateImmediately,
-        gameController.isPlayingVideo,
-        gameController.videoCurrentTime,
-        gameController.currentTeacherAlert
-    ]);
 
     const updateVideoDuration = useCallback((duration: number) => {
         currentVideoDurationRef.current = duration;
@@ -611,96 +471,166 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         await gameController.nextSlide();
     }, [gameController, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal, calculateAndFinalizeRoundKPIsInternal]);
 
-    // Setup broadcast channel
     useEffect(() => {
         if (currentDbSession?.id && currentDbSession.id !== 'new') {
             const channelName = `classroom-${currentDbSession.id}`;
-            console.log(`[AppContext] Setting up broadcast channel: ${channelName}`);
+            const realtimeChannelName = `teacher-updates-${currentDbSession.id}`;
 
+            console.log(`[AppContext] Setting up dual broadcast - BroadcastChannel: ${channelName}, Supabase: ${realtimeChannelName}`);
+
+            // Setup BroadcastChannel for StudentDisplayPage (same browser context)
             if (broadcastChannel && broadcastChannel.name !== channelName) {
-                console.log(`[AppContext] Closing old broadcast channel`);
                 broadcastChannel.close();
                 broadcastChannel = null;
             }
 
             if (!broadcastChannel) {
-                console.log(`[AppContext] Creating new broadcast channel: ${channelName}`);
                 broadcastChannel = new BroadcastChannel(channelName);
-
                 broadcastChannel.onmessage = (event) => {
-                    console.log(`[AppContext] Received message:`, event.data);
+                    console.log(`[AppContext] Received BroadcastChannel message:`, event.data);
                     if (event.data.type === 'STUDENT_DISPLAY_READY') {
                         console.log('[AppContext] Student display connected, broadcasting current state');
 
-                        // Get the most current video time from the teacher preview if it's a video slide
                         let currentVideoTime = gameController.videoCurrentTime;
-
-                        // If there's a video element in the teacher preview, get its actual current time
                         const teacherVideoElements = document.querySelectorAll('video[src]');
                         if (teacherVideoElements.length > 0) {
                             const latestVideo = teacherVideoElements[teacherVideoElements.length - 1] as HTMLVideoElement;
                             if (!latestVideo.paused || latestVideo.currentTime > 0) {
                                 currentVideoTime = latestVideo.currentTime;
-                                console.log(`[AppContext] Using actual video time from teacher preview: ${currentVideoTime}`);
                             }
                         }
 
-                        // Force a seek event to sync video time exactly
-                        broadcastStateImmediately({
-                            isPlayingVideo: gameController.isPlayingVideo,
-                            videoCurrentTime: currentVideoTime,
-                            triggerVideoSeek: true, // Force seek to sync time
-                            currentSlideData: gameController.currentSlideData,
-                            currentPhaseNode: gameController.currentPhaseNode
+                        broadcastChannel?.postMessage({
+                            type: 'TEACHER_STATE_UPDATE',
+                            payload: createBroadcastPayload(gameController, currentVideoTime, true)
                         });
 
-                        // Send a second broadcast without seek trigger after a brief delay
                         setTimeout(() => {
-                            broadcastStateImmediately({
-                                isPlayingVideo: gameController.isPlayingVideo,
-                                videoCurrentTime: currentVideoTime,
-                                triggerVideoSeek: false,
-                                currentSlideData: gameController.currentSlideData,
-                                currentPhaseNode: gameController.currentPhaseNode
+                            broadcastChannel?.postMessage({
+                                type: 'TEACHER_STATE_UPDATE',
+                                payload: createBroadcastPayload(gameController, currentVideoTime, false)
                             });
                         }, 300);
                     }
                 };
             }
 
-            // Broadcast current state immediately when channel is set up AND when dependencies change
+            // Setup Supabase real-time for CompanyDisplayPage (different devices)
+            const realtimeChannel = supabase.channel(realtimeChannelName);
+
+            realtimeChannel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log(`[AppContext] Subscribed to Supabase real-time: ${realtimeChannelName}`);
+
+                    // Broadcast current state when successfully subscribed
+                    if (gameController.currentSlideData && gameController.currentPhaseNode) {
+                        setTimeout(() => {
+                            broadcastToAllChannels(gameController, gameController.videoCurrentTime, false);
+                        }, 500);
+                    }
+                }
+            });
+
+            // Helper function to create broadcast payload
+            const createBroadcastPayload = (controller: any, videoTime: number, triggerSeek: boolean): TeacherBroadcastPayload => {
+                let isStudentDecisionActive = false;
+                let decisionPhaseTimerEndTime: number | undefined = undefined;
+                let decisionOptionsKey: string | undefined = undefined;
+
+                if (controller.currentPhaseNode?.is_interactive_student_phase && controller.currentSlideData) {
+                    const isInteractiveSlideType = controller.currentSlideData.type === 'interactive_invest' ||
+                        controller.currentSlideData.type === 'interactive_choice' ||
+                        controller.currentSlideData.type === 'interactive_double_down_prompt' ||
+                        controller.currentSlideData.type === 'interactive_double_down_select';
+
+                    const noTeacherAlertBlocking = !controller.currentTeacherAlert;
+
+                    if (isInteractiveSlideType && noTeacherAlertBlocking) {
+                        isStudentDecisionActive = true;
+                        decisionOptionsKey = controller.currentSlideData.interactive_data_key || controller.currentPhaseNode.id;
+
+                        if (controller.currentSlideData.type === 'interactive_invest' &&
+                            controller.currentSlideData.source_url &&
+                            currentVideoDurationRef.current &&
+                            currentVideoDurationRef.current > 0) {
+                            const videoAlreadyPlayed = videoTime > 0 ? videoTime : 0;
+                            const remainingVideoDuration = Math.max(0, currentVideoDurationRef.current - videoAlreadyPlayed);
+                            decisionPhaseTimerEndTime = Date.now() + (remainingVideoDuration * 1000);
+                        } else if (controller.currentSlideData.timer_duration_seconds) {
+                            const slideActivationTime = currentDbSession?.updated_at ? new Date(currentDbSession.updated_at).getTime() : Date.now();
+                            decisionPhaseTimerEndTime = slideActivationTime + (controller.currentSlideData.timer_duration_seconds * 1000);
+                        }
+                    }
+                }
+
+                return {
+                    currentSlideId: controller.currentSlideData?.id || null,
+                    currentPhaseId: controller.currentPhaseNode?.id || null,
+                    currentPhaseType: controller.currentPhaseNode?.phase_type || null,
+                    currentRoundNumber: controller.currentPhaseNode?.round_number || null,
+                    isPlayingVideo: controller.isPlayingVideo,
+                    videoCurrentTime: videoTime,
+                    triggerVideoSeek: triggerSeek,
+                    isStudentDecisionPhaseActive: isStudentDecisionActive,
+                    decisionOptionsKey: decisionOptionsKey,
+                    decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
+                };
+            };
+
+            // Function to broadcast to both channels
+            const broadcastToAllChannels = (controller: any, videoTime: number, triggerSeek: boolean) => {
+                const payload = createBroadcastPayload(controller, videoTime, triggerSeek);
+
+                // Send to BroadcastChannel (StudentDisplayPage)
+                broadcastChannel?.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
+
+                // Send to Supabase real-time (CompanyDisplayPage)
+                realtimeChannel.send({
+                    type: 'broadcast',
+                    event: 'teacher_state_update',
+                    payload: payload
+                });
+            };
+
+            // Update the broadcastStateImmediately function to use both channels
+            currentBroadcastFunction.current = (state: {
+                isPlayingVideo: boolean;
+                videoCurrentTime: number;
+                triggerVideoSeek: boolean;
+                currentSlideData: Slide | null;
+                currentPhaseNode: GamePhaseNode | null;
+                currentTeacherAlert?: { title: string; message: string } | null;
+            }) => {
+                broadcastToAllChannels(gameController, state.videoCurrentTime, state.triggerVideoSeek);
+            };
+
+            // Broadcast current state immediately when channel is set up
             const broadcastCurrentState = () => {
                 if (gameController.currentSlideData && gameController.currentPhaseNode) {
-                    console.log(`[AppContext] Broadcasting current state on channel setup/change`);
-                    broadcastStateImmediately({
-                        isPlayingVideo: gameController.isPlayingVideo,
-                        videoCurrentTime: gameController.videoCurrentTime,
-                        triggerVideoSeek: false,
-                        currentSlideData: gameController.currentSlideData,
-                        currentPhaseNode: gameController.currentPhaseNode
-                    });
+                    broadcastToAllChannels(gameController, gameController.videoCurrentTime, false);
                 }
             };
 
-            // Broadcast immediately and after a short delay to ensure channel is ready
             setTimeout(broadcastCurrentState, 100);
             setTimeout(broadcastCurrentState, 500);
 
             return () => {
+                console.log(`[AppContext] Cleaning up dual broadcast channels`);
                 if (broadcastChannel) {
-                    console.log(`[AppController] Cleaning up broadcast channel`);
                     broadcastChannel.close();
                     broadcastChannel = null;
                 }
+                supabase.removeChannel(realtimeChannel);
             };
         }
     }, [
         currentDbSession?.id,
-        broadcastStateImmediately,
         gameController.currentSlideData?.id,
         gameController.currentPhaseNode?.id,
         gameController.isPlayingVideo,
-        gameController.videoCurrentTime
+        gameController.videoCurrentTime,
+        currentDbSession?.updated_at,
+        gameController,
     ]);
 
 
@@ -764,6 +694,33 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         }
     }, [currentDbSession?.id, isLoadingSession, authLoading, fetchWrapperTeams, fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook]);
 
+    useEffect(() => {
+        console.log(`[AppContext] Team decisions updated:`, {
+            totalTeams: teams.length,
+            decisionsCount: Object.keys(teamDecisions).length,
+            currentPhase: gameController.currentPhaseNode?.id,
+            isInteractive: gameController.currentPhaseNode?.is_interactive_student_phase,
+            decisions: teamDecisions
+        });
+
+        if (gameController.currentPhaseNode?.is_interactive_student_phase) {
+            const currentPhaseId = gameController.currentPhaseNode.id;
+            let submittedCount = 0;
+            const submissionDetails: string[] = [];
+
+            for (const team of teams) {
+                if (teamDecisions[team.id] && teamDecisions[team.id][currentPhaseId]) {
+                    submittedCount++;
+                    submissionDetails.push(`${team.name}: ✓`);
+                } else {
+                    submissionDetails.push(`${team.name}: ✗`);
+                }
+            }
+
+            console.log(`[AppContext] Phase ${currentPhaseId} submissions: ${submittedCount}/${teams.length}`, submissionDetails);
+        }
+    }, [teamDecisions, teams, gameController.currentPhaseNode]);
+
     const contextValue: AppContextProps = useMemo(() => ({
         state: combinedAppState,
         currentPhaseNode: gameController.currentPhaseNode,
@@ -810,7 +767,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         fetchWrapperTeams, fetchTeamRoundDataFromHook, resetWrapperTeamDecision, nextSlideCombined,
         processChoicePhaseDecisionsInternal, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal,
         calculateAndFinalizeRoundKPIsInternal, resetGameProgressInternal, gameStructureInstance, setCurrentTeacherAlertState,
-        reportVideoDurationWithRef,
+        reportVideoDurationWithRef, currentDbSession?.id, localUiState.isLoadingProcessing,
     ]);
 
     return (

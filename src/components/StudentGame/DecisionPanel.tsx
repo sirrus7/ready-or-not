@@ -1,8 +1,7 @@
 // src/components/StudentGame/DecisionPanel.tsx
 import React, {useState, useEffect, useMemo} from 'react';
 import {InvestmentOption, ChallengeOption, GamePhaseNode} from '../../types';
-import {AlertTriangle, CheckCircle, DollarSign, HelpCircle, Hourglass, ListChecks, Repeat} from 'lucide-react';
-import {supabase} from '../../lib/supabase';
+import {AlertTriangle, CheckCircle, Hourglass} from 'lucide-react';
 import Modal from '../UI/Modal';
 
 interface DecisionPanelProps {
@@ -42,7 +41,6 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                                                          onDecisionSubmit,
                                                          isDecisionTime,
                                                          timeRemainingSeconds,
-                                                         currentSpentBudgetForInvestments = 0,
                                                          onInvestmentSelectionChange,
                                                      }) => {
     const [selectedInvestmentIds, setSelectedInvestmentIds] = useState<string[]>([]);
@@ -92,7 +90,7 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
 
     const handleInvestmentToggle = (optionId: string, cost: number) => {
         const currentIndex = selectedInvestmentIds.indexOf(optionId);
-        let newSelectedIds = [...selectedInvestmentIds];
+        const newSelectedIds = [...selectedInvestmentIds];
         let newSpentBudget = spentBudget;
 
         if (currentIndex === -1) {
@@ -145,7 +143,7 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
         setIsSubmitting(true);
         setSubmitError(null);
 
-        let decisionPayload: any = {}; // Payload to be passed to CompanyDisplayPage's onDecisionSubmit
+        const decisionPayload: any = {}; // Payload to be passed to CompanyDisplayPage's onDecisionSubmit
 
         if (currentPhase.phase_type === 'invest') {
             decisionPayload.selected_investment_ids = selectedInvestmentIds;

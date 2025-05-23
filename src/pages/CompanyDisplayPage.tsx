@@ -135,98 +135,89 @@ const CompanyDisplayPage: React.FC = () => {
             setPageError("No game session ID found in the URL.");
             return;
         }
-        const channel = new BroadcastChannel(`classroom-${sessionId}`);
 
-        channel.onmessage = (event) => {
-            if (event.data.type === 'TEACHER_STATE_UPDATE') {
-                const payload = event.data.payload as TeacherBroadcastPayload;
-                console.log(`[CompanyDisplayPage] Received teacher broadcast:`, payload);
+        const realtimeChannelName = `teacher-updates-${sessionId}`;
+        console.log(`[CompanyDisplayPage] Subscribing to Supabase real-time: ${realtimeChannelName}`);
 
-                const newPhaseNode = payload.currentPhaseId ? gameStructure.allPhases.find(p => p.id === payload.currentPhaseId) || null : null;
-                const newSlide = payload.currentSlideId !== null ? gameStructure.slides.find(s => s.id === payload.currentSlideId) || null : null;
+        const realtimeChannel = supabase.channel(realtimeChannelName);
 
-                // Update state immediately
-                setCurrentActivePhase(newPhaseNode);
-                setCurrentActiveSlide(newSlide);
-                setDecisionOptionsKey(payload.decisionOptionsKey);
+        realtimeChannel.on('broadcast', { event: 'teacher_state_update' }, (payload) => {
+            console.log(`[CompanyDisplayPage] Received teacher broadcast:`, payload.payload);
 
-                // FIXED: More robust decision activation logic
-                const shouldActivateDecisions = payload.isStudentDecisionPhaseActive &&
-                    loggedInTeamId &&
-                    newPhaseNode?.is_interactive_student_phase &&
-                    (newSlide?.type === 'interactive_invest' ||
-                        newSlide?.type === 'interactive_choice' ||
-                        newSlide?.type === 'interactive_double_down_prompt' ||
-                        newSlide?.type === 'interactive_double_down_select') &&
-                    submissionStatusRef.current !== 'success';
+            const teacherPayload = payload.payload as TeacherBroadcastPayload;
+            const newPhaseNode = teacherPayload.currentPhaseId ? gameStructure.allPhases.find(p => p.id === teacherPayload.currentPhaseId) || null : null;
+            const newSlide = teacherPayload.currentSlideId !== null ? gameStructure.slides.find(s => s.id === teacherPayload.currentSlideId) || null : null;
 
-                console.log(`[CompanyDisplayPage] Decision activation check:`, {
-                    broadcastSaysActive: payload.isStudentDecisionPhaseActive,
-                    hasTeamId: !!loggedInTeamId,
-                    phaseIsInteractive: newPhaseNode?.is_interactive_student_phase,
-                    slideType: newSlide?.type,
-                    submissionStatus: submissionStatusRef.current,
-                    shouldActivate: shouldActivateDecisions,
-                    slideId: newSlide?.id,
-                    phaseId: newPhaseNode?.id,
-                    decisionOptionsKey: payload.decisionOptionsKey
-                });
+            // Update state immediately
+            setCurrentActivePhase(newPhaseNode);
+            setCurrentActiveSlide(newSlide);
+            setDecisionOptionsKey(teacherPayload.decisionOptionsKey);
 
-                if (shouldActivateDecisions) {
-                    console.log(`[CompanyDisplayPage] ACTIVATING decision time for phase ${newPhaseNode?.id}, slide ${newSlide?.id}`);
-                    setIsStudentDecisionTime(true);
-                    isStudentDecisionTimeRef.current = true;
+            // Decision activation logic (keep existing logic)
+            const shouldActivateDecisions = teacherPayload.isStudentDecisionPhaseActive &&
+                loggedInTeamId &&
+                newPhaseNode?.is_interactive_student_phase &&
+                (newSlide?.type === 'interactive_invest' ||
+                    newSlide?.type === 'interactive_choice' ||
+                    newSlide?.type === 'interactive_double_down_prompt' ||
+                    newSlide?.type === 'interactive_double_down_select') &&
+                submissionStatusRef.current !== 'success';
 
-                    // Clear any previous submission status when starting new decisions
-                    if (submissionStatusRef.current !== 'idle') {
-                        setSubmissionStatus('idle');
-                        submissionStatusRef.current = 'idle';
-                        setSubmissionMessage(null);
-                    }
-                } else if (!payload.isStudentDecisionPhaseActive) {
-                    console.log(`[CompanyDisplayPage] DEACTIVATING decision time - broadcast says not active`);
-                    setIsStudentDecisionTime(false);
-                    isStudentDecisionTimeRef.current = false;
+            if (shouldActivateDecisions) {
+                console.log(`[CompanyDisplayPage] ACTIVATING decision time for phase ${newPhaseNode?.id}, slide ${newSlide?.id}`);
+                setIsStudentDecisionTime(true);
+                isStudentDecisionTimeRef.current = true;
+
+                if (submissionStatusRef.current !== 'idle') {
+                    setSubmissionStatus('idle');
+                    submissionStatusRef.current = 'idle';
+                    setSubmissionMessage(null);
                 }
-
-                // Handle timer - using ref to avoid stale closure
-                if (payload.decisionPhaseTimerEndTime !== decisionPhaseTimerEndTimeRef.current) {
-                    setDecisionPhaseTimerEndTime(payload.decisionPhaseTimerEndTime);
-                }
-
-                // Handle phase changes for data fetching - using ref to avoid stale closure
-                if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== currentActivePhaseRef.current?.id) {
-                    console.log(`[CompanyDisplayPage] Phase changed, fetching data for ${newPhaseNode.id}`);
-                    fetchInitialTeamData(loggedInTeamId, newPhaseNode);
-                }
-
-                // Handle KPI updates for round changes - using ref to avoid stale closure
-                if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
-                    if (currentTeamKpisRef.current?.round_number !== newPhaseNode.round_number || !currentTeamKpisRef.current) {
-                        if (newPhaseNode.id !== currentActivePhaseRef.current?.id) {
-                            fetchInitialTeamData(loggedInTeamId, newPhaseNode);
-                        }
-                    }
-                } else if (newPhaseNode?.round_number === 0) {
-                    setCurrentTeamKpis(null);
-                }
+            } else if (!teacherPayload.isStudentDecisionPhaseActive) {
+                console.log(`[CompanyDisplayPage] DEACTIVATING decision time - broadcast says not active`);
+                setIsStudentDecisionTime(false);
+                isStudentDecisionTimeRef.current = false;
             }
-        };
+
+            // Handle timer (keep existing logic)
+            if (teacherPayload.decisionPhaseTimerEndTime !== decisionPhaseTimerEndTimeRef.current) {
+                setDecisionPhaseTimerEndTime(teacherPayload.decisionPhaseTimerEndTime);
+            }
+
+            // Handle phase changes for data fetching (keep existing logic)
+            if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== currentActivePhaseRef.current?.id) {
+                console.log(`[CompanyDisplayPage] Phase changed, fetching data for ${newPhaseNode.id}`);
+                fetchInitialTeamData(loggedInTeamId, newPhaseNode);
+            }
+
+            // Handle KPI updates for round changes (keep existing logic)
+            if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
+                if (currentTeamKpisRef.current?.round_number !== newPhaseNode.round_number || !currentTeamKpisRef.current) {
+                    if (newPhaseNode.id !== currentActivePhaseRef.current?.id) {
+                        fetchInitialTeamData(loggedInTeamId, newPhaseNode);
+                    }
+                }
+            } else if (newPhaseNode?.round_number === 0) {
+                setCurrentTeamKpis(null);
+            }
+        });
+
+        realtimeChannel.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log(`[CompanyDisplayPage] Successfully subscribed to real-time updates`);
+            } else if (status === 'CLOSED') {
+                console.log(`[CompanyDisplayPage] Real-time subscription closed`);
+            } else if (status === 'CHANNEL_ERROR') {
+                console.error(`[CompanyDisplayPage] Real-time subscription error`);
+                setPageError("Lost connection to game updates. Please refresh the page.");
+            }
+        });
 
         return () => {
-            channel.close();
+            console.log(`[CompanyDisplayPage] Cleaning up Supabase real-time subscription`);
+            supabase.removeChannel(realtimeChannel);
         };
     }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId]);
-
-    useEffect(() => {
-        console.log(`[CompanyDisplayPage] Decision time state changed:`, {
-            isStudentDecisionTime: isStudentDecisionTime,
-            isStudentDecisionTimeRef: isStudentDecisionTimeRef.current,
-            currentPhase: currentActivePhase?.id,
-            currentSlide: currentActiveSlide?.id,
-            submissionStatus: submissionStatusRef.current
-        });
-    }, [isStudentDecisionTime, currentActivePhase?.id, currentActiveSlide?.id]);
 
     useEffect(() => {
         let timerInterval: NodeJS.Timeout | undefined;
@@ -311,13 +302,57 @@ const CompanyDisplayPage: React.FC = () => {
         setIsLoadingData(true);
     };
 
+    const debugSupabaseConnection = async () => {
+        console.log('[CompanyDisplayPage] Testing Supabase connection...');
+
+        // Test basic connection
+        try {
+            const { data: testData, error: testError } = await supabase
+                .from('team_decisions')
+                .select('count')
+                .limit(1);
+
+            console.log('[CompanyDisplayPage] Supabase connection test:', { testData, testError });
+        } catch (err) {
+            console.error('[CompanyDisplayPage] Supabase connection failed:', err);
+        }
+
+        // Test if we can read the teams table (should work)
+        try {
+            const { data: teamsData, error: teamsError } = await supabase
+                .from('teams')
+                .select('*')
+                .eq('session_id', sessionId)
+                .limit(1);
+
+            console.log('[CompanyDisplayPage] Teams table test:', { teamsData, teamsError });
+        } catch (err) {
+            console.error('[CompanyDisplayPage] Teams table access failed:', err);
+        }
+    };
+
     const handleDecisionSubmit = async (decisionDataPayload: any) => {
+        console.log('[CompanyDisplayPage] === DECISION SUBMIT START ===');
+        console.log('[CompanyDisplayPage] sessionId:', sessionId);
+        console.log('[CompanyDisplayPage] loggedInTeamId:', loggedInTeamId);
+        console.log('[CompanyDisplayPage] currentActivePhase:', currentActivePhase);
+        console.log('[CompanyDisplayPage] decisionDataPayload:', decisionDataPayload);
+
         if (!sessionId || !loggedInTeamId || !currentActivePhase) {
+            const missingItems = [];
+            if (!sessionId) missingItems.push('sessionId');
+            if (!loggedInTeamId) missingItems.push('loggedInTeamId');
+            if (!currentActivePhase) missingItems.push('currentActivePhase');
+
+            console.error('[CompanyDisplayPage] Missing required data:', missingItems);
             setSubmissionStatus('error');
-            setSubmissionMessage("Cannot submit: Critical information missing (session, team, or phase).");
+            setSubmissionMessage(`Cannot submit: Missing ${missingItems.join(', ')}`);
             setIsSubmissionFeedbackModalOpen(true);
             return;
         }
+
+        // Run debug test first
+        await debugSupabaseConnection();
 
         setSubmissionStatus('submitting');
         submissionStatusRef.current = 'submitting';
@@ -333,24 +368,66 @@ const CompanyDisplayPage: React.FC = () => {
             submitted_at: new Date().toISOString(),
         };
 
+        console.log('[CompanyDisplayPage] === SUBMITTING TO SUPABASE ===');
+        console.log('[CompanyDisplayPage] Full payload:', JSON.stringify(submissionPayload, null, 2));
+
         try {
-            const {error} = await supabase.from('team_decisions').insert(submissionPayload);
-            if (error) throw error;
+            // First, let's try without .select().single() to see if that's the issue
+            console.log('[CompanyDisplayPage] Attempting insert...');
+
+            const { data, error, status, statusText } = await supabase
+                .from('team_decisions')
+                .insert(submissionPayload);
+
+            console.log('[CompanyDisplayPage] Supabase response:', {
+                data,
+                error,
+                status,
+                statusText
+            });
+
+            if (error) {
+                console.error('[CompanyDisplayPage] Supabase error details:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code
+                });
+                throw error;
+            }
+
+            console.log('[CompanyDisplayPage] === SUBMISSION SUCCESSFUL ===');
+            console.log('[CompanyDisplayPage] Response data:', data);
 
             setSubmissionStatus('success');
             submissionStatusRef.current = 'success';
-            setSubmissionMessage(`Decisions for ${currentActivePhase.label} submitted successfully! Waiting for facilitator.`);
+            setSubmissionMessage(`Decisions for ${currentActivePhase.label} submitted successfully!`);
             setIsStudentDecisionTime(false);
+            isStudentDecisionTimeRef.current = false;
             setTimeRemainingSeconds(undefined);
             setDecisionPhaseTimerEndTime(undefined);
+
             setTimeout(() => {
                 setIsSubmissionFeedbackModalOpen(false);
             }, 3000);
+
         } catch (err) {
-            console.error("[CompanyDisplayPage] Error submitting decision:", err);
+            console.error('[CompanyDisplayPage] === SUBMISSION FAILED ===');
+            console.error('[CompanyDisplayPage] Error details:', err);
+            console.error('[CompanyDisplayPage] Error type:', typeof err);
+            console.error('[CompanyDisplayPage] Error constructor:', err?.constructor?.name);
+
             setSubmissionStatus('error');
             submissionStatusRef.current = 'error';
-            setSubmissionMessage(err instanceof Error ? `Submission Error: ${err.message}` : "Failed to submit decisions. Please try again or notify facilitator.");
+
+            let errorMessage = "Failed to submit decisions.";
+            if (err instanceof Error) {
+                errorMessage = `Error: ${err.message}`;
+            } else if (typeof err === 'object' && err !== null) {
+                errorMessage = `Error: ${JSON.stringify(err)}`;
+            }
+
+            setSubmissionMessage(errorMessage);
         }
     };
 
@@ -431,6 +508,23 @@ const CompanyDisplayPage: React.FC = () => {
                 currentRoundLabel={kpiRoundLabel}
                 kpis={currentTeamKpis}
             />
+
+            {process.env.NODE_ENV === 'development' && (
+                <div className="p-2 bg-yellow-900 text-yellow-100">
+                    <button
+                        onClick={debugSupabaseConnection}
+                        className="bg-yellow-600 text-yellow-100 px-2 py-1 rounded text-xs"
+                    >
+                        Test Supabase Connection
+                    </button>
+                    <div className="text-xs mt-1">
+                        SessionId: {sessionId}<br/>
+                        TeamId: {loggedInTeamId}<br/>
+                        Phase: {currentActivePhase?.id}<br/>
+                        DecisionTime: {isStudentDecisionTime ? 'YES' : 'NO'}
+                    </div>
+                </div>
+            )}
 
             <div className="flex-grow p-3 md:p-4 overflow-y-auto">
                 {isLoadingData || !currentActivePhase ? (
