@@ -446,7 +446,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     }, [gameController, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal, calculateAndFinalizeRoundKPIsInternal]);
 
     const syncAndBroadcastAppState = useCallback(() => {
-        console.log("[AppContext] Attempting to sync and broadcast state...");
         if (currentDbSession?.id && currentDbSession.id !== 'new' && broadcastChannel) {
             const currentSlide = gameController.currentSlideData;
             const currentPhase = gameController.currentPhaseNode;
@@ -484,10 +483,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                 decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
             };
 
-            console.log(`[AppContext] Broadcasting: SlideID=${currentSlide?.id}, PhaseID=${currentPhase?.id}, isStudentDecisionActive=${payload.isStudentDecisionPhaseActive}`);
             broadcastChannel.postMessage({type: 'TEACHER_STATE_UPDATE', payload});
         } else {
-            console.log("[AppContext] Broadcast skipped: No valid session or channel.");
+            console.error("[AppContext] Broadcast skipped: No valid session or channel.");
         }
     }, [currentDbSession, gameController]);
 
