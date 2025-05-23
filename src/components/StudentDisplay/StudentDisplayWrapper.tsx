@@ -1,5 +1,3 @@
-// src/components/StudentDisplay/StudentDisplayWrapper.tsx - Updated version
-
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import StudentDisplayView from './StudentDisplayView';
