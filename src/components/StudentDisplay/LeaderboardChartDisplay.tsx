@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Team, TeamRoundData, KpiKey } from '../../types';
-import { Trophy, ArrowUpCircle, ArrowDownCircle, TrendingUp, BarChartHorizontalBig, DollarSign, Percent } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 
 interface LeaderboardItem {
     teamName: string;
@@ -14,6 +14,9 @@ interface LeaderboardItem {
 interface LeaderboardChartDisplayProps {
     dataKey: string; // e.g., "rd1_leaderboard_income", "rd1_leaderboard_cap_ord"
     currentRoundForDisplay: number | null; // To fetch data for the correct round
+    // Optional props to provide data directly when AppContext isn't available
+    teams?: Team[];
+    teamRoundData?: Record<string, Record<number, TeamRoundData>>;
 }
 
 const formatValueForDisplay = (value: number, metric: KpiKey | 'net_margin' | 'cost_per_board'): string => {
@@ -56,9 +59,23 @@ const getMetricAndSortOrder = (dataKey: string): { metric: KpiKey | 'net_margin'
 };
 
 
-const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({ dataKey, currentRoundForDisplay }) => {
-    const { state } = useAppContext();
-    const { teams, teamRoundData } = state;
+const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
+                                                                             dataKey,
+                                                                             currentRoundForDisplay,
+                                                                             teams: propTeams,
+                                                                             teamRoundData: propTeamRoundData
+                                                                         }) => {
+    // Try to get data from AppContext, but fall back to props if not available
+    let contextState = null;
+    try {
+        const { state } = useAppContext();
+        contextState = state;
+    } catch (error) {
+        console.log('[LeaderboardChartDisplay] AppContext not available, using prop data');
+    }
+
+    const teams = propTeams || contextState?.teams || [];
+    const teamRoundData = propTeamRoundData || contextState?.teamRoundData || {};
 
     const { metric, kpiLabel, higherIsBetter, secondaryMetric, secondaryKpiLabel } = useMemo(() => getMetricAndSortOrder(dataKey), [dataKey]);
 

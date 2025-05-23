@@ -6,19 +6,12 @@ import {Slide, TeacherBroadcastPayload} from '../types';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure'; // For slide definitions
 import {Hourglass} from 'lucide-react';
 
-interface StudentDisplayPageProps {
-    sessionId?: string;
-}
-
-const StudentDisplayPage: React.FC<StudentDisplayPageProps> = ({ sessionId: propSessionId }) => {
-    // Get sessionId from URL params first, then fall back to props
-    const { sessionId: paramSessionId } = useParams<{ sessionId: string }>();
-    const sessionId = paramSessionId || propSessionId;
+const StudentDisplayPage: React.FC = () => {
+    // Get sessionId from URL params
+    const { sessionId } = useParams<{ sessionId: string }>();
 
     console.log('[StudentDisplayPage] Component loaded with:', {
-        paramSessionId,
-        propSessionId,
-        finalSessionId: sessionId,
+        sessionId,
         pathname: window.location.pathname,
         fullUrl: window.location.href
     });
@@ -45,8 +38,7 @@ const StudentDisplayPage: React.FC<StudentDisplayPageProps> = ({ sessionId: prop
             console.error('[StudentDisplayPage] URL analysis:', {
                 pathname: window.location.pathname,
                 href: window.location.href,
-                params: paramSessionId,
-                props: propSessionId
+                extractedSessionId: sessionId
             });
             setStatusMessage(errorMsg);
             return;
