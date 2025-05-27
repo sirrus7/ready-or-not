@@ -68,23 +68,109 @@ const Step1GameDetails: React.FC<Step1Props> = ({gameData, onDataChange, onNext}
         recommendationText: string
     } => {
         if (players <= 0) return {teams: 0, recommendationText: "Enter number of players."};
-        if (players < 2) return {teams: 0, recommendationText: "Minimum 2 players required for at least one team."};
-        let recommendedTeams = Math.ceil(players / 4);
-        if (recommendedTeams === 0 && players > 0) recommendedTeams = 1;
-        if (players / recommendedTeams > 5 && players > 5 && recommendedTeams > 0) {
-            recommendedTeams = Math.ceil(players / 3);
+
+        // Custom team distribution based on player count
+        switch(players) {
+            case 1:
+            case 2:
+            case 3:
+                return {teams: 0, recommendationText: "Custom team distribution required."};
+            case 4:
+            case 5:
+            case 6:
+            case 7:
+                return {teams: 1, recommendationText: "Custom team distribution required."};
+            case 8:
+            case 9:
+                return {teams: 2, recommendationText: "Custom team distribution required."};
+            case 10:
+                return {teams: 2, recommendationText: "We recommend 2 Teams: Two 5-Player Teams."};
+            case 11:
+                return {teams: 2, recommendationText: "We recommend 2 Teams: One 5-Player Team & One 6-Player Team."};
+            case 12:
+                return {teams: 2, recommendationText: "We recommend 2 Teams: Two 6-Player Teams."};
+            case 13:
+                return {teams: 3, recommendationText: "We recommend 3 Teams: Two 4-Player Teams & One 5-Player Team."};
+            case 14:
+                return {teams: 3, recommendationText: "We recommend 3 Teams: Two 5-Player Teams & One 4-Player Team."};
+            case 15:
+                return {teams: 3, recommendationText: "We recommend 3 Teams: Three 5-Player Teams."};
+            case 16:
+                return {teams: 4, recommendationText: "We recommend 4 Teams: Four 4-Player Teams."};
+            case 17:
+                return {teams: 4, recommendationText: "We recommend 4 Teams: Three 4-Player Teams & One 5-Player Team."};
+            case 18:
+                return {teams: 4, recommendationText: "We recommend 4 Teams: Two 4-Player Teams & Two 5-Player Teams."};
+            case 19:
+                return {teams: 4, recommendationText: "We recommend 4 Teams: One 4-Player Team & Three 5-Player Teams."};
+            case 20:
+                return {teams: 4, recommendationText: "We recommend 4 Teams: Four 5-Player Teams."};
+            case 21:
+                return {teams: 5, recommendationText: "We recommend 5 Teams: One 4-Player Team & Four 5-Player Teams."};
+            case 22:
+                return {teams: 5, recommendationText: "We recommend 5 Teams: Two 4-Player Teams & Three 5-Player Teams."};
+            case 23:
+                return {teams: 5, recommendationText: "We recommend 5 Teams: Three 4-Player Teams & Two 5-Player Teams."};
+            case 24:
+                return {teams: 5, recommendationText: "We recommend 5 Teams: Four 4-Player Teams & One 5-Player Team."};
+            case 25:
+                return {teams: 5, recommendationText: "We recommend 5 Teams: Five 5-Player Teams."};
+            case 26:
+                return {teams: 6, recommendationText: "We recommend 6 Teams: Two 4-Player Teams & Four 5-Player Teams."};
+            case 27:
+                return {teams: 6, recommendationText: "We recommend 6 Teams: Three 4-Player Teams & Three 5-Player Teams."};
+            case 28:
+                return {teams: 6, recommendationText: "We recommend 6 Teams: Four 4-Player Teams & Two 5-Player Teams."};
+            case 29:
+                return {teams: 6, recommendationText: "We recommend 6 Teams: Five 4-Player Teams & One 5-Player Team."};
+            case 30:
+                return {teams: 6, recommendationText: "We recommend 6 Teams: Six 5-Player Teams."};
+            case 31:
+                return {teams: 7, recommendationText: "We recommend 7 Teams: Three 4-Player Teams & Four 5-Player Teams."};
+            case 32:
+                return {teams: 7, recommendationText: "We recommend 7 Teams: Four 4-Player Teams & Three 5-Player Teams."};
+            case 33:
+                return {teams: 7, recommendationText: "We recommend 7 Teams: Five 4-Player Teams & Two 5-Player Teams."};
+            case 34:
+                return {teams: 7, recommendationText: "We recommend 7 Teams: Six 4-Player Teams & One 5-Player Team."};
+            case 35:
+                return {teams: 7, recommendationText: "We recommend 7 Teams: Seven 5-Player Teams."};
+            case 36:
+                return {teams: 8, recommendationText: "We recommend 8 Teams: Four 4-Player Teams & Four 5-Player Teams."};
+            case 37:
+                return {teams: 8, recommendationText: "We recommend 8 Teams: Five 4-Player Teams & Three 5-Player Teams."};
+            case 38:
+                return {teams: 8, recommendationText: "We recommend 8 Teams: Six 4-Player Teams & Two 5-Player Teams."};
+            case 39:
+                return {teams: 8, recommendationText: "We recommend 8 Teams: Seven 4-Player Teams & One 5-Player Team."};
+            case 40:
+                return {teams: 8, recommendationText: "We recommend 8 Teams: Eight 5-Player Teams."};
+            default:
+                // For larger groups, use a general algorithm
+                if (players > 40) {
+                    // Aim for 4-5 players per team
+                    const idealTeams = Math.round(players / 4.5);
+                    const basePlayersPerTeam = Math.floor(players / idealTeams);
+                    const remainder = players % idealTeams;
+
+                    // Calculate distribution
+                    const largerTeams = remainder;
+                    const smallerTeams = idealTeams - remainder;
+
+                    let recommendationText = `We recommend ${idealTeams} Teams: `;
+                    if (remainder === 0) {
+                        recommendationText += `${idealTeams} Teams of ${basePlayersPerTeam} players each.`;
+                    } else {
+                        recommendationText += `${smallerTeams} Teams of ${basePlayersPerTeam} players & ${largerTeams} Teams of ${basePlayersPerTeam + 1} players.`;
+                    }
+
+                    return {
+                        teams: idealTeams,
+                        recommendationText: recommendationText
+                    };
+                }
+                return {teams: 1, recommendationText: "Please enter a valid number of players (1-40+)."};
         }
-        if (players / recommendedTeams < 2 && recommendedTeams > 1) {
-            recommendedTeams = Math.floor(players / 2);
-        }
-        recommendedTeams = Math.max(1, recommendedTeams);
-        const avgPlayersPerTeam = players / recommendedTeams;
-        let recText = `Recommended: ${recommendedTeams} team${recommendedTeams > 1 ? 's' : ''}`;
-        if (recommendedTeams === 1) recText += ` of ${players} players.`;
-        else recText += ` (avg ${avgPlayersPerTeam.toFixed(1)} players/team). Adjust if needed.`;
-        if (recommendedTeams * 5 < players) recText = `With ${players} players, consider increasing teams for optimal size (2-5 players/team). Current recommendation: ${recommendedTeams} teams.`;
-        if (recommendedTeams * 2 > players && recommendedTeams > 1) recText = `With ${players} players, consider decreasing teams for optimal size (2-5 players/team). Current recommendation: ${recommendedTeams} teams.`;
-        return {teams: recommendedTeams, recommendationText: recText};
     }, []);
 
     // Effect for num_players logic (reacts to numPlayersStr changes)
@@ -338,7 +424,7 @@ const Step1GameDetails: React.FC<Step1Props> = ({gameData, onDataChange, onNext}
                     onClick={validateAndProceed}
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
-                    Next: Print Handouts <ArrowRight size={18}/>
+                    Next: Team Setup <ArrowRight size={18}/>
                 </button>
             </div>
         </div>

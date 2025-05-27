@@ -1,4 +1,4 @@
-// src/components/TeacherHost/CreateGameWizard/Step4_RoomSetup.tsx
+// src/components/TeacherHost/CreateGameWizard/Step3_RoomSetup.tsx
 import React from 'react';
 import {NewGameData} from '../../../types'; // Ensure path is correct
 import {ArrowLeft, ArrowRight, MonitorPlay, Download, Info, Tv2, LayoutGrid} from 'lucide-react';
@@ -125,7 +125,7 @@ const Step4RoomSetup: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) =>
                     onClick={onNext}
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
-                    Next: Finalize & Start <ArrowRight size={18}/>
+                    Next: Print Handouts <ArrowRight size={18}/>
                 </button>
             </div>
         </div>
