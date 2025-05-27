@@ -1,3 +1,4 @@
+// src/components/TeacherHost/TeacherGameControls.tsx
 import React, {useState, useEffect} from 'react';
 import {
     ChevronLeft,
@@ -9,12 +10,14 @@ import {
     ExternalLink,
     Lightbulb,
     LogOut,
+    Monitor,
 } from 'lucide-react';
 import {useAppContext} from '../../context/AppContext';
 import Modal from '../UI/Modal';
-import {openStudentDisplay} from '../../utils/windowUtils';
+import MonitorSelector from './MonitorSelector';
 import {useNavigate} from 'react-router-dom';
 import QRCode from 'qrcode';
+import { openWindowOnMonitor, getSavedMonitorPreference, saveMonitorPreference, MonitorInfo } from '../../utils/displayUtils';
 
 const TeacherGameControls: React.FC = () => {
     const {
@@ -37,6 +40,8 @@ const TeacherGameControls: React.FC = () => {
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
     const [isExitConfirmModalOpen, setisExitConfirmModalOpen] = useState(false);
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
+    const [showMonitorSelector, setShowMonitorSelector] = useState(false);
+    const [studentWindowRef, setStudentWindowRef] = useState<Window | null>(null);
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
@@ -46,32 +51,44 @@ const TeacherGameControls: React.FC = () => {
         }
     };
 
-    const handleOpenStudentDisplay = () => {
-        const studentWindow = openStudentDisplay(state.currentSessionId);
+    const handleOpenStudentDisplay = async () => {
+        if (!state.currentSessionId) {
+            alert("No active session. Please create or select a game first.");
+            return;
+        }
+
+        // Check if we have a saved monitor preference
+        const savedMonitor = getSavedMonitorPreference(state.currentSessionId);
+        if (savedMonitor) {
+            // Try to open on saved monitor
+            openOnMonitor(savedMonitor);
+        } else {
+            // Show monitor selector
+            setShowMonitorSelector(true);
+        }
+    };
+
+    const openOnMonitor = (monitor: MonitorInfo) => {
+        if (!state.currentSessionId) return;
+
+        const url = `/student-display/${state.currentSessionId}`;
+        const studentWindow = openWindowOnMonitor(url, 'studentDisplay', monitor);
+
         if (studentWindow) {
+            setStudentWindowRef(studentWindow);
             setStudentWindowOpen(true);
+            saveMonitorPreference(state.currentSessionId, monitor);
 
-            // Force immediate broadcast when student display opens
-            setTimeout(() => {
-                console.log('[TeacherGameControls] Student display opened, forcing state broadcast');
-                // Trigger a state change to force broadcast
-                const currentSlide = currentSlideData;
-                const currentPhase = currentPhaseNode;
-
-                if (currentSlide && currentPhase) {
-                    // This will trigger the broadcast via the AppContext
-                    updateTeacherNotesForCurrentSlide(currentNotes); // This is a safe no-op that triggers state sync
-                }
-            }, 1000);
-
+            // Check if window is closed
             const checkIfClosed = setInterval(() => {
                 if (studentWindow.closed) {
                     clearInterval(checkIfClosed);
                     setStudentWindowOpen(false);
+                    setStudentWindowRef(null);
                 }
             }, 1000);
         } else {
-            alert("Failed to open student display. Please ensure pop-ups are allowed for this site or try again. A game session must be active.");
+            alert("Failed to open student display. Please ensure pop-ups are allowed for this site.");
         }
     };
 
@@ -166,15 +183,27 @@ const TeacherGameControls: React.FC = () => {
                 </div>
                 <button
                     onClick={handleOpenStudentDisplay}
-                    className="flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 px-5 rounded-lg hover:bg-blue-700 transition-colors shadow-md text-sm font-medium w-full sm:w-auto"
+                    className={`flex items-center justify-center gap-2 py-2.5 px-5 rounded-lg transition-colors shadow-md text-sm font-medium w-full sm:w-auto ${
+                        state.isStudentWindowOpen
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
                 >
-                    <ExternalLink size={18}/>
-                    Launch Student Display
+                    {state.isStudentWindowOpen ? (
+                        <>
+                            <Monitor size={18}/>
+                            Student Display Active
+                        </>
+                    ) : (
+                        <>
+                            <ExternalLink size={18}/>
+                            Launch Student Display
+                        </>
+                    )}
                 </button>
             </div>
 
-            <div
-                className="flex flex-wrap items-center justify-center sm:justify-start gap-2 border-t border-gray-200 pt-3">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 border-t border-gray-200 pt-3">
                 <button
                     onClick={openJoinInfoModal}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300"
@@ -233,7 +262,23 @@ const TeacherGameControls: React.FC = () => {
                 </div>
             )}
 
-            {/* The Modal for teacher alerts. This is used to notify the teacher they need to take action! */}
+            {/* Monitor Selection Modal */}
+            <Modal
+                isOpen={showMonitorSelector}
+                onClose={() => setShowMonitorSelector(false)}
+                title="Select Display for Student View"
+                size="lg"
+            >
+                <MonitorSelector
+                    onSelect={(monitor) => {
+                        openOnMonitor(monitor);
+                        setShowMonitorSelector(false);
+                    }}
+                    currentSessionId={state.currentSessionId || ''}
+                />
+            </Modal>
+
+            {/* Teacher Alert Modal */}
             {state.currentTeacherAlert && (
                 <Modal
                     isOpen={!!state.currentTeacherAlert}
@@ -243,8 +288,7 @@ const TeacherGameControls: React.FC = () => {
                 >
                     <div className="p-1">
                         <div className="flex items-start">
-                            <div
-                                className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 sm:mx-0 sm:h-8 sm:w-8">
+                            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 sm:mx-0 sm:h-8 sm:w-8">
                                 <Lightbulb className="h-5 w-5 text-blue-600" aria-hidden="true"/>
                             </div>
                             <div className="ml-3 text-left">
@@ -271,7 +315,7 @@ const TeacherGameControls: React.FC = () => {
                 </Modal>
             )}
 
-            {/* This is the Modal that shows the students how to join the Company page */}
+            {/* Join Info Modal */}
             <Modal isOpen={isJoinCompanyModalOpen} onClose={closeJoinCompanyModal} title="Company Join Information" size="md">
                 <div className="p-2 text-center">
                     <p className="text-sm text-gray-600 mb-2">Students join at:</p>
@@ -312,7 +356,7 @@ const TeacherGameControls: React.FC = () => {
                 </div>
             </Modal>
 
-            {/* This model shows the team codes */}
+            {/* Team Codes Modal */}
             <Modal isOpen={isTeamCodesModalOpen} onClose={closeCompanyCodesModal} title="Team Access Codes" size="sm">
                 <div className="p-2">
                     {state.teams.length > 0 ? (
@@ -321,8 +365,7 @@ const TeacherGameControls: React.FC = () => {
                                 <li key={team.id}
                                     className="p-2.5 bg-gray-100 rounded-md text-sm flex justify-between items-center">
                                     <span className="font-semibold text-gray-800">{team.name}:</span>
-                                    <span
-                                        className="ml-2 text-blue-600 font-mono bg-blue-100 px-2 py-0.5 rounded">{team.passcode}</span>
+                                    <span className="ml-2 text-blue-600 font-mono bg-blue-100 px-2 py-0.5 rounded">{team.passcode}</span>
                                 </li>
                             ))}
                         </ul>
@@ -338,7 +381,7 @@ const TeacherGameControls: React.FC = () => {
                 </div>
             </Modal>
 
-            {/* This Modal confirms that the teacher wants to exist the game */}
+            {/* Exit Game Confirmation Modal */}
             <Modal
                 isOpen={isExitConfirmModalOpen}
                 onClose={() => setisExitConfirmModalOpen(false)}
@@ -373,4 +416,5 @@ const TeacherGameControls: React.FC = () => {
         </div>
     );
 };
+
 export default TeacherGameControls;

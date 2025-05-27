@@ -17,14 +17,11 @@ export interface GameControllerOutput {
     selectPhase: (phaseId: string) => Promise<void>;
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
-    setVideoPlaybackState: (playing: boolean, time: number, triggerSeek?: boolean) => Promise<void>;
     updateTeacherNotesForCurrentSlide: (notes: string) => void;
     clearTeacherAlert: () => Promise<void>;
     currentVideoDuration: number | null;
-    reportVideoDuration: (duration: number) => void;
-    handlePreviewVideoEnded: () => Promise<void>;
     setCurrentTeacherAlertState: (alert: { title: string; message: string } | null) => void;
-    // Update callback interface to include teacher alert
+    broadcastVideoState: (playing: boolean, time: number) => void;
     onStateChange?: (state: {
         isPlayingVideo: boolean;
         videoCurrentTime: number;
@@ -167,10 +164,6 @@ export const useGameController = (
         previousSlideIdRef.current = currentSlideData?.id;
     }, [currentSlideData, dbSession, updateSessionInDb, pauseVideoIfNeeded, triggerStateSync, isPlayingVideoState, currentTeacherAlertState]);
 
-    const reportVideoDuration = useCallback((duration: number) => {
-        setCurrentVideoDurationState(duration);
-    }, []);
-
     const advanceToNextSlideInternal = useCallback(async () => {
         if (!currentPhaseNode || currentSlideIdInPhaseState === null || !dbSession || !gameStructure || !allPhasesInOrder.length) return;
 
@@ -206,21 +199,6 @@ export const useGameController = (
         setTimeout(triggerStateSync, 0);
 
     }, [currentPhaseNode, currentSlideIdInPhaseState, dbSession, gameStructure, allPhasesInOrder, updateSessionInDb, processChoicePhaseDecisionsFunction, currentPhaseIdState, currentSlideData, triggerStateSync]);
-
-    const handlePreviewVideoEnded = useCallback(async () => {
-        await pauseVideoIfNeeded();
-
-        if (currentTeacherAlertState) return;
-
-        if (currentSlideData?.teacher_alert) {
-            setCurrentTeacherAlertState(currentSlideData.teacher_alert);
-            return;
-        }
-
-        if (currentSlideData?.auto_advance_after_video) {
-            await advanceToNextSlideInternal();
-        }
-    }, [currentSlideData, advanceToNextSlideInternal, pauseVideoIfNeeded, currentTeacherAlertState]);
 
     useEffect(() => {
         if (allTeamsSubmittedCurrentInteractivePhaseState) {
@@ -315,69 +293,24 @@ export const useGameController = (
         }
     }, [currentTeacherAlertState, currentPhaseNode, currentSlideIdInPhaseState, dbSession, allPhasesInOrder, updateSessionInDb, currentPhaseIdState, gameStructure?.slides, triggerStateSync]);
 
-    const setVideoPlaybackState = useCallback(async (
-        playingFromPreview: boolean,
-        timeFromPreview: number,
-        seekTriggeredByPreview: boolean = false
-    ) => {
-        if (!dbSession) return;
+    const broadcastVideoState = useCallback((playing: boolean, time: number) => {
+        setIsPlayingVideoState(playing);
+        setVideoCurrentTimeState(time);
 
-        // Always update the current time state immediately for accurate broadcasting
-        setVideoCurrentTimeState(timeFromPreview);
-
-        if (isPlayingVideoState !== playingFromPreview) {
-            setIsPlayingVideoState(playingFromPreview);
-        }
-
-        if (seekTriggeredByPreview) {
-            internalSeekFlag.current = true;
-            setTriggerVideoSeekState(true);
-
-            // Trigger immediate sync when seeking
-            if (onStateChange) {
-                onStateChange({
-                    isPlayingVideo: playingFromPreview,
-                    videoCurrentTime: timeFromPreview,
-                    triggerVideoSeek: true,
-                    currentSlideData,
-                    currentPhaseNode,
-                });
-            }
-
-            requestAnimationFrame(() => {
-                setTriggerVideoSeekState(false);
-                internalSeekFlag.current = false;
-                // Sync again after seek is complete
-                if (onStateChange) {
-                    onStateChange({
-                        isPlayingVideo: playingFromPreview,
-                        videoCurrentTime: timeFromPreview,
-                        triggerVideoSeek: false,
-                        currentSlideData,
-                        currentPhaseNode,
-                    });
-                }
+        if (onStateChange) {
+            onStateChange({
+                isPlayingVideo: playing,
+                videoCurrentTime: time,
+                triggerVideoSeek: false,
+                currentSlideData,
+                currentPhaseNode,
             });
-        } else {
-            if (triggerVideoSeekState && !internalSeekFlag.current) {
-                setTriggerVideoSeekState(false);
-            }
-            // Immediate sync for time/play state changes
-            if (onStateChange) {
-                onStateChange({
-                    isPlayingVideo: playingFromPreview,
-                    videoCurrentTime: timeFromPreview,
-                    triggerVideoSeek: false,
-                    currentSlideData,
-                    currentPhaseNode,
-                });
-            }
         }
 
-        if (dbSession.is_playing !== playingFromPreview) {
-            await updateSessionInDb({ is_playing: playingFromPreview });
+        if (dbSession && dbSession.is_playing !== playing) {
+            updateSessionInDb({ is_playing: playing });
         }
-    }, [dbSession, updateSessionInDb, isPlayingVideoState, triggerVideoSeekState, onStateChange, currentSlideData, currentPhaseNode, currentTeacherAlertState]);
+    }, [dbSession, updateSessionInDb, onStateChange, currentSlideData, currentPhaseNode]);
 
     const updateTeacherNotesForCurrentSlide = useCallback(async (notes: string) => {
         if (currentSlideData && dbSession) {
@@ -404,13 +337,11 @@ export const useGameController = (
         selectPhase,
         nextSlide,
         previousSlide,
-        setVideoPlaybackState,
         updateTeacherNotesForCurrentSlide,
         clearTeacherAlert,
         currentVideoDuration: currentVideoDurationState,
-        reportVideoDuration,
-        handlePreviewVideoEnded: handlePreviewVideoEnded,
         setCurrentTeacherAlertState,
-        onStateChange
+        onStateChange,
+        broadcastVideoState
     };
 };

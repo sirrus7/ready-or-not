@@ -9,10 +9,6 @@ interface StudentDisplayViewProps {
     isPlayingTarget: boolean;
     videoTimeTarget?: number;
     triggerSeekEvent?: boolean;
-    isForTeacherPreview?: boolean;
-    onPreviewVideoStateChange?: (playing: boolean, time: number, triggerSeek?: boolean) => void;
-    onPreviewVideoDuration?: (duration: number) => void;
-    onPreviewVideoEnded?: () => void; // Add this prop type
 }
 
 const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
@@ -20,17 +16,13 @@ const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
                                                                    isPlayingTarget,
                                                                    videoTimeTarget,
                                                                    triggerSeekEvent,
-                                                                   isForTeacherPreview = false,
-                                                                   onPreviewVideoStateChange,
-                                                                   onPreviewVideoDuration,
-                                                                   onPreviewVideoEnded, // Add this prop
                                                                }) => {
     if (!slide) {
         return (
             <div className="h-full flex flex-col items-center justify-center bg-gray-800 text-white p-8">
                 <Hourglass size={48} className="mb-4 text-blue-400 animate-pulse"/>
                 <p className="text-xl">Waiting for game content...</p>
-                {isForTeacherPreview && <p className="text-xs text-gray-400 mt-2">(This is the Teacher's Preview)</p>}
+                {<p className="text-xs text-gray-400 mt-2">(This is the Teacher's Preview)</p>}
             </div>
         );
     }
@@ -42,10 +34,6 @@ const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
                 isPlayingTarget={isPlayingTarget}
                 videoTimeTarget={videoTimeTarget}
                 triggerSeekEvent={triggerSeekEvent}
-                isForTeacherPreview={isForTeacherPreview}
-                onPreviewVideoStateChange={onPreviewVideoStateChange}
-                onPreviewVideoDuration={onPreviewVideoDuration}
-                onPreviewVideoEnded={onPreviewVideoEnded}
             />
         </div>
     );

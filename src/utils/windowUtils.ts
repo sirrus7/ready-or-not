@@ -1,39 +1,25 @@
 // src/utils/windowUtils.ts
+import { MonitorInfo, openWindowOnMonitor } from './displayUtils';
 
-export const openStudentDisplay = (sessionId: string | null) => {
-    if (!sessionId || sessionId === 'new') {
-        console.warn("Cannot open student display without a valid session ID.");
+export const openStudentDisplay = (sessionId: string | null, monitor?: MonitorInfo): Window | null => {
+    if (!sessionId) {
+        console.error('Cannot open student display without a session ID');
         return null;
     }
 
-    // Fix: Use the correct route format that matches your App.tsx routing
-    const studentDisplayUrl = `/student-display/${sessionId}`;
+    const url = `/student-display/${sessionId}`;
 
-    console.log(`[windowUtils] Opening student display with URL: ${studentDisplayUrl}`);
-    console.log(`[windowUtils] Session ID: ${sessionId}`);
+    if (monitor) {
+        return openWindowOnMonitor(url, 'studentDisplay', monitor);
+    } else {
+        // Fallback to simple window.open
+        const width = 1920;
+        const height = 1080;
+        const left = window.screen.width - width;
+        const top = 0;
 
-    // Try to open in a new tab first (no features = new tab in most browsers)
-    const studentWindow = window.open(studentDisplayUrl, `StudentDisplay_${sessionId}`);
+        const features = `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=no,resizable=yes`;
 
-    // If popup blocker or other issues, try with minimal features that encourage tab behavior
-    if (!studentWindow) {
-        console.warn("Initial tab open failed, trying with minimal features");
-        const fallbackWindow = window.open(
-            studentDisplayUrl,
-            `StudentDisplay_${sessionId}`,
-            'noopener,noreferrer'
-        );
-
-        if (fallbackWindow) {
-            fallbackWindow.focus();
-        }
-
-        return fallbackWindow;
+        return window.open(url, 'studentDisplay', features);
     }
-
-    if (studentWindow) {
-        studentWindow.focus();
-    }
-
-    return studentWindow;
 };

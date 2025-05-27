@@ -33,8 +33,6 @@ interface AppContextProps {
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
     togglePlayPauseVideo: () => Promise<void>;
-    setVideoPlaybackStateFromPreview: (playing: boolean, time: number, triggerSeek?: boolean) => Promise<void>;
-    reportVideoDuration: (duration: number) => void;
     clearTeacherAlert: () => Promise<void>;
     isLoadingSession: boolean;
     sessionError: string | null;
@@ -58,7 +56,7 @@ interface AppContextProps {
     videoCurrentTime: number;
     triggerVideoSeek: boolean;
     setCurrentTeacherAlertState: (alert: { title: string; message: string } | null) => void;
-    handlePreviewVideoEnded: () => Promise<void>;
+    broadcastVideoState: (playing: boolean, time: number) => void;
 }
 
 const initialAppContextLocalStateDefinition: {
@@ -133,16 +131,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         }
     );
 
-    const updateVideoDuration = useCallback((duration: number) => {
-        currentVideoDurationRef.current = duration;
-        console.log(`[AppContext] Updated video duration ref: ${duration}`);
-    }, []);
-
-    const reportVideoDurationWithRef = useCallback((duration: number) => {
-        gameController.reportVideoDuration(duration);
-        updateVideoDuration(duration);
-    }, [gameController.reportVideoDuration, updateVideoDuration]);
-
     // All other AppContext logic remains the same...
     const applyKpiEffects = useCallback((currentKpisInput: TeamRoundData, effects: KpiEffect[], kpiContext: string = "Effect"): TeamRoundData => {
         const updatedKpis = JSON.parse(JSON.stringify(currentKpisInput));
@@ -174,6 +162,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             if (error) console.error("Error storing permanent KPI adjustments:", error);
         }
     }, []);
+
+    const broadcastVideoState = useCallback((playing: boolean, time: number) => {
+        gameController.broadcastVideoState(playing, time);
+    }, [gameController]);
 
     const ensureTeamRoundData = useCallback(async (teamId: string, roundNumber: 1 | 2 | 3, sessionId: string): Promise<TeamRoundData> => {
         if (!sessionId || sessionId === 'new') throw new Error("ensureTeamRoundData: Invalid sessionId");
@@ -753,8 +745,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         updateTeacherNotesForCurrentSlide: gameController.updateTeacherNotesForCurrentSlide,
         nextSlide: nextSlideCombined,
         previousSlide: gameController.previousSlide,
-        togglePlayPauseVideo: gameController.togglePlayPauseVideo,
-        setVideoPlaybackStateFromPreview: gameController.setVideoPlaybackState,
         clearTeacherAlert: gameController.clearTeacherAlert,
         isLoadingSession,
         sessionError,
@@ -781,16 +771,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         isPlayingVideo: gameController.isPlayingVideo,
         videoCurrentTime: gameController.videoCurrentTime,
         triggerVideoSeek: gameController.triggerVideoSeek,
-        handlePreviewVideoEnded: gameController.handlePreviewVideoEnded,
         setCurrentTeacherAlertState,
-        reportVideoDuration: reportVideoDurationWithRef,
+        broadcastVideoState,
     }), [
         combinedAppState, gameController, allPhasesInOrder, isLoadingSession, sessionError, clearSessionError,
         localUiState.isStudentWindowOpen, teams, teamDecisions, teamRoundData, isLoadingTeams,
         fetchWrapperTeams, fetchTeamRoundDataFromHook, resetWrapperTeamDecision, nextSlideCombined,
         processChoicePhaseDecisionsInternal, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal,
         calculateAndFinalizeRoundKPIsInternal, resetGameProgressInternal, gameStructureInstance, setCurrentTeacherAlertState,
-        reportVideoDurationWithRef, currentDbSession?.id, localUiState.isLoadingProcessing,
+        currentDbSession?.id, localUiState.isLoadingProcessing, broadcastVideoState
     ]);
 
     return (
