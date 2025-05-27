@@ -1,6 +1,7 @@
-// src/components/TeacherHost/CreateGameWizard/Step2_PrintHandouts.tsx
+// src/components/TeacherHost/CreateGameWizard/Step4_PrintHandouts.tsx
 import React, {useState, useMemo} from 'react';
 import {NewGameData} from '../../../types'; // Ensure path is correct
+import { generateTeamNameCardsPDF } from '../../../utils/generateTeamNameCards';
 import {ArrowLeft, ArrowRight, Download, Printer as PrinterIcon, ShoppingCart, Mail, Info} from 'lucide-react';
 
 interface Step2Props {
@@ -74,8 +75,32 @@ Thank you,
   `.trim();
 
     const handleDownloadAllPDFs = () => {
-        alert("Download All Printable PDFs: This feature would provide links to download the necessary game materials. (Currently a placeholder)");
-        // Example: window.open('link_to_your_master_pdf_compilation.pdf', '_blank');
+        // Generate team name cards
+        generateTeamNameCardsPDF(gameData.teams_config);
+
+        // Open other static PDFs
+        const staticPdfs = [
+            '/game-materials/core/game-board.pdf',
+            '/game-materials/core/briefing-packet.pdf',
+            '/game-materials/core/vocabulary-definitions.pdf',
+            '/game-materials/core/permanent-kpi-impact-cards.pdf',
+            '/game-materials/core/biz-growth-strategy-report.pdf',
+            '/game-materials/round-1/rd1-position-sheet.pdf',
+            '/game-materials/round-1/rd1-investment-cards.pdf',
+            '/game-materials/round-1/rd1-team-summary-sheet.pdf',
+            '/game-materials/round-2/rd2-position-sheet.pdf',
+            '/game-materials/round-2/rd2-investment-cards.pdf',
+            '/game-materials/round-2/rd2-team-summary-sheet.pdf',
+            '/game-materials/round-3/rd3-investment-cards.pdf',
+            '/game-materials/round-3/rd3-team-summary-sheet.pdf'
+        ];
+
+        // Open each PDF with a delay to avoid popup blockers
+        staticPdfs.forEach((pdf, index) => {
+            setTimeout(() => {
+                window.open(pdf, '_blank');
+            }, (index + 1) * 500); // Start after team cards
+        });
     };
 
     return (
@@ -232,7 +257,7 @@ Thank you,
                     onClick={onNext}
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
-                    Next: Team Setup <ArrowRight size={18}/>
+                    Next: Finalize & Start <ArrowRight size={18}/>
                 </button>
             </div>
         </div>

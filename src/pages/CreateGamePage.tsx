@@ -6,9 +6,9 @@ import {supabase} from '../lib/supabase';
 import {NewGameData} from '../types';
 
 import Step1GameDetails from '../components/TeacherHost/CreateGameWizard/Step1_GameDetails';
-import Step2PrintHandouts from '../components/TeacherHost/CreateGameWizard/Step2_PrintHandouts';
-import Step3TeamSetup from '../components/TeacherHost/CreateGameWizard/Step3_TeamSetup';
-import Step4RoomSetup from '../components/TeacherHost/CreateGameWizard/Step4_RoomSetup';
+import Step2PrintHandouts from '../components/TeacherHost/CreateGameWizard/Step4_PrintHandouts.tsx';
+import Step3TeamSetup from '../components/TeacherHost/CreateGameWizard/Step2_TeamSetup.tsx';
+import Step4RoomSetup from '../components/TeacherHost/CreateGameWizard/Step3_RoomSetup.tsx';
 import Step5Finalize from '../components/TeacherHost/CreateGameWizard/Step5_Finalize';
 
 import {ArrowLeft, Settings, Printer, Users, ListOrdered, Rocket, Zap, CheckCircle, AlertTriangle} from 'lucide-react';
@@ -26,9 +26,9 @@ const initialNewGameData: NewGameData = {
 
 const WIZARD_STEPS = [
     {id: 1, title: 'Game Details', component: Step1GameDetails, icon: Settings},
-    {id: 2, title: 'Print Handouts', component: Step2PrintHandouts, icon: Printer},
-    {id: 3, title: 'Team Setup', component: Step3TeamSetup, icon: Users},
-    {id: 4, title: 'Room & Screen Setup', component: Step4RoomSetup, icon: ListOrdered},
+    {id: 2, title: 'Team Setup', component: Step3TeamSetup, icon: Users}, // Moved up
+    {id: 3, title: 'Room & Screen Setup', component: Step4RoomSetup, icon: ListOrdered}, // Moved up
+    {id: 4, title: 'Print Handouts', component: Step2PrintHandouts, icon: Printer}, // Moved down
     {id: 5, title: 'Finalize & Start', component: Step5Finalize, icon: Rocket},
 ];
 

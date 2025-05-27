@@ -538,7 +538,7 @@ const CompanyDisplayPage: React.FC = () => {
 
     return (
         <div className={`min-h-screen bg-gray-900 text-white flex flex-col ${isMobile || isTablet ? 'touch-manipulation' : ''}`}
-             style={{ minHeight: '100vh', minHeight: '100dvh' }}>
+             style={{ minHeight: '100vh' }}>
 
             {/* KPI Display - Fixed header */}
             <div className="flex-shrink-0 sticky top-0 z-10">

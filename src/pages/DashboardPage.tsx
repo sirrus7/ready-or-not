@@ -114,6 +114,12 @@ const DashboardPage: React.FC = () => {
     const [gameToDelete, setGameToDelete] = useState<{ id: string; name: string } | null>(null);
     const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
+    const capitalizeName = (str: string): string => {
+        return str
+            .split(/[.\-_]/) // Split by common email separators
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+    };
 
     const fetchGames = useCallback(async () => {
         if (!user) {
@@ -231,7 +237,9 @@ const DashboardPage: React.FC = () => {
                 className="max-w-6xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center">
                 <div>
                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800">Teacher Dashboard</h1>
-                    <p className="text-gray-600 text-sm md:text-base">Welcome, {user?.email?.split('@')[0] || 'Teacher'}!</p>
+                    <p className="text-gray-600 text-sm md:text-base">
+                        Welcome, {user?.email ? capitalizeName(user.email.split('@')[0]) : 'Teacher'}!
+                    </p>
                 </div>
                 <div className="flex items-center space-x-2 sm:space-x-3 mt-3 sm:mt-0">
                     <button
