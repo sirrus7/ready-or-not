@@ -1,5 +1,5 @@
 // src/components/TeacherHost/TeacherGameControls.tsx
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronLeft,
     ChevronRight,
@@ -11,11 +11,13 @@ import {
     Lightbulb,
     LogOut,
     Monitor,
+    Video,
+    AlertCircle,
 } from 'lucide-react';
-import {useAppContext} from '../../context/AppContext';
+import { useAppContext } from '../../context/AppContext';
 import Modal from '../UI/Modal';
 import MonitorSelector from './MonitorSelector';
-import {useNavigate} from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { openWindowOnMonitor, getSavedMonitorPreference, saveMonitorPreference, MonitorInfo } from '../../utils/displayUtils';
 
@@ -42,6 +44,7 @@ const TeacherGameControls: React.FC = () => {
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
     const [showMonitorSelector, setShowMonitorSelector] = useState(false);
     const [studentWindowRef, setStudentWindowRef] = useState<Window | null>(null);
+    const [showVideoInstructionsModal, setShowVideoInstructionsModal] = useState(false);
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
@@ -51,19 +54,30 @@ const TeacherGameControls: React.FC = () => {
         }
     };
 
+    const isVideoSlide = currentSlideData && (
+        currentSlideData.type === 'video' ||
+        (currentSlideData.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
+        ((currentSlideData.type === 'consequence_reveal' || currentSlideData.type === 'payoff_reveal') &&
+            currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
+    );
+
     const handleOpenStudentDisplay = async () => {
         if (!state.currentSessionId) {
             alert("No active session. Please create or select a game first.");
             return;
         }
 
-        // Check if we have a saved monitor preference
+        // Check if current slide is a video
+        if (isVideoSlide) {
+            setShowVideoInstructionsModal(true);
+            return;
+        }
+
+        // For non-video content, proceed with normal student display
         const savedMonitor = getSavedMonitorPreference(state.currentSessionId);
         if (savedMonitor) {
-            // Try to open on saved monitor
             openOnMonitor(savedMonitor);
         } else {
-            // Show monitor selector
             setShowMonitorSelector(true);
         }
     };
@@ -79,7 +93,18 @@ const TeacherGameControls: React.FC = () => {
             setStudentWindowOpen(true);
             saveMonitorPreference(state.currentSessionId, monitor);
 
-            // Check if window is closed
+            // Set up communication with student window
+            studentWindow.addEventListener('load', () => {
+                // Send current slide info
+                if (currentSlideData && !isVideoSlide) {
+                    studentWindow.postMessage({
+                        type: 'SLIDE_UPDATE',
+                        slide: currentSlideData
+                    }, window.location.origin);
+                }
+            });
+
+            // Monitor if window is closed
             const checkIfClosed = setInterval(() => {
                 if (studentWindow.closed) {
                     clearInterval(checkIfClosed);
@@ -87,10 +112,54 @@ const TeacherGameControls: React.FC = () => {
                     setStudentWindowRef(null);
                 }
             }, 1000);
+
+            // Store reference globally for other components
+            (window as any).studentDisplayWindow = studentWindow;
         } else {
             alert("Failed to open student display. Please ensure pop-ups are allowed for this site.");
         }
     };
+
+    // Update student display when slide changes
+    useEffect(() => {
+        if (studentWindowRef && !studentWindowRef.closed && currentSlideData) {
+            studentWindowRef.postMessage({
+                type: 'SLIDE_UPDATE',
+                slide: currentSlideData
+            }, window.location.origin);
+        }
+    }, [currentSlideData, studentWindowRef]);
+
+    // Listen for messages from student display
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            if (event.origin !== window.location.origin) return;
+
+            switch (event.data.type) {
+                case 'STUDENT_DISPLAY_READY':
+                    // Send current state to newly opened student display
+                    if (studentWindowRef && currentSlideData) {
+                        studentWindowRef.postMessage({
+                            type: 'SLIDE_UPDATE',
+                            slide: currentSlideData
+                        }, window.location.origin);
+                    }
+                    break;
+                case 'REQUEST_CURRENT_STATE':
+                    // Respond with current slide
+                    if (event.source && currentSlideData) {
+                        (event.source as Window).postMessage({
+                            type: 'SLIDE_UPDATE',
+                            slide: currentSlideData
+                        }, window.location.origin);
+                    }
+                    break;
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [currentSlideData, studentWindowRef]);
 
     const openJoinInfoModal = () => setIsJoinCompanyModalOpen(true);
     const closeJoinCompanyModal = () => setIsJoinCompanyModalOpen(false);
@@ -119,6 +188,12 @@ const TeacherGameControls: React.FC = () => {
 
     const confirmExitGame = () => {
         setisExitConfirmModalOpen(false);
+
+        // Close student display if open
+        if (studentWindowRef && !studentWindowRef.closed) {
+            studentWindowRef.close();
+        }
+
         navigate('/dashboard');
     };
 
@@ -126,7 +201,7 @@ const TeacherGameControls: React.FC = () => {
     const CompanyDisplayBaseUrl = `${window.location.origin}/student-game`;
     const studentJoinUrl = `${CompanyDisplayBaseUrl}/${state.currentSessionId}`;
 
-    // Generate QR code when modal opens or session ID changes
+    // Generate QR code when modal opens
     useEffect(() => {
         if (isJoinCompanyModalOpen && state.currentSessionId) {
             QRCode.toDataURL(studentJoinUrl, {
@@ -189,7 +264,12 @@ const TeacherGameControls: React.FC = () => {
                             : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                 >
-                    {state.isStudentWindowOpen ? (
+                    {isVideoSlide ? (
+                        <>
+                            <Video size={18}/>
+                            Video Display Info
+                        </>
+                    ) : state.isStudentWindowOpen ? (
                         <>
                             <Monitor size={18}/>
                             Student Display Active
@@ -278,6 +358,46 @@ const TeacherGameControls: React.FC = () => {
                 />
             </Modal>
 
+            {/* Video Instructions Modal */}
+            <Modal
+                isOpen={showVideoInstructionsModal}
+                onClose={() => setShowVideoInstructionsModal(false)}
+                title="Displaying Video Content"
+                size="md"
+            >
+                <div className="p-4">
+                    <div className="flex items-start mb-4">
+                        <Video className="text-blue-600 mt-1 mr-3" size={24} />
+                        <div>
+                            <p className="text-gray-700 mb-3">
+                                For video content, use the <strong>Picture-in-Picture</strong> feature:
+                            </p>
+                            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+                                <li>Look for the <strong>"Pop Out to Projector"</strong> button in the video controls below</li>
+                                <li>Click it to pop the video out into a floating window</li>
+                                <li>Drag the video window to your projector/external display</li>
+                                <li>Double-click the video to make it fullscreen</li>
+                                <li>Use the controls in your main dashboard to play/pause</li>
+                            </ol>
+                        </div>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                        <p className="text-blue-800">
+                            <AlertCircle size={16} className="inline mr-1" />
+                            This ensures perfect audio/video synchronization between your preview and the projector.
+                        </p>
+                    </div>
+                    <div className="mt-4 text-right">
+                        <button
+                            onClick={() => setShowVideoInstructionsModal(false)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                            Got it
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
             {/* Teacher Alert Modal */}
             {state.currentTeacherAlert && (
                 <Modal
@@ -335,16 +455,6 @@ const TeacherGameControls: React.FC = () => {
                                     className="w-48 h-48"
                                 />
                                 <p className="text-xs text-gray-500 mt-2">Scan to join game</p>
-                            </div>
-                        </div>
-                    )}
-                    {state.currentSessionId && !qrCodeDataUrl && (
-                        <div className="flex justify-center my-4">
-                            <div className="w-48 h-48 bg-gray-200 flex items-center justify-center text-gray-500 text-xs p-2 rounded-lg">
-                                <div className="text-center">
-                                    <QrCode size={32} className="mx-auto mb-2 opacity-50" />
-                                    <p>Generating QR Code...</p>
-                                </div>
                             </div>
                         </div>
                     )}

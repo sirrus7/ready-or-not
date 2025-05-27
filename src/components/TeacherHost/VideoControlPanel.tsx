@@ -1,7 +1,6 @@
 // src/components/TeacherHost/VideoControlPanel.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Maximize } from 'lucide-react';
-import { useAppContext } from '../../context/AppContext';
+import { Play, Pause, Maximize, Minimize, Monitor } from 'lucide-react';
 
 interface VideoControlPanelProps {
     slideId: number;
@@ -15,198 +14,123 @@ const VideoControlPanel: React.FC<VideoControlPanelProps> = ({
                                                                  isForCurrentSlide
                                                              }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [duration, setDuration] = useState(0);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [volume, setVolume] = useState(1);
+    const [isPiPActive, setIsPiPActive] = useState(false);
+    const [pipWindow, setPipWindow] = useState<PictureInPictureWindow | null>(null);
 
-    const {
-        broadcastVideoState,
-        isPlayingVideo,
-        videoCurrentTime
-    } = useAppContext();
+    // Enter PiP mode
+    const enterPiP = async () => {
+        if (!videoRef.current) return;
 
-    // Sync with global state when this is the current slide
+        try {
+            const pip = await videoRef.current.requestPictureInPicture();
+            setPipWindow(pip);
+
+            // Show instructions to teacher
+            alert(
+                "Video popped out successfully!\n\n" +
+                "1. Drag the video window to your projector/external display\n" +
+                "2. Double-click the video to fullscreen it\n" +
+                "3. Use controls here to play/pause"
+            );
+        } catch (error) {
+            console.error('Failed to enter PiP:', error);
+            alert('Failed to pop out video. Please try again.');
+        }
+    };
+
+    // Exit PiP mode
+    const exitPiP = async () => {
+        try {
+            await document.exitPictureInPicture();
+        } catch (error) {
+            console.error('Failed to exit PiP:', error);
+        }
+    };
+
+    // Set up PiP event listeners
     useEffect(() => {
-        if (isForCurrentSlide && videoRef.current) {
-            if (isPlayingVideo && !videoRef.current.playing) {
-                videoRef.current.play();
-            } else if (!isPlayingVideo && !videoRef.current.paused) {
-                videoRef.current.pause();
-            }
+        const video = videoRef.current;
+        if (!video) return;
 
-            if (Math.abs(videoRef.current.currentTime - videoCurrentTime) > 0.5) {
-                videoRef.current.currentTime = videoCurrentTime;
-            }
-        }
-    }, [isForCurrentSlide, isPlayingVideo, videoCurrentTime]);
+        const handleEnterPiP = (event: any) => {
+            setIsPiPActive(true);
+            setPipWindow(event.pictureInPictureWindow);
+            console.log('Entered PiP mode');
+        };
 
-    const handlePlayPause = () => {
-        if (!videoRef.current || !isForCurrentSlide) return;
+        const handleLeavePiP = () => {
+            setIsPiPActive(false);
+            setPipWindow(null);
+            console.log('Left PiP mode');
+        };
 
-        if (videoRef.current.paused) {
-            videoRef.current.play();
-            broadcastVideoState(true, videoRef.current.currentTime);
-        } else {
-            videoRef.current.pause();
-            broadcastVideoState(false, videoRef.current.currentTime);
-        }
-    };
+        video.addEventListener('enterpictureinpicture', handleEnterPiP);
+        video.addEventListener('leavepictureinpicture', handleLeavePiP);
 
-    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!videoRef.current || !isForCurrentSlide) return;
-
-        const newTime = parseFloat(e.target.value);
-        videoRef.current.currentTime = newTime;
-        broadcastVideoState(isPlaying, newTime);
-    };
-
-    const handleSkip = (seconds: number) => {
-        if (!videoRef.current || !isForCurrentSlide) return;
-
-        const newTime = Math.max(0, Math.min(duration, currentTime + seconds));
-        videoRef.current.currentTime = newTime;
-        broadcastVideoState(isPlaying, newTime);
-    };
-
-    const formatTime = (seconds: number): string => {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const handleLoadedMetadata = () => {
-        if (videoRef.current) {
-            setDuration(videoRef.current.duration);
-        }
-    };
-
-    const handleTimeUpdate = () => {
-        if (videoRef.current) {
-            setCurrentTime(videoRef.current.currentTime);
-
-            // Broadcast state periodically when playing
-            if (isForCurrentSlide && !videoRef.current.paused) {
-                broadcastVideoState(true, videoRef.current.currentTime);
-            }
-        }
-    };
-
-    const handlePlay = () => {
-        setIsPlaying(true);
-        if (isForCurrentSlide) {
-            broadcastVideoState(true, videoRef.current?.currentTime || 0);
-        }
-    };
-
-    const handlePause = () => {
-        setIsPlaying(false);
-        if (isForCurrentSlide) {
-            broadcastVideoState(false, videoRef.current?.currentTime || 0);
-        }
-    };
+        return () => {
+            video.removeEventListener('enterpictureinpicture', handleEnterPiP);
+            video.removeEventListener('leavepictureinpicture', handleLeavePiP);
+        };
+    }, []);
 
     return (
         <div className="bg-gray-900 rounded-lg overflow-hidden">
-            {/* Video Preview */}
+            {/* Video Element */}
             <div className="relative aspect-video bg-black">
                 <video
                     ref={videoRef}
                     src={videoUrl}
                     className="w-full h-full"
-                    onLoadedMetadata={handleLoadedMetadata}
-                    onTimeUpdate={handleTimeUpdate}
-                    onPlay={handlePlay}
-                    onPause={handlePause}
-                    controls={false}
+                    controls={false} // We'll use custom controls
                 />
-
-                {!isForCurrentSlide && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <p className="text-white text-sm bg-black/70 px-3 py-1 rounded">
-                            Preview Only - Not Current Slide
-                        </p>
-                    </div>
-                )}
             </div>
 
-            {/* Controls */}
+            {/* Control Bar */}
             <div className="p-4 bg-gray-800">
-                {/* Play/Pause and Skip */}
-                <div className="flex items-center justify-center gap-2 mb-4">
-                    <button
-                        onClick={() => handleSkip(-10)}
-                        disabled={!isForCurrentSlide}
-                        className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white"
-                        title="Skip back 10s"
-                    >
-                        <SkipBack size={20} />
-                    </button>
-
-                    <button
-                        onClick={handlePlayPause}
-                        disabled={!isForCurrentSlide}
-                        className="p-3 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white"
-                    >
-                        {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-                    </button>
-
-                    <button
-                        onClick={() => handleSkip(10)}
-                        disabled={!isForCurrentSlide}
-                        className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white"
-                        title="Skip forward 10s"
-                    >
-                        <SkipForward size={20} />
-                    </button>
-                </div>
-
-                {/* Timeline */}
-                <div className="mb-4">
-                    <input
-                        type="range"
-                        min="0"
-                        max={duration || 100}
-                        value={currentTime}
-                        onChange={handleSeek}
-                        disabled={!isForCurrentSlide}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
-                    />
-                    <div className="flex justify-between text-xs text-gray-400 mt-1">
-                        <span>{formatTime(currentTime)}</span>
-                        <span>{formatTime(duration)}</span>
+                <div className="flex items-center justify-between mb-4">
+                    {/* Play/Pause Controls */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => videoRef.current?.paused ? videoRef.current.play() : videoRef.current?.pause()}
+                            className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
+                        >
+                            {videoRef.current?.paused ? <Play size={20} /> : <Pause size={20} />}
+                        </button>
                     </div>
-                </div>
 
-                {/* Volume */}
-                <div className="flex items-center gap-2">
-                    <Volume2 size={16} className="text-gray-400" />
-                    <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.1"
-                        value={volume}
-                        onChange={(e) => {
-                            const newVolume = parseFloat(e.target.value);
-                            setVolume(newVolume);
-                            if (videoRef.current) {
-                                videoRef.current.volume = newVolume;
-                            }
-                        }}
-                        className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                    />
+                    {/* PiP Controls */}
+                    <div className="flex gap-2">
+                        {!isPiPActive ? (
+                            <button
+                                onClick={enterPiP}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white"
+                                title="Pop out video to external display"
+                            >
+                                <Monitor size={20} />
+                                Pop Out to Projector
+                            </button>
+                        ) : (
+                            <button
+                                onClick={exitPiP}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white"
+                                title="Return video to main window"
+                            >
+                                <Minimize size={20} />
+                                Return to Dashboard
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Status */}
-                <div className="mt-4 text-center">
-                    <p className="text-sm text-gray-400">
-                        {isForCurrentSlide ? (
-                            <span className="text-green-400">● Live Control Active</span>
-                        ) : (
-                            <span className="text-gray-500">Preview Mode</span>
-                        )}
-                    </p>
+                <div className="text-sm text-gray-400">
+                    {isPiPActive ? (
+                        <p className="text-green-400">
+                            ✓ Video is displayed on external monitor - Use controls here to play/pause
+                        </p>
+                    ) : (
+                        <p>Click "Pop Out to Projector" to display video on external monitor</p>
+                    )}
                 </div>
             </div>
         </div>
