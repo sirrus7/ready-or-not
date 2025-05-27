@@ -1,195 +1,164 @@
 // src/pages/StudentDisplayPage.tsx
-import React, {useEffect, useState, useMemo, useRef} from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import StudentDisplayView from '../components/StudentDisplay/StudentDisplayView';
-import {Slide, TeacherBroadcastPayload} from '../types';
-import {readyOrNotGame_2_0_DD} from '../data/gameStructure'; // For slide definitions
-import {Hourglass} from 'lucide-react';
+import { Slide } from '../types';
+import SlideRenderer from '../components/StudentDisplay/SlideRenderer';
+import { Hourglass, Monitor, Video } from 'lucide-react';
 
 const StudentDisplayPage: React.FC = () => {
-    // Get sessionId from URL params
     const { sessionId } = useParams<{ sessionId: string }>();
-
-    console.log('[StudentDisplayPage] Component loaded with:', {
-        sessionId,
-        pathname: window.location.pathname,
-        fullUrl: window.location.href
-    });
-
     const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
-    const [isPlayingTargetState, setIsPlayingTargetState] = useState<boolean>(false);
-    const [videoTimeTargetState, setVideoTimeTargetState] = useState<number | undefined>(undefined);
-    const [triggerSeekEventState, setTriggerSeekEventState] = useState<boolean>(false);
-    const [statusMessage, setStatusMessage] = useState<string>("Initializing Student Display...");
-
-    const gameStructureInstance = useMemo(() => readyOrNotGame_2_0_DD, []);
-    const channelRef = useRef<BroadcastChannel | null>(null);
-    const lastProcessedPayloadRef = useRef<string>('');
+    const [isConnected, setIsConnected] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('Connecting to session...');
 
     useEffect(() => {
-        document.title = `Student Display - Session ${sessionId || 'N/A'}`;
-        console.log('[StudentDisplayPage] Document title set, sessionId:', sessionId);
-    }, [sessionId]);
-
-    useEffect(() => {
-        console.log('[StudentDisplayPage] Main effect running with sessionId:', sessionId);
-
         if (!sessionId) {
-            const errorMsg = "Error: No Session ID provided in URL.";
-            console.error('[StudentDisplayPage]', errorMsg);
-            console.error('[StudentDisplayPage] URL analysis:', {
-                pathname: window.location.pathname,
-                href: window.location.href,
-                extractedSessionId: sessionId
-            });
-            setStatusMessage(errorMsg);
+            setStatusMessage('No session ID provided');
             return;
         }
 
-        setStatusMessage(`Connecting to game session: ${sessionId}...`);
-        const channelName = `classroom-${sessionId}`;
-        console.log('[StudentDisplayPage] Creating BroadcastChannel:', channelName);
+        // Simple message listener for non-video content
+        const handleMessage = (event: MessageEvent) => {
+            // Only accept messages from same origin
+            if (event.origin !== window.location.origin) return;
 
-        // Clean up any existing channel
-        if (channelRef.current) {
-            channelRef.current.close();
+            console.log('[StudentDisplayPage] Received message:', event.data);
+
+            switch (event.data.type) {
+                case 'SLIDE_UPDATE':
+                    setIsConnected(true);
+                    const slide = event.data.slide;
+
+                    // For video slides, show informational message since video is handled by PiP
+                    if (slide && (slide.type === 'video' ||
+                        (slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)))) {
+                        setCurrentSlide({
+                            id: slide.id,
+                            type: 'content_page',
+                            title: 'Video Content',
+                            main_text: 'Video is being displayed directly on this screen',
+                            sub_text: 'The teacher has popped out the video using Picture-in-Picture',
+                            background_css: 'bg-gray-900'
+                        } as Slide);
+                    } else {
+                        // For non-video slides, display normally
+                        setCurrentSlide(slide);
+                    }
+                    break;
+
+                case 'SESSION_ENDED':
+                    setCurrentSlide(null);
+                    setIsConnected(false);
+                    setStatusMessage('Session has ended');
+                    break;
+
+                case 'PING':
+                    // Respond to keep-alive pings from teacher window
+                    if (window.opener) {
+                        window.opener.postMessage({ type: 'PONG', sessionId }, window.location.origin);
+                    }
+                    break;
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+
+        // Notify teacher window that student display is ready
+        if (window.opener) {
+            window.opener.postMessage({
+                type: 'STUDENT_DISPLAY_READY',
+                sessionId
+            }, window.location.origin);
+
+            // Request current state
+            window.opener.postMessage({
+                type: 'REQUEST_CURRENT_STATE',
+                sessionId
+            }, window.location.origin);
         }
 
-        const channel = new BroadcastChannel(channelName);
-        channelRef.current = channel;
-
-        channel.onmessage = (event) => {
-            console.log('[StudentDisplayPage] Received broadcast message:', event.data);
-
-            // Create a unique identifier for this payload to prevent duplicate processing
-            const payloadId = JSON.stringify({
-                type: event.data.type,
-                slideId: event.data.payload?.currentSlideId,
-                isPlaying: event.data.payload?.isPlayingVideo,
-                videoTime: event.data.payload?.videoCurrentTime,
-                triggerSeek: event.data.payload?.triggerVideoSeek,
-                timestamp: Math.floor((event.data.payload?.videoCurrentTime || 0) * 10) // Round to 100ms precision
-            });
-
-            // Skip if we just processed this exact payload (prevents rapid duplicate updates)
-            if (payloadId === lastProcessedPayloadRef.current) {
-                console.log('[StudentDisplayPage] Skipping duplicate payload');
-                return;
+        // Set up connection timeout
+        const connectionTimeout = setTimeout(() => {
+            if (!isConnected) {
+                setStatusMessage('Connection timeout. Please ensure the teacher dashboard is open.');
             }
-            lastProcessedPayloadRef.current = payloadId;
-
-            if (event.data.type === 'TEACHER_STATE_UPDATE') {
-                const payload = event.data.payload as TeacherBroadcastPayload;
-                const slideData = gameStructureInstance.slides.find(s => s.id === payload.currentSlideId) || null;
-
-                console.log('[StudentDisplayPage] Processing teacher state update:', {
-                    slideId: payload.currentSlideId,
-                    slideFound: !!slideData,
-                    slideTitle: slideData?.title,
-                    isPlaying: payload.isPlayingVideo,
-                    videoTime: payload.videoCurrentTime,
-                    triggerSeek: payload.triggerVideoSeek
-                });
-
-                // Update slide first
-                if (slideData?.id !== currentSlide?.id) {
-                    console.log('[StudentDisplayPage] Slide changed:', currentSlide?.id, '->', slideData?.id);
-                    setCurrentSlide(slideData);
-                }
-
-                // Update video states
-                setIsPlayingTargetState(payload.isPlayingVideo);
-
-                if (payload.videoCurrentTime !== undefined) {
-                    setVideoTimeTargetState(payload.videoCurrentTime);
-                }
-
-                if (payload.triggerVideoSeek) {
-                    console.log('[StudentDisplayPage] Triggering seek to:', payload.videoCurrentTime);
-                    setTriggerSeekEventState(true);
-                    // Clear the seek trigger after a short delay
-                    setTimeout(() => {
-                        setTriggerSeekEventState(false);
-                    }, 100);
-                } else {
-                    setTriggerSeekEventState(false);
-                }
-
-                setStatusMessage("");
-            } else if (event.data.type === 'SESSION_ENDED_BY_TEACHER') {
-                console.log('[StudentDisplayPage] Session ended by teacher');
-                setCurrentSlide(null);
-                setIsPlayingTargetState(false);
-                setStatusMessage("The game session has ended. You can close this window.");
-                if (channelRef.current) {
-                    channelRef.current.close();
-                    channelRef.current = null;
-                }
-            }
-        };
-
-        channel.onmessageerror = (error) => {
-            console.error('[StudentDisplayPage] BroadcastChannel error:', error);
-            setStatusMessage("Connection error. Please refresh the page.");
-        };
-
-        // Notify that student display is ready and request current state
-        console.log('[StudentDisplayPage] Posting STUDENT_DISPLAY_READY message');
-        channel.postMessage({type: 'STUDENT_DISPLAY_READY', payload: {sessionId}});
-
-        // Also request current state explicitly
-        setTimeout(() => {
-            console.log('[StudentDisplayPage] Requesting current state');
-            channel.postMessage({type: 'STUDENT_DISPLAY_REQUEST_STATE', payload: {sessionId}});
-        }, 500);
-
-        setStatusMessage(`Connected to session: ${sessionId}. Waiting for content...`);
+        }, 5000);
 
         return () => {
-            console.log('[StudentDisplayPage] Cleanup: posting STUDENT_DISPLAY_CLOSING and closing channel');
-            if (channelRef.current) {
-                channelRef.current.postMessage({type: 'STUDENT_DISPLAY_CLOSING', payload: {sessionId}});
-                channelRef.current.close();
-                channelRef.current = null;
+            window.removeEventListener('message', handleMessage);
+            clearTimeout(connectionTimeout);
+
+            // Notify teacher window that student display is closing
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'STUDENT_DISPLAY_CLOSING',
+                    sessionId
+                }, window.location.origin);
             }
         };
-    }, [sessionId, gameStructureInstance, currentSlide?.id]);
+    }, [sessionId, isConnected]);
 
-    if (!sessionId) {
+    // Loading/Connection State
+    if (!isConnected || !currentSlide) {
         return (
-            <div className="h-screen w-screen overflow-hidden bg-red-900 text-white">
-                <div className="h-full flex flex-col items-center justify-center p-8">
-                    <Hourglass size={48} className="mb-4 text-red-400"/>
-                    <p className="text-xl text-center">Error: No Session ID provided in URL</p>
-                    <p className="text-sm text-gray-300 mt-2">Current URL: {window.location.href}</p>
-                    <p className="text-sm text-gray-300">Expected format: /student-display/[session-id]</p>
+            <div className="h-screen w-screen bg-gray-900 flex items-center justify-center">
+                <div className="text-center text-white p-8">
+                    <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse" />
+                    <h1 className="text-2xl font-bold mb-2">Student Display</h1>
+                    <p className="text-lg text-gray-300">{statusMessage}</p>
+                    {sessionId && (
+                        <p className="text-sm text-gray-500 mt-4">
+                            Session ID: {sessionId}
+                        </p>
+                    )}
+                    <div className="mt-8 text-sm text-gray-400">
+                        <p>For video content, the teacher will use Picture-in-Picture</p>
+                        <p>to display directly on this screen.</p>
+                    </div>
                 </div>
             </div>
         );
     }
 
-    return (
-        <div className="h-screen w-screen overflow-hidden bg-gray-900">
-            {currentSlide ? (
-                <StudentDisplayView
-                    slide={currentSlide}
-                    isPlayingTarget={isPlayingTargetState}
-                    videoTimeTarget={videoTimeTargetState}
-                    triggerSeekEvent={triggerSeekEventState}
-                    isForTeacherPreview={false}
-                />
-            ) : (
-                <div className="h-full flex flex-col items-center justify-center text-white p-8">
-                    <Hourglass size={48} className="mb-4 text-blue-400 animate-pulse"/>
-                    <p className="text-xl">{statusMessage}</p>
-                    <p className="text-sm text-gray-400 mt-2">Session ID: {sessionId}</p>
-                    {sessionId && (
-                        <p className="text-xs text-gray-500 mt-4">
-                            If content doesn't appear, try refreshing both the teacher dashboard and this window.
+    // Special handling for video placeholder
+    if (currentSlide.type === 'content_page' && currentSlide.main_text === 'Video is being displayed directly on this screen') {
+        return (
+            <div className="h-screen w-screen bg-gray-900 flex items-center justify-center">
+                <div className="text-center text-white p-8 max-w-2xl">
+                    <Video size={64} className="mx-auto mb-6 text-blue-400" />
+                    <h1 className="text-3xl font-bold mb-4">{currentSlide.main_text}</h1>
+                    <p className="text-xl text-gray-300 mb-6">{currentSlide.sub_text}</p>
+                    <div className="bg-gray-800 rounded-lg p-6 text-left">
+                        <h3 className="text-lg font-semibold mb-3 flex items-center">
+                            <Monitor size={20} className="mr-2" />
+                            Picture-in-Picture Mode Active
+                        </h3>
+                        <p className="text-gray-400 mb-2">
+                            The video should be visible as a floating window on this display.
                         </p>
-                    )}
+                        <p className="text-sm text-gray-500">
+                            If you don't see the video, ask the teacher to:
+                        </p>
+                        <ol className="list-decimal list-inside text-sm text-gray-500 mt-2 space-y-1">
+                            <li>Click "Pop Out to Projector" in their video controls</li>
+                            <li>Drag the video window to this display</li>
+                            <li>Double-click the video to fullscreen it</li>
+                        </ol>
+                    </div>
                 </div>
-            )}
+            </div>
+        );
+    }
+
+    // Render non-video content normally
+    return (
+        <div className="h-screen w-screen overflow-hidden">
+            <SlideRenderer
+                slide={currentSlide}
+                isPlayingTarget={false}
+                videoTimeTarget={0}
+                triggerSeekEvent={false}
+            />
         </div>
     );
 };
