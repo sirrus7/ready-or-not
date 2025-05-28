@@ -1,4 +1,4 @@
-// src/components/Display/SlideRenderer.tsx - Native Controls Support
+// src/components/Display/SlideRenderer.tsx - Fixed Auto-play and Pause/Resume
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
@@ -54,7 +54,47 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const syncTimeoutRef = useRef<NodeJS.Timeout>();
     const [showPlayIcon, setShowPlayIcon] = useState(false);
     const [videoError, setVideoError] = useState(false);
+    const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
     const iconTimeoutRef = useRef<NodeJS.Timeout>();
+    const currentSlideIdRef = useRef<number | null>(null);
+
+    // Reset auto-play flag when slide changes
+    useEffect(() => {
+        if (slide && slide.id !== currentSlideIdRef.current) {
+            console.log(`[SlideRenderer] Slide changed from ${currentSlideIdRef.current} to ${slide.id}, resetting auto-play flag`);
+            setHasAutoPlayed(false);
+            currentSlideIdRef.current = slide.id;
+        }
+    }, [slide?.id]);
+
+    // Auto-play logic for video slides
+    useEffect(() => {
+        if (!activeVideoRef.current || !slide || hasAutoPlayed) return;
+
+        const video = activeVideoRef.current;
+        const isVideoSlide = slide.type === 'video' ||
+            (slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
+            ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
+                slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
+
+        if (isVideoSlide && video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+            console.log(`[SlideRenderer] Auto-playing video for slide ${slide.id}`);
+
+            const attemptAutoPlay = async () => {
+                try {
+                    await video.play();
+                    setHasAutoPlayed(true);
+                    console.log(`[SlideRenderer] Auto-play successful for slide ${slide.id}`);
+                } catch (error) {
+                    console.warn(`[SlideRenderer] Auto-play failed for slide ${slide.id}:`, error);
+                    // Auto-play failed (probably due to browser policy), but that's okay
+                    setHasAutoPlayed(true); // Still mark as attempted to prevent retrying
+                }
+            };
+
+            attemptAutoPlay();
+        }
+    }, [slide, hasAutoPlayed, activeVideoRef.current?.readyState]);
 
     // Handle video synchronization for master mode (presentation display)
     useEffect(() => {
@@ -212,6 +252,27 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     syncVideoState();
                 }
                 setVideoError(false);
+
+                // Try auto-play when video data is loaded
+                if (!hasAutoPlayed) {
+                    const isVideoSlide = slide.type === 'video' ||
+                        (slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
+                        ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
+                            slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
+
+                    if (isVideoSlide) {
+                        console.log(`[SlideRenderer] Video data loaded, attempting auto-play for slide ${slide.id}`);
+                        video.play()
+                            .then(() => {
+                                setHasAutoPlayed(true);
+                                console.log(`[SlideRenderer] Auto-play successful on loadeddata for slide ${slide.id}`);
+                            })
+                            .catch(error => {
+                                console.warn(`[SlideRenderer] Auto-play failed on loadeddata for slide ${slide.id}:`, error);
+                                setHasAutoPlayed(true); // Mark as attempted
+                            });
+                    }
+                }
             };
 
             const handleCanPlay = () => {
@@ -250,7 +311,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 }
             };
         }
-    }, [slide, syncMode, masterVideoMode, videoTimeTarget, syncVideoState, enableNativeControls, onSeek]);
+    }, [slide, syncMode, masterVideoMode, videoTimeTarget, syncVideoState, enableNativeControls, onSeek, hasAutoPlayed]);
 
     // Handle host video click (only when native controls are disabled)
     const handleVideoClick = useCallback(() => {
@@ -330,17 +391,21 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         // Audio logic - enable audio for master mode OR when host audio is allowed
         const shouldHaveAudio = masterVideoMode || allowHostAudio;
 
+        // Use a stable key that only changes when the slide or source URL changes
+        // This prevents the video from being recreated on every state change
+        const videoKey = `video_${slide.id}_${slide.source_url}`;
+
         const videoElement = (
             <video
                 ref={activeVideoRef}
-                key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : syncMode ? 'sync' : 'preview'}_${enableNativeControls ? 'native' : 'custom'}`}
+                key={videoKey} // Only recreate when slide/source changes, not on state changes
                 src={slide.source_url}
                 className={`max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none ${
                     hostMode && !enableNativeControls ? 'cursor-pointer' : ''
                 }`}
                 playsInline
                 controls={enableNativeControls} // Enable native controls when requested
-                autoPlay={false}
+                autoPlay={false} // We handle auto-play manually
                 preload="auto"
                 muted={!shouldHaveAudio}
                 onClick={hostMode && !enableNativeControls ? handleVideoClick : undefined}
