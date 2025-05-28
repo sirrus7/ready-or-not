@@ -1,4 +1,4 @@
-// src/components/StudentDisplay/LeaderboardChartDisplay.tsx
+// src/components/Display/LeaderboardChartDisplay.tsx
 import React, { useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Team, TeamRoundData, KpiKey } from '../../types';

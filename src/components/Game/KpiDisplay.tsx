@@ -1,4 +1,4 @@
-// src/components/StudentGame/KpiDisplay.tsx
+// src/components/Game/KpiDisplay.tsx
 import React from 'react';
 import {TeamRoundData} from '../../types';
 import {TrendingUp, TrendingDown, Minus, Building, ShoppingCartIcon, DollarSign, PercentIcon, Hourglass } from 'lucide-react'; // Added Hourglass

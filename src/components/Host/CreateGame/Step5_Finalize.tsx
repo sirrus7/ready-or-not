@@ -1,4 +1,4 @@
-// src/components/TeacherHost/CreateGameWizard/Step5_Finalize.tsx
+// src/components/Host/CreateGameWizard/Step5_Finalize.tsx
 import React from 'react';
 import {NewGameData} from '../../../types'; // Ensure path is correct
 import {ArrowLeft, Rocket, AlertTriangle, UsersIcon} from 'lucide-react';

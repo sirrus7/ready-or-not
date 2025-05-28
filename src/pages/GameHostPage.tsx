@@ -1,9 +1,9 @@
 // src/pages/GameHostPage.tsx - Updated with Enhanced Video Controls
 import React, { useState, useEffect } from 'react';
-import HostPanel from '../components/TeacherHost/HostPanel.tsx';
-import HostControlPanel from '../components/TeacherHost/HostControlPanel.tsx';
-import VideoSettingsPanel from '../components/TeacherHost/VideoSettingsPanel';
-import BandwidthTestModal from '../components/TeacherHost/BandwidthTestModal';
+import HostPanel from '../components/Host/HostPanel.tsx';
+import HostControlPanel from '../components/Host/HostControlPanel.tsx';
+import VideoSettingsPanel from '../components/Host/VideoSettingsPanel';
+import BandwidthTestModal from '../components/Host/BandwidthTestModal';
 import {useAppContext} from '../context/AppContext';
 import {useVideoSettings} from '../context/VideoSettingsContext';
 import {Monitor, AlertCircle, Info, Settings2, Wifi} from 'lucide-react';

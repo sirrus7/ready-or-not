@@ -1,17 +1,17 @@
-// src/components/StudentDisplay/StudentDisplayView.tsx
+// src/components/Display/DisplayView.tsx
 import React from 'react';
 import SlideRenderer from './SlideRenderer';
 import {Slide} from '../../types';
 import {Hourglass} from 'lucide-react';
 
-interface StudentDisplayViewProps {
+interface DisplayViewProps {
     slide: Slide | null;
     isPlayingTarget: boolean;
     videoTimeTarget?: number;
     triggerSeekEvent?: boolean;
 }
 
-const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
+const DisplayView: React.FC<DisplayViewProps> = ({
                                                                    slide,
                                                                    isPlayingTarget,
                                                                    videoTimeTarget,
@@ -39,4 +39,4 @@ const StudentDisplayView: React.FC<StudentDisplayViewProps> = ({
     );
 };
 
-export default StudentDisplayView;
+export default DisplayView;

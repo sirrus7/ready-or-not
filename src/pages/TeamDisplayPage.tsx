@@ -1,9 +1,9 @@
 // src/pages/TeamDisplayPage.tsx
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useParams} from 'react-router-dom';
-import TeamLogin from '../components/StudentGame/TeamLogin';
-import KpiDisplay from '../components/StudentGame/KpiDisplay';
-import DecisionPanel from '../components/StudentGame/DecisionPanel';
+import TeamLogin from '../components/Game/TeamLogin';
+import KpiDisplay from '../components/Game/KpiDisplay';
+import DecisionPanel from '../components/Game/DecisionPanel';
 import {
     ChallengeOption,
     GamePhaseNode,

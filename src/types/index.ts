@@ -268,7 +268,7 @@ export interface TeacherBroadcastPayload {
     decisionPhaseTimerEndTime?: number;
 }
 
-export interface StudentDisplayMessage {
+export interface DisplayMessage {
     type: 'STUDENT_DISPLAY_READY' | 'STUDENT_DISPLAY_CLOSING';
     payload: {
         sessionId: string | null;

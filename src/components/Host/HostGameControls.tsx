@@ -1,4 +1,4 @@
-// src/components/TeacherHost/HostGameControls.tsx - Fixed Export
+// src/components/Host/HostGameControls.tsx - Fixed Export
 import React, { useState, useEffect } from 'react';
 import {
     ChevronLeft,
@@ -58,7 +58,7 @@ const HostGameControls: React.FC = () => {
             currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
     );
 
-    const handleOpenStudentDisplay = async () => {
+    const handleOpenDisplay = async () => {
         if (!state.currentSessionId) {
             alert("No active session. Please create or select a game first.");
             return;
@@ -73,7 +73,7 @@ const HostGameControls: React.FC = () => {
         // For non-video content, proceed with normal student display
         const url = `/student-display/${state.currentSessionId}`;
         const features = 'width=1920,height=1080,menubar=no,toolbar=no,location=no,status=no,scrollbars=no,resizable=yes';
-        const studentWindow = window.open(url, 'studentDisplay', features);
+        const studentWindow = window.open(url, 'Display', features);
 
         if (studentWindow) {
             setStudentWindowRef(studentWindow);
@@ -209,7 +209,7 @@ const HostGameControls: React.FC = () => {
                     </button>
                 </div>
                 <button
-                    onClick={handleOpenStudentDisplay}
+                    onClick={handleOpenDisplay}
                     className={`flex items-center justify-center gap-2 py-2.5 px-5 rounded-lg transition-colors shadow-md text-sm font-medium w-full sm:w-auto ${
                         isStudentWindowOpen
                             ? 'bg-green-600 text-white hover:bg-green-700'

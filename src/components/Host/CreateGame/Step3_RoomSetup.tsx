@@ -1,4 +1,4 @@
-// src/components/TeacherHost/CreateGameWizard/Step3_RoomSetup.tsx
+// src/components/Host/CreateGameWizard/Step3_RoomSetup.tsx
 import React from 'react';
 import {NewGameData} from '../../../types'; // Ensure path is correct
 import {ArrowLeft, ArrowRight, MonitorPlay, Download, Info, Tv2, LayoutGrid} from 'lucide-react';

@@ -1,4 +1,4 @@
-// src/components/TeacherHost/HostControlPanel.tsx
+// src/components/Host/HostControlPanel.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
     Play,

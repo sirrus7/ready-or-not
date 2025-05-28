@@ -1,4 +1,4 @@
-// src/components/TeacherHost/TeamSubmissions.tsx
+// src/components/Host/TeamSubmissions.tsx
 import React, {useState, useEffect} from 'react';
 import {useAppContext} from '../../context/AppContext';
 import {TeamDecision} from '../../types';

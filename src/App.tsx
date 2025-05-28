@@ -26,7 +26,7 @@ const SessionAwareProviders: React.FC<{ children: React.ReactNode }> = ({childre
 };
 
 // Special wrapper for PresentationPage that handles auth gracefully
-const StudentDisplayWrapper: React.FC = () => {
+const DisplayWrapper: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string | undefined }>();
 
     return (
@@ -55,7 +55,7 @@ function App() {
                     }/>
 
                     {/* Student Display - Special handling for same-browser different tab */}
-                    <Route path="/student-display/:sessionId" element={<StudentDisplayWrapper />} />
+                    <Route path="/student-display/:sessionId" element={<DisplayWrapper />} />
 
                     {/* All other routes wrapped in AuthProvider */}
                     <Route path="/*" element={

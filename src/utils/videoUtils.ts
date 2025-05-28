@@ -27,8 +27,8 @@ export const getVideoFallbackContent = (slideId: number, videoUrl: string) => ({
 });
 
 // Combine display and window utilities here if needed
-export const openStudentDisplay = (sessionId: string): Window | null => {
+export const openDisplay = (sessionId: string): Window | null => {
     const url = `/student-display/${sessionId}`;
     const features = 'width=1920,height=1080,menubar=no,toolbar=no';
-    return window.open(url, 'studentDisplay', features);
+    return window.open(url, 'Display', features);
 };

@@ -1,4 +1,4 @@
-// src/components/TeacherHost/CreateGameWizard/Step1_GameDetails.tsx
+// src/components/Host/CreateGameWizard/Step1_GameDetails.tsx
 import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {NewGameData} from '../../../types'; // Corrected path assuming types is at src/types
 import {ArrowRight, AlertCircle} from 'lucide-react';

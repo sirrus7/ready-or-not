@@ -2,7 +2,7 @@
 import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {Slide} from '../types';
-import SlideRenderer from '../components/StudentDisplay/SlideRenderer';
+import SlideRenderer from '../components/Display/SlideRenderer';
 import {Hourglass, Monitor, Video} from 'lucide-react';
 
 const PresentationPage: React.FC = () => {
