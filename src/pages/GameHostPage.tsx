@@ -11,6 +11,7 @@ const PresentationDisplayButton: React.FC = () => {
     const channelRef = useRef<BroadcastChannel | null>(null);
     const pingIntervalRef = useRef<NodeJS.Timeout>();
     const lastPongRef = useRef<number>(0);
+    const hostVideoRef = useRef<HTMLVideoElement>(null);
 
     // Initialize BroadcastChannel when session is available
     useEffect(() => {
@@ -95,14 +96,46 @@ const PresentationDisplayButton: React.FC = () => {
                 slide: currentSlideData,
                 sessionId: state.currentSessionId,
                 timestamp: Date.now()
+                // No preventAutoPlay flag here - allow normal auto-play when navigating slides
             });
         }
     }, [currentSlideData, state.currentSessionId]);
+
+    // Check if current slide is a video
+    const isVideoSlide = currentSlideData && (
+        currentSlideData.type === 'video' ||
+        (currentSlideData.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
+        ((currentSlideData.type === 'consequence_reveal' || currentSlideData.type === 'payoff_reveal') &&
+            currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
+    );
+
+    // Function to find and pause host video
+    const pauseHostVideo = () => {
+        // Try to find the video element in the DisplayView component
+        const displayViewContainer = document.querySelector('[data-component="display-view"]');
+        if (displayViewContainer) {
+            const videoElement = displayViewContainer.querySelector('video') as HTMLVideoElement;
+            if (videoElement && !videoElement.paused) {
+                console.log('[PresentationDisplayButton] Pausing host video before opening display');
+                videoElement.pause();
+                return true;
+            }
+        }
+        return false;
+    };
 
     const handleOpenDisplay = () => {
         if (!state.currentSessionId) {
             alert("No active session. Please create or select a game first.");
             return;
+        }
+
+        // Pause host video if it's currently playing and this is a video slide
+        if (isVideoSlide) {
+            const videoPaused = pauseHostVideo();
+            if (videoPaused) {
+                console.log('[PresentationDisplayButton] Host video paused to ensure sync with presentation display');
+            }
         }
 
         const url = `/student-display/${state.currentSessionId}`;
@@ -117,7 +150,8 @@ const PresentationDisplayButton: React.FC = () => {
                         type: 'SLIDE_UPDATE',
                         slide: currentSlideData,
                         sessionId: state.currentSessionId,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
+                        preventAutoPlay: isVideoSlide // Prevent auto-play when opening display on video slide
                     });
                 }
             }, 1000);
@@ -209,7 +243,7 @@ const GameHostPage: React.FC = () => {
                     {/* Content Preview Area with Navigation Below */}
                     <div className="lg:col-span-2 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-120px)]">
                         {/* Content Area */}
-                        <div className="flex-grow bg-gray-50 overflow-hidden relative">
+                        <div className="flex-grow bg-gray-50 overflow-hidden relative" data-component="display-view">
                             {!currentSlideData ? (
                                 <div className="h-full flex items-center justify-center text-gray-400">
                                     <div className="text-center">

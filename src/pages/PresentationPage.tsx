@@ -100,6 +100,27 @@ const PresentationPage: React.FC = () => {
                             timestamp: now
                         });
                     }
+
+                    // Handle auto-play prevention when opening display on video slide
+                    if (event.data.preventAutoPlay && videoRef.current) {
+                        console.log('[PresentationPage] Auto-play prevented due to preventAutoPlay flag');
+                        // Ensure video is paused and reset
+                        if (videoRef.current.src !== event.data.slide?.source_url) {
+                            // Video source will change, let it load but stay paused
+                            videoRef.current.addEventListener('loadeddata', function pauseOnLoad() {
+                                if (videoRef.current) {
+                                    videoRef.current.pause();
+                                    videoRef.current.currentTime = 0;
+                                    console.log('[PresentationPage] Video paused on load due to preventAutoPlay');
+                                }
+                                videoRef.current?.removeEventListener('loadeddata', pauseOnLoad);
+                            }, { once: true });
+                        } else {
+                            // Same video, just pause and reset
+                            videoRef.current.pause();
+                            videoRef.current.currentTime = 0;
+                        }
+                    }
                     break;
 
                 case 'VIDEO_CONTROL':

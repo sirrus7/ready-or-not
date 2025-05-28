@@ -147,17 +147,17 @@ const DisplayView: React.FC<DisplayViewProps> = ({
 
     // Handle host video click for maintaining sync
     const handleHostVideoClick = useCallback((shouldPlay: boolean) => {
-        if (!channelRef.current || !sessionId) {
-            console.warn('[DisplayView] No channel or session ID for video command');
+        if (!sessionId) {
+            console.warn('[DisplayView] No session ID for video command');
             return;
         }
 
         const timestamp = Date.now();
         const command = shouldPlay ? 'play' : 'pause';
 
-        console.log(`[DisplayView] Handling video click - shouldPlay: ${shouldPlay}, command: ${command}`);
+        console.log(`[DisplayView] Handling video click - shouldPlay: ${shouldPlay}, command: ${command}, connected: ${isConnectedToPresentationDisplay}`);
 
-        if (isConnectedToPresentationDisplay) {
+        if (isConnectedToPresentationDisplay && channelRef.current) {
             // Send video command to presentation display
             console.log(`[DisplayView] Sending command to presentation display:`, {
                 type: 'VIDEO_CONTROL',
@@ -183,6 +183,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({
             }));
         } else {
             // No presentation display - control local video directly
+            console.log(`[DisplayView] No presentation display connected, controlling local video directly`);
             if (videoRef.current) {
                 if (shouldPlay) {
                     videoRef.current.play().catch(console.error);
