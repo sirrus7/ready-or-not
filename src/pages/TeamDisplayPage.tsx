@@ -9,7 +9,7 @@ import {
     GamePhaseNode,
     InvestmentOption,
     Slide,
-    TeacherBroadcastPayload,
+    HostBroadcastPayload,
     TeamRoundData
 } from '../types';
 import {addConnectionListener, createMonitoredChannel, supabase} from '../lib/supabase';
@@ -200,7 +200,7 @@ const TeamDisplayPage: React.FC = () => {
             realtimeChannel.on('broadcast', {event: 'teacher_state_update'}, (payload: any) => {
                 console.log(`[CompanyDisplayPage] Received teacher broadcast:`, payload.payload);
 
-                const teacherPayload = payload.payload as TeacherBroadcastPayload;
+                const teacherPayload = payload.payload as HostBroadcastPayload;
                 const newPhaseNode = teacherPayload.currentPhaseId ? gameStructure.allPhases.find(p => p.id === teacherPayload.currentPhaseId) || null : null;
                 const newSlide = teacherPayload.currentSlideId !== null ? gameStructure.slides.find(s => s.id === teacherPayload.currentSlideId) || null : null;
 
@@ -210,7 +210,7 @@ const TeamDisplayPage: React.FC = () => {
                 setDecisionOptionsKey(teacherPayload.decisionOptionsKey);
 
                 // Decision activation logic
-                const shouldActivateDecisions = teacherPayload.isStudentDecisionPhaseActive &&
+                const shouldActivateDecisions = teacherPayload.isDecisionPhaseActive &&
                     loggedInTeamId &&
                     newPhaseNode?.is_interactive_student_phase &&
                     (newSlide?.type === 'interactive_invest' ||
@@ -229,7 +229,7 @@ const TeamDisplayPage: React.FC = () => {
                         submissionStatusRef.current = 'idle';
                         setSubmissionMessage(null);
                     }
-                } else if (!teacherPayload.isStudentDecisionPhaseActive) {
+                } else if (!teacherPayload.isDecisionPhaseActive) {
                     console.log(`[CompanyDisplayPage] DEACTIVATING decision time - broadcast says not active`);
                     setIsStudentDecisionTime(false);
                     isStudentDecisionTimeRef.current = false;

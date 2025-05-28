@@ -221,7 +221,6 @@ export interface GameStructure {
     allPhases: GamePhaseNode[]; // Added for convenience
 }
 
-// UPDATED: Removed video state references from AppState
 export interface AppState {
     currentSessionId: string | null;
     gameStructure: GameStructure | null;
@@ -252,7 +251,7 @@ export interface StudentPageState {
     lastSubmissionStatus?: 'success' | 'error' | null;
 }
 
-export interface TeacherBroadcastPayload {
+export interface HostBroadcastPayload {
     currentSlideId: number | null;
     currentPhaseId: string | null;
     currentPhaseType: GamePhaseNode['phase_type'] | null;
@@ -260,14 +259,7 @@ export interface TeacherBroadcastPayload {
     isPlayingVideo: boolean;
     videoCurrentTime?: number;
     triggerVideoSeek?: boolean;
-    isStudentDecisionPhaseActive: boolean;
+    isDecisionPhaseActive: boolean;
     decisionOptionsKey?: string;
     decisionPhaseTimerEndTime?: number;
-}
-
-export interface DisplayMessage {
-    type: 'STUDENT_DISPLAY_READY' | 'STUDENT_DISPLAY_CLOSING';
-    payload: {
-        sessionId: string | null;
-    };
 }
