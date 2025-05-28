@@ -45,7 +45,33 @@ const GameMap: React.FC = () => {
     }, [currentRoundId, gameStructure, currentSessionId]);
 
     const toggleRoundExpansion = (roundId: string) => {
-        setExpandedRounds(prev => ({ ...prev, [roundId]: !prev[roundId] }));
+        setExpandedRounds(prev => {
+            const newState: Record<string, boolean> = {};
+
+            // If we're expanding a round, collapse all others
+            if (!prev[roundId]) {
+                // Set all to false first
+                newState['welcome'] = false;
+                gameStructure?.rounds.forEach(round => {
+                    newState[round.id] = false;
+                });
+                newState['game-end'] = false;
+
+                // Then expand the clicked one
+                newState[roundId] = true;
+            } else {
+                // If we're collapsing, just toggle this one
+                newState[roundId] = false;
+                // Keep others as they were
+                Object.keys(prev).forEach(key => {
+                    if (key !== roundId) {
+                        newState[key] = prev[key];
+                    }
+                });
+            }
+
+            return newState;
+        });
     };
 
     if (!gameStructure) {
@@ -142,33 +168,8 @@ const GameMap: React.FC = () => {
         <div className="bg-gray-50 p-3 rounded-lg shadow-inner h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
             <h2 className="text-lg font-semibold text-gray-700 mb-3 px-1">Game Journey</h2>
 
-            {/* Welcome/Setup Section - Always visible */}
-            <div className="mb-3 p-3 bg-white shadow-sm rounded-lg">
-                <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
-                    Setup & Introduction
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {welcomePhases.map((phase) => {
-                        const overallPhaseIndex = allPhasesInOrder.findIndex(p => p.id === phase.id);
-                        const isCurrent = phase.id === currentPhaseId;
-                        const isCompleted = currentGlobalPhaseIndex > -1 && overallPhaseIndex < currentGlobalPhaseIndex;
-                        const canClick = isCurrent ||
-                            (currentGlobalPhaseIndex > -1 && overallPhaseIndex === currentGlobalPhaseIndex + 1) ||
-                            (currentGlobalPhaseIndex === -1 && overallPhaseIndex === 0);
-
-                        return (
-                            <div key={phase.id} className="w-full h-20">
-                                <GamePhaseButton
-                                    phase={phase}
-                                    isCurrent={isCurrent}
-                                    isCompleted={isCompleted}
-                                    onClick={() => canClick ? selectPhase(phase.id) : {}}
-                                />
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
+            {/* Welcome/Setup Section - Now collapsible */}
+            {renderSection('welcome', 'Setup & Introduction', welcomePhases)}
 
             {/* Game Rounds */}
             {gameStructure.rounds.map(round => renderSection(round.id, round.name, round.phases))}
