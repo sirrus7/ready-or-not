@@ -56,9 +56,9 @@ Ready or Not 2.0 is an interactive classroom simulation that teaches business fu
 ```
 src/
 ├── components/          # Reusable UI components
-│   ├── TeacherHost/    # Teacher control panel components
-│   ├── StudentGame/    # Student/team interface components
-│   └── StudentDisplay/ # Projection display components
+│   ├── Host/    # Teacher control panel components
+│   ├── Game/    # Student/team interface components
+│   └── Display/ # Projection display components
 ├── pages/              # Main application pages
 ├── context/            # Global state management
 ├── hooks/              # Custom React hooks

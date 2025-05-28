@@ -1,4 +1,4 @@
-// src/components/TeacherHost/BandwidthTestModal.tsx
+// src/components/Host/BandwidthTestModal.tsx
 import React, { useState, useCallback } from 'react';
 import {
     Wifi,

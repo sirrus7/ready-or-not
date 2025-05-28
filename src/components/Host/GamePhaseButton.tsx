@@ -1,4 +1,4 @@
-// src/components/TeacherHost/GamePhaseButton.tsx
+// src/components/Host/GamePhaseButton.tsx
 import React from 'react';
 import {GamePhaseNode} from '../../types';
 // Import specific icons you know you'll use, or use a more specific type if possible.

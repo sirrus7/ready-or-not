@@ -1,4 +1,4 @@
-// src/components/TeacherHost/HostPanel.tsx
+// src/components/Host/HostPanel.tsx
 import React from 'react';
 import GameMap from './GameMap.tsx';
 import HostGameControls from './HostGameControls.tsx';

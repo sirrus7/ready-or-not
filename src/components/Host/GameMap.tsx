@@ -1,4 +1,4 @@
-// src/components/TeacherHost/GameMap.tsx
+// src/components/Host/GameMap.tsx
 import React, {useState, useEffect, useMemo} from 'react';
 import { useAppContext } from '../../context/AppContext';
 import GamePhaseButton from './GamePhaseButton.tsx';

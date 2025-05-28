@@ -1,4 +1,4 @@
-// src/components/TeacherHost/VideoSettingsPanel.tsx
+// src/components/Host/VideoSettingsPanel.tsx
 import React, { useState } from 'react';
 import {
     Monitor,

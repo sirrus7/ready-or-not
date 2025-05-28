@@ -1,4 +1,4 @@
-// src/components/TeacherHost/CreateGameWizard/Step4_PrintHandouts.tsx
+// src/components/Host/CreateGameWizard/Step4_PrintHandouts.tsx
 import React, {useState, useMemo} from 'react';
 import {NewGameData} from '../../../types'; // Ensure path is correct
 import { generateTeamNameCardsPDF } from '../../../utils/generateTeamNameCards';

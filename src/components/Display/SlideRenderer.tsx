@@ -1,4 +1,4 @@
-// src/components/StudentDisplay/SlideRenderer.tsx
+// src/components/Display/SlideRenderer.tsx
 import React, { useEffect, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Slide } from '../../types';

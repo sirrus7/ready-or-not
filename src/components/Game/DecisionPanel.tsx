@@ -1,4 +1,4 @@
-// src/components/StudentGame/DecisionPanel.tsx
+// src/components/Game/DecisionPanel.tsx
 import React, {useState, useEffect, useMemo} from 'react';
 import {InvestmentOption, ChallengeOption, GamePhaseNode} from '../../types';
 import {AlertTriangle, CheckCircle, Hourglass} from 'lucide-react';
