@@ -1,4 +1,4 @@
-// src/components/Host/HostGameControls.tsx - Cross-Tab Communication with Perfect Sync
+// src/components/Host/HostGameControls.tsx - Perfect Sync with Master Video Control
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronLeft,
@@ -16,7 +16,8 @@ import {
     SkipForward,
     Volume2,
     Monitor,
-    MonitorOff
+    MonitorOff,
+    RefreshCw
 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import Modal from '../UI/Modal';
@@ -28,6 +29,7 @@ interface VideoState {
     currentTime: number;
     duration: number;
     volume: number;
+    lastUpdate: number;
 }
 
 const HostGameControls: React.FC = () => {
@@ -55,12 +57,14 @@ const HostGameControls: React.FC = () => {
         playing: false,
         currentTime: 0,
         duration: 0,
-        volume: 1
+        volume: 1,
+        lastUpdate: 0
     });
 
     const channelRef = useRef<BroadcastChannel | null>(null);
     const pingIntervalRef = useRef<NodeJS.Timeout>();
     const lastPongRef = useRef<number>(0);
+    const syncIntervalRef = useRef<NodeJS.Timeout>();
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
@@ -94,8 +98,12 @@ const HostGameControls: React.FC = () => {
 
             switch (event.data.type) {
                 case 'VIDEO_STATE_UPDATE':
-                    if (event.data.sessionId === state.currentSessionId) {
-                        setVideoState(event.data.videoState);
+                    if (event.data.sessionId === state.currentSessionId && event.data.videoState) {
+                        const newState = event.data.videoState;
+                        // Only update if this is newer than our current state
+                        if (newState.lastUpdate > videoState.lastUpdate) {
+                            setVideoState(newState);
+                        }
                     }
                     break;
 
@@ -104,7 +112,7 @@ const HostGameControls: React.FC = () => {
                         lastPongRef.current = Date.now();
                         setIsPresentationDisplayOpen(true);
                         // Sync video state from pong response
-                        if (event.data.videoState) {
+                        if (event.data.videoState && event.data.videoState.lastUpdate > videoState.lastUpdate) {
                             setVideoState(event.data.videoState);
                         }
                     }
@@ -113,6 +121,8 @@ const HostGameControls: React.FC = () => {
                 case 'PRESENTATION_READY':
                     if (event.data.sessionId === state.currentSessionId) {
                         setIsPresentationDisplayOpen(true);
+                        console.log('[HostGameControls] Presentation display connected');
+
                         // Send current slide when presentation connects
                         if (currentSlideData) {
                             channel.postMessage({
@@ -127,7 +137,7 @@ const HostGameControls: React.FC = () => {
 
                 case 'STATE_RESPONSE':
                     if (event.data.sessionId === state.currentSessionId) {
-                        if (event.data.videoState) {
+                        if (event.data.videoState && event.data.videoState.lastUpdate > videoState.lastUpdate) {
                             setVideoState(event.data.videoState);
                         }
                     }
@@ -166,11 +176,14 @@ const HostGameControls: React.FC = () => {
             if (pingIntervalRef.current) {
                 clearInterval(pingIntervalRef.current);
             }
+            if (syncIntervalRef.current) {
+                clearInterval(syncIntervalRef.current);
+            }
             channel.removeEventListener('message', handleMessage);
             channel.close();
             channelRef.current = null;
         };
-    }, [state.currentSessionId, currentSlideData]);
+    }, [state.currentSessionId, currentSlideData, videoState.lastUpdate]);
 
     // Send slide update when current slide changes
     useEffect(() => {
@@ -184,29 +197,58 @@ const HostGameControls: React.FC = () => {
             });
 
             // Reset video state when slide changes
-            setVideoState({
+            const resetState = {
                 playing: false,
                 currentTime: 0,
                 duration: 0,
-                volume: 1
-            });
+                volume: 1,
+                lastUpdate: Date.now()
+            };
+            setVideoState(resetState);
         }
     }, [currentSlideData, state.currentSessionId]);
 
     // Video control functions - send commands to presentation display
     const sendVideoCommand = (action: string, value?: number) => {
         if (channelRef.current && state.currentSessionId) {
+            const timestamp = Date.now();
             console.log(`[HostGameControls] Sending video command: ${action}`, value);
+
             channelRef.current.postMessage({
                 type: 'VIDEO_CONTROL',
                 sessionId: state.currentSessionId,
                 action,
                 value,
-                timestamp: Date.now()
+                timestamp
             });
+
+            // Immediately update local state for responsive UI
+            let stateUpdate: Partial<VideoState> = { lastUpdate: timestamp };
+
+            switch (action) {
+                case 'play':
+                    stateUpdate.playing = true;
+                    break;
+                case 'pause':
+                    stateUpdate.playing = false;
+                    break;
+                case 'seek':
+                    if (value !== undefined) {
+                        stateUpdate.currentTime = value;
+                    }
+                    break;
+                case 'volume':
+                    if (value !== undefined) {
+                        stateUpdate.volume = value;
+                    }
+                    break;
+            }
+
+            setVideoState(prev => ({ ...prev, ...stateUpdate }));
         }
     };
 
+    // Enhanced video control functions
     const handlePlay = () => sendVideoCommand('play');
     const handlePause = () => sendVideoCommand('pause');
     const handleSeek = (time: number) => sendVideoCommand('seek', time);
@@ -214,6 +256,17 @@ const HostGameControls: React.FC = () => {
     const handleSkip = (seconds: number) => {
         const newTime = Math.max(0, Math.min(videoState.duration, videoState.currentTime + seconds));
         sendVideoCommand('seek', newTime);
+    };
+
+    // Request fresh video state from presentation display
+    const requestVideoStateUpdate = () => {
+        if (channelRef.current && state.currentSessionId) {
+            channelRef.current.postMessage({
+                type: 'REQUEST_VIDEO_STATE',
+                sessionId: state.currentSessionId,
+                timestamp: Date.now()
+            });
+        }
     };
 
     const formatTime = (seconds: number): string => {
@@ -233,6 +286,17 @@ const HostGameControls: React.FC = () => {
 
         if (newTab) {
             console.log('[HostGameControls] Opened presentation display in new tab');
+            // Give the new tab time to initialize before sending state
+            setTimeout(() => {
+                if (channelRef.current && currentSlideData) {
+                    channelRef.current.postMessage({
+                        type: 'SLIDE_UPDATE',
+                        slide: currentSlideData,
+                        sessionId: state.currentSessionId,
+                        timestamp: Date.now()
+                    });
+                }
+            }, 1000);
         } else {
             alert("Failed to open presentation display. Please ensure pop-ups are allowed for this site.");
         }
@@ -277,6 +341,9 @@ const HostGameControls: React.FC = () => {
 
         if (pingIntervalRef.current) {
             clearInterval(pingIntervalRef.current);
+        }
+        if (syncIntervalRef.current) {
+            clearInterval(syncIntervalRef.current);
         }
 
         navigate('/dashboard');
@@ -366,22 +433,31 @@ const HostGameControls: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Video Controls - Only show when video slide is active and display is connected */}
+                {/* Enhanced Video Controls - Only show when video slide is active and display is connected */}
                 {isVideoSlide && isPresentationDisplayOpen && (
                     <div className="mb-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center">
-                            <Monitor size={16} className="mr-2"/>
-                            Master Video Controls
-                            <span className="ml-2 text-xs bg-blue-200 text-blue-700 px-2 py-1 rounded-full">
-                                Cross-Tab Sync
-                            </span>
-                        </h4>
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold text-blue-800 flex items-center">
+                                <Monitor size={16} className="mr-2"/>
+                                Master Video Controls
+                                <span className="ml-2 text-xs bg-blue-200 text-blue-700 px-2 py-1 rounded-full">
+                                    Perfect Sync
+                                </span>
+                            </h4>
+                            <button
+                                onClick={requestVideoStateUpdate}
+                                className="p-1 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-100 transition-colors"
+                                title="Refresh video state"
+                            >
+                                <RefreshCw size={16} />
+                            </button>
+                        </div>
 
                         {/* Play/Pause and Skip Controls */}
                         <div className="flex items-center justify-center gap-2 mb-4">
                             <button
                                 onClick={() => handleSkip(-10)}
-                                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors"
+                                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors shadow-sm"
                                 title="Skip back 10s"
                             >
                                 <SkipBack size={20} />
@@ -396,7 +472,7 @@ const HostGameControls: React.FC = () => {
 
                             <button
                                 onClick={() => handleSkip(10)}
-                                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors"
+                                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors shadow-sm"
                                 title="Skip forward 10s"
                             >
                                 <SkipForward size={20} />
@@ -412,9 +488,15 @@ const HostGameControls: React.FC = () => {
                                 value={videoState.currentTime}
                                 onChange={(e) => handleSeek(parseFloat(e.target.value))}
                                 className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                style={{
+                                    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(videoState.currentTime / (videoState.duration || 100)) * 100}%, #dbeafe ${(videoState.currentTime / (videoState.duration || 100)) * 100}%, #dbeafe 100%)`
+                                }}
                             />
                             <div className="flex justify-between text-xs text-blue-600 mt-1">
                                 <span>{formatTime(videoState.currentTime)}</span>
+                                <span className="text-blue-500">
+                                    {videoState.playing ? '▶ PLAYING' : '⏸ PAUSED'}
+                                </span>
                                 <span>{formatTime(videoState.duration)}</span>
                             </div>
                         </div>
@@ -436,8 +518,11 @@ const HostGameControls: React.FC = () => {
 
                         <div className="text-center">
                             <div className="text-xs text-blue-700 bg-blue-100 rounded-md px-3 py-2">
-                                🎬 Presentation display controls the video • Audio plays from presentation tab<br/>
-                                🔄 All controls sync instantly between tabs via BroadcastChannel
+                                🎬 Controls sync instantly across all displays
+                                <br/>
+                                🔊 Audio plays from presentation display only
+                                <br/>
+                                ⚡ Last sync: {new Date(videoState.lastUpdate).toLocaleTimeString()}
                             </div>
                         </div>
                     </div>
@@ -449,9 +534,12 @@ const HostGameControls: React.FC = () => {
                         <div className="flex items-center text-yellow-800">
                             <MonitorOff size={16} className="mr-2" />
                             <span className="text-sm font-medium">
-                                Video controls available after opening presentation display in new tab
+                                Video controls available after opening presentation display
                             </span>
                         </div>
+                        <p className="text-xs text-yellow-700 mt-1">
+                            Click "Open Presentation Display" to enable synchronized video playback
+                        </p>
                     </div>
                 )}
 
