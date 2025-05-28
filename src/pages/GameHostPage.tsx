@@ -1,9 +1,12 @@
-// src/pages/GameHostPage.tsx
-import React from 'react';
+// src/pages/GameHostPage.tsx - Updated with Enhanced Video Controls
+import React, { useState, useEffect } from 'react';
 import TeacherPanel from '../components/TeacherHost/TeacherPanel';
-import VideoControlPanel from '../components/TeacherHost/VideoControlPanel';
+import EnhancedVideoControlPanel from '../components/TeacherHost/EnhancedVideoControlPanel';
+import VideoSettingsPanel from '../components/TeacherHost/VideoSettingsPanel';
+import BandwidthTestModal from '../components/TeacherHost/BandwidthTestModal';
 import {useAppContext} from '../context/AppContext';
-import {Monitor, AlertCircle, Info} from 'lucide-react';
+import {useVideoSettings} from '../context/VideoSettingsContext';
+import {Monitor, AlertCircle, Info, Settings2, Wifi} from 'lucide-react';
 
 const GameHostPage: React.FC = () => {
     const {
@@ -12,7 +15,28 @@ const GameHostPage: React.FC = () => {
         isStudentWindowOpen,
     } = useAppContext();
 
+    const {
+        settings,
+        needsBandwidthTest,
+        isVideoRecommended,
+        getVideoRecommendation
+    } = useVideoSettings();
+
+    const [showVideoSettings, setShowVideoSettings] = useState(false);
+    const [showInitialBandwidthTest, setShowInitialBandwidthTest] = useState(false);
+
     const {currentSessionId, gameStructure} = state;
+
+    // Show bandwidth test on first load if needed
+    useEffect(() => {
+        if (needsBandwidthTest && !settings.bandwidthTestResult) {
+            const timer = setTimeout(() => {
+                setShowInitialBandwidthTest(true);
+            }, 2000); // Give user a moment to see the interface first
+
+            return () => clearTimeout(timer);
+        }
+    }, [needsBandwidthTest, settings.bandwidthTestResult]);
 
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
         return (
@@ -36,6 +60,7 @@ const GameHostPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 p-3 md:p-4 lg:p-6 overflow-hidden">
             <div className="max-w-screen-2xl mx-auto h-full flex flex-col">
+                {/* Header with enhanced video status */}
                 <header className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center flex-shrink-0">
                     <div>
                         <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-800">
@@ -46,6 +71,7 @@ const GameHostPage: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex items-center gap-3 mt-2 sm:mt-0">
+                        {/* Student Display Status */}
                         {isStudentWindowOpen ? (
                             <span className="text-xs bg-green-100 text-green-800 px-3 py-1.5 rounded-full font-medium shadow-sm border border-green-200 flex items-center">
                                 <Monitor size={14} className="mr-1.5"/> Student Display Active
@@ -55,8 +81,62 @@ const GameHostPage: React.FC = () => {
                                 <Monitor size={14} className="mr-1.5"/> Student Display Inactive
                             </span>
                         )}
+
+                        {/* Video Settings Status */}
+                        <button
+                            onClick={() => setShowVideoSettings(true)}
+                            className={`text-xs px-3 py-1.5 rounded-full font-medium shadow-sm border flex items-center space-x-1 transition-colors ${
+                                settings.hostVideoEnabled
+                                    ? 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
+                                    : 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200'
+                            }`}
+                        >
+                            <Settings2 size={14} />
+                            <span>Video: {settings.hostVideoEnabled ? 'ON' : 'OFF'}</span>
+                        </button>
+
+                        {/* Bandwidth Status */}
+                        {settings.bandwidthTestResult && (
+                            <span className={`text-xs px-3 py-1.5 rounded-full font-medium shadow-sm border flex items-center space-x-1 ${
+                                isVideoRecommended
+                                    ? 'bg-green-100 text-green-800 border-green-200'
+                                    : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                            }`}>
+                                <Wifi size={14} />
+                                <span className="capitalize">{settings.bandwidthTestResult.quality}</span>
+                            </span>
+                        )}
+
+                        {/* Bandwidth Test Needed Warning */}
+                        {needsBandwidthTest && !settings.bandwidthTestResult && (
+                            <button
+                                onClick={() => setShowInitialBandwidthTest(true)}
+                                className="text-xs bg-red-100 text-red-800 px-3 py-1.5 rounded-full font-medium shadow-sm border border-red-200 hover:bg-red-200 flex items-center space-x-1"
+                            >
+                                <AlertCircle size={14} />
+                                <span>Test Connection</span>
+                            </button>
+                        )}
                     </div>
                 </header>
+
+                {/* Performance Recommendation Banner */}
+                {settings.bandwidthTestResult && !isVideoRecommended && !settings.userOverride && (
+                    <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start space-x-2">
+                        <AlertCircle size={18} className="text-yellow-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                            <div className="text-sm text-yellow-800">
+                                <strong>Performance Tip:</strong> {getVideoRecommendation()}
+                            </div>
+                            <button
+                                onClick={() => setShowVideoSettings(true)}
+                                className="text-xs text-yellow-700 underline hover:text-yellow-900 mt-1"
+                            >
+                                Adjust Video Settings
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 min-h-0">
                     {/* Teacher Control Panel */}
@@ -70,10 +150,25 @@ const GameHostPage: React.FC = () => {
                             <h2 className="font-semibold text-gray-800 text-sm flex items-center">
                                 <Monitor size={16} className="mr-2 opacity-80"/>
                                 Content Preview & Controls
+                                {!settings.hostVideoEnabled && isVideoSlide && (
+                                    <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                        Video Disabled
+                                    </span>
+                                )}
                             </h2>
-                            <span className="text-xs text-gray-500">
-                                {currentSlideData ? `Slide ${currentSlideData.id}: ${currentSlideData.title}` : 'No slide selected'}
-                            </span>
+                            <div className="flex items-center space-x-2">
+                                <span className="text-xs text-gray-500">
+                                    {currentSlideData ? `Slide ${currentSlideData.id}: ${currentSlideData.title}` : 'No slide selected'}
+                                </span>
+                                {isVideoSlide && (
+                                    <button
+                                        onClick={() => setShowVideoSettings(true)}
+                                        className="text-xs text-blue-600 hover:text-blue-800"
+                                    >
+                                        Video Settings
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex-grow bg-gray-50 p-4 overflow-y-auto">
@@ -87,7 +182,7 @@ const GameHostPage: React.FC = () => {
                                 </div>
                             ) : isVideoSlide && videoUrl ? (
                                 <div>
-                                    <VideoControlPanel
+                                    <EnhancedVideoControlPanel
                                         slideId={currentSlideData.id}
                                         videoUrl={videoUrl}
                                         isForCurrentSlide={true}
@@ -95,9 +190,19 @@ const GameHostPage: React.FC = () => {
                                     <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                                         <p className="text-sm text-blue-800">
                                             <Info size={16} className="inline mr-1" />
-                                            This video preview is synchronized with the student display.
-                                            Use the controls above to manage playback for all viewers.
+                                            {settings.hostVideoEnabled
+                                                ? 'This video preview syncs with the student display. Controls affect all viewers.'
+                                                : 'Host video is disabled. Students see full video on presentation screen. Use controls to manage playback.'
+                                            }
                                         </p>
+                                        {!settings.hostVideoEnabled && (
+                                            <button
+                                                onClick={() => setShowVideoSettings(true)}
+                                                className="mt-2 text-xs text-blue-700 underline hover:text-blue-900"
+                                            >
+                                                Enable host video preview
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -146,6 +251,19 @@ const GameHostPage: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Video Settings Panel */}
+            <VideoSettingsPanel
+                isOpen={showVideoSettings}
+                onClose={() => setShowVideoSettings(false)}
+            />
+
+            {/* Initial Bandwidth Test Modal */}
+            <BandwidthTestModal
+                isOpen={showInitialBandwidthTest}
+                onClose={() => setShowInitialBandwidthTest(false)}
+                showRecommendations={true}
+            />
         </div>
     );
 };
