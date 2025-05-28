@@ -1,4 +1,4 @@
-// src/components/TeacherHost/TeacherGameControls.tsx - Fixed Export
+// src/components/TeacherHost/HostGameControls.tsx - Fixed Export
 import React, { useState, useEffect } from 'react';
 import {
     ChevronLeft,
@@ -19,7 +19,7 @@ import Modal from '../UI/Modal';
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 
-const TeacherGameControls: React.FC = () => {
+const HostGameControls: React.FC = () => {
     const {
         state,
         previousSlide,
@@ -463,4 +463,4 @@ const TeacherGameControls: React.FC = () => {
     );
 };
 
-export default TeacherGameControls;
+export default HostGameControls;

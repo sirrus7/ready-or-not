@@ -138,7 +138,6 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
 
         console.log(`useTeamDataManager: Successfully deleted decision from DB, now updating local state`);
 
-        // FIXED: Immediately update local state to reflect the deletion
         setTeamDecisions(prev => {
             const updated = JSON.parse(JSON.stringify(prev)); // Deep clone
             if (updated[teamId] && updated[teamId][phaseId]) {

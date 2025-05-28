@@ -150,7 +150,7 @@ export const generateTeamNameCardsPDF = async (teams: TeamConfig[] | undefined):
         console.error("Logo preloading failed.", e);
     }
 
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+    const pdf = new jsPDF({orientation: 'portrait', unit: 'in', format: 'letter'});
     const captureContainer = document.createElement('div');
     captureContainer.style.position = 'absolute';
     // captureContainer.style.left = '0px'; // For debugging make it visible

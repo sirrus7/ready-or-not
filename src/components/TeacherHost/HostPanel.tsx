@@ -1,8 +1,8 @@
-// src/components/TeacherHost/TeacherPanel.tsx
+// src/components/TeacherHost/HostPanel.tsx
 import React from 'react';
-import GameJourneyMap from './GameJourneyMap';
-import TeacherGameControls from './TeacherGameControls';
-import TeamSubmissionTable from './TeamSubmissionTable';
+import GameMap from './GameMap.tsx';
+import HostGameControls from './HostGameControls.tsx';
+import TeamSubmissions from './TeamSubmissions.tsx';
 import {useAppContext} from '../../context/AppContext';
 import {Layers, Info, AlertTriangle} from 'lucide-react';
 
@@ -10,7 +10,7 @@ interface TeacherPanelProps {
     // No props needed as it consumes from AppContext
 }
 
-const TeacherPanel: React.FC<TeacherPanelProps> = () => {
+const HostPanel: React.FC<TeacherPanelProps> = () => {
     const {state, currentPhaseNode} = useAppContext();
     const {gameStructure, currentSessionId, error: appError, isLoading } = state;
 
@@ -69,25 +69,25 @@ const TeacherPanel: React.FC<TeacherPanelProps> = () => {
             <div className="flex-1 min-h-0 flex flex-col">
                 {/* Game Journey Map - Takes up available space */}
                 <div className="flex-1 min-h-0 p-3">
-                    <GameJourneyMap/>
+                    <GameMap/>
                 </div>
 
                 {/* Team Submission Table - Only shown when needed, fixed height */}
                 {isInteractiveStudentPhaseActive && (
                     <div className="flex-shrink-0 border-t border-gray-200 bg-white">
                         <div className="max-h-64 overflow-y-auto">
-                            <TeamSubmissionTable/>
+                            <TeamSubmissions/>
                         </div>
                     </div>
                 )}
 
                 {/* Controls - Always at bottom */}
                 <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3">
-                    <TeacherGameControls/>
+                    <HostGameControls/>
                 </div>
             </div>
         </div>
     );
 };
 
-export default TeacherPanel;
+export default HostPanel;

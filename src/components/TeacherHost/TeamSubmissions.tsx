@@ -1,4 +1,4 @@
-// src/components/TeacherHost/TeamSubmissionTable.tsx
+// src/components/TeacherHost/TeamSubmissions.tsx
 import React, {useState, useEffect} from 'react';
 import {useAppContext} from '../../context/AppContext';
 import {TeamDecision} from '../../types';
@@ -10,7 +10,7 @@ interface TeamSubmissionTableProps {
     // No props needed directly, it will consume from AppContext
 }
 
-const TeamSubmissionTable: React.FC<TeamSubmissionTableProps> = () => {
+const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
     const {state, currentPhaseNode, resetTeamDecisionForPhase, fetchTeamsForSession} = useAppContext();
     const {teams, teamDecisions, currentSessionId, gameStructure} = state;
 
@@ -190,7 +190,7 @@ const TeamSubmissionTable: React.FC<TeamSubmissionTableProps> = () => {
             await fetchTeamsForSession();
             setLastUpdateTime(new Date().toLocaleTimeString());
         } catch (error) {
-            console.error('[TeamSubmissionTable] Error during manual refresh:', error);
+            console.error('[TeamSubmissions] Error during manual refresh:', error);
         }
     };
 
@@ -396,4 +396,4 @@ const TeamSubmissionTable: React.FC<TeamSubmissionTableProps> = () => {
     );
 };
 
-export default TeamSubmissionTable;
+export default TeamSubmissions;

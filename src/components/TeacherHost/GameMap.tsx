@@ -1,11 +1,11 @@
-// src/components/TeacherHost/GameJourneyMap.tsx
+// src/components/TeacherHost/GameMap.tsx
 import React, {useState, useEffect, useMemo} from 'react';
 import { useAppContext } from '../../context/AppContext';
-import GamePhaseNodeButton from './GamePhaseNodeButton';
+import GamePhaseButton from './GamePhaseButton.tsx';
 import { GamePhaseNode } from '../../types';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
-const GameJourneyMap: React.FC = () => {
+const GameMap: React.FC = () => {
     const { state, selectPhase } = useAppContext();
     const { gameStructure, currentPhaseId, currentSessionId } = state;
 
@@ -69,7 +69,7 @@ const GameJourneyMap: React.FC = () => {
 
                     return (
                         <div key={phase.id} className="w-full h-20">
-                            <GamePhaseNodeButton
+                            <GamePhaseButton
                                 phase={phase}
                                 isCurrent={isCurrent}
                                 isCompleted={isCompleted}
@@ -158,7 +158,7 @@ const GameJourneyMap: React.FC = () => {
 
                         return (
                             <div key={phase.id} className="w-full h-20">
-                                <GamePhaseNodeButton
+                                <GamePhaseButton
                                     phase={phase}
                                     isCurrent={isCurrent}
                                     isCompleted={isCompleted}
@@ -179,4 +179,4 @@ const GameJourneyMap: React.FC = () => {
     );
 };
 
-export default GameJourneyMap;
+export default GameMap;

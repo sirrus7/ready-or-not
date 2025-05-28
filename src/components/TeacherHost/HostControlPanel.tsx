@@ -1,4 +1,4 @@
-// src/components/TeacherHost/EnhancedVideoControlPanel.tsx
+// src/components/TeacherHost/HostControlPanel.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
     Play,
@@ -57,7 +57,7 @@ const getVideoFallbackContent = (slideId: number, videoUrl: string) => {
     return fallbackContent;
 };
 
-const EnhancedVideoControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
+const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
                                                                                  slideId,
                                                                                  videoUrl,
                                                                                  isForCurrentSlide
@@ -471,4 +471,4 @@ const EnhancedVideoControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
     );
 };
 
-export default EnhancedVideoControlPanel;
+export default HostControlPanel;

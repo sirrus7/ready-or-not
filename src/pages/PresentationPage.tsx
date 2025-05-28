@@ -1,12 +1,12 @@
-// src/pages/StudentDisplayPage.tsx
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Slide } from '../types';
+// src/pages/PresentationPage.tsx
+import React, {useEffect, useState} from 'react';
+import {useParams} from 'react-router-dom';
+import {Slide} from '../types';
 import SlideRenderer from '../components/StudentDisplay/SlideRenderer';
-import { Hourglass, Monitor, Video } from 'lucide-react';
+import {Hourglass, Monitor, Video} from 'lucide-react';
 
-const StudentDisplayPage: React.FC = () => {
-    const { sessionId } = useParams<{ sessionId: string }>();
+const PresentationPage: React.FC = () => {
+    const {sessionId} = useParams<{ sessionId: string }>();
     const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [statusMessage, setStatusMessage] = useState('Connecting to session...');
@@ -22,7 +22,7 @@ const StudentDisplayPage: React.FC = () => {
             // Only accept messages from same origin
             if (event.origin !== window.location.origin) return;
 
-            console.log('[StudentDisplayPage] Received message:', event.data);
+            console.log('[PresentationPage] Received message:', event.data);
 
             switch (event.data.type) {
                 case 'SLIDE_UPDATE':
@@ -55,7 +55,7 @@ const StudentDisplayPage: React.FC = () => {
                 case 'PING':
                     // Respond to keep-alive pings from teacher window
                     if (window.opener) {
-                        window.opener.postMessage({ type: 'PONG', sessionId }, window.location.origin);
+                        window.opener.postMessage({type: 'PONG', sessionId}, window.location.origin);
                     }
                     break;
             }
@@ -103,7 +103,7 @@ const StudentDisplayPage: React.FC = () => {
         return (
             <div className="h-screen w-screen bg-gray-900 flex items-center justify-center">
                 <div className="text-center text-white p-8">
-                    <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse" />
+                    <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse"/>
                     <h1 className="text-2xl font-bold mb-2">Student Display</h1>
                     <p className="text-lg text-gray-300">{statusMessage}</p>
                     {sessionId && (
@@ -125,12 +125,12 @@ const StudentDisplayPage: React.FC = () => {
         return (
             <div className="h-screen w-screen bg-gray-900 flex items-center justify-center">
                 <div className="text-center text-white p-8 max-w-2xl">
-                    <Video size={64} className="mx-auto mb-6 text-blue-400" />
+                    <Video size={64} className="mx-auto mb-6 text-blue-400"/>
                     <h1 className="text-3xl font-bold mb-4">{currentSlide.main_text}</h1>
                     <p className="text-xl text-gray-300 mb-6">{currentSlide.sub_text}</p>
                     <div className="bg-gray-800 rounded-lg p-6 text-left">
                         <h3 className="text-lg font-semibold mb-3 flex items-center">
-                            <Monitor size={20} className="mr-2" />
+                            <Monitor size={20} className="mr-2"/>
                             Picture-in-Picture Mode Active
                         </h3>
                         <p className="text-gray-400 mb-2">
@@ -163,4 +163,4 @@ const StudentDisplayPage: React.FC = () => {
     );
 };
 
-export default StudentDisplayPage;
+export default PresentationPage;
