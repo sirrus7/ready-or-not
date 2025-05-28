@@ -194,7 +194,7 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
         }
     };
 
-    if (!currentPhaseNode?.is_interactive_student_phase) {
+    if (!currentPhaseNode?.is_interactive_player_phase) {
         return (
             <div className="bg-gray-50 p-3 my-4 rounded-lg shadow-inner text-center text-gray-500 text-sm">
                 <Info size={18} className="inline mr-1.5 text-blue-500"/>

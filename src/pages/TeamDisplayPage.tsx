@@ -139,7 +139,7 @@ const TeamDisplayPage: React.FC = () => {
             }
 
             // Check for existing submission for this phase using RPC
-            if (activePhase.is_interactive_student_phase) {
+            if (activePhase.is_interactive_player_phase) {
                 const {data: existingDecisionData, error: decisionError} = await supabase
                     .rpc('get_student_team_decision_for_phase', {
                         target_session_id: sessionId,
@@ -212,7 +212,7 @@ const TeamDisplayPage: React.FC = () => {
                 // Decision activation logic
                 const shouldActivateDecisions = teacherPayload.isDecisionPhaseActive &&
                     loggedInTeamId &&
-                    newPhaseNode?.is_interactive_student_phase &&
+                    newPhaseNode?.is_interactive_player_phase &&
                     (newSlide?.type === 'interactive_invest' ||
                         newSlide?.type === 'interactive_choice' ||
                         newSlide?.type === 'interactive_double_down_prompt' ||

@@ -12,7 +12,7 @@ export const round1Slides: Slide[] = [
         sub_text: "Make all investment decisions on your team device before the video ends.",
         auto_advance_after_video: false, // Alert will handle progression
         background_css: 'bg-slate-800',
-        teacher_alert: { // REQ-2.12 (timer end version is the default for this slide)
+        host_alert: { // REQ-2.12 (timer end version is the default for this slide)
             title: "Investment Period Complete",
             message: "Before proceeding, please confirm that all teams have finalized and submitted their investment decisions. Once verified, click 'Next' to continue to the next phase."
         }
@@ -90,7 +90,7 @@ export const round1Slides: Slide[] = [
         timer_duration_seconds: 3 * 60,
         background_css: 'bg-orange-800',
         source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_018.mp4?alt=media",
-        teacher_alert: { // This is a slide-defined alert
+        host_alert: { // This is a slide-defined alert
             title: "Choice 1 Closed",
             message: "All teams submitted or time is up. Click OK to see consequences."
         }
@@ -214,7 +214,7 @@ export const round1Slides: Slide[] = [
         sub_text: "Teams: Discuss and select your response using your team device. Timer is on screen.",
         timer_duration_seconds: 3 * 60,
         background_css: 'bg-indigo-800',
-        teacher_alert: { // Slide-defined alert
+        host_alert: { // Slide-defined alert
             title: "Choice 2 Closed",
             message: "All teams submitted or time is up. Click OK to see consequences."
         }
@@ -279,7 +279,7 @@ export const round1Slides: Slide[] = [
         type: 'video',
         source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_040.mp4?alt=media",
         auto_advance_after_video: false, // Pause for teacher
-        teacher_alert: {title: "Impact Event #2 Complete", message: "Prepare for Impact Event #3. Click OK to proceed."}
+        host_alert: {title: "Impact Event #2 Complete", message: "Prepare for Impact Event #3. Click OK to proceed."}
     },
     {
         id: 40,
@@ -339,7 +339,7 @@ export const round1Slides: Slide[] = [
         sub_text: "Teams: Discuss and select your response using your team device. Timer is on screen.",
         timer_duration_seconds: 3 * 60,
         background_css: 'bg-teal-800',
-        teacher_alert: { // Slide-defined alert
+        host_alert: { // Slide-defined alert
             title: "Choice 3 Closed",
             message: "All teams submitted or time is up. Click OK to see consequences."
         }
@@ -404,7 +404,7 @@ export const round1Slides: Slide[] = [
         type: 'video',
         source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_055.mp4?alt=media",
         auto_advance_after_video: false, // Pause for teacher
-        teacher_alert: { // Slide-defined alert
+        host_alert: { // Slide-defined alert
             title: "Impact Event #3 Complete",
             message: "Prepare for RD-1 Investment Payoffs. Click OK to proceed."
         }
@@ -469,7 +469,7 @@ export const round1Slides: Slide[] = [
         sub_text: "Impact: Orders: +500, ASP: +$20",
         details: ["+500 Orders", "+$20 ASP"],
         source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_062.mp4?alt=media',
-        teacher_alert: { // Slide-defined alert
+        host_alert: { // Slide-defined alert
             title: "RD-1 Payoffs Complete",
             message: "All investment payoffs for Round 1 have been revealed. Click OK to review End of Round KPIs."
         }
@@ -481,7 +481,7 @@ export const round1Slides: Slide[] = [
         main_text: "END OF ROUND 1 KPIs",
         sub_text: "CFOs: Review your team's final KPIs on your device and record them on your Team Summary Sheet. The facilitator will display the leaderboard next.",
         source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_063.mp4?alt=media',
-        teacher_alert: { // Slide-defined alert
+        host_alert: { // Slide-defined alert
             title: "KPI Review",
             message: "Ensure teams have reviewed their KPIs. Click OK to display the Leaderboard."
         }
@@ -548,7 +548,7 @@ export const round1Slides: Slide[] = [
         interactive_data_key: 'rd1_leaderboard_income',
         main_text: "RD-1 Leaderboard: Net Income (Overall Ranking)",
         sub_text: "Final profit ranking for Round 1. Click OK to proceed to Round 2 setup.",
-        teacher_alert: { // Slide-defined alert
+        host_alert: { // Slide-defined alert
             title: "Round 1 Complete!",
             message: "Round 1 is concluded. Click OK to prepare for Round 2."
         }

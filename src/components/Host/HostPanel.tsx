@@ -6,16 +6,16 @@ import TeamSubmissions from './TeamSubmissions.tsx';
 import {useAppContext} from '../../context/AppContext';
 import {Layers, Info, AlertTriangle} from 'lucide-react';
 
-interface TeacherPanelProps {
+interface HostPanelProps {
     // No props needed as it consumes from AppContext
 }
 
-const HostPanel: React.FC<TeacherPanelProps> = () => {
+const HostPanel: React.FC<HostPanelProps> = () => {
     const {state, currentPhaseNode} = useAppContext();
     const {gameStructure, currentSessionId, error: appError, isLoading } = state;
 
     // Determine if the current phase is one where students make interactive decisions
-    const isInteractiveStudentPhaseActive = currentPhaseNode?.is_interactive_student_phase || false;
+    const isInteractiveStudentPhaseActive = currentPhaseNode?.is_interactive_player_phase || false;
 
     if (isLoading && !currentSessionId) {
         return (

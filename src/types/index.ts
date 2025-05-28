@@ -62,7 +62,7 @@ export interface InvestmentOption {
     id: string;
     name: string;
     cost: number;
-    description?: string; // Added for clarity on student app
+    description?: string; // Added for clarity on player app
 }
 
 export interface ChallengeOption {
@@ -133,8 +133,8 @@ export interface Consequence {
     challenge_option_id: string;
     narrative_text: string;
     effects: KpiEffect[];
-    teacher_alert?: string;
-    student_notification?: string;
+    host_alert?: string;
+    player_notification?: string;
     impact_card_image_url?: string;
     details?: string[]; // Added for consequence slides
 }
@@ -180,7 +180,7 @@ export interface Slide {
     interactive_data_key?: string;
     timer_duration_seconds?: number;
     auto_advance_after_video?: boolean;
-    teacher_alert?: {
+    host_alert?: {
         title: string;
         message: string;
     };
@@ -195,7 +195,7 @@ export interface GamePhaseNode {
     phase_type: 'welcome' | 'setup' | 'narration' | 'invest' | 'choice' | 'consequence' | 'payoff' | 'double-down-prompt' | 'double-down-select' | 'double-down-payoff' | 'kpi' | 'leaderboard' | 'game-end';
     round_number: 0 | 1 | 2 | 3;
     slide_ids: number[];
-    is_interactive_student_phase: boolean;
+    is_interactive_player_phase: boolean;
     expected_duration_minutes?: number;
 }
 
@@ -226,18 +226,18 @@ export interface AppState {
     gameStructure: GameStructure | null;
     currentPhaseId: string | null;
     currentSlideIdInPhase: number | null;
-    teacherNotes: Record<string, string>; // Keyed by slide ID (as string)
+    hostNotes: Record<string, string>; // Keyed by slide ID (as string)
     isPlaying: boolean; // Keep for backward compatibility but not used for video sync
     teams: Team[];
     teamDecisions: Record<string, Record<string, TeamDecision>>; // teamId -> phaseId -> Decision
     teamRoundData: Record<string, Record<number, TeamRoundData>>; // teamId -> roundNumber -> RoundData
-    isStudentWindowOpen: boolean; // Moved to local component state but kept for compatibility
+    isPlayerWindowOpen: boolean; // Moved to local component state but kept for compatibility
     isLoading: boolean;
     error: string | null;
-    currentTeacherAlert: { title: string, message: string } | null;
+    currentHostAlert: { title: string, message: string } | null;
 }
 
-export interface StudentPageState {
+export interface PlayerPageState {
     teamId: string | null;
     teamName: string | null;
     currentSessionId: string | null;

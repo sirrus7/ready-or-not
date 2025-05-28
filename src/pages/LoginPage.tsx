@@ -15,7 +15,7 @@ const LoginPage: React.FC = () => {
     useEffect(() => {
         // Redirect if user is already logged in and auth is not loading
         if (!authLoading && user) {
-            navigate('/dashboard', {replace: true}); // <-- CHANGED HERE
+            navigate('/dashboard', {replace: true});
         }
     }, [user, authLoading, navigate]);
 
@@ -49,7 +49,7 @@ const LoginPage: React.FC = () => {
                 </div>
 
                 <h2 className="text-2xl font-bold text-center text-gray-800 mb-6"> {/* Reduced margin */}
-                    {isSignUp ? 'Create Teacher Account' : 'Teacher Login'}
+                    {isSignUp ? 'Create Host Account' : 'Host Login'}
                 </h2>
 
                 {error && (

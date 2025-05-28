@@ -43,7 +43,7 @@ export const welcomeSlides: Slide[] = [
         type: 'video',
         source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_006.mp4?alt=media',
         auto_advance_after_video: false, // REQ-1.6: Should NOT auto-advance, alert pops up
-        teacher_alert: { // REQ-1.6
+        host_alert: { // REQ-1.6
             title: "Time's Up!",
             message: "Time's Up. When you're ready, click Next to proceed."
         }
@@ -54,7 +54,7 @@ export const welcomeSlides: Slide[] = [
         type: 'video',
         source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_007.mp4?alt=media',
         auto_advance_after_video: false, // REQ-2.2: Should NOT auto-advance, alert pops up
-        teacher_alert: { // REQ-2.2
+        host_alert: { // REQ-2.2
             title: "Game Host Action",
             message: "Please hand out one set of RD-1 Investment Cards and one RD-1 Team Summary Sheet to each team."
         }
@@ -70,7 +70,7 @@ export const welcomePhases: GamePhaseNode[] = [
         phase_type: 'welcome',
         round_number: 0,
         slide_ids: [0, 1, 2, 3],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 3
     },
     {
@@ -80,7 +80,7 @@ export const welcomePhases: GamePhaseNode[] = [
         phase_type: 'narration', // Or 'setup' if more appropriate
         round_number: 0,
         slide_ids: [4, 5, 6], // Slide 6 is now the "What are Investments" video
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 7 // Adjust duration
     },
 ];
