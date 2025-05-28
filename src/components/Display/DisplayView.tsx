@@ -1,4 +1,4 @@
-// src/components/Display/DisplayView.tsx - Simplified Host Preview with Click Controls
+// src/components/Display/DisplayView.tsx - Updated with Audio Control
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import SlideRenderer from './SlideRenderer';
 import { Slide } from '../../types';
@@ -153,7 +153,19 @@ const DisplayView: React.FC<DisplayViewProps> = ({
 
     return (
         <div className="h-full w-full overflow-hidden relative">
-            {/* Simplified SlideRenderer with host click functionality */}
+            {/* Connection status indicator for development */}
+            {process.env.NODE_ENV === 'development' && (
+                <div className="absolute top-4 right-4 z-20 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs">
+                    <div className="flex items-center gap-2">
+                        <Monitor size={14} />
+                        <span>
+                            {isConnectedToPresentationDisplay ? 'Presentation Connected' : 'No Presentation Display'}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* SlideRenderer with audio control based on presentation display connection */}
             <SlideRenderer
                 slide={slide}
                 isPlayingTarget={syncState.playing}
@@ -164,6 +176,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 syncMode={isConnectedToPresentationDisplay}
                 hostMode={true} // Enable click controls for host
                 onHostVideoClick={handleHostVideoClick}
+                allowHostAudio={!isConnectedToPresentationDisplay} // NEW: Enable audio when no presentation display
             />
         </div>
     );
