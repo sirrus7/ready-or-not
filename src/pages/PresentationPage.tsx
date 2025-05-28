@@ -1,4 +1,4 @@
-// src/pages/PresentationPage.tsx - Pure Display Mode (No User Controls)
+// src/pages/PresentationPage.tsx - Fixed Command Acknowledgment
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Slide } from '../types';
@@ -33,23 +33,30 @@ const PresentationPage: React.FC = () => {
 
     // Broadcast video state to host preview
     const broadcastVideoState = useCallback((newState: Partial<VideoState>) => {
-        const updatedState = {
-            ...videoState,
-            ...newState,
-            lastUpdate: Date.now()
-        };
+        const timestamp = Date.now();
 
-        setVideoState(updatedState);
+        setVideoState(prevState => {
+            const updatedState = {
+                ...prevState,
+                ...newState,
+                lastUpdate: timestamp
+            };
 
-        if (channelRef.current && sessionId) {
-            channelRef.current.postMessage({
-                type: 'VIDEO_STATE_UPDATE',
-                sessionId,
-                videoState: updatedState,
-                timestamp: Date.now()
-            });
-        }
-    }, [sessionId, videoState]);
+            console.log('[PresentationPage] Broadcasting video state:', updatedState);
+
+            if (channelRef.current && sessionId) {
+                channelRef.current.postMessage({
+                    type: 'VIDEO_STATE_UPDATE',
+                    sessionId,
+                    videoState: updatedState,
+                    timestamp
+                });
+                console.log('[PresentationPage] Sent VIDEO_STATE_UPDATE message');
+            }
+
+            return updatedState;
+        });
+    }, [sessionId]);
 
     // Initialize BroadcastChannel for cross-tab communication
     useEffect(() => {
@@ -97,30 +104,63 @@ const PresentationPage: React.FC = () => {
 
                 case 'VIDEO_CONTROL':
                     if (videoRef.current) {
-                        const { action, value } = event.data;
-                        console.log(`[PresentationPage] Video control: ${action}`, value);
+                        const { action, value, expectAck } = event.data;
+                        console.log(`[PresentationPage] Video control received: ${action}`, value);
+                        console.log(`[PresentationPage] Current video state - paused: ${videoRef.current.paused}, currentTime: ${videoRef.current.currentTime}`);
+
+                        let commandSuccess = false;
 
                         switch (action) {
                             case 'play':
-                                videoRef.current.play().catch(console.error);
-                                broadcastVideoState({ playing: true });
+                                console.log(`[PresentationPage] Executing PLAY command`);
+                                videoRef.current.play()
+                                    .then(() => {
+                                        console.log(`[PresentationPage] PLAY successful - video is now playing`);
+                                        // Don't broadcast here - let the onPlay event handle it
+                                    })
+                                    .catch((error) => {
+                                        console.error(`[PresentationPage] PLAY failed:`, error);
+                                        broadcastVideoState({ playing: false });
+                                    });
+                                commandSuccess = true;
                                 break;
                             case 'pause':
+                                console.log(`[PresentationPage] Executing PAUSE command`);
                                 videoRef.current.pause();
-                                broadcastVideoState({ playing: false });
+                                console.log(`[PresentationPage] PAUSE executed - video paused: ${videoRef.current.paused}`);
+                                // Don't broadcast here - let the onPause event handle it
+                                commandSuccess = true;
                                 break;
                             case 'seek':
+                                console.log(`[PresentationPage] Executing SEEK command to: ${value}`);
                                 videoRef.current.currentTime = value;
                                 broadcastVideoState({
                                     currentTime: value,
                                     playing: !videoRef.current.paused
                                 });
+                                commandSuccess = true;
                                 break;
                             case 'volume':
+                                console.log(`[PresentationPage] Executing VOLUME command to: ${value}`);
                                 videoRef.current.volume = value;
                                 broadcastVideoState({ volume: value });
+                                commandSuccess = true;
                                 break;
                         }
+
+                        // Send acknowledgment if requested
+                        if (expectAck && commandSuccess) {
+                            channel.postMessage({
+                                type: 'VIDEO_COMMAND_ACK',
+                                sessionId,
+                                command: action,
+                                success: true,
+                                timestamp: now
+                            });
+                            console.log(`[PresentationPage] Sent ACK for command: ${action}`);
+                        }
+                    } else {
+                        console.error(`[PresentationPage] VIDEO_CONTROL received but videoRef.current is null`);
                     }
                     break;
 
@@ -198,10 +238,12 @@ const PresentationPage: React.FC = () => {
 
     // Video event handlers for sync broadcasting
     const handleVideoPlay = useCallback(() => {
+        console.log('[PresentationPage] Video play event');
         broadcastVideoState({ playing: true });
     }, [broadcastVideoState]);
 
     const handleVideoPause = useCallback(() => {
+        console.log('[PresentationPage] Video pause event');
         broadcastVideoState({ playing: false });
     }, [broadcastVideoState]);
 
@@ -225,6 +267,7 @@ const PresentationPage: React.FC = () => {
 
     const handleLoadedMetadata = useCallback(() => {
         if (videoRef.current) {
+            console.log('[PresentationPage] Video metadata loaded');
             broadcastVideoState({
                 duration: videoRef.current.duration,
                 currentTime: videoRef.current.currentTime,

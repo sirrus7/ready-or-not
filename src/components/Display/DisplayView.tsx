@@ -1,4 +1,4 @@
-// src/components/Display/DisplayView.tsx - Updated with Audio Control
+// src/components/Display/DisplayView.tsx - Fixed Video Control Sync
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import SlideRenderer from './SlideRenderer';
 import { Slide } from '../../types';
@@ -35,6 +35,8 @@ const DisplayView: React.FC<DisplayViewProps> = ({
         lastUpdate: 0
     });
     const [isConnectedToPresentationDisplay, setIsConnectedToPresentationDisplay] = useState(false);
+    const lastCommandRef = useRef<string>('');
+    const commandTimeoutRef = useRef<NodeJS.Timeout>();
 
     // Get session ID from current URL or context
     const sessionId = window.location.pathname.includes('/classroom/')
@@ -56,7 +58,9 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 case 'VIDEO_STATE_UPDATE':
                     if (event.data.sessionId === sessionId && event.data.videoState) {
                         const newState = event.data.videoState;
+                        // Only update if this is newer than our last update
                         if (newState.lastUpdate > syncState.lastUpdate) {
+                            console.log('[DisplayView] Received video state update:', newState);
                             setSyncState(prev => ({
                                 ...prev,
                                 ...newState,
@@ -64,6 +68,21 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                             }));
                             setIsConnectedToPresentationDisplay(true);
                         }
+                    }
+                    break;
+
+                case 'VIDEO_COMMAND_ACK':
+                    // Presentation display acknowledging our command
+                    if (event.data.sessionId === sessionId && event.data.command) {
+                        console.log('[DisplayView] Command acknowledged:', event.data.command);
+                        const isPlaying = event.data.command === 'play';
+                        setSyncState(prev => ({
+                            ...prev,
+                            playing: isPlaying,
+                            lastUpdate: now
+                        }));
+                        // Reset command tracking after successful acknowledgment
+                        lastCommandRef.current = '';
                     }
                     break;
 
@@ -83,6 +102,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 case 'PRESENTATION_READY':
                     if (event.data.sessionId === sessionId) {
                         setIsConnectedToPresentationDisplay(true);
+                        console.log('[DisplayView] Presentation display connected');
                     }
                     break;
             }
@@ -102,7 +122,8 @@ const DisplayView: React.FC<DisplayViewProps> = ({
         // Connection timeout check
         const connectionCheck = setInterval(() => {
             const timeSinceLastUpdate = Date.now() - syncState.lastUpdate;
-            if (timeSinceLastUpdate > 5000) {
+            if (timeSinceLastUpdate > 5000 && isConnectedToPresentationDisplay) {
+                console.log('[DisplayView] Connection timeout - marking as disconnected');
                 setIsConnectedToPresentationDisplay(false);
             }
         }, 1000);
@@ -114,32 +135,116 @@ const DisplayView: React.FC<DisplayViewProps> = ({
             channel.close();
             channelRef.current = null;
         };
-    }, [sessionId, slide?.id, syncState.lastUpdate]);
+    }, [sessionId, slide?.id, syncState.lastUpdate, isConnectedToPresentationDisplay]);
 
     // Handle host video click - sends command to presentation display
     const handleHostVideoClick = useCallback((shouldPlay: boolean) => {
-        if (!channelRef.current || !sessionId) return;
+        if (!channelRef.current || !sessionId) {
+            console.warn('[DisplayView] No channel or session ID for video command');
+            return;
+        }
 
         const timestamp = Date.now();
         const command = shouldPlay ? 'play' : 'pause';
 
-        // Send video command to presentation display
-        channelRef.current.postMessage({
-            type: 'VIDEO_CONTROL',
-            sessionId,
-            action: command,
-            timestamp
-        });
+        console.log(`[DisplayView] Handling video click - shouldPlay: ${shouldPlay}, command: ${command}, lastCommand: ${lastCommandRef.current}`);
 
-        // Update local state immediately for responsive UI
-        setSyncState(prev => ({
-            ...prev,
-            playing: shouldPlay,
-            lastUpdate: timestamp
-        }));
+        // Clear any existing timeout
+        if (commandTimeoutRef.current) {
+            clearTimeout(commandTimeoutRef.current);
+        }
 
-        console.log(`[DisplayView] Host clicked: ${command}`);
-    }, [sessionId]);
+        console.log(`[DisplayView] Sending video command: ${command}`);
+
+        if (isConnectedToPresentationDisplay) {
+            // Send video command to presentation display
+            console.log(`[DisplayView] Sending command to presentation display:`, {
+                type: 'VIDEO_CONTROL',
+                sessionId,
+                action: command,
+                timestamp,
+                expectAck: true
+            });
+
+            channelRef.current.postMessage({
+                type: 'VIDEO_CONTROL',
+                sessionId,
+                action: command,
+                timestamp,
+                expectAck: true
+            });
+
+            // Optimistically update local state for immediate UI feedback
+            setSyncState(prev => ({
+                ...prev,
+                playing: shouldPlay,
+                lastUpdate: timestamp
+            }));
+
+            // Set timeout to handle cases where ACK doesn't come back
+            commandTimeoutRef.current = setTimeout(() => {
+                console.log('[DisplayView] Command timeout - assuming command failed');
+                // Revert to previous state if no ACK received
+                setSyncState(prev => ({
+                    ...prev,
+                    playing: !shouldPlay, // Revert
+                    lastUpdate: Date.now()
+                }));
+                lastCommandRef.current = '';
+            }, 2000);
+        } else {
+            // No presentation display - control local video directly
+            if (videoRef.current) {
+                if (shouldPlay) {
+                    videoRef.current.play().catch(console.error);
+                } else {
+                    videoRef.current.pause();
+                }
+
+                setSyncState(prev => ({
+                    ...prev,
+                    playing: shouldPlay,
+                    lastUpdate: timestamp
+                }));
+            }
+        }
+    }, [sessionId, isConnectedToPresentationDisplay]);
+
+    // Handle direct video events when no presentation display
+    const handleVideoPlay = useCallback(() => {
+        if (!isConnectedToPresentationDisplay) {
+            setSyncState(prev => ({
+                ...prev,
+                playing: true,
+                lastUpdate: Date.now()
+            }));
+        }
+    }, [isConnectedToPresentationDisplay]);
+
+    const handleVideoPause = useCallback(() => {
+        if (!isConnectedToPresentationDisplay) {
+            setSyncState(prev => ({
+                ...prev,
+                playing: false,
+                lastUpdate: Date.now()
+            }));
+        }
+    }, [isConnectedToPresentationDisplay]);
+
+    const handleVideoTimeUpdate = useCallback(() => {
+        if (!isConnectedToPresentationDisplay && videoRef.current) {
+            const now = Date.now();
+            // Throttle updates
+            if (now - syncState.lastUpdate > 200) {
+                setSyncState(prev => ({
+                    ...prev,
+                    currentTime: videoRef.current!.currentTime,
+                    duration: videoRef.current!.duration || 0,
+                    lastUpdate: now
+                }));
+            }
+        }
+    }, [isConnectedToPresentationDisplay, syncState.lastUpdate]);
 
     if (!slide) {
         return (
@@ -161,22 +266,28 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                         <span>
                             {isConnectedToPresentationDisplay ? 'Presentation Connected' : 'No Presentation Display'}
                         </span>
+                        <div className="ml-2 text-xs opacity-75">
+                            Playing: {syncState.playing ? 'Yes' : 'No'}
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* SlideRenderer with audio control based on presentation display connection */}
+            {/* SlideRenderer with proper sync configuration */}
             <SlideRenderer
                 slide={slide}
                 isPlayingTarget={syncState.playing}
                 videoTimeTarget={syncState.currentTime}
                 triggerSeekEvent={false}
                 videoRef={videoRef}
+                onVideoPlay={handleVideoPlay}
+                onVideoPause={handleVideoPause}
+                onVideoTimeUpdate={handleVideoTimeUpdate}
                 masterVideoMode={false}
                 syncMode={isConnectedToPresentationDisplay}
-                hostMode={true} // Enable click controls for host
+                hostMode={true}
                 onHostVideoClick={handleHostVideoClick}
-                allowHostAudio={!isConnectedToPresentationDisplay} // NEW: Enable audio when no presentation display
+                allowHostAudio={!isConnectedToPresentationDisplay}
             />
         </div>
     );
