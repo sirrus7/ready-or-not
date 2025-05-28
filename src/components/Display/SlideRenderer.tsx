@@ -1,4 +1,4 @@
-// src/components/Display/SlideRenderer.tsx - Simplified YouTube-style Video Controls
+// src/components/Display/SlideRenderer.tsx - Fixed Audio for Host Preview
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
@@ -22,6 +22,8 @@ interface SlideRendererProps {
     // Host mode for click controls
     hostMode?: boolean;
     onHostVideoClick?: (playing: boolean) => void;
+    // NEW: Allow audio on host preview when presentation display is disconnected
+    allowHostAudio?: boolean;
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
@@ -38,7 +40,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          masterVideoMode = false,
                                                          syncMode = false,
                                                          hostMode = false,
-                                                         onHostVideoClick
+                                                         onHostVideoClick,
+                                                         allowHostAudio = false
                                                      }) => {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const activeVideoRef = videoRef || localVideoRef;
@@ -247,6 +250,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             );
         }
 
+        // FIXED: Audio logic - enable audio for master mode OR when host audio is allowed
+        const shouldHaveAudio = masterVideoMode || allowHostAudio;
+
         const videoElement = (
             <video
                 ref={activeVideoRef}
@@ -257,7 +263,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 controls={false} // Always false - no native controls
                 autoPlay={false}
                 preload="auto"
-                muted={!masterVideoMode}
+                muted={!shouldHaveAudio} // FIXED: Use shouldHaveAudio instead of just masterVideoMode
                 onClick={hostMode ? handleVideoClick : undefined}
                 onLoadedMetadata={() => {
                     if (masterVideoMode && onLoadedMetadata) {
