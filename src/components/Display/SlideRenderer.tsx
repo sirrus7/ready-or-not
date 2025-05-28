@@ -1,4 +1,4 @@
-// src/components/Display/SlideRenderer.tsx - Fixed Video Sync Logic
+// src/components/Display/SlideRenderer.tsx - Native Controls Support
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
@@ -22,8 +22,11 @@ interface SlideRendererProps {
     // Host mode for click controls
     hostMode?: boolean;
     onHostVideoClick?: (playing: boolean) => void;
-    // NEW: Allow audio on host preview when presentation display is disconnected
+    // Allow audio on host preview when presentation display is disconnected
     allowHostAudio?: boolean;
+    // NEW: Enable native video controls
+    enableNativeControls?: boolean;
+    onSeek?: (time: number) => void;
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
@@ -41,7 +44,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          syncMode = false,
                                                          hostMode = false,
                                                          onHostVideoClick,
-                                                         allowHostAudio = false
+                                                         allowHostAudio = false,
+                                                         enableNativeControls = false,
+                                                         onSeek
                                                      }) => {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const activeVideoRef = videoRef || localVideoRef;
@@ -155,8 +160,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
         const video = activeVideoRef.current;
 
-        // Only apply sync logic for non-master modes (host preview)
-        if (!masterVideoMode) {
+        // Only apply sync logic for non-master modes (host preview) and when native controls are disabled
+        if (!masterVideoMode && !enableNativeControls) {
             if (syncMode) {
                 // In sync mode, be more responsive to state changes
                 console.log(`[SlideRenderer] Sync mode - playing: ${isPlayingTarget}, time: ${videoTimeTarget}`);
@@ -186,15 +191,15 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 syncVideoState();
             }
         }
-        // For master mode (presentation display), don't apply any sync logic
-        // Let it play naturally based on commands
+        // For master mode (presentation display) or native controls mode, don't apply any sync logic
+        // Let it play naturally based on commands or user interaction
 
         return () => {
             if (syncTimeoutRef.current) {
                 clearTimeout(syncTimeoutRef.current);
             }
         };
-    }, [isPlayingTarget, videoTimeTarget, syncMode, masterVideoMode, syncVideoState]);
+    }, [isPlayingTarget, videoTimeTarget, syncMode, masterVideoMode, syncVideoState, enableNativeControls]);
 
     // Handle video loading and metadata
     useEffect(() => {
@@ -202,16 +207,16 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             const video = activeVideoRef.current;
 
             const handleLoadedData = () => {
-                // Only apply sync for non-master modes
-                if (!masterVideoMode && (syncMode || !masterVideoMode)) {
+                // Only apply sync for non-master modes and when native controls are disabled
+                if (!masterVideoMode && !enableNativeControls && (syncMode || !masterVideoMode)) {
                     syncVideoState();
                 }
                 setVideoError(false);
             };
 
             const handleCanPlay = () => {
-                // Only apply time sync for non-master modes
-                if (!masterVideoMode && videoTimeTarget !== undefined && Math.abs(video.currentTime - videoTimeTarget) > 0.5) {
+                // Only apply time sync for non-master modes and when native controls are disabled
+                if (!masterVideoMode && !enableNativeControls && videoTimeTarget !== undefined && Math.abs(video.currentTime - videoTimeTarget) > 0.5) {
                     video.currentTime = videoTimeTarget;
                 }
             };
@@ -221,21 +226,35 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 setVideoError(true);
             };
 
+            // For native controls mode, set up seek handling
+            const handleSeeked = () => {
+                if (enableNativeControls && onSeek && video.currentTime !== undefined) {
+                    onSeek(video.currentTime);
+                }
+            };
+
             video.addEventListener('loadeddata', handleLoadedData);
             video.addEventListener('canplay', handleCanPlay);
             video.addEventListener('error', handleError);
+
+            if (enableNativeControls) {
+                video.addEventListener('seeked', handleSeeked);
+            }
 
             return () => {
                 video.removeEventListener('loadeddata', handleLoadedData);
                 video.removeEventListener('canplay', handleCanPlay);
                 video.removeEventListener('error', handleError);
+                if (enableNativeControls) {
+                    video.removeEventListener('seeked', handleSeeked);
+                }
             };
         }
-    }, [slide, syncMode, masterVideoMode, videoTimeTarget, syncVideoState]);
+    }, [slide, syncMode, masterVideoMode, videoTimeTarget, syncVideoState, enableNativeControls, onSeek]);
 
-    // Handle host video click
+    // Handle host video click (only when native controls are disabled)
     const handleVideoClick = useCallback(() => {
-        if (!hostMode || !activeVideoRef.current || !onHostVideoClick) return;
+        if (!hostMode || !activeVideoRef.current || !onHostVideoClick || enableNativeControls) return;
 
         const video = activeVideoRef.current;
         const willPlay = video.paused;
@@ -255,7 +274,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
         // Notify parent component
         onHostVideoClick(willPlay);
-    }, [hostMode, onHostVideoClick]);
+    }, [hostMode, onHostVideoClick, enableNativeControls]);
 
     if (!slide) {
         return (
@@ -308,21 +327,23 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             );
         }
 
-        // FIXED: Audio logic - enable audio for master mode OR when host audio is allowed
+        // Audio logic - enable audio for master mode OR when host audio is allowed
         const shouldHaveAudio = masterVideoMode || allowHostAudio;
 
         const videoElement = (
             <video
                 ref={activeVideoRef}
-                key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : syncMode ? 'sync' : 'preview'}`}
+                key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : syncMode ? 'sync' : 'preview'}_${enableNativeControls ? 'native' : 'custom'}`}
                 src={slide.source_url}
-                className={`max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none ${hostMode ? 'cursor-pointer' : ''}`}
+                className={`max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none ${
+                    hostMode && !enableNativeControls ? 'cursor-pointer' : ''
+                }`}
                 playsInline
-                controls={false} // Always false - no native controls
+                controls={enableNativeControls} // Enable native controls when requested
                 autoPlay={false}
                 preload="auto"
-                muted={!shouldHaveAudio} // FIXED: Use shouldHaveAudio instead of just masterVideoMode
-                onClick={hostMode ? handleVideoClick : undefined}
+                muted={!shouldHaveAudio}
+                onClick={hostMode && !enableNativeControls ? handleVideoClick : undefined}
                 onPlay={(e) => {
                     console.log(`[SlideRenderer] Video onPlay INLINE event fired for slide ${slide.id}, masterVideoMode: ${masterVideoMode}`);
                     if (masterVideoMode && onVideoPlay) {
@@ -371,8 +392,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             </video>
         );
 
-        // Wrap video with overlay for host mode
-        if (hostMode) {
+        // Wrap video with overlay for host mode (only when native controls are disabled)
+        if (hostMode && !enableNativeControls) {
             return (
                 <div className="relative">
                     {videoElement}
