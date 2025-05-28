@@ -1,8 +1,6 @@
-// src/components/Host/HostGameControls.tsx - Updated with Floating Navigation
+// src/components/Host/HostGameControls.tsx - Navigation Moved Under Content
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    ChevronLeft,
-    ChevronRight,
     Users,
     QrCode,
     Trophy,
@@ -20,8 +18,6 @@ import QRCode from 'qrcode';
 const HostGameControls: React.FC = () => {
     const {
         state,
-        previousSlide,
-        nextSlide,
         updateHostNotesForCurrentSlide,
         currentSlideData,
         currentPhaseNode,
@@ -38,6 +34,12 @@ const HostGameControls: React.FC = () => {
     const [isExitConfirmModalOpen, setisExitConfirmModalOpen] = useState(false);
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
     const [isPresentationDisplayOpen, setIsPresentationDisplayOpen] = useState(false);
+
+    // Video state for display status only
+    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+    const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+    const [videoDuration, setVideoDuration] = useState(0);
+    const [videoVolume, setVideoVolume] = useState(1);
 
     const channelRef = useRef<BroadcastChannel | null>(null);
     const pingIntervalRef = useRef<NodeJS.Timeout>();
@@ -74,6 +76,23 @@ const HostGameControls: React.FC = () => {
                     if (event.data.sessionId === state.currentSessionId) {
                         lastPongRef.current = Date.now();
                         setIsPresentationDisplayOpen(true);
+
+                        // Update video state from presentation display
+                        if (event.data.videoState) {
+                            setIsVideoPlaying(event.data.videoState.playing);
+                            setVideoCurrentTime(event.data.videoState.currentTime);
+                            setVideoDuration(event.data.videoState.duration);
+                            setVideoVolume(event.data.videoState.volume);
+                        }
+                    }
+                    break;
+
+                case 'VIDEO_STATE_UPDATE':
+                    if (event.data.sessionId === state.currentSessionId && event.data.videoState) {
+                        setIsVideoPlaying(event.data.videoState.playing);
+                        setVideoCurrentTime(event.data.videoState.currentTime);
+                        setVideoDuration(event.data.videoState.duration);
+                        setVideoVolume(event.data.videoState.volume);
                     }
                     break;
 
@@ -173,6 +192,20 @@ const HostGameControls: React.FC = () => {
         }
     };
 
+    // Video control handlers - removed since video controls are now native
+    const handleVideoControlCommand = (command: string, value?: number) => {
+        if (!channelRef.current || !state.currentSessionId) return;
+
+        channelRef.current.postMessage({
+            type: 'VIDEO_CONTROL',
+            sessionId: state.currentSessionId,
+            action: command,
+            value: value,
+            timestamp: Date.now(),
+            expectAck: true
+        });
+    };
+
     const openJoinInfoModal = () => setIsJoinCompanyModalOpen(true);
     const closeJoinCompanyModal = () => setIsJoinCompanyModalOpen(false);
     const openTeamCodesModal = () => setIsTeamCodesModalOpen(true);
@@ -242,49 +275,11 @@ const HostGameControls: React.FC = () => {
         }
     }, [isJoinCompanyModalOpen, studentJoinUrl, state.currentSessionId]);
 
-    const isFirstSlideOverall = currentPhaseNode?.id === state.gameStructure?.welcome_phases[0]?.id && state.currentSlideIdInPhase === 0;
-    const gameEndPhaseIds = state.gameStructure?.game_end_phases.map(p => p.id) || [];
-
-    let isLastSlideOverall = false;
-    if (currentPhaseNode && state.gameStructure) {
-        if (gameEndPhaseIds.includes(currentPhaseNode.id)) {
-            const lastGameEndPhase = state.gameStructure.game_end_phases[state.gameStructure.game_end_phases.length - 1];
-            if (currentPhaseNode.id === lastGameEndPhase.id && state.currentSlideIdInPhase === (lastGameEndPhase.slide_ids.length - 1)) {
-                isLastSlideOverall = true;
-            }
-        }
-    }
-
     return (
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            {/* UPDATED: Floating Action Button Style Navigation */}
             <div className="p-3 md:p-4">
-                <div className="relative bg-gray-50 rounded-lg p-6 mb-3">
-                    <button
-                        onClick={previousSlide}
-                        disabled={isFirstSlideOverall}
-                        className="absolute left-2 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg hover:bg-blue-700 transition-colors z-10"
-                        title="Previous Slide"
-                    >
-                        <ChevronLeft size={24} />
-                    </button>
-
-                    <div className="text-center px-16">
-                        <div className="text-xl font-bold text-gray-800 mb-1">Game Navigation</div>
-                        <div className="text-sm text-gray-600">Navigate between presentation slides</div>
-                    </div>
-
-                    <button
-                        onClick={nextSlide}
-                        disabled={isLastSlideOverall}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg hover:bg-blue-700 transition-colors z-10"
-                        title="Next Slide"
-                    >
-                        <ChevronRight size={24} />
-                    </button>
-                </div>
-
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-3">
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
                     <button
                         onClick={handleOpenDisplay}
                         className={`flex items-center justify-center gap-2 py-2.5 px-5 rounded-lg transition-colors shadow-md text-sm font-medium w-full sm:w-auto ${
@@ -307,7 +302,7 @@ const HostGameControls: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Simple video instruction for video slides */}
+                {/* Video instruction for video slides */}
                 {isVideoSlide && (
                     <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                         <div className="text-sm text-blue-800">
@@ -316,8 +311,10 @@ const HostGameControls: React.FC = () => {
                                 <span className="font-medium">Video Slide Active</span>
                             </div>
                             <p className="text-blue-700 text-xs">
-                                Click directly on the video preview above to play/pause.
-                                Video will sync automatically with the presentation display.
+                                {isPresentationDisplayOpen
+                                    ? "Video controls are integrated into the video player. Click on the video preview above to control playback."
+                                    : "Click directly on the video preview above to play/pause. Open presentation display for full controls."
+                                }
                             </p>
                         </div>
                     </div>
@@ -385,6 +382,7 @@ const HostGameControls: React.FC = () => {
                 )}
             </div>
 
+            {/* All existing modals remain the same... */}
             {/* Teacher Alert Modal */}
             {state.currentHostAlert && (
                 <Modal

@@ -1,4 +1,4 @@
-// src/components/Display/DisplayView.tsx - Fixed Video Control Sync
+// src/components/Display/DisplayView.tsx - Native Video Controls for Host Preview
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import SlideRenderer from './SlideRenderer';
 import { Slide } from '../../types';
@@ -42,6 +42,14 @@ const DisplayView: React.FC<DisplayViewProps> = ({
     const sessionId = window.location.pathname.includes('/classroom/')
         ? window.location.pathname.split('/classroom/')[1]
         : null;
+
+    // Check if current slide is a video
+    const isVideoSlide = slide && (
+        slide.type === 'video' ||
+        (slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
+        ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
+            slide.source_url?.match(/\.(mp4|webm|ogg)$/i))
+    );
 
     // Initialize BroadcastChannel for cross-tab sync
     useEffect(() => {
@@ -137,7 +145,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({
         };
     }, [sessionId, slide?.id, syncState.lastUpdate, isConnectedToPresentationDisplay]);
 
-    // Handle host video click - sends command to presentation display
+    // Handle host video click for maintaining sync
     const handleHostVideoClick = useCallback((shouldPlay: boolean) => {
         if (!channelRef.current || !sessionId) {
             console.warn('[DisplayView] No channel or session ID for video command');
@@ -147,14 +155,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({
         const timestamp = Date.now();
         const command = shouldPlay ? 'play' : 'pause';
 
-        console.log(`[DisplayView] Handling video click - shouldPlay: ${shouldPlay}, command: ${command}, lastCommand: ${lastCommandRef.current}`);
-
-        // Clear any existing timeout
-        if (commandTimeoutRef.current) {
-            clearTimeout(commandTimeoutRef.current);
-        }
-
-        console.log(`[DisplayView] Sending video command: ${command}`);
+        console.log(`[DisplayView] Handling video click - shouldPlay: ${shouldPlay}, command: ${command}`);
 
         if (isConnectedToPresentationDisplay) {
             // Send video command to presentation display
@@ -180,18 +181,6 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 playing: shouldPlay,
                 lastUpdate: timestamp
             }));
-
-            // Set timeout to handle cases where ACK doesn't come back
-            commandTimeoutRef.current = setTimeout(() => {
-                console.log('[DisplayView] Command timeout - assuming command failed');
-                // Revert to previous state if no ACK received
-                setSyncState(prev => ({
-                    ...prev,
-                    playing: !shouldPlay, // Revert
-                    lastUpdate: Date.now()
-                }));
-                lastCommandRef.current = '';
-            }, 2000);
         } else {
             // No presentation display - control local video directly
             if (videoRef.current) {
@@ -211,8 +200,8 @@ const DisplayView: React.FC<DisplayViewProps> = ({
     }, [sessionId, isConnectedToPresentationDisplay]);
 
     // Handle direct video events when no presentation display
-    const handleVideoPlay = useCallback(() => {
-        if (!isConnectedToPresentationDisplay) {
+    const handleHostVideoPlay = useCallback(() => {
+        if (!isConnectedToPresentationDisplay && videoRef.current) {
             setSyncState(prev => ({
                 ...prev,
                 playing: true,
@@ -221,8 +210,8 @@ const DisplayView: React.FC<DisplayViewProps> = ({
         }
     }, [isConnectedToPresentationDisplay]);
 
-    const handleVideoPause = useCallback(() => {
-        if (!isConnectedToPresentationDisplay) {
+    const handleHostVideoPause = useCallback(() => {
+        if (!isConnectedToPresentationDisplay && videoRef.current) {
             setSyncState(prev => ({
                 ...prev,
                 playing: false,
@@ -231,7 +220,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({
         }
     }, [isConnectedToPresentationDisplay]);
 
-    const handleVideoTimeUpdate = useCallback(() => {
+    const handleHostVideoTimeUpdate = useCallback(() => {
         if (!isConnectedToPresentationDisplay && videoRef.current) {
             const now = Date.now();
             // Throttle updates
@@ -245,6 +234,29 @@ const DisplayView: React.FC<DisplayViewProps> = ({
             }
         }
     }, [isConnectedToPresentationDisplay, syncState.lastUpdate]);
+
+    const handleHostVideoVolumeChange = useCallback(() => {
+        if (!isConnectedToPresentationDisplay && videoRef.current) {
+            setSyncState(prev => ({
+                ...prev,
+                volume: videoRef.current!.volume,
+                lastUpdate: Date.now()
+            }));
+        }
+    }, [isConnectedToPresentationDisplay]);
+
+    const handleLoadedMetadata = useCallback(() => {
+        if (!isConnectedToPresentationDisplay && videoRef.current) {
+            console.log('[DisplayView] Video metadata loaded');
+            setSyncState(prev => ({
+                ...prev,
+                duration: videoRef.current!.duration,
+                currentTime: videoRef.current!.currentTime,
+                volume: videoRef.current!.volume,
+                lastUpdate: Date.now()
+            }));
+        }
+    }, [isConnectedToPresentationDisplay]);
 
     if (!slide) {
         return (
@@ -273,16 +285,18 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 </div>
             )}
 
-            {/* SlideRenderer with proper sync configuration */}
+            {/* SlideRenderer with sync maintained for host preview */}
             <SlideRenderer
                 slide={slide}
                 isPlayingTarget={syncState.playing}
                 videoTimeTarget={syncState.currentTime}
                 triggerSeekEvent={false}
                 videoRef={videoRef}
-                onVideoPlay={handleVideoPlay}
-                onVideoPause={handleVideoPause}
-                onVideoTimeUpdate={handleVideoTimeUpdate}
+                onVideoPlay={handleHostVideoPlay}
+                onVideoPause={handleHostVideoPause}
+                onVideoTimeUpdate={handleHostVideoTimeUpdate}
+                onVolumeChange={handleHostVideoVolumeChange}
+                onLoadedMetadata={handleLoadedMetadata}
                 masterVideoMode={false}
                 syncMode={isConnectedToPresentationDisplay}
                 hostMode={true}
