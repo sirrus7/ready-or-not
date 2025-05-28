@@ -7,9 +7,6 @@ export interface GameControllerOutput {
     currentPhaseNode: GamePhaseNode | null;
     currentSlideData: Slide | null;
     teacherNotes: Record<string, string>;
-    isPlayingVideo: boolean;
-    videoCurrentTime: number;
-    triggerVideoSeek: boolean;
     currentTeacherAlert: { title: string; message: string } | null;
     allPhasesInOrder: GamePhaseNode[];
     allTeamsSubmittedCurrentInteractivePhase: boolean;
@@ -19,47 +16,25 @@ export interface GameControllerOutput {
     previousSlide: () => Promise<void>;
     updateTeacherNotesForCurrentSlide: (notes: string) => void;
     clearTeacherAlert: () => Promise<void>;
-    currentVideoDuration: number | null;
     setCurrentTeacherAlertState: (alert: { title: string; message: string } | null) => void;
-    broadcastVideoState: (playing: boolean, time: number) => void;
-    onStateChange?: (state: {
-        isPlayingVideo: boolean;
-        videoCurrentTime: number;
-        triggerVideoSeek: boolean;
-        currentSlideData: Slide | null;
-        currentPhaseNode: GamePhaseNode | null;
-        currentTeacherAlert?: { title: string; message: string } | null;
-    }) => void;
 }
 
 export const useGameController = (
     dbSession: GameSession | null,
     gameStructure: GameStructure | null,
     updateSessionInDb: (updates: Partial<Pick<GameSession, 'current_phase_id' | 'current_slide_id_in_phase' | 'is_playing' | 'teacher_notes' | 'is_complete'>>) => Promise<void>,
-    processChoicePhaseDecisionsFunction: (phaseId: string, associatedSlide: Slide | null) => Promise<void>,
-    onStateChange?: (state: {
-        isPlayingVideo: boolean;
-        videoCurrentTime: number;
-        triggerVideoSeek: boolean;
-        currentSlideData: Slide | null;
-        currentPhaseNode: GamePhaseNode | null;
-    }) => void
+    processChoicePhaseDecisionsFunction: (phaseId: string, associatedSlide: Slide | null) => Promise<void>
 ): GameControllerOutput => {
     const [currentPhaseIdState, setCurrentPhaseIdState] = useState<string | null>(null);
     const [currentSlideIdInPhaseState, setCurrentSlideIdInPhaseState] = useState<number | null>(0);
     const [teacherNotesState, setTeacherNotesState] = useState<Record<string, string>>({});
-    const [isPlayingVideoState, setIsPlayingVideoState] = useState<boolean>(false);
-    const [videoCurrentTimeState, setVideoCurrentTimeState] = useState<number>(0);
-    const [triggerVideoSeekState, setTriggerVideoSeekState] = useState<boolean>(false);
     const [currentTeacherAlertState, setCurrentTeacherAlertState] = useState<{
         title: string;
         message: string
     } | null>(null);
-    const [currentVideoDurationState, setCurrentVideoDurationState] = useState<number | null>(null);
     const [allTeamsSubmittedCurrentInteractivePhaseState, setAllTeamsSubmittedCurrentInteractivePhaseState] = useState<boolean>(false);
 
     const slideLoadTimestamp = useRef(0);
-    const internalSeekFlag = useRef(false);
     const previousSlideIdRef = useRef<number | undefined>(undefined);
 
     const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted";
@@ -85,19 +60,6 @@ export const useGameController = (
         return gameStructure.slides.find(s => s.id === slideId) || null;
     }, [currentPhaseNode, currentSlideIdInPhaseState, gameStructure?.slides]);
 
-    // Function to trigger immediate broadcast when state changes
-    const triggerStateSync = useCallback(() => {
-        if (onStateChange) {
-            onStateChange({
-                isPlayingVideo: isPlayingVideoState,
-                videoCurrentTime: videoCurrentTimeState,
-                triggerVideoSeek: triggerVideoSeekState,
-                currentSlideData,
-                currentPhaseNode,
-            });
-        }
-    }, [onStateChange, isPlayingVideoState, videoCurrentTimeState, triggerVideoSeekState, currentSlideData, currentPhaseNode]);
-
     useEffect(() => {
         if (dbSession) {
             setCurrentPhaseIdState(dbSession.current_phase_id);
@@ -108,25 +70,10 @@ export const useGameController = (
             setCurrentPhaseIdState(firstPhaseId);
             setCurrentSlideIdInPhaseState(0);
             setTeacherNotesState({});
-            setIsPlayingVideoState(false);
             setCurrentTeacherAlertState(null);
-            setVideoCurrentTimeState(0);
-            setTriggerVideoSeekState(false);
-            setCurrentVideoDurationState(null);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
         }
     }, [dbSession, gameStructure, allPhasesInOrder]);
-
-    const pauseVideoIfNeeded = useCallback(async () => {
-        if (isPlayingVideoState) {
-            setIsPlayingVideoState(false);
-            if (dbSession && dbSession.is_playing) {
-                await updateSessionInDb({is_playing: false});
-            }
-            // Immediate sync after state change
-            setTimeout(triggerStateSync, 0);
-        }
-    }, [isPlayingVideoState, dbSession, updateSessionInDb, triggerStateSync]);
 
     useEffect(() => {
         const isNewActualSlide = currentSlideData?.id !== previousSlideIdRef.current;
@@ -138,34 +85,9 @@ export const useGameController = (
             if (isNewActualSlide && currentTeacherAlertState) {
                 setCurrentTeacherAlertState(null);
             }
-
-            const isVideo = currentSlideData.type !== 'image'
-
-            console.log(`[GameController] Slide ${currentSlideData.id} is video: ${isVideo}`);
-
-            if (isVideo) {
-                if (isNewActualSlide) {
-                    setCurrentVideoDurationState(null);
-                    setVideoCurrentTimeState(0);
-                    internalSeekFlag.current = true;
-                    setTriggerVideoSeekState(true);
-                    setIsPlayingVideoState(true)
-
-                    if (dbSession && !dbSession.is_playing) {
-                        updateSessionInDb({is_playing: true});
-                    }
-
-                    requestAnimationFrame(() => {
-                        setTriggerVideoSeekState(false);
-                        internalSeekFlag.current = false;
-                        // Sync after seek state is cleared
-                        triggerStateSync();
-                    });
-                }
-            }
         }
         previousSlideIdRef.current = currentSlideData?.id;
-    }, [currentSlideData, dbSession, updateSessionInDb, pauseVideoIfNeeded, triggerStateSync, isPlayingVideoState, currentTeacherAlertState]);
+    }, [currentSlideData, currentTeacherAlertState]);
 
     const advanceToNextSlideInternal = useCallback(async () => {
         if (!currentPhaseNode || currentSlideIdInPhaseState === null || !dbSession || !gameStructure || !allPhasesInOrder.length) return;
@@ -185,7 +107,7 @@ export const useGameController = (
                 nextPhaseId = nextPhaseNodeCandidate.id;
                 nextSlideIndexInPhase = 0;
             } else {
-                await updateSessionInDb({is_complete: true, is_playing: false});
+                await updateSessionInDb({is_complete: true});
                 return;
             }
         }
@@ -198,35 +120,13 @@ export const useGameController = (
         setCurrentPhaseIdState(nextPhaseId);
         setCurrentSlideIdInPhaseState(nextSlideIndexInPhase);
 
-        // Immediate sync after slide advance
-        setTimeout(triggerStateSync, 0);
-
-    }, [currentPhaseNode, currentSlideIdInPhaseState, dbSession, gameStructure, allPhasesInOrder, updateSessionInDb, processChoicePhaseDecisionsFunction, currentPhaseIdState, currentSlideData, triggerStateSync]);
+    }, [currentPhaseNode, currentSlideIdInPhaseState, dbSession, gameStructure, allPhasesInOrder, updateSessionInDb, processChoicePhaseDecisionsFunction, currentPhaseIdState, currentSlideData]);
 
     useEffect(() => {
         if (allTeamsSubmittedCurrentInteractivePhaseState) {
             setCurrentTeacherAlertState({title: ALL_SUBMIT_ALERT_TITLE, message: ALL_SUBMIT_ALERT_MESSAGE});
-            pauseVideoIfNeeded();
         }
-    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData, setCurrentTeacherAlertState, pauseVideoIfNeeded, ALL_SUBMIT_ALERT_TITLE, ALL_SUBMIT_ALERT_MESSAGE]);
-
-    useEffect(() => {
-        console.log(`[GameController] Slide/Phase changed - Phase: ${currentPhaseNode?.id}, Slide: ${currentSlideData?.id}, Type: ${currentSlideData?.type}`);
-
-        // Trigger state sync when slide or phase changes
-        if (onStateChange && currentSlideData && currentPhaseNode) {
-            console.log(`[GameController] Triggering state sync for slide change`);
-            setTimeout(() => {
-                onStateChange({
-                    isPlayingVideo: isPlayingVideoState,
-                    videoCurrentTime: videoCurrentTimeState,
-                    triggerVideoSeek: false,
-                    currentSlideData,
-                    currentPhaseNode,
-                });
-            }, 100); // Small delay to ensure state is settled
-        }
-    }, [currentSlideData?.id, currentPhaseNode?.id, onStateChange, currentSlideData, currentPhaseNode, isPlayingVideoState, videoCurrentTimeState, currentTeacherAlertState]);
+    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData, setCurrentTeacherAlertState, ALL_SUBMIT_ALERT_TITLE, ALL_SUBMIT_ALERT_MESSAGE]);
 
     const nextSlide = useCallback(async () => {
         if (currentTeacherAlertState) {
@@ -234,13 +134,12 @@ export const useGameController = (
         }
 
         if (currentSlideData?.teacher_alert) {
-            await pauseVideoIfNeeded();
             setCurrentTeacherAlertState(currentSlideData.teacher_alert);
             return;
         }
 
         await advanceToNextSlideInternal();
-    }, [currentTeacherAlertState, currentSlideData, advanceToNextSlideInternal, pauseVideoIfNeeded, setCurrentTeacherAlertState]);
+    }, [currentTeacherAlertState, currentSlideData, advanceToNextSlideInternal, setCurrentTeacherAlertState]);
 
     const clearTeacherAlert = useCallback(async () => {
         setCurrentTeacherAlertState(null);
@@ -258,11 +157,8 @@ export const useGameController = (
             if (currentTeacherAlertState) setCurrentTeacherAlertState(null);
             setCurrentPhaseIdState(phaseId);
             setCurrentSlideIdInPhaseState(0);
-
-            // Immediate sync after phase selection
-            setTimeout(triggerStateSync, 0);
         }
-    }, [allPhasesInOrder, dbSession, updateSessionInDb, teacherNotesState, gameStructure?.slides, currentTeacherAlertState, triggerStateSync]);
+    }, [allPhasesInOrder, dbSession, updateSessionInDb, teacherNotesState, gameStructure?.slides, currentTeacherAlertState]);
 
     const previousSlide = useCallback(async () => {
         if (currentTeacherAlertState) return;
@@ -290,30 +186,8 @@ export const useGameController = (
             if (currentTeacherAlertState) setCurrentTeacherAlertState(null);
             setCurrentPhaseIdState(newPhaseId);
             setCurrentSlideIdInPhaseState(newSlideIndex);
-
-            // Immediate sync after previous slide
-            setTimeout(triggerStateSync, 0);
         }
-    }, [currentTeacherAlertState, currentPhaseNode, currentSlideIdInPhaseState, dbSession, allPhasesInOrder, updateSessionInDb, currentPhaseIdState, gameStructure?.slides, triggerStateSync]);
-
-    const broadcastVideoState = useCallback((playing: boolean, time: number) => {
-        setIsPlayingVideoState(playing);
-        setVideoCurrentTimeState(time);
-
-        if (onStateChange) {
-            onStateChange({
-                isPlayingVideo: playing,
-                videoCurrentTime: time,
-                triggerVideoSeek: false,
-                currentSlideData,
-                currentPhaseNode,
-            });
-        }
-
-        if (dbSession && dbSession.is_playing !== playing) {
-            updateSessionInDb({is_playing: playing});
-        }
-    }, [dbSession, updateSessionInDb, onStateChange, currentSlideData, currentPhaseNode]);
+    }, [currentTeacherAlertState, currentPhaseNode, currentSlideIdInPhaseState, dbSession, allPhasesInOrder, updateSessionInDb, currentPhaseIdState, gameStructure?.slides]);
 
     const updateTeacherNotesForCurrentSlide = useCallback(async (notes: string) => {
         if (currentSlideData && dbSession) {
@@ -330,9 +204,6 @@ export const useGameController = (
         currentPhaseNode,
         currentSlideData,
         teacherNotes: teacherNotesState,
-        isPlayingVideo: isPlayingVideoState,
-        videoCurrentTime: videoCurrentTimeState,
-        triggerVideoSeek: triggerVideoSeekState,
         currentTeacherAlert: currentTeacherAlertState,
         allPhasesInOrder,
         allTeamsSubmittedCurrentInteractivePhase: allTeamsSubmittedCurrentInteractivePhaseState,
@@ -342,9 +213,6 @@ export const useGameController = (
         previousSlide,
         updateTeacherNotesForCurrentSlide,
         clearTeacherAlert,
-        currentVideoDuration: currentVideoDurationState,
-        setCurrentTeacherAlertState,
-        onStateChange,
-        broadcastVideoState
+        setCurrentTeacherAlertState
     };
 };

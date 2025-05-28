@@ -1,4 +1,4 @@
-// src/components/Host/HostGameControls.tsx - Simplified Perfect Sync Version
+// src/components/Host/HostGameControls.tsx - Perfect Sync with Presentation Display as Source of Truth
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronLeft,
@@ -15,7 +15,8 @@ import {
     SkipBack,
     SkipForward,
     Volume2,
-    Monitor
+    Monitor,
+    MonitorOff
 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import Modal from '../UI/Modal';
@@ -76,7 +77,7 @@ const HostGameControls: React.FC = () => {
             currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
     );
 
-    // Video control functions
+    // Video control functions - send commands to presentation display
     const sendVideoCommand = (action: string, value?: number) => {
         if (studentWindowRef && !studentWindowRef.closed) {
             studentWindowRef.postMessage({
@@ -117,14 +118,14 @@ const HostGameControls: React.FC = () => {
             setStudentWindowRef(studentWindow);
             setIsStudentWindowOpen(true);
 
-            // Set up message listener for video state updates
+            // Set up message listener for video state updates from presentation display
             const handleMessage = (event: MessageEvent) => {
                 if (event.origin !== window.location.origin) return;
 
                 if (event.data.type === 'VIDEO_STATE_UPDATE' && event.data.sessionId === state.currentSessionId) {
                     setVideoState(event.data.videoState);
                 } else if (event.data.type === 'PONG' && event.data.sessionId === state.currentSessionId) {
-                    // Student display is alive
+                    // Student display is alive - sync video state
                     if (event.data.videoState) {
                         setVideoState(event.data.videoState);
                     }
@@ -149,7 +150,7 @@ const HostGameControls: React.FC = () => {
 
             window.addEventListener('message', handleMessage);
 
-            // Set up ping to keep connection alive
+            // Set up ping to keep connection alive and sync video state
             pingIntervalRef.current = setInterval(() => {
                 if (studentWindow && !studentWindow.closed) {
                     studentWindow.postMessage({
@@ -327,12 +328,12 @@ const HostGameControls: React.FC = () => {
                         {isStudentWindowOpen ? (
                             <>
                                 <Monitor size={18}/>
-                                Student Display Active
+                                Presentation Display Active
                             </>
                         ) : (
                             <>
                                 <ExternalLink size={18}/>
-                                Launch Student Display
+                                Launch Presentation Display
                             </>
                         )}
                     </button>
@@ -340,17 +341,20 @@ const HostGameControls: React.FC = () => {
 
                 {/* Video Controls - Only show when video slide is active and display is open */}
                 {isVideoSlide && isStudentWindowOpen && (
-                    <div className="mb-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                    <div className="mb-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center">
                             <Monitor size={16} className="mr-2"/>
-                            Video Controls - Synchronized with Student Display
+                            Master Video Controls
+                            <span className="ml-2 text-xs bg-blue-200 text-blue-700 px-2 py-1 rounded-full">
+                                Perfect Sync Active
+                            </span>
                         </h4>
 
                         {/* Play/Pause and Skip Controls */}
                         <div className="flex items-center justify-center gap-2 mb-4">
                             <button
                                 onClick={() => handleSkip(-10)}
-                                className="p-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 transition-colors"
+                                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors"
                                 title="Skip back 10s"
                             >
                                 <SkipBack size={20} />
@@ -358,14 +362,14 @@ const HostGameControls: React.FC = () => {
 
                             <button
                                 onClick={videoState.playing ? handlePause : handlePlay}
-                                className="p-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                className="p-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-md"
                             >
                                 {videoState.playing ? <Pause size={24} /> : <Play size={24} />}
                             </button>
 
                             <button
                                 onClick={() => handleSkip(10)}
-                                className="p-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 transition-colors"
+                                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors"
                                 title="Skip forward 10s"
                             >
                                 <SkipForward size={20} />
@@ -380,17 +384,17 @@ const HostGameControls: React.FC = () => {
                                 max={videoState.duration || 100}
                                 value={videoState.currentTime}
                                 onChange={(e) => handleSeek(parseFloat(e.target.value))}
-                                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                                className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider-thumb"
                             />
-                            <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <div className="flex justify-between text-xs text-blue-600 mt-1">
                                 <span>{formatTime(videoState.currentTime)}</span>
                                 <span>{formatTime(videoState.duration)}</span>
                             </div>
                         </div>
 
                         {/* Volume */}
-                        <div className="flex items-center gap-2">
-                            <Volume2 size={16} className="text-gray-500" />
+                        <div className="flex items-center gap-2 mb-3">
+                            <Volume2 size={16} className="text-blue-600" />
                             <input
                                 type="range"
                                 min="0"
@@ -398,15 +402,28 @@ const HostGameControls: React.FC = () => {
                                 step="0.1"
                                 value={videoState.volume}
                                 onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                                className="flex-1 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                                className="flex-1 h-1 bg-blue-200 rounded-lg appearance-none cursor-pointer"
                             />
-                            <span className="text-xs text-gray-500 w-8">{Math.round(videoState.volume * 100)}%</span>
+                            <span className="text-xs text-blue-600 w-8">{Math.round(videoState.volume * 100)}%</span>
                         </div>
 
-                        <div className="text-center mt-3">
-                            <div className="text-xs text-gray-600">
-                                🎵 Audio plays from presentation display • Perfect sync guaranteed
+                        <div className="text-center">
+                            <div className="text-xs text-blue-700 bg-blue-100 rounded-md px-3 py-2">
+                                🎬 Presentation display is the master source • Audio plays from presentation screen<br/>
+                                🔄 All controls sync instantly between this preview and student display
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Connection Status for Video Slides */}
+                {isVideoSlide && !isStudentWindowOpen && (
+                    <div className="mb-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div className="flex items-center text-yellow-800">
+                            <MonitorOff size={16} className="mr-2" />
+                            <span className="text-sm font-medium">
+                                Video controls available after launching presentation display
+                            </span>
                         </div>
                     </div>
                 )}
