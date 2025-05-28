@@ -1,4 +1,4 @@
-// src/components/Host/HostGameControls.tsx - Simplified without Complex Video Controls
+// src/components/Host/HostGameControls.tsx - Updated with Floating Navigation
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronLeft,
@@ -257,28 +257,34 @@ const HostGameControls: React.FC = () => {
 
     return (
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            {/* Main Navigation Controls */}
+            {/* UPDATED: Floating Action Button Style Navigation */}
             <div className="p-3 md:p-4">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-3">
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                        <button
-                            onClick={previousSlide}
-                            disabled={isFirstSlideOverall}
-                            className="p-2.5 rounded-full text-gray-600 hover:bg-gray-200 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                            aria-label="Previous Slide"
-                        >
-                            <ChevronLeft size={24}/>
-                        </button>
-                        <button
-                            onClick={nextSlide}
-                            disabled={isLastSlideOverall}
-                            className="p-2.5 rounded-full text-gray-600 hover:bg-gray-200 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                            aria-label="Next Slide"
-                        >
-                            <ChevronRight size={24}/>
-                        </button>
+                <div className="relative bg-gray-50 rounded-lg p-6 mb-3">
+                    <button
+                        onClick={previousSlide}
+                        disabled={isFirstSlideOverall}
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg hover:bg-blue-700 transition-colors z-10"
+                        title="Previous Slide"
+                    >
+                        <ChevronLeft size={24} />
+                    </button>
+
+                    <div className="text-center px-16">
+                        <div className="text-xl font-bold text-gray-800 mb-1">Game Navigation</div>
+                        <div className="text-sm text-gray-600">Navigate between presentation slides</div>
                     </div>
 
+                    <button
+                        onClick={nextSlide}
+                        disabled={isLastSlideOverall}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg hover:bg-blue-700 transition-colors z-10"
+                        title="Next Slide"
+                    >
+                        <ChevronRight size={24} />
+                    </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-3">
                     <button
                         onClick={handleOpenDisplay}
                         className={`flex items-center justify-center gap-2 py-2.5 px-5 rounded-lg transition-colors shadow-md text-sm font-medium w-full sm:w-auto ${
