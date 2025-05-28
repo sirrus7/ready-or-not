@@ -1,4 +1,4 @@
-// src/pages/GameHostPage.tsx - Navigation Below Content
+// src/pages/GameHostPage.tsx - Fixed Presentation Display Opening
 import React, { useState, useEffect, useRef } from 'react';
 import HostPanel from '../components/Host/HostPanel.tsx';
 import { useAppContext } from '../context/AppContext';
@@ -11,7 +11,6 @@ const PresentationDisplayButton: React.FC = () => {
     const channelRef = useRef<BroadcastChannel | null>(null);
     const pingIntervalRef = useRef<NodeJS.Timeout>();
     const lastPongRef = useRef<number>(0);
-    const hostVideoRef = useRef<HTMLVideoElement>(null);
 
     // Initialize BroadcastChannel when session is available
     useEffect(() => {
@@ -96,7 +95,6 @@ const PresentationDisplayButton: React.FC = () => {
                 slide: currentSlideData,
                 sessionId: state.currentSessionId,
                 timestamp: Date.now()
-                // No preventAutoPlay flag here - allow normal auto-play when navigating slides
             });
         }
     }, [currentSlideData, state.currentSessionId]);
@@ -109,32 +107,35 @@ const PresentationDisplayButton: React.FC = () => {
             currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
     );
 
-    // Function to find and pause host video
-    const pauseHostVideo = () => {
-        // Try to find the video element in the DisplayView component
-        const displayViewContainer = document.querySelector('[data-component="display-view"]');
-        if (displayViewContainer) {
-            const videoElement = displayViewContainer.querySelector('video') as HTMLVideoElement;
-            if (videoElement && !videoElement.paused) {
-                console.log('[PresentationDisplayButton] Pausing host video before opening display');
-                videoElement.pause();
-                return true;
-            }
-        }
-        return false;
-    };
-
     const handleOpenDisplay = () => {
         if (!state.currentSessionId) {
             alert("No active session. Please create or select a game first.");
             return;
         }
 
-        // Pause host video if it's currently playing and this is a video slide
+        // Get current video state from host video if it exists
+        let hostVideoState = null;
         if (isVideoSlide) {
-            const videoPaused = pauseHostVideo();
-            if (videoPaused) {
-                console.log('[PresentationDisplayButton] Host video paused to ensure sync with presentation display');
+            const displayViewContainer = document.querySelector('[data-component="display-view"]');
+            if (displayViewContainer) {
+                const videoElement = displayViewContainer.querySelector('video') as HTMLVideoElement;
+                if (videoElement) {
+                    hostVideoState = {
+                        playing: !videoElement.paused,
+                        currentTime: videoElement.currentTime,
+                        duration: videoElement.duration || 0,
+                        volume: videoElement.volume,
+                        lastUpdate: Date.now()
+                    };
+
+                    console.log('[PresentationDisplayButton] Captured host video state:', hostVideoState);
+
+                    // Pause the host video to prevent conflicts
+                    if (!videoElement.paused) {
+                        videoElement.pause();
+                        console.log('[PresentationDisplayButton] Paused host video before opening display');
+                    }
+                }
             }
         }
 
@@ -143,16 +144,32 @@ const PresentationDisplayButton: React.FC = () => {
 
         if (newTab) {
             console.log('[PresentationDisplayButton] Opened presentation display in new tab');
-            // Give the new tab time to initialize before sending state
+
+            // Give the new tab time to initialize, then send state
             setTimeout(() => {
                 if (channelRef.current && currentSlideData) {
+                    // Send slide update first
                     channelRef.current.postMessage({
                         type: 'SLIDE_UPDATE',
                         slide: currentSlideData,
                         sessionId: state.currentSessionId,
-                        timestamp: Date.now(),
-                        preventAutoPlay: isVideoSlide // Prevent auto-play when opening display on video slide
+                        timestamp: Date.now()
                     });
+
+                    // Send initial video state if we captured one
+                    if (hostVideoState && isVideoSlide) {
+                        setTimeout(() => {
+                            if (channelRef.current) {
+                                channelRef.current.postMessage({
+                                    type: 'INITIAL_VIDEO_STATE',
+                                    sessionId: state.currentSessionId,
+                                    videoState: hostVideoState,
+                                    timestamp: Date.now()
+                                });
+                                console.log('[PresentationDisplayButton] Sent initial video state to presentation');
+                            }
+                        }, 300);
+                    }
                 }
             }, 1000);
         } else {
