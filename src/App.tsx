@@ -1,8 +1,9 @@
-// src/App.tsx - Fixed version with proper StudentDisplay routing
+// src/App.tsx - Updated with VideoSettingsProvider
 import React from 'react';
 import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from './context/AuthContext';
 import {AppProvider} from './context/AppContext';
+import {VideoSettingsProvider} from './context/VideoSettingsContext';
 import PrivateRoute from './components/PrivateRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
@@ -12,10 +13,16 @@ import DashboardPage from './pages/DashboardPage';
 import CreateGamePage from './pages/CreateGamePage';
 import CompanyDisplayPage from './pages/CompanyDisplayPage';
 
-// Wrapper component to extract sessionId and pass it to AppProvider for GameHostPage
-const SessionAwareAppProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+// Wrapper component to extract sessionId and pass it to providers
+const SessionAwareProviders: React.FC<{ children: React.ReactNode }> = ({children}) => {
     const {sessionId} = useParams<{ sessionId: string | undefined }>();
-    return <AppProvider passedSessionId={sessionId}>{children}</AppProvider>;
+    return (
+        <VideoSettingsProvider sessionId={sessionId}>
+            <AppProvider passedSessionId={sessionId}>
+                {children}
+            </AppProvider>
+        </VideoSettingsProvider>
+    );
 };
 
 // Special wrapper for StudentDisplayPage that handles auth gracefully
@@ -25,9 +32,11 @@ const StudentDisplayWrapper: React.FC = () => {
     return (
         <AuthProvider>
             <ErrorBoundary>
-                <AppProvider passedSessionId={sessionId}>
-                    <StudentDisplayPage />
-                </AppProvider>
+                <VideoSettingsProvider sessionId={sessionId}>
+                    <AppProvider passedSessionId={sessionId}>
+                        <StudentDisplayPage />
+                    </AppProvider>
+                </VideoSettingsProvider>
             </ErrorBoundary>
         </AuthProvider>
     );
@@ -55,9 +64,11 @@ function App() {
                                 {/* Teacher Login - Publicly accessible */}
                                 <Route path="/login" element={
                                     <ErrorBoundary>
-                                        <SessionAwareAppProvider>
-                                            <LoginPage/>
-                                        </SessionAwareAppProvider>
+                                        <VideoSettingsProvider>
+                                            <SessionAwareProviders>
+                                                <LoginPage/>
+                                            </SessionAwareProviders>
+                                        </VideoSettingsProvider>
                                     </ErrorBoundary>
                                 }/>
 
@@ -65,36 +76,42 @@ function App() {
                                 <Route path="/dashboard" element={
                                     <PrivateRoute>
                                         <ErrorBoundary>
-                                            <SessionAwareAppProvider>
-                                                <DashboardPage/>
-                                            </SessionAwareAppProvider>
+                                            <VideoSettingsProvider>
+                                                <SessionAwareProviders>
+                                                    <DashboardPage/>
+                                                </SessionAwareProviders>
+                                            </VideoSettingsProvider>
                                         </ErrorBoundary>
                                     </PrivateRoute>
                                 }/>
                                 <Route path="/create-game" element={
                                     <PrivateRoute>
                                         <ErrorBoundary>
-                                            <SessionAwareAppProvider>
-                                                <CreateGamePage/>
-                                            </SessionAwareAppProvider>
+                                            <VideoSettingsProvider>
+                                                <SessionAwareProviders>
+                                                    <CreateGamePage/>
+                                                </SessionAwareProviders>
+                                            </VideoSettingsProvider>
                                         </ErrorBoundary>
                                     </PrivateRoute>
                                 }/>
                                 <Route path="/classroom/:sessionId" element={
                                     <PrivateRoute>
                                         <ErrorBoundary>
-                                            <SessionAwareAppProvider>
+                                            <SessionAwareProviders>
                                                 <GameHostPage/>
-                                            </SessionAwareAppProvider>
+                                            </SessionAwareProviders>
                                         </ErrorBoundary>
                                     </PrivateRoute>
                                 }/>
                                 <Route path="/classroom" element={
                                     <PrivateRoute>
                                         <ErrorBoundary>
-                                            <AppProvider passedSessionId="new">
-                                                <GameHostPage/>
-                                            </AppProvider>
+                                            <VideoSettingsProvider>
+                                                <AppProvider passedSessionId="new">
+                                                    <GameHostPage/>
+                                                </AppProvider>
+                                            </VideoSettingsProvider>
                                         </ErrorBoundary>
                                     </PrivateRoute>
                                 }/>
@@ -102,17 +119,21 @@ function App() {
                                 {/* Default authenticated route */}
                                 <Route path="/" element={
                                     <PrivateRoute>
-                                        <AppProvider>
-                                            <Navigate to="/dashboard" replace/>
-                                        </AppProvider>
+                                        <VideoSettingsProvider>
+                                            <AppProvider>
+                                                <Navigate to="/dashboard" replace/>
+                                            </AppProvider>
+                                        </VideoSettingsProvider>
                                     </PrivateRoute>
                                 }/>
                                 {/* Fallback for any other authenticated paths */}
                                 <Route path="*" element={
                                     <PrivateRoute>
-                                        <AppProvider>
-                                            <Navigate to="/dashboard" replace/>
-                                        </AppProvider>
+                                        <VideoSettingsProvider>
+                                            <AppProvider>
+                                                <Navigate to="/dashboard" replace/>
+                                            </AppProvider>
+                                        </VideoSettingsProvider>
                                     </PrivateRoute>
                                 }/>
                             </Routes>
