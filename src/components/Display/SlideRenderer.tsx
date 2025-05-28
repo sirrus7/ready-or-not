@@ -78,6 +78,15 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
 
         if (isVideoSlide && video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+            // For master video mode (presentation display), check if we should prevent auto-play
+            if (masterVideoMode) {
+                // In master mode, we'll rely on host commands to start playback
+                // This prevents auto-play when presentation display first opens on a video slide
+                console.log(`[SlideRenderer] Master mode - not auto-playing, waiting for host command for slide ${slide.id}`);
+                setHasAutoPlayed(true); // Mark as handled so we don't keep trying
+                return;
+            }
+
             console.log(`[SlideRenderer] Auto-playing video for slide ${slide.id}`);
 
             const attemptAutoPlay = async () => {
@@ -94,7 +103,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             attemptAutoPlay();
         }
-    }, [slide, hasAutoPlayed, activeVideoRef.current?.readyState]);
+    }, [slide, hasAutoPlayed, activeVideoRef.current?.readyState, masterVideoMode]);
 
     // Handle video synchronization for master mode (presentation display)
     useEffect(() => {
@@ -171,6 +180,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         const video = activeVideoRef.current;
         const now = Date.now();
 
+        // Only sync if we're in sync mode (connected to presentation display)
+        if (!syncMode) return;
+
         // Sync play/pause state with immediate response
         if (isPlayingTarget && video.paused) {
             console.log('[SlideRenderer] Syncing play state');
@@ -192,7 +204,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 lastSeekTimeRef.current = now;
             }
         }
-    }, [isPlayingTarget, videoTimeTarget, masterVideoMode]);
+    }, [isPlayingTarget, videoTimeTarget, masterVideoMode, syncMode]);
 
     // Enhanced sync effect with proper handling for different modes
     useEffect(() => {
@@ -226,10 +238,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         syncVideoState();
                     }, 100);
                 }
-            } else {
-                // Standard sync for non-master, non-sync mode
-                syncVideoState();
             }
+            // When not in sync mode (no presentation display), don't apply any automatic sync
+            // Let the video play naturally based on user interaction
         }
         // For master mode (presentation display) or native controls mode, don't apply any sync logic
         // Let it play naturally based on commands or user interaction
@@ -247,8 +258,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             const video = activeVideoRef.current;
 
             const handleLoadedData = () => {
-                // Only apply sync for non-master modes and when native controls are disabled
-                if (!masterVideoMode && !enableNativeControls && (syncMode || !masterVideoMode)) {
+                // Only apply sync for sync mode when connected to presentation display
+                if (!masterVideoMode && !enableNativeControls && syncMode) {
                     syncVideoState();
                 }
                 setVideoError(false);
@@ -261,6 +272,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
 
                     if (isVideoSlide) {
+                        // For master video mode (presentation display), don't auto-play
+                        if (masterVideoMode) {
+                            console.log(`[SlideRenderer] Master mode - video loaded but not auto-playing for slide ${slide.id}`);
+                            setHasAutoPlayed(true); // Mark as handled
+                            return;
+                        }
+
                         console.log(`[SlideRenderer] Video data loaded, attempting auto-play for slide ${slide.id}`);
                         video.play()
                             .then(() => {
@@ -276,8 +294,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             };
 
             const handleCanPlay = () => {
-                // Only apply time sync for non-master modes and when native controls are disabled
-                if (!masterVideoMode && !enableNativeControls && videoTimeTarget !== undefined && Math.abs(video.currentTime - videoTimeTarget) > 0.5) {
+                // Only apply time sync for sync mode when connected to presentation display
+                if (!masterVideoMode && !enableNativeControls && syncMode && videoTimeTarget !== undefined && Math.abs(video.currentTime - videoTimeTarget) > 0.5) {
                     video.currentTime = videoTimeTarget;
                 }
             };
