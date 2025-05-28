@@ -1,8 +1,4 @@
-// src/types/index.ts
-// (Assuming this file is mostly complete from your previous provision.
-// Ensure KpiEffect, InvestmentOption, ChallengeOption, Consequence, InvestmentPayoff are robust enough
-// for the details in your spreadsheets. For example, descriptions in InvestmentOption might be useful.)
-
+// src/types/index.ts - Video State References Removed from AppState
 import {User as SupabaseUser} from '@supabase/supabase-js';
 
 // --- User & Authentication ---
@@ -225,17 +221,18 @@ export interface GameStructure {
     allPhases: GamePhaseNode[]; // Added for convenience
 }
 
+// UPDATED: Removed video state references from AppState
 export interface AppState {
     currentSessionId: string | null;
     gameStructure: GameStructure | null;
     currentPhaseId: string | null;
     currentSlideIdInPhase: number | null;
     teacherNotes: Record<string, string>; // Keyed by slide ID (as string)
-    isPlaying: boolean;
+    isPlaying: boolean; // Keep for backward compatibility but not used for video sync
     teams: Team[];
     teamDecisions: Record<string, Record<string, TeamDecision>>; // teamId -> phaseId -> Decision
     teamRoundData: Record<string, Record<number, TeamRoundData>>; // teamId -> roundNumber -> RoundData
-    isStudentWindowOpen: boolean;
+    isStudentWindowOpen: boolean; // Moved to local component state but kept for compatibility
     isLoading: boolean;
     error: string | null;
     currentTeacherAlert: { title: string, message: string } | null;
