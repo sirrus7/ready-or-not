@@ -1,5 +1,5 @@
-// src/components/Host/HostControlPanel.tsx
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+// src/components/Host/HostControlPanel.tsx - Simplified Version
+import React, { useState, useRef, useEffect } from 'react';
 import {
     Play,
     Pause,
@@ -8,28 +8,20 @@ import {
     Volume2,
     Monitor,
     MonitorOff,
-    Wifi,
-    WifiOff,
-    Settings2,
     Info,
-    Eye,
-    EyeOff
+    Video
 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
-import { useVideoSettings } from '../../context/VideoSettingsContext';
-import BandwidthTestModal from './BandwidthTestModal';
 
-interface EnhancedVideoControlPanelProps {
+interface SimpleVideoControlPanelProps {
     slideId: number;
     videoUrl: string;
     isForCurrentSlide: boolean;
+    hostVideoEnabled: boolean;
 }
 
 // AI-generated fallback content for different video types
 const getVideoFallbackContent = (slideId: number, videoUrl: string) => {
-    // This would ideally be populated from your game structure data
-    // For now, providing generic educational content based on common video patterns
-
     const fallbackContent = {
         title: "Video Content Summary",
         learningPoints: [
@@ -37,12 +29,6 @@ const getVideoFallbackContent = (slideId: number, videoUrl: string) => {
             "Key concepts being covered include supply, demand, and pricing strategies",
             "The video demonstrates real-world business scenarios",
             "Students should be taking notes on competitive advantages"
-        ],
-        discussionPoints: [
-            "What factors influence market competition?",
-            "How do companies adapt to changing market conditions?",
-            "What role does innovation play in business success?",
-            "How can teams use this information in their decisions?"
         ],
         teacherNotes: [
             "Watch student engagement - pause if needed for discussion",
@@ -57,41 +43,26 @@ const getVideoFallbackContent = (slideId: number, videoUrl: string) => {
     return fallbackContent;
 };
 
-const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
-                                                                                 slideId,
-                                                                                 videoUrl,
-                                                                                 isForCurrentSlide
-                                                                             }) => {
+const HostControlPanel: React.FC<SimpleVideoControlPanelProps> = ({
+                                                                      slideId,
+                                                                      videoUrl,
+                                                                      isForCurrentSlide,
+                                                                      hostVideoEnabled
+                                                                  }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [volume, setVolume] = useState(1);
-    const [showBandwidthTest, setShowBandwidthTest] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
 
-    const {
-        broadcastVideoState,
-        isPlayingVideo,
-        videoCurrentTime
-    } = useAppContext();
-
-    const {
-        settings,
-        toggleHostVideo,
-        needsBandwidthTest,
-        getVideoRecommendation
-    } = useVideoSettings();
+    const { broadcastVideoState, isPlayingVideo, videoCurrentTime } = useAppContext();
 
     // Generate fallback content for when video is disabled
-    const fallbackContent = useMemo(() =>
-            getVideoFallbackContent(slideId, videoUrl),
-        [slideId, videoUrl]
-    );
+    const fallbackContent = getVideoFallbackContent(slideId, videoUrl);
 
     // Sync with global state when this is the current slide
     useEffect(() => {
-        if (isForCurrentSlide && videoRef.current && settings.hostVideoEnabled) {
+        if (isForCurrentSlide && videoRef.current && hostVideoEnabled) {
             if (isPlayingVideo && videoRef.current.paused) {
                 videoRef.current.play().catch(console.error);
             } else if (!isPlayingVideo && !videoRef.current.paused) {
@@ -103,7 +74,7 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
                 videoRef.current.currentTime = videoCurrentTime;
             }
         }
-    }, [isForCurrentSlide, isPlayingVideo, videoCurrentTime, settings.hostVideoEnabled]);
+    }, [isForCurrentSlide, isPlayingVideo, videoCurrentTime, hostVideoEnabled]);
 
     const handlePlayPause = () => {
         if (!videoRef.current || !isForCurrentSlide) return;
@@ -177,121 +148,31 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
         }
     };
 
-    const getVideoQuality = () => {
-        if (!settings.hostVideoEnabled) return 'disabled';
-        return settings.videoQuality;
-    };
-
-    const getVideoStyle = () => {
-        const quality = getVideoQuality();
-        if (quality === 'disabled') return {};
-
-        // Reduce video size for host to save bandwidth
-        const baseStyle = {
-            maxWidth: '100%',
-            maxHeight: '100%'
-        };
-
-        switch (quality) {
-            case 'low':
-                return { ...baseStyle, width: '50%', filter: 'blur(0.5px)' };
-            case 'medium':
-                return { ...baseStyle, width: '75%' };
-            case 'high':
-                return baseStyle;
-            default:
-                return baseStyle;
-        }
-    };
-
     return (
         <div className="bg-gray-900 rounded-lg overflow-hidden">
-            {/* Header with settings and status */}
+            {/* Header */}
             <div className="bg-gray-800 px-4 py-2 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                     <span className="text-white text-sm font-medium">Host Video Preview</span>
-                    {settings.hostVideoEnabled ? (
+                    {hostVideoEnabled ? (
                         <Monitor size={16} className="text-green-400" />
                     ) : (
                         <MonitorOff size={16} className="text-red-400" />
                     )}
                 </div>
-
-                <div className="flex items-center space-x-2">
-                    {/* Connection quality indicator */}
-                    {settings.bandwidthTestResult && (
-                        <div className="flex items-center space-x-1 text-xs">
-                            {settings.bandwidthTestResult.quality === 'excellent' || settings.bandwidthTestResult.quality === 'good' ? (
-                                <Wifi size={14} className="text-green-400" />
-                            ) : (
-                                <WifiOff size={14} className="text-yellow-400" />
-                            )}
-                            <span className="text-gray-300 capitalize">
-                {settings.bandwidthTestResult.quality}
-              </span>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={() => setShowSettings(!showSettings)}
-                        className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-700"
-                        title="Video Settings"
-                    >
-                        <Settings2 size={16} />
-                    </button>
+                <div className="text-xs text-gray-400">
+                    {hostVideoEnabled ? 'Preview Enabled' : 'Preview Disabled'}
                 </div>
             </div>
 
-            {/* Settings Panel */}
-            {showSettings && (
-                <div className="bg-gray-700 px-4 py-3 border-b border-gray-600">
-                    <div className="space-y-3">
-                        {/* Host Video Toggle */}
-                        <div className="flex items-center justify-between">
-                            <span className="text-white text-sm">Host Video</span>
-                            <button
-                                onClick={toggleHostVideo}
-                                className={`flex items-center space-x-2 px-3 py-1 rounded text-sm ${
-                                    settings.hostVideoEnabled
-                                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                                        : 'bg-red-600 hover:bg-red-700 text-white'
-                                }`}
-                            >
-                                {settings.hostVideoEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
-                                <span>{settings.hostVideoEnabled ? 'Enabled' : 'Disabled'}</span>
-                            </button>
-                        </div>
-
-                        {/* Bandwidth Test */}
-                        {needsBandwidthTest && (
-                            <button
-                                onClick={() => setShowBandwidthTest(true)}
-                                className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded flex items-center justify-center space-x-2"
-                            >
-                                <Wifi size={14} />
-                                <span>Test Connection Speed</span>
-                            </button>
-                        )}
-
-                        {/* Recommendation */}
-                        {settings.bandwidthTestResult && (
-                            <div className="text-xs text-gray-300">
-                                {getVideoRecommendation()}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
             {/* Video Preview or Fallback Content */}
             <div className="relative aspect-video bg-black">
-                {settings.hostVideoEnabled ? (
+                {hostVideoEnabled ? (
                     <>
                         <video
                             ref={videoRef}
                             src={videoUrl}
                             className="w-full h-full object-contain"
-                            style={getVideoStyle()}
                             onLoadedMetadata={handleLoadedMetadata}
                             onTimeUpdate={handleTimeUpdate}
                             onPlay={handlePlay}
@@ -305,13 +186,6 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
                                 <p className="text-white text-sm bg-black/70 px-3 py-1 rounded">
                                     Preview Only - Not Current Slide
                                 </p>
-                            </div>
-                        )}
-
-                        {/* Video quality indicator */}
-                        {settings.hostVideoEnabled && (
-                            <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                                Quality: {getVideoQuality()}
                             </div>
                         )}
                     </>
@@ -332,15 +206,6 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
                                     <h4 className="font-semibold text-blue-300 mb-2">What Students Are Learning:</h4>
                                     <ul className="list-disc list-inside space-y-1 text-gray-300">
                                         {fallbackContent.learningPoints.map((point, index) => (
-                                            <li key={index}>{point}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-
-                                <div>
-                                    <h4 className="font-semibold text-green-300 mb-2">Discussion Points:</h4>
-                                    <ul className="list-disc list-inside space-y-1 text-gray-300">
-                                        {fallbackContent.discussionPoints.map((point, index) => (
                                             <li key={index}>{point}</li>
                                         ))}
                                     </ul>
@@ -373,7 +238,7 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
                 <div className="flex items-center justify-center gap-2 mb-4">
                     <button
                         onClick={() => handleSkip(-10)}
-                        disabled={!isForCurrentSlide || !settings.hostVideoEnabled}
+                        disabled={!isForCurrentSlide || !hostVideoEnabled}
                         className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white"
                         title="Skip back 10s"
                     >
@@ -382,7 +247,7 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
 
                     <button
                         onClick={handlePlayPause}
-                        disabled={!isForCurrentSlide || !settings.hostVideoEnabled}
+                        disabled={!isForCurrentSlide || !hostVideoEnabled}
                         className="p-3 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white"
                     >
                         {isPlaying ? <Pause size={24} /> : <Play size={24} />}
@@ -390,7 +255,7 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
 
                     <button
                         onClick={() => handleSkip(10)}
-                        disabled={!isForCurrentSlide || !settings.hostVideoEnabled}
+                        disabled={!isForCurrentSlide || !hostVideoEnabled}
                         className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white"
                         title="Skip forward 10s"
                     >
@@ -404,14 +269,14 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
                         type="range"
                         min="0"
                         max={duration || 100}
-                        value={settings.hostVideoEnabled ? currentTime : 0}
+                        value={hostVideoEnabled ? currentTime : 0}
                         onChange={handleSeek}
-                        disabled={!isForCurrentSlide || !settings.hostVideoEnabled}
+                        disabled={!isForCurrentSlide || !hostVideoEnabled}
                         className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
                     />
                     <div className="flex justify-between text-xs text-gray-400 mt-1">
-                        <span>{settings.hostVideoEnabled ? formatTime(currentTime) : '--:--'}</span>
-                        <span>{settings.hostVideoEnabled ? formatTime(duration) : '--:--'}</span>
+                        <span>{hostVideoEnabled ? formatTime(currentTime) : '--:--'}</span>
+                        <span>{hostVideoEnabled ? formatTime(duration) : '--:--'}</span>
                     </div>
                 </div>
 
@@ -431,7 +296,7 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
                                 videoRef.current.volume = newVolume;
                             }
                         }}
-                        disabled={!settings.hostVideoEnabled}
+                        disabled={!hostVideoEnabled}
                         className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
                     />
                     <span className="text-xs text-gray-400 w-8">{Math.round(volume * 100)}%</span>
@@ -448,7 +313,7 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
                             )}
                         </div>
 
-                        {settings.hostVideoEnabled ? (
+                        {hostVideoEnabled ? (
                             <span className="text-blue-400">Host Video: ON</span>
                         ) : (
                             <span className="text-red-400">Host Video: OFF</span>
@@ -458,15 +323,15 @@ const HostControlPanel: React.FC<EnhancedVideoControlPanelProps> = ({
                     <div className="text-xs text-gray-500 mt-1">
                         Audio syncs to presentation screen • Video can be 1-2s behind
                     </div>
+
+                    {!hostVideoEnabled && (
+                        <div className="text-xs text-yellow-400 mt-1 flex items-center justify-center">
+                            <Info size={12} className="mr-1" />
+                            Toggle "Host Video" in controls to see video preview
+                        </div>
+                    )}
                 </div>
             </div>
-
-            {/* Bandwidth Test Modal */}
-            <BandwidthTestModal
-                isOpen={showBandwidthTest}
-                onClose={() => setShowBandwidthTest(false)}
-                showRecommendations={true}
-            />
         </div>
     );
 };

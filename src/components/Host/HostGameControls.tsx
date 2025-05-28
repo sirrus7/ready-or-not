@@ -1,4 +1,4 @@
-// src/components/Host/HostGameControls.tsx - Fixed Export
+// src/components/Host/HostGameControls.tsx - Simplified with Video Toggle
 import React, { useState, useEffect } from 'react';
 import {
     ChevronLeft,
@@ -12,6 +12,7 @@ import {
     LogOut,
     Monitor,
     Video,
+    VideoOff,
     AlertCircle,
 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
@@ -42,6 +43,8 @@ const HostGameControls: React.FC = () => {
     const [studentWindowRef, setStudentWindowRef] = useState<Window | null>(null);
     const [isStudentWindowOpen, setIsStudentWindowOpen] = useState(false);
     const [showVideoInstructionsModal, setShowVideoInstructionsModal] = useState(false);
+
+    const [hostVideoEnabled, setHostVideoEnabled] = useState(true);
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
@@ -267,6 +270,23 @@ const HostGameControls: React.FC = () => {
                 >
                     <FileText size={16}/> Notes
                 </button>
+
+                {/* Video Toggle Button */}
+                {isVideoSlide && (
+                    <button
+                        onClick={() => setHostVideoEnabled(!hostVideoEnabled)}
+                        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors border
+                          ${hostVideoEnabled
+                            ? 'bg-green-50 text-green-700 border-green-300'
+                            : 'bg-yellow-50 text-yellow-700 border-yellow-300'
+                        }`}
+                        aria-label="Toggle Host Video"
+                    >
+                        {hostVideoEnabled ? <Video size={16}/> : <VideoOff size={16}/>}
+                        Host Video: {hostVideoEnabled ? 'ON' : 'OFF'}
+                    </button>
+                )}
+
                 <button
                     onClick={handleExitGameClick}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-red-100 text-red-600 transition-colors border border-red-300"
