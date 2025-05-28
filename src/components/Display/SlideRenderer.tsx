@@ -1,5 +1,5 @@
-// src/components/Display/SlideRenderer.tsx - Enhanced for Cross-Tab Perfect Sync
-import React, { useEffect, useRef } from 'react';
+// src/components/Display/SlideRenderer.tsx - Enhanced for Perfect Cross-Tab Sync
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks } from 'lucide-react';
 import LeaderboardChartDisplay from './LeaderboardChartDisplay';
@@ -17,6 +17,8 @@ interface SlideRendererProps {
     onVolumeChange?: () => void;
     onLoadedMetadata?: () => void;
     masterVideoMode?: boolean;
+    // New sync mode for perfect synchronization
+    syncMode?: boolean;
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
@@ -30,10 +32,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          onVideoTimeUpdate,
                                                          onVolumeChange,
                                                          onLoadedMetadata,
-                                                         masterVideoMode = false
+                                                         masterVideoMode = false,
+                                                         syncMode = false
                                                      }) => {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const activeVideoRef = videoRef || localVideoRef;
+    const lastSeekTimeRef = useRef(0);
+    const syncTimeoutRef = useRef<NodeJS.Timeout>();
 
     // Handle video synchronization for master mode (presentation display)
     useEffect(() => {
@@ -64,31 +69,99 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     }, [masterVideoMode, slide, onVideoPlay, onVideoPause, onVideoTimeUpdate, onVolumeChange, onLoadedMetadata]);
 
-    // Handle play/pause synchronization for preview mode
-    useEffect(() => {
-        if (activeVideoRef.current && !masterVideoMode) {
-            const video = activeVideoRef.current;
+    // Enhanced synchronization for preview mode
+    const syncVideoState = useCallback(() => {
+        if (!activeVideoRef.current || masterVideoMode) return;
 
+        const video = activeVideoRef.current;
+        const now = Date.now();
+
+        // Sync play/pause state with immediate response
+        if (isPlayingTarget && video.paused) {
+            video.play().catch(console.error);
+        } else if (!isPlayingTarget && !video.paused) {
+            video.pause();
+        }
+
+        // Sync time position with smart tolerance
+        if (videoTimeTarget !== undefined) {
+            const timeDiff = Math.abs(video.currentTime - videoTimeTarget);
+            const timeSinceLastSeek = now - lastSeekTimeRef.current;
+
+            // Only seek if:
+            // 1. Difference is significant (> 0.3s for smooth playback)
+            // 2. Enough time has passed since last seek (avoid rapid seeking)
+            // 3. Video is loaded and ready
+            if (timeDiff > 0.3 && timeSinceLastSeek > 200 && video.readyState >= 2) {
+                video.currentTime = videoTimeTarget;
+                lastSeekTimeRef.current = now;
+                console.log(`[SlideRenderer] Sync seek: ${video.currentTime.toFixed(2)}s (diff: ${timeDiff.toFixed(2)}s)`);
+            }
+        }
+    }, [isPlayingTarget, videoTimeTarget, masterVideoMode]);
+
+    // Enhanced sync effect with debouncing
+    useEffect(() => {
+        if (syncMode && activeVideoRef.current) {
+            // Clear any pending sync operations
+            if (syncTimeoutRef.current) {
+                clearTimeout(syncTimeoutRef.current);
+            }
+
+            // Immediate sync for play/pause
+            const video = activeVideoRef.current;
             if (isPlayingTarget && video.paused) {
                 video.play().catch(console.error);
             } else if (!isPlayingTarget && !video.paused) {
                 video.pause();
             }
-        }
-    }, [isPlayingTarget, masterVideoMode]);
 
-    // Handle seek synchronization for preview mode
-    useEffect(() => {
-        if (activeVideoRef.current && videoTimeTarget !== undefined && !masterVideoMode) {
-            const video = activeVideoRef.current;
-            const timeDiff = Math.abs(video.currentTime - videoTimeTarget);
-
-            // Only seek if there's a significant difference (avoid constant micro-adjustments)
-            if (timeDiff > 0.5) {
-                video.currentTime = videoTimeTarget;
+            // Debounced sync for time position
+            if (videoTimeTarget !== undefined) {
+                syncTimeoutRef.current = setTimeout(() => {
+                    syncVideoState();
+                }, 50); // Small delay to batch rapid updates
             }
+        } else if (!syncMode) {
+            // Fallback to basic sync for non-sync mode
+            syncVideoState();
         }
-    }, [videoTimeTarget, masterVideoMode]);
+
+        return () => {
+            if (syncTimeoutRef.current) {
+                clearTimeout(syncTimeoutRef.current);
+            }
+        };
+    }, [isPlayingTarget, videoTimeTarget, syncMode, syncVideoState]);
+
+    // Handle video loading and metadata
+    useEffect(() => {
+        if (activeVideoRef.current && slide) {
+            const video = activeVideoRef.current;
+
+            const handleLoadedData = () => {
+                // Video is ready for sync
+                if (syncMode || !masterVideoMode) {
+                    syncVideoState();
+                }
+            };
+
+            const handleCanPlay = () => {
+                // Ensure video is ready for synchronization
+                if (videoTimeTarget !== undefined && Math.abs(video.currentTime - videoTimeTarget) > 0.5) {
+                    video.currentTime = videoTimeTarget;
+                }
+            };
+
+            video.addEventListener('loadeddata', handleLoadedData);
+            video.addEventListener('canplay', handleCanPlay);
+
+            return () => {
+                video.removeEventListener('loadeddata', handleLoadedData);
+                video.removeEventListener('canplay', handleCanPlay);
+            };
+        }
+    }, [slide, syncMode, masterVideoMode, videoTimeTarget, syncVideoState]);
 
     if (!slide) {
         return (
@@ -127,13 +200,23 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     return (
                         <video
                             ref={activeVideoRef}
-                            key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : 'preview'}`}
+                            key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : syncMode ? 'sync' : 'preview'}`}
                             src={slide.source_url}
                             className="max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none"
                             playsInline
                             controls={masterVideoMode} // Only show controls on master display
                             autoPlay={false} // Never autoplay - controlled by our sync system
-                            preload="metadata"
+                            preload="auto" // Changed to auto for better sync performance
+                            muted={!masterVideoMode} // Mute preview videos, only master has audio
+                            crossOrigin="anonymous"
+                            onLoadedMetadata={() => {
+                                if (masterVideoMode && onLoadedMetadata) {
+                                    onLoadedMetadata();
+                                }
+                            }}
+                            onError={(e) => {
+                                console.error(`[SlideRenderer] Video error for slide ${slide.id}:`, e);
+                            }}
                         >
                             Your browser does not support the video tag.
                         </video>
@@ -199,14 +282,21 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         {hasConsequenceVideo && slide.source_url &&
                             <video
                                 ref={activeVideoRef}
-                                key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : 'preview'}`}
+                                key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : syncMode ? 'sync' : 'preview'}`}
                                 src={slide.source_url}
                                 className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto outline-none"
                                 playsInline
                                 loop={slide.title?.toLowerCase().includes('payoff')}
                                 autoPlay={false} // Controlled by our sync system
                                 controls={masterVideoMode}
-                                preload="metadata"
+                                preload="auto"
+                                muted={!masterVideoMode}
+                                crossOrigin="anonymous"
+                                onLoadedMetadata={() => {
+                                    if (masterVideoMode && onLoadedMetadata) {
+                                        onLoadedMetadata();
+                                    }
+                                }}
                             />
                         }
                         {slide.main_text && <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
@@ -259,10 +349,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
     return (
         <div className={`h-full w-full flex flex-col items-center justify-center text-white p-4 md:p-6 overflow-hidden ${slide?.background_css || 'bg-gray-900'}`}>
-            {/* Only show slide ID overlay in master video mode (presentation display) */}
-            {masterVideoMode && slide && slide.id !== null && slide.id !== undefined && (
+            {/* Show slide ID overlay in master mode and sync mode for debugging */}
+            {(masterVideoMode || (syncMode && process.env.NODE_ENV === 'development')) && slide && slide.id !== null && slide.id !== undefined && (
                 <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-full px-3.5 py-1.5 text-xs font-semibold z-20 shadow-lg">
                     SLIDE: {slide.id} {slide.title ? `(${slide.title})` : ''}
+                    {syncMode && !masterVideoMode && (
+                        <span className="ml-2 text-green-400">SYNC</span>
+                    )}
                 </div>
             )}
             {renderContent()}
