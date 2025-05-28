@@ -18,8 +18,26 @@ interface LocalTeamConfig extends AppTeamConfig {
     id: number; // Client-side temporary ID for list mapping and editing state
 }
 
+// Default team names list
+const DEFAULT_TEAM_NAMES = [
+    'CRANE', 'WILLOW', 'BIGHORN', 'OSPREY', 'YEW', 'LAUREL', 'MAPLE', 'HEMLOCK', 'OWL', 'ELM',
+    'CYPRESS', 'BOXELDER', 'PLUM', 'DOGWOOD', 'ELK', 'ASH', 'ASPEN', 'BIRCH', 'FILBERT', 'FIR',
+    'JUNIPER', 'LARCH', 'OAK', 'PEAR', 'PINE', 'SPRUCE', 'CHUKAR', 'BRANT', 'EAGLE', 'SWIFT',
+    'HERON', 'EGRET', 'RAVEN', 'CROW', 'JAY', 'FALCON', 'TOWIE', 'DOVE', 'PLOVER', 'AVOCET',
+    'WILLET', 'SNAKE', 'ROGUE', 'ALSEA', 'TRASK', 'WILSON', 'CHETCO', 'SANDY', 'HOOD', 'UMPQUA',
+    'SILETZ', 'OWYHEE'
+];
+
 const generatePasscode = (): string => {
     return Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit numeric passcode
+};
+
+const getDefaultTeamName = (index: number): string => {
+    if (index < DEFAULT_TEAM_NAMES.length) {
+        return DEFAULT_TEAM_NAMES[index];
+    }
+    // Fallback to generic naming after running out of default names
+    return `Team ${String.fromCharCode(65 + (index - DEFAULT_TEAM_NAMES.length))}`;
 };
 
 // Maximum team name length for printing compatibility
@@ -47,7 +65,7 @@ const Step2TeamSetup: React.FC<Step2Props> = ({gameData, onDataChange, onNext, o
         for (let i = 0; i < numTeams; i++) {
             newLocalTeams.push({
                 id: i,
-                name: existingTeamsConfig[i]?.name || `Team ${String.fromCharCode(65 + i)}`,
+                name: existingTeamsConfig[i]?.name || getDefaultTeamName(i),
                 passcode: existingTeamsConfig[i]?.passcode || generatePasscode(),
             });
         }
@@ -93,7 +111,7 @@ const Step2TeamSetup: React.FC<Step2Props> = ({gameData, onDataChange, onNext, o
             prevTeams.map(t =>
                 t.id === teamId ? {
                     ...t,
-                    name: trimmedName || `Team ${String.fromCharCode(65 + t.id)}`
+                    name: trimmedName || getDefaultTeamName(t.id)
                 } : t
             )
         );
@@ -190,10 +208,9 @@ const Step2TeamSetup: React.FC<Step2Props> = ({gameData, onDataChange, onNext, o
                     <div className="ml-3">
                         <p className="text-sm text-sky-700">
                             Based on your selection of <strong
-                            className="font-medium">{gameData.num_teams} teams</strong>, initial names and unique
-                            4-digit passcodes have been generated.
-                            You can customize team names below. These credentials will be used by students to log into
-                            their team's interface on their devices.
+                            className="font-medium">{gameData.num_teams} teams</strong>, team names from our curated list and unique
+                            4-digit passcodes have been generated. The names are inspired by Pacific Northwest nature.
+                            You can customize any team name below by clicking the edit icon.
                         </p>
                     </div>
                 </div>
@@ -251,6 +268,24 @@ const Step2TeamSetup: React.FC<Step2Props> = ({gameData, onDataChange, onNext, o
                     </div>
                 ))}
             </div>
+
+            {/* Show information about default names if there are many teams */}
+            {gameData.num_teams > DEFAULT_TEAM_NAMES.length && (
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
+                    <div className="flex">
+                        <div className="flex-shrink-0 pt-0.5">
+                            <Info className="h-5 w-5 text-yellow-700"/>
+                        </div>
+                        <div className="ml-3">
+                            <p className="text-sm text-yellow-700">
+                                You have more teams ({gameData.num_teams}) than our default names list ({DEFAULT_TEAM_NAMES.length}).
+                                Teams beyond the first {DEFAULT_TEAM_NAMES.length} will use generic names (Team A, Team B, etc.)
+                                that you can customize by clicking the edit icon.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="mt-4 pt-4 border-t border-gray-200">
                 <h4 className="text-sm font-medium text-gray-600 mb-2">Distribute Login Credentials:</h4>
