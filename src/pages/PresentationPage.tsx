@@ -1,4 +1,4 @@
-// src/pages/PresentationPage.tsx - Master Display with Perfect Sync
+// src/pages/PresentationPage.tsx - Cross-Tab Communication with Perfect Sync
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Slide } from '../types';
@@ -26,18 +26,136 @@ const PresentationPage: React.FC = () => {
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const syncTimeoutRef = useRef<NodeJS.Timeout>();
+    const channelRef = useRef<BroadcastChannel | null>(null);
+
+    // Initialize BroadcastChannel for cross-tab communication
+    useEffect(() => {
+        if (!sessionId) return;
+
+        const channelName = `game-session-${sessionId}`;
+        const channel = new BroadcastChannel(channelName);
+        channelRef.current = channel;
+
+        console.log(`[PresentationPage] Created BroadcastChannel: ${channelName}`);
+
+        // Listen for messages from host
+        const handleMessage = (event: MessageEvent) => {
+            console.log('[PresentationPage] BroadcastChannel message received:', event.data);
+
+            switch (event.data.type) {
+                case 'SLIDE_UPDATE':
+                    setIsConnected(true);
+                    setStatusMessage('Connected to host');
+                    setCurrentSlide(event.data.slide);
+                    console.log('[PresentationPage] Slide updated:', event.data.slide?.id);
+                    // Reset video state when slide changes
+                    setVideoState({
+                        playing: false,
+                        currentTime: 0,
+                        duration: 0,
+                        volume: 1
+                    });
+                    break;
+
+                case 'VIDEO_CONTROL':
+                    if (videoRef.current) {
+                        const { action, value } = event.data;
+                        console.log(`[PresentationPage] Video control: ${action}`, value);
+
+                        switch (action) {
+                            case 'play':
+                                videoRef.current.play().catch(console.error);
+                                break;
+                            case 'pause':
+                                videoRef.current.pause();
+                                break;
+                            case 'seek':
+                                videoRef.current.currentTime = value;
+                                broadcastVideoState({ currentTime: value });
+                                break;
+                            case 'volume':
+                                videoRef.current.volume = value;
+                                broadcastVideoState({ volume: value });
+                                break;
+                        }
+                    }
+                    break;
+
+                case 'SESSION_ENDED':
+                    setCurrentSlide(null);
+                    setIsConnected(false);
+                    setStatusMessage('Session has ended');
+                    break;
+
+                case 'PING':
+                    // Respond to keep-alive pings from host
+                    channel.postMessage({
+                        type: 'PONG',
+                        sessionId,
+                        videoState,
+                        timestamp: Date.now()
+                    });
+                    break;
+
+                case 'REQUEST_CURRENT_STATE':
+                    // Send current state when requested
+                    channel.postMessage({
+                        type: 'STATE_RESPONSE',
+                        sessionId,
+                        slide: currentSlide,
+                        videoState,
+                        timestamp: Date.now()
+                    });
+                    break;
+            }
+        };
+
+        channel.addEventListener('message', handleMessage);
+
+        // Announce that presentation display is ready
+        channel.postMessage({
+            type: 'PRESENTATION_READY',
+            sessionId,
+            timestamp: Date.now()
+        });
+
+        // Request current state from host
+        channel.postMessage({
+            type: 'REQUEST_CURRENT_STATE',
+            sessionId,
+            timestamp: Date.now()
+        });
+
+        // Set up connection timeout
+        const connectionTimeout = setTimeout(() => {
+            if (!isConnected) {
+                setStatusMessage('Connection timeout. Please ensure the host dashboard is open in another tab.');
+            }
+        }, 5000);
+
+        return () => {
+            clearTimeout(connectionTimeout);
+            if (syncTimeoutRef.current) {
+                clearTimeout(syncTimeoutRef.current);
+            }
+            channel.removeEventListener('message', handleMessage);
+            channel.close();
+            channelRef.current = null;
+        };
+    }, [sessionId, isConnected, videoState, currentSlide]);
 
     // Send video state updates to host
     const broadcastVideoState = useCallback((newState: Partial<VideoState>) => {
         const updatedState = { ...videoState, ...newState };
         setVideoState(updatedState);
 
-        if (window.opener) {
-            window.opener.postMessage({
+        if (channelRef.current) {
+            channelRef.current.postMessage({
                 type: 'VIDEO_STATE_UPDATE',
                 sessionId,
-                videoState: updatedState
-            }, window.location.origin);
+                videoState: updatedState,
+                timestamp: Date.now()
+            });
         }
     }, [sessionId, videoState]);
 
@@ -82,120 +200,13 @@ const PresentationPage: React.FC = () => {
         }
     }, [broadcastVideoState]);
 
-    useEffect(() => {
-        if (!sessionId) {
-            setStatusMessage('No session ID provided');
-            return;
-        }
-
-        const handleMessage = (event: MessageEvent) => {
-            // Only accept messages from same origin
-            if (event.origin !== window.location.origin) return;
-
-            console.log('[PresentationPage] Received message:', event.data);
-
-            switch (event.data.type) {
-                case 'SLIDE_UPDATE':
-                    setIsConnected(true);
-                    setCurrentSlide(event.data.slide);
-                    // Reset video state when slide changes
-                    setVideoState({
-                        playing: false,
-                        currentTime: 0,
-                        duration: 0,
-                        volume: 1
-                    });
-                    break;
-
-                case 'VIDEO_CONTROL':
-                    if (videoRef.current) {
-                        const { action, value } = event.data;
-
-                        switch (action) {
-                            case 'play':
-                                videoRef.current.play().catch(console.error);
-                                break;
-                            case 'pause':
-                                videoRef.current.pause();
-                                break;
-                            case 'seek':
-                                videoRef.current.currentTime = value;
-                                broadcastVideoState({ currentTime: value });
-                                break;
-                            case 'volume':
-                                videoRef.current.volume = value;
-                                broadcastVideoState({ volume: value });
-                                break;
-                        }
-                    }
-                    break;
-
-                case 'SESSION_ENDED':
-                    setCurrentSlide(null);
-                    setIsConnected(false);
-                    setStatusMessage('Session has ended');
-                    break;
-
-                case 'PING':
-                    // Respond to keep-alive pings from teacher window
-                    if (window.opener) {
-                        window.opener.postMessage({
-                            type: 'PONG',
-                            sessionId,
-                            videoState
-                        }, window.location.origin);
-                    }
-                    break;
-            }
-        };
-
-        window.addEventListener('message', handleMessage);
-
-        // Notify teacher window that student display is ready
-        if (window.opener) {
-            window.opener.postMessage({
-                type: 'STUDENT_DISPLAY_READY',
-                sessionId
-            }, window.location.origin);
-
-            // Request current state
-            window.opener.postMessage({
-                type: 'REQUEST_CURRENT_STATE',
-                sessionId
-            }, window.location.origin);
-        }
-
-        // Set up connection timeout
-        const connectionTimeout = setTimeout(() => {
-            if (!isConnected) {
-                setStatusMessage('Connection timeout. Please ensure the teacher dashboard is open.');
-            }
-        }, 5000);
-
-        return () => {
-            window.removeEventListener('message', handleMessage);
-            clearTimeout(connectionTimeout);
-            if (syncTimeoutRef.current) {
-                clearTimeout(syncTimeoutRef.current);
-            }
-
-            // Notify teacher window that student display is closing
-            if (window.opener) {
-                window.opener.postMessage({
-                    type: 'STUDENT_DISPLAY_CLOSING',
-                    sessionId
-                }, window.location.origin);
-            }
-        };
-    }, [sessionId, isConnected, videoState]);
-
     // Loading/Connection State
     if (!isConnected || !currentSlide) {
         return (
             <div className="h-screen w-screen bg-gray-900 flex items-center justify-center">
                 <div className="text-center text-white p-8">
                     <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse"/>
-                    <h1 className="text-2xl font-bold mb-2">Student Display</h1>
+                    <h1 className="text-2xl font-bold mb-2">Presentation Display</h1>
                     <p className="text-lg text-gray-300">{statusMessage}</p>
                     {sessionId && (
                         <p className="text-sm text-gray-500 mt-4">
@@ -205,21 +216,16 @@ const PresentationPage: React.FC = () => {
                     <div className="mt-8 text-sm text-gray-400">
                         <p className="flex items-center justify-center">
                             <Monitor size={16} className="mr-2"/>
-                            Waiting for teacher to start content display
+                            Waiting for host to start content display
+                        </p>
+                        <p className="mt-2 text-xs">
+                            Make sure the teacher dashboard is open in another tab
                         </p>
                     </div>
                 </div>
             </div>
         );
     }
-
-    // Check if current slide is a video
-    const isVideoSlide = currentSlide && (
-        currentSlide.type === 'video' ||
-        (currentSlide.type === 'interactive_invest' && currentSlide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
-        ((currentSlide.type === 'consequence_reveal' || currentSlide.type === 'payoff_reveal') &&
-            currentSlide.source_url?.match(/\.(mp4|webm|ogg)$/i))
-    );
 
     return (
         <div className="h-screen w-screen overflow-hidden bg-black">

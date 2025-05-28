@@ -1,4 +1,4 @@
-// src/components/Display/SlideRenderer.tsx - Enhanced for Master Video Mode
+// src/components/Display/SlideRenderer.tsx - Enhanced for Cross-Tab Perfect Sync
 import React, { useEffect, useRef } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks } from 'lucide-react';
@@ -35,30 +35,36 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const activeVideoRef = videoRef || localVideoRef;
 
-    // Handle video synchronization for master mode
+    // Handle video synchronization for master mode (presentation display)
     useEffect(() => {
         if (masterVideoMode && activeVideoRef.current && slide) {
             const video = activeVideoRef.current;
 
             // Set up event listeners for master video
-            if (onVideoPlay) video.addEventListener('play', onVideoPlay);
-            if (onVideoPause) video.addEventListener('pause', onVideoPause);
-            if (onVideoTimeUpdate) video.addEventListener('timeupdate', onVideoTimeUpdate);
-            if (onVolumeChange) video.addEventListener('volumechange', onVolumeChange);
-            if (onLoadedMetadata) video.addEventListener('loadedmetadata', onLoadedMetadata);
+            const handlePlay = onVideoPlay || (() => {});
+            const handlePause = onVideoPause || (() => {});
+            const handleTimeUpdate = onVideoTimeUpdate || (() => {});
+            const handleVolumeChange = onVolumeChange || (() => {});
+            const handleLoadedMetadata = onLoadedMetadata || (() => {});
+
+            video.addEventListener('play', handlePlay);
+            video.addEventListener('pause', handlePause);
+            video.addEventListener('timeupdate', handleTimeUpdate);
+            video.addEventListener('volumechange', handleVolumeChange);
+            video.addEventListener('loadedmetadata', handleLoadedMetadata);
 
             // Cleanup
             return () => {
-                if (onVideoPlay) video.removeEventListener('play', onVideoPlay);
-                if (onVideoPause) video.removeEventListener('pause', onVideoPause);
-                if (onVideoTimeUpdate) video.removeEventListener('timeupdate', onVideoTimeUpdate);
-                if (onVolumeChange) video.removeEventListener('volumechange', onVolumeChange);
-                if (onLoadedMetadata) video.removeEventListener('loadedmetadata', onLoadedMetadata);
+                video.removeEventListener('play', handlePlay);
+                video.removeEventListener('pause', handlePause);
+                video.removeEventListener('timeupdate', handleTimeUpdate);
+                video.removeEventListener('volumechange', handleVolumeChange);
+                video.removeEventListener('loadedmetadata', handleLoadedMetadata);
             };
         }
     }, [masterVideoMode, slide, onVideoPlay, onVideoPause, onVideoTimeUpdate, onVolumeChange, onLoadedMetadata]);
 
-    // Handle play/pause synchronization
+    // Handle play/pause synchronization for preview mode
     useEffect(() => {
         if (activeVideoRef.current && !masterVideoMode) {
             const video = activeVideoRef.current;
@@ -71,7 +77,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     }, [isPlayingTarget, masterVideoMode]);
 
-    // Handle seek synchronization
+    // Handle seek synchronization for preview mode
     useEffect(() => {
         if (activeVideoRef.current && videoTimeTarget !== undefined && !masterVideoMode) {
             const video = activeVideoRef.current;
@@ -121,12 +127,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     return (
                         <video
                             ref={activeVideoRef}
-                            key={slide.id + "_" + slide.source_url}
+                            key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : 'preview'}`}
                             src={slide.source_url}
                             className="max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none"
                             playsInline
                             controls={masterVideoMode} // Only show controls on master display
-                            autoPlay={masterVideoMode && isPlayingTarget}
+                            autoPlay={false} // Never autoplay - controlled by our sync system
+                            preload="metadata"
                         >
                             Your browser does not support the video tag.
                         </video>
@@ -192,13 +199,14 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         {hasConsequenceVideo && slide.source_url &&
                             <video
                                 ref={activeVideoRef}
-                                key={slide.id + "_" + slide.source_url}
+                                key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : 'preview'}`}
                                 src={slide.source_url}
                                 className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto outline-none"
                                 playsInline
                                 loop={slide.title?.toLowerCase().includes('payoff')}
-                                autoPlay={masterVideoMode && isPlayingTarget}
+                                autoPlay={false} // Controlled by our sync system
                                 controls={masterVideoMode}
+                                preload="metadata"
                             />
                         }
                         {slide.main_text && <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
@@ -251,7 +259,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
     return (
         <div className={`h-full w-full flex flex-col items-center justify-center text-white p-4 md:p-6 overflow-hidden ${slide?.background_css || 'bg-gray-900'}`}>
-            {!masterVideoMode && slide && slide.id !== null && slide.id !== undefined && (
+            {/* Only show slide ID overlay in master video mode (presentation display) */}
+            {masterVideoMode && slide && slide.id !== null && slide.id !== undefined && (
                 <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-full px-3.5 py-1.5 text-xs font-semibold z-20 shadow-lg">
                     SLIDE: {slide.id} {slide.title ? `(${slide.title})` : ''}
                 </div>
