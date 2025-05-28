@@ -270,13 +270,13 @@ const DisplayView: React.FC<DisplayViewProps> = ({
 
     return (
         <div className="h-full w-full overflow-hidden relative">
-            {/* Connection status indicator for development */}
+            {/* Connection status indicator for development - REMOVED DUPLICATE PRESENTATION BUTTON */}
             {process.env.NODE_ENV === 'development' && (
-                <div className="absolute top-4 right-4 z-20 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs">
+                <div className="absolute top-4 left-4 z-20 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs">
                     <div className="flex items-center gap-2">
                         <Monitor size={14} />
                         <span>
-                            {isConnectedToPresentationDisplay ? 'Presentation Connected' : 'No Presentation Display'}
+                            {isConnectedToPresentationDisplay ? 'Presentation Connected' : 'Host Preview Mode'}
                         </span>
                         <div className="ml-2 text-xs opacity-75">
                             Playing: {syncState.playing ? 'Yes' : 'No'}
