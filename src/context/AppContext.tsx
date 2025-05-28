@@ -1,4 +1,4 @@
-// src/context/AppContext.tsx - Refactored and Simplified
+// src/context/AppContext.tsx - Video State Management Removed
 import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {
@@ -104,13 +104,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         return gameStructureInstance?.allPhases || [];
     }, [gameStructureInstance]);
 
-    // Game controller
+    // Game controller - NO VIDEO STATE MANAGEMENT
     const gameController = useGameController(
         currentDbSession,
         gameStructureInstance,
         updateSessionInDb,
-        (phaseId) => processChoicePhaseDecisionsInternal(phaseId),
-        undefined // No broadcast callback needed - handled by individual components
+        (phaseId) => processChoicePhaseDecisionsInternal(phaseId)
     );
 
     // KPI Effects Processing
@@ -466,7 +465,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         }
     }, [currentDbSession?.id, resetTeamDecisionInDb]);
 
-    // Combined app state
+    // Combined app state - REMOVED VIDEO STATE REFERENCES
     const combinedAppState: AppState = useMemo(() => ({
         currentSessionId: currentDbSession?.id || null,
         gameStructure: gameStructureInstance,
@@ -474,7 +473,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         currentSlideIdInPhase: currentDbSession?.current_slide_id_in_phase ??
             (gameController.currentPhaseNode === gameStructureInstance?.welcome_phases[0] ? 0 : null),
         teacherNotes: gameController.teacherNotes,
-        isPlaying: false, // Video state now handled by VideoSettingsContext
+        isPlaying: false, // Removed - no longer managed here
         teams: teams,
         teamDecisions: teamDecisions,
         teamRoundData: teamRoundData,
