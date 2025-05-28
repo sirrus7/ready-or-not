@@ -219,7 +219,7 @@ Thank you,
                         Click individual items to download, or use "Download All" at the bottom. Numbers show <strong>quantities needed</strong> for your {calculatedMaterials.totalTeams} teams and {calculatedMaterials.totalPlayers} players.
                     </p>
 
-                    {/* Core Game Components */}
+                    {/* Start Folder */}
                     <div className="mb-4">
                         <button
                             onClick={() => toggleSection('core')}
@@ -227,7 +227,7 @@ Thank you,
                         >
                             <div className="flex items-center">
                                 <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                                <h4 className="font-medium text-gray-800 text-sm">Core Game Components</h4>
+                                <h4 className="font-medium text-gray-800 text-sm">Start Folder</h4>
                                 <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">4 items</span>
                             </div>
                             {expandedSections.core ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -294,7 +294,7 @@ Thank you,
                         )}
                     </div>
 
-                    {/* Round 1 Materials */}
+                    {/* Round 1 Folder */}
                     <div className="mb-4">
                         <button
                             onClick={() => toggleSection('round1')}
@@ -302,7 +302,7 @@ Thank you,
                         >
                             <div className="flex items-center">
                                 <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                                <h4 className="font-medium text-gray-800 text-sm">Round 1 Materials</h4>
+                                <h4 className="font-medium text-gray-800 text-sm">Round 1 Folder</h4>
                                 <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded">3 items</span>
                             </div>
                             {expandedSections.round1 ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -355,7 +355,7 @@ Thank you,
                         )}
                     </div>
 
-                    {/* Round 2 Materials */}
+                    {/* Round 2 Folder */}
                     <div className="mb-4">
                         <button
                             onClick={() => toggleSection('round2')}
@@ -363,7 +363,7 @@ Thank you,
                         >
                             <div className="flex items-center">
                                 <div className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></div>
-                                <h4 className="font-medium text-gray-800 text-sm">Round 2 Materials</h4>
+                                <h4 className="font-medium text-gray-800 text-sm">Round 2 Folder</h4>
                                 <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">3 items</span>
                             </div>
                             {expandedSections.round2 ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -416,7 +416,7 @@ Thank you,
                         )}
                     </div>
 
-                    {/* Round 3 Materials */}
+                    {/* Round 3 Folder */}
                     <div className="mb-4">
                         <button
                             onClick={() => toggleSection('round3')}
@@ -424,7 +424,7 @@ Thank you,
                         >
                             <div className="flex items-center">
                                 <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
-                                <h4 className="font-medium text-gray-800 text-sm">Round 3 Materials</h4>
+                                <h4 className="font-medium text-gray-800 text-sm">Round 3 Folder</h4>
                                 <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">2 items</span>
                             </div>
                             {expandedSections.round3 ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -463,7 +463,7 @@ Thank you,
                         )}
                     </div>
 
-                    {/* Special Materials */}
+                    {/* Special Folder */}
                     <div className="mb-6">
                         <button
                             onClick={() => toggleSection('special')}
@@ -471,7 +471,7 @@ Thank you,
                         >
                             <div className="flex items-center">
                                 <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
-                                <h4 className="font-medium text-gray-800 text-sm">Special Materials</h4>
+                                <h4 className="font-medium text-gray-800 text-sm">Special Folder</h4>
                                 <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">2 items</span>
                             </div>
                             {expandedSections.special ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
