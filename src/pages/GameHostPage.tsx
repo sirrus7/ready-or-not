@@ -1,9 +1,153 @@
 // src/pages/GameHostPage.tsx - Navigation Below Content
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import HostPanel from '../components/Host/HostPanel.tsx';
 import { useAppContext } from '../context/AppContext';
-import { Monitor, AlertCircle, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Monitor, AlertCircle, Info, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import DisplayView from '../components/Display/DisplayView';
+
+const PresentationDisplayButton: React.FC = () => {
+    const { state, currentSlideData } = useAppContext();
+    const [isPresentationDisplayOpen, setIsPresentationDisplayOpen] = useState(false);
+    const channelRef = useRef<BroadcastChannel | null>(null);
+    const pingIntervalRef = useRef<NodeJS.Timeout>();
+    const lastPongRef = useRef<number>(0);
+
+    // Initialize BroadcastChannel when session is available
+    useEffect(() => {
+        if (!state.currentSessionId) return;
+
+        const channelName = `game-session-${state.currentSessionId}`;
+        const channel = new BroadcastChannel(channelName);
+        channelRef.current = channel;
+
+        // Listen for messages from presentation display
+        const handleMessage = (event: MessageEvent) => {
+            switch (event.data.type) {
+                case 'PONG':
+                    if (event.data.sessionId === state.currentSessionId) {
+                        lastPongRef.current = Date.now();
+                        setIsPresentationDisplayOpen(true);
+                    }
+                    break;
+
+                case 'PRESENTATION_READY':
+                    if (event.data.sessionId === state.currentSessionId) {
+                        setIsPresentationDisplayOpen(true);
+                        console.log('[PresentationDisplayButton] Presentation display connected');
+
+                        // Send current slide when presentation connects
+                        if (currentSlideData) {
+                            channel.postMessage({
+                                type: 'SLIDE_UPDATE',
+                                slide: currentSlideData,
+                                sessionId: state.currentSessionId,
+                                timestamp: Date.now()
+                            });
+                        }
+                    }
+                    break;
+
+                case 'REQUEST_CURRENT_STATE':
+                    if (event.data.sessionId === state.currentSessionId && currentSlideData) {
+                        channel.postMessage({
+                            type: 'SLIDE_UPDATE',
+                            slide: currentSlideData,
+                            sessionId: state.currentSessionId,
+                            timestamp: Date.now()
+                        });
+                    }
+                    break;
+            }
+        };
+
+        channel.addEventListener('message', handleMessage);
+
+        // Set up ping to monitor presentation display connection
+        pingIntervalRef.current = setInterval(() => {
+            channel.postMessage({
+                type: 'PING',
+                sessionId: state.currentSessionId,
+                timestamp: Date.now()
+            });
+
+            // Check if we haven't received a pong in the last 5 seconds
+            if (Date.now() - lastPongRef.current > 5000) {
+                setIsPresentationDisplayOpen(false);
+            }
+        }, 2000);
+
+        return () => {
+            if (pingIntervalRef.current) {
+                clearInterval(pingIntervalRef.current);
+            }
+            channel.removeEventListener('message', handleMessage);
+            channel.close();
+            channelRef.current = null;
+        };
+    }, [state.currentSessionId, currentSlideData]);
+
+    // Send slide update when current slide changes
+    useEffect(() => {
+        if (channelRef.current && currentSlideData && state.currentSessionId) {
+            console.log('[PresentationDisplayButton] Sending slide update:', currentSlideData.id);
+            channelRef.current.postMessage({
+                type: 'SLIDE_UPDATE',
+                slide: currentSlideData,
+                sessionId: state.currentSessionId,
+                timestamp: Date.now()
+            });
+        }
+    }, [currentSlideData, state.currentSessionId]);
+
+    const handleOpenDisplay = () => {
+        if (!state.currentSessionId) {
+            alert("No active session. Please create or select a game first.");
+            return;
+        }
+
+        const url = `/student-display/${state.currentSessionId}`;
+        const newTab = window.open(url, '_blank');
+
+        if (newTab) {
+            console.log('[PresentationDisplayButton] Opened presentation display in new tab');
+            // Give the new tab time to initialize before sending state
+            setTimeout(() => {
+                if (channelRef.current && currentSlideData) {
+                    channelRef.current.postMessage({
+                        type: 'SLIDE_UPDATE',
+                        slide: currentSlideData,
+                        sessionId: state.currentSessionId,
+                        timestamp: Date.now()
+                    });
+                }
+            }, 1000);
+        } else {
+            alert("Failed to open presentation display. Please ensure pop-ups are allowed for this site.");
+        }
+    };
+
+    return (
+        <div className="absolute top-3 right-3 z-50">
+            {isPresentationDisplayOpen ? (
+                // Status indicator when connected
+                <div className="flex items-center gap-2 py-2 px-3 rounded-lg shadow-lg text-sm font-medium backdrop-blur-sm bg-green-600/90 text-white border border-green-500/30">
+                    <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
+                    <Monitor size={16}/>
+                    <span>Presentation Active</span>
+                </div>
+            ) : (
+                // Button when disconnected
+                <button
+                    onClick={handleOpenDisplay}
+                    className="flex items-center gap-2 py-2 px-3 rounded-lg transition-colors shadow-lg text-sm font-medium backdrop-blur-sm bg-blue-600/90 text-white hover:bg-blue-700/90 border border-blue-500/30"
+                >
+                    <ExternalLink size={16}/>
+                    <span>Open Display</span>
+                </button>
+            )}
+        </div>
+    );
+};
 
 const GameHostPage: React.FC = () => {
     const {
@@ -65,7 +209,7 @@ const GameHostPage: React.FC = () => {
                     {/* Content Preview Area with Navigation Below */}
                     <div className="lg:col-span-2 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-120px)]">
                         {/* Content Area */}
-                        <div className="flex-grow bg-gray-50 overflow-hidden">
+                        <div className="flex-grow bg-gray-50 overflow-hidden relative">
                             {!currentSlideData ? (
                                 <div className="h-full flex items-center justify-center text-gray-400">
                                     <div className="text-center">
@@ -75,14 +219,19 @@ const GameHostPage: React.FC = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="h-full">
-                                    <DisplayView
-                                        slide={currentSlideData}
-                                        isPlayingTarget={false}
-                                        videoTimeTarget={0}
-                                        triggerSeekEvent={false}
-                                    />
-                                </div>
+                                <>
+                                    <div className="h-full">
+                                        <DisplayView
+                                            slide={currentSlideData}
+                                            isPlayingTarget={false}
+                                            videoTimeTarget={0}
+                                            triggerSeekEvent={false}
+                                        />
+                                    </div>
+
+                                    {/* Presentation Display Button - Top Right */}
+                                    <PresentationDisplayButton />
+                                </>
                             )}
                         </div>
 
