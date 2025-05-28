@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import {
     Monitor,
-    MonitorOff,
     Wifi,
     WifiOff,
     Settings2,

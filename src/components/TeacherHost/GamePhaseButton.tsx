@@ -1,4 +1,4 @@
-// src/components/TeacherHost/GamePhaseNodeButton.tsx
+// src/components/TeacherHost/GamePhaseButton.tsx
 import React from 'react';
 import {GamePhaseNode} from '../../types';
 // Import specific icons you know you'll use, or use a more specific type if possible.
@@ -55,7 +55,7 @@ interface GamePhaseNodeButtonProps {
     onClick: () => void;
 }
 
-const GamePhaseNodeButton: React.FC<GamePhaseNodeButtonProps> = ({phase, isCurrent, isCompleted, onClick}) => {
+const GamePhaseButton: React.FC<GamePhaseNodeButtonProps> = ({phase, isCurrent, isCompleted, onClick}) => {
     // Use the iconMap for type safety and cleaner dynamic rendering
     const IconComponent = iconMap[phase.icon_name] || HelpCircle;
 
@@ -86,7 +86,7 @@ const GamePhaseNodeButton: React.FC<GamePhaseNodeButtonProps> = ({phase, isCurre
             onClick={onClick}
             className={buttonClasses}
             // Disable clicking if it's completed AND not current.
-            // OR if it's upcoming and not the next logical step (this logic is in GameJourneyMap)
+            // OR if it's upcoming and not the next logical step (this logic is in GameMap)
             disabled={isCompleted && !isCurrent}
             title={phase.label + (phase.sub_label ? ` (${phase.sub_label})` : '')}
         >
@@ -108,4 +108,4 @@ const GamePhaseNodeButton: React.FC<GamePhaseNodeButtonProps> = ({phase, isCurre
     );
 };
 
-export default GamePhaseNodeButton;
+export default GamePhaseButton;

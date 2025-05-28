@@ -1,4 +1,4 @@
-// src/pages/CompanyDisplayPage.tsx - FIXED VERSION
+// src/pages/TeamDisplayPage.tsx
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import TeamLogin from '../components/StudentGame/TeamLogin';
@@ -16,7 +16,7 @@ import {addConnectionListener, createMonitoredChannel, supabase} from '../lib/su
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {AlertTriangle, CheckCircle, Hourglass, Smartphone} from 'lucide-react';
 
-const CompanyDisplayPage: React.FC = () => {
+const TeamDisplayPage: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(localStorage.getItem(`ron_teamId_${sessionId}`));
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(localStorage.getItem(`ron_teamName_${sessionId}`));
@@ -75,7 +75,6 @@ const CompanyDisplayPage: React.FC = () => {
         decisionPhaseTimerEndTimeRef.current = decisionPhaseTimerEndTime;
     }, [decisionPhaseTimerEndTime]);
 
-    // FIXED: More robust connection monitoring
     useEffect(() => {
         let connectionCleanup: (() => void) | null = null;
 
@@ -98,7 +97,7 @@ const CompanyDisplayPage: React.FC = () => {
                 }
             });
         } catch (err) {
-            console.warn('[CompanyDisplayPage] Connection listener setup failed:', err);
+            console.warn('[TeamDisplayPage] Connection listener setup failed:', err);
             // Don't set page error for connection listener setup failure
         }
 
@@ -123,7 +122,7 @@ const CompanyDisplayPage: React.FC = () => {
         try {
             // Fetch current KPIs using RPC
             if (activePhase.round_number > 0) {
-                const { data: kpiData, error: kpiError } = await supabase
+                const {data: kpiData, error: kpiError} = await supabase
                     .rpc('get_team_kpis_for_student', {
                         target_session_id: sessionId,
                         target_team_id: teamId,
@@ -141,7 +140,7 @@ const CompanyDisplayPage: React.FC = () => {
 
             // Check for existing submission for this phase using RPC
             if (activePhase.is_interactive_student_phase) {
-                const { data: existingDecisionData, error: decisionError } = await supabase
+                const {data: existingDecisionData, error: decisionError} = await supabase
                     .rpc('get_student_team_decision_for_phase', {
                         target_session_id: sessionId,
                         target_team_id: teamId,
@@ -177,7 +176,7 @@ const CompanyDisplayPage: React.FC = () => {
                 setPageError(null);
             }
         } catch (err) {
-            console.error("[CompanyDisplayPage] Error fetching initial team data (RPC):", err);
+            console.error("[TeamDisplayPage] Error fetching initial team data (RPC):", err);
             setPageError("Failed to load your team's data. Please check your connection or contact the facilitator.");
         } finally {
             setIsLoadingData(false);
@@ -198,7 +197,7 @@ const CompanyDisplayPage: React.FC = () => {
         try {
             realtimeChannel = createMonitoredChannel(realtimeChannelName);
 
-            realtimeChannel.on('broadcast', { event: 'teacher_state_update' }, (payload: any) => {
+            realtimeChannel.on('broadcast', {event: 'teacher_state_update'}, (payload: any) => {
                 console.log(`[CompanyDisplayPage] Received teacher broadcast:`, payload.payload);
 
                 const teacherPayload = payload.payload as TeacherBroadcastPayload;
@@ -289,7 +288,7 @@ const CompanyDisplayPage: React.FC = () => {
                 try {
                     realtimeChannel.unsubscribe();
                 } catch (err) {
-                    console.warn('[CompanyDisplayPage] Error unsubscribing from channel:', err);
+                    console.warn('[TeamDisplayPage] Error unsubscribing from channel:', err);
                 }
             }
         };
@@ -329,7 +328,7 @@ const CompanyDisplayPage: React.FC = () => {
 
             const optionsKey = decisionOptionsKey || currentActivePhase.id;
             const options = gameStructure.all_challenge_options[optionsKey] || [];
-            const defaultOption = options.find(opt => opt.is_default_choice) || (options.length > 0 ? options[options.length-1] : null);
+            const defaultOption = options.find(opt => opt.is_default_choice) || (options.length > 0 ? options[options.length - 1] : null);
 
             if (defaultOption && loggedInTeamId && sessionId && currentActivePhase) {
                 setSubmissionStatus('submitting');
@@ -345,18 +344,18 @@ const CompanyDisplayPage: React.FC = () => {
                     submitted_at: new Date().toISOString(),
                 };
                 supabase.from('team_decisions').insert(decisionData)
-                    .then(({ error }) => {
+                    .then(({error}) => {
                         if (error) {
                             throw error;
                         }
                         setSubmissionStatus('success');
-                        setSubmissionMessage(`Time's up! Default choice "${defaultOption.text.substring(0,20)}..." submitted.`);
+                        setSubmissionMessage(`Time's up! Default choice "${defaultOption.text.substring(0, 20)}..." submitted.`);
                         setIsStudentDecisionTime(false);
                         setTimeRemainingSeconds(undefined);
                         setTimeout(() => setSubmissionMessage(null), 5000);
                     })
                     .catch(err => {
-                        console.error("[CompanyDisplayPage] Auto-submit error:", err);
+                        console.error("[TeamDisplayPage] Auto-submit error:", err);
                         setSubmissionStatus('error');
                         setSubmissionMessage("Failed to auto-submit default choice. Please inform your facilitator.");
                     });
@@ -380,11 +379,11 @@ const CompanyDisplayPage: React.FC = () => {
     };
 
     const handleDecisionSubmit = async (decisionDataPayload: any) => {
-        console.log('[CompanyDisplayPage] === DECISION SUBMIT START ===');
-        console.log('[CompanyDisplayPage] sessionId:', sessionId);
-        console.log('[CompanyDisplayPage] loggedInTeamId:', loggedInTeamId);
-        console.log('[CompanyDisplayPage] currentActivePhase:', currentActivePhase);
-        console.log('[CompanyDisplayPage] decisionDataPayload:', decisionDataPayload);
+        console.log('[TeamDisplayPage] === DECISION SUBMIT START ===');
+        console.log('[TeamDisplayPage] sessionId:', sessionId);
+        console.log('[TeamDisplayPage] loggedInTeamId:', loggedInTeamId);
+        console.log('[TeamDisplayPage] currentActivePhase:', currentActivePhase);
+        console.log('[TeamDisplayPage] decisionDataPayload:', decisionDataPayload);
 
         if (!sessionId || !loggedInTeamId || !currentActivePhase) {
             const missingItems = [];
@@ -392,7 +391,7 @@ const CompanyDisplayPage: React.FC = () => {
             if (!loggedInTeamId) missingItems.push('loggedInTeamId');
             if (!currentActivePhase) missingItems.push('currentActivePhase');
 
-            console.error('[CompanyDisplayPage] Missing required data:', missingItems);
+            console.error('[TeamDisplayPage] Missing required data:', missingItems);
             setSubmissionStatus('error');
             setSubmissionMessage(`Cannot submit: Missing ${missingItems.join(', ')}`);
             setIsSubmissionFeedbackModalOpen(true);
@@ -412,17 +411,17 @@ const CompanyDisplayPage: React.FC = () => {
             submitted_at: new Date().toISOString(),
         };
 
-        console.log('[CompanyDisplayPage] === SUBMITTING TO SUPABASE ===');
-        console.log('[CompanyDisplayPage] Full payload:', JSON.stringify(submissionPayload, null, 2));
+        console.log('[TeamDisplayPage] === SUBMITTING TO SUPABASE ===');
+        console.log('[TeamDisplayPage] Full payload:', JSON.stringify(submissionPayload, null, 2));
 
         try {
-            console.log('[CompanyDisplayPage] Attempting insert...');
+            console.log('[TeamDisplayPage] Attempting insert...');
 
-            const { data, error, status, statusText } = await supabase
+            const {data, error, status, statusText} = await supabase
                 .from('team_decisions')
                 .insert(submissionPayload);
 
-            console.log('[CompanyDisplayPage] Supabase response:', {
+            console.log('[TeamDisplayPage] Supabase response:', {
                 data,
                 error,
                 status,
@@ -430,7 +429,7 @@ const CompanyDisplayPage: React.FC = () => {
             });
 
             if (error) {
-                console.error('[CompanyDisplayPage] Supabase error details:', {
+                console.error('[TeamDisplayPage] Supabase error details:', {
                     message: error.message,
                     details: error.details,
                     hint: error.hint,
@@ -439,8 +438,8 @@ const CompanyDisplayPage: React.FC = () => {
                 throw error;
             }
 
-            console.log('[CompanyDisplayPage] === SUBMISSION SUCCESSFUL ===');
-            console.log('[CompanyDisplayPage] Response data:', data);
+            console.log('[TeamDisplayPage] === SUBMISSION SUCCESSFUL ===');
+            console.log('[TeamDisplayPage] Response data:', data);
 
             setSubmissionStatus('success');
             submissionStatusRef.current = 'success';
@@ -456,8 +455,8 @@ const CompanyDisplayPage: React.FC = () => {
             }, 5000); // Give more time to see success message
 
         } catch (err) {
-            console.error('[CompanyDisplayPage] === SUBMISSION FAILED ===');
-            console.error('[CompanyDisplayPage] Error details:', err);
+            console.error('[TeamDisplayPage] === SUBMISSION FAILED ===');
+            console.error('[TeamDisplayPage] Error details:', err);
 
             setSubmissionStatus('error');
             submissionStatusRef.current = 'error';
@@ -537,8 +536,9 @@ const CompanyDisplayPage: React.FC = () => {
         : 0;
 
     return (
-        <div className={`min-h-screen bg-gray-900 text-white flex flex-col ${isMobile || isTablet ? 'touch-manipulation' : ''}`}
-             style={{ minHeight: '100vh' }}>
+        <div
+            className={`min-h-screen bg-gray-900 text-white flex flex-col ${isMobile || isTablet ? 'touch-manipulation' : ''}`}
+            style={{minHeight: '100vh'}}>
 
             {/* KPI Display - Fixed header */}
             <div className="flex-shrink-0 sticky top-0 z-10">
@@ -591,9 +591,12 @@ const CompanyDisplayPage: React.FC = () => {
                                                         'bg-gray-800 border-gray-600 text-gray-200'
                                         }`}>
                                             <div className="flex items-center justify-center mb-2">
-                                                {submissionStatus === 'submitting' && <Hourglass size={24} className="mr-2 animate-pulse" />}
-                                                {submissionStatus === 'success' && <CheckCircle size={24} className="mr-2" />}
-                                                {submissionStatus === 'error' && <AlertTriangle size={24} className="mr-2" />}
+                                                {submissionStatus === 'submitting' &&
+                                                    <Hourglass size={24} className="mr-2 animate-pulse"/>}
+                                                {submissionStatus === 'success' &&
+                                                    <CheckCircle size={24} className="mr-2"/>}
+                                                {submissionStatus === 'error' &&
+                                                    <AlertTriangle size={24} className="mr-2"/>}
                                                 <span className="text-lg font-semibold">
                                                     {submissionStatus === 'submitting' ? 'Submitting...' :
                                                         submissionStatus === 'success' ? 'Success!' :
@@ -628,16 +631,19 @@ const CompanyDisplayPage: React.FC = () => {
                                             )}
 
                                             {submissionStatusRef.current === 'success' && !submissionMessage && (
-                                                <div className="mt-6 p-4 bg-green-900/50 rounded-lg border border-green-700">
+                                                <div
+                                                    className="mt-6 p-4 bg-green-900/50 rounded-lg border border-green-700">
                                                     <p className="text-green-400 flex items-center justify-center">
                                                         <CheckCircle size={20} className="mr-2"/>
-                                                        Decisions submitted for {currentActivePhase?.label || "previous phase"}.
+                                                        Decisions submitted
+                                                        for {currentActivePhase?.label || "previous phase"}.
                                                         Waiting for facilitator.
                                                     </p>
                                                 </div>
                                             )}
                                             {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current && !submissionMessage) && (
-                                                <div className="mt-6 p-4 bg-yellow-900/50 rounded-lg border border-yellow-700">
+                                                <div
+                                                    className="mt-6 p-4 bg-yellow-900/50 rounded-lg border border-yellow-700">
                                                     <p className="text-yellow-400 flex items-center justify-center">
                                                         <Hourglass size={20} className="mr-2 animate-pulse"/>
                                                         Waiting for facilitator...
@@ -662,7 +668,8 @@ const CompanyDisplayPage: React.FC = () => {
 
                         {/* Safe area padding for mobile */}
                         {(isMobile || isTablet) && (
-                            <div className="h-4 flex-shrink-0" style={{ height: 'env(safe-area-inset-bottom, 1rem)' }}></div>
+                            <div className="h-4 flex-shrink-0"
+                                 style={{height: 'env(safe-area-inset-bottom, 1rem)'}}></div>
                         )}
                     </div>
                 </div>
@@ -672,7 +679,7 @@ const CompanyDisplayPage: React.FC = () => {
             {isSubmissionFeedbackModalOpen && submissionStatus === 'submitting' && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
-                        <Hourglass size={32} className="mx-auto mb-3 text-blue-500 animate-pulse" />
+                        <Hourglass size={32} className="mx-auto mb-3 text-blue-500 animate-pulse"/>
                         <h3 className="text-lg font-semibold text-gray-800 mb-2">Processing Submission...</h3>
                         <p className="text-sm text-gray-600">
                             {submissionMessage || "Submitting your decisions..."}
@@ -685,7 +692,7 @@ const CompanyDisplayPage: React.FC = () => {
             {isSubmissionFeedbackModalOpen && submissionStatus === 'error' && submissionMessage?.includes('Cannot submit') && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
-                        <AlertTriangle size={32} className="mx-auto mb-3 text-red-500" />
+                        <AlertTriangle size={32} className="mx-auto mb-3 text-red-500"/>
                         <h3 className="text-lg font-semibold text-gray-800 mb-2">Submission Error</h3>
                         <p className="text-sm text-gray-600 mb-4">
                             {submissionMessage}
@@ -707,4 +714,4 @@ const CompanyDisplayPage: React.FC = () => {
     );
 };
 
-export default CompanyDisplayPage;
+export default TeamDisplayPage;

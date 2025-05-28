@@ -15,10 +15,10 @@ export interface BandwidthTestProgress {
 }
 
 const TEST_FILE_SIZES = [
-    { size: 1024 * 100, name: '100KB' },    // 100KB
-    { size: 1024 * 500, name: '500KB' },    // 500KB
-    { size: 1024 * 1024, name: '1MB' },     // 1MB
-    { size: 1024 * 1024 * 2, name: '2MB' }  // 2MB
+    {size: 1024 * 100, name: '100KB'},    // 100KB
+    {size: 1024 * 500, name: '500KB'},    // 500KB
+    {size: 1024 * 1024, name: '1MB'},     // 1MB
+    {size: 1024 * 1024 * 2, name: '2MB'}  // 2MB
 ];
 
 export class BandwidthTester {
@@ -30,7 +30,7 @@ export class BandwidthTester {
 
     private updateProgress(phase: BandwidthTestProgress['phase'], progress: number, currentSpeedMbps?: number) {
         if (this.onProgressCallback) {
-            this.onProgressCallback({ phase, progress, currentSpeedMbps });
+            this.onProgressCallback({phase, progress, currentSpeedMbps});
         }
     }
 

@@ -5,11 +5,11 @@ import {useAuth} from '../context/AuthContext';
 import {supabase} from '../lib/supabase';
 import {NewGameData} from '../types';
 
-import Step1GameDetails from '../components/TeacherHost/CreateGameWizard/Step1_GameDetails';
-import Step2PrintHandouts from '../components/TeacherHost/CreateGameWizard/Step4_PrintHandouts.tsx';
-import Step3TeamSetup from '../components/TeacherHost/CreateGameWizard/Step2_TeamSetup.tsx';
-import Step4RoomSetup from '../components/TeacherHost/CreateGameWizard/Step3_RoomSetup.tsx';
-import Step5Finalize from '../components/TeacherHost/CreateGameWizard/Step5_Finalize';
+import Step1GameDetails from '../components/TeacherHost/CreateGame/Step1_GameDetails';
+import Step2PrintHandouts from '../components/TeacherHost/CreateGame/Step4_PrintHandouts.tsx';
+import Step3TeamSetup from '../components/TeacherHost/CreateGame/Step2_TeamSetup.tsx';
+import Step4RoomSetup from '../components/TeacherHost/CreateGame/Step3_RoomSetup.tsx';
+import Step5Finalize from '../components/TeacherHost/CreateGame/Step5_Finalize';
 
 import {ArrowLeft, Settings, Printer, Users, ListOrdered, Rocket, Zap, CheckCircle, AlertTriangle} from 'lucide-react';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';

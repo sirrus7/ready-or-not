@@ -51,7 +51,10 @@ export const useGameController = (
     const [isPlayingVideoState, setIsPlayingVideoState] = useState<boolean>(false);
     const [videoCurrentTimeState, setVideoCurrentTimeState] = useState<number>(0);
     const [triggerVideoSeekState, setTriggerVideoSeekState] = useState<boolean>(false);
-    const [currentTeacherAlertState, setCurrentTeacherAlertState] = useState<{title: string; message: string} | null>(null);
+    const [currentTeacherAlertState, setCurrentTeacherAlertState] = useState<{
+        title: string;
+        message: string
+    } | null>(null);
     const [currentVideoDurationState, setCurrentVideoDurationState] = useState<number | null>(null);
     const [allTeamsSubmittedCurrentInteractivePhaseState, setAllTeamsSubmittedCurrentInteractivePhaseState] = useState<boolean>(false);
 
@@ -118,7 +121,7 @@ export const useGameController = (
         if (isPlayingVideoState) {
             setIsPlayingVideoState(false);
             if (dbSession && dbSession.is_playing) {
-                await updateSessionInDb({ is_playing: false });
+                await updateSessionInDb({is_playing: false});
             }
             // Immediate sync after state change
             setTimeout(triggerStateSync, 0);
@@ -202,7 +205,7 @@ export const useGameController = (
 
     useEffect(() => {
         if (allTeamsSubmittedCurrentInteractivePhaseState) {
-            setCurrentTeacherAlertState({ title: ALL_SUBMIT_ALERT_TITLE, message: ALL_SUBMIT_ALERT_MESSAGE });
+            setCurrentTeacherAlertState({title: ALL_SUBMIT_ALERT_TITLE, message: ALL_SUBMIT_ALERT_MESSAGE});
             pauseVideoIfNeeded();
         }
     }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData, setCurrentTeacherAlertState, pauseVideoIfNeeded, ALL_SUBMIT_ALERT_TITLE, ALL_SUBMIT_ALERT_MESSAGE]);
@@ -308,7 +311,7 @@ export const useGameController = (
         }
 
         if (dbSession && dbSession.is_playing !== playing) {
-            updateSessionInDb({ is_playing: playing });
+            updateSessionInDb({is_playing: playing});
         }
     }, [dbSession, updateSessionInDb, onStateChange, currentSlideData, currentPhaseNode]);
 

@@ -1,7 +1,7 @@
 // src/pages/GameHostPage.tsx - Updated with Enhanced Video Controls
 import React, { useState, useEffect } from 'react';
-import TeacherPanel from '../components/TeacherHost/TeacherPanel';
-import EnhancedVideoControlPanel from '../components/TeacherHost/EnhancedVideoControlPanel';
+import HostPanel from '../components/TeacherHost/HostPanel.tsx';
+import HostControlPanel from '../components/TeacherHost/HostControlPanel.tsx';
 import VideoSettingsPanel from '../components/TeacherHost/VideoSettingsPanel';
 import BandwidthTestModal from '../components/TeacherHost/BandwidthTestModal';
 import {useAppContext} from '../context/AppContext';
@@ -141,7 +141,7 @@ const GameHostPage: React.FC = () => {
                 <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 min-h-0">
                     {/* Teacher Control Panel */}
                     <div className="lg:col-span-1 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-120px)]">
-                        <TeacherPanel/>
+                        <HostPanel/>
                     </div>
 
                     {/* Content Preview Area */}
@@ -182,7 +182,7 @@ const GameHostPage: React.FC = () => {
                                 </div>
                             ) : isVideoSlide && videoUrl ? (
                                 <div>
-                                    <EnhancedVideoControlPanel
+                                    <HostControlPanel
                                         slideId={currentSlideData.id}
                                         videoUrl={videoUrl}
                                         isForCurrentSlide={true}

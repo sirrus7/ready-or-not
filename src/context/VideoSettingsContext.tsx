@@ -1,6 +1,6 @@
 // src/context/VideoSettingsContext.tsx
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { BandwidthTestResult } from '../utils/bandwidthTest';
+import React, {createContext, useContext, useEffect, useState, useCallback} from 'react';
+import {BandwidthTestResult} from '../utils/bandwidthTest';
 
 export interface VideoSettings {
     hostVideoEnabled: boolean;
@@ -56,7 +56,7 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
         if (stored) {
             try {
                 const parsedSettings = JSON.parse(stored);
-                setSettings(prev => ({ ...prev, ...parsedSettings }));
+                setSettings(prev => ({...prev, ...parsedSettings}));
             } catch (error) {
                 console.warn('Failed to parse stored video settings:', error);
             }
@@ -97,7 +97,7 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
             return "Run a bandwidth test to get personalized recommendations.";
         }
 
-        const { quality, recommendation } = settings.bandwidthTestResult;
+        const {quality, recommendation} = settings.bandwidthTestResult;
 
         if (quality === 'poor' && settings.hostVideoEnabled && !settings.userOverride) {
             return `⚠️ ${recommendation}`;
@@ -115,7 +115,7 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
     // Auto-adjust settings based on bandwidth test results (only if user hasn't overridden)
     useEffect(() => {
         if (settings.bandwidthTestResult && !settings.userOverride) {
-            const { canHandleVideo, quality } = settings.bandwidthTestResult;
+            const {canHandleVideo, quality} = settings.bandwidthTestResult;
 
             const newSettings: Partial<VideoSettings> = {};
 
@@ -136,7 +136,7 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
             }
 
             if (Object.keys(newSettings).length > 0) {
-                setSettings(prev => ({ ...prev, ...newSettings }));
+                setSettings(prev => ({...prev, ...newSettings}));
             }
         }
     }, [settings.bandwidthTestResult, settings.userOverride, settings.hostVideoEnabled]);

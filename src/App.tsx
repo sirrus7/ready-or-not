@@ -8,10 +8,10 @@ import PrivateRoute from './components/PrivateRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
 import GameHostPage from './pages/GameHostPage';
-import StudentDisplayPage from './pages/StudentDisplayPage';
+import PresentationPage from './pages/PresentationPage.tsx';
 import DashboardPage from './pages/DashboardPage';
 import CreateGamePage from './pages/CreateGamePage';
-import CompanyDisplayPage from './pages/CompanyDisplayPage';
+import TeamDisplayPage from './pages/TeamDisplayPage.tsx';
 
 // Wrapper component to extract sessionId and pass it to providers
 const SessionAwareProviders: React.FC<{ children: React.ReactNode }> = ({children}) => {
@@ -25,7 +25,7 @@ const SessionAwareProviders: React.FC<{ children: React.ReactNode }> = ({childre
     );
 };
 
-// Special wrapper for StudentDisplayPage that handles auth gracefully
+// Special wrapper for PresentationPage that handles auth gracefully
 const StudentDisplayWrapper: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string | undefined }>();
 
@@ -34,7 +34,7 @@ const StudentDisplayWrapper: React.FC = () => {
             <ErrorBoundary>
                 <VideoSettingsProvider sessionId={sessionId}>
                     <AppProvider passedSessionId={sessionId}>
-                        <StudentDisplayPage />
+                        <PresentationPage />
                     </AppProvider>
                 </VideoSettingsProvider>
             </ErrorBoundary>
@@ -50,7 +50,7 @@ function App() {
                     {/* Publicly accessible student-facing routes - NO AUTH REQUIRED */}
                     <Route path="/student-game/:sessionId" element={
                         <ErrorBoundary>
-                            <CompanyDisplayPage/>
+                            <TeamDisplayPage/>
                         </ErrorBoundary>
                     }/>
 
