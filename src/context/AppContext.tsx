@@ -24,47 +24,38 @@ import {ServerCrash} from 'lucide-react';
 import { createMonitoredChannel } from '../lib/supabase';
 
 interface AppContextProps {
+    // Core state
     state: AppState;
     currentPhaseNode: GamePhaseNode | null;
     currentSlideData: Slide | null;
-    allPhasesInOrder: GamePhaseNode[];
+
+    // Navigation
     selectPhase: (phaseId: string) => Promise<void>;
-    updateTeacherNotesForCurrentSlide: (notes: string) => void;
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
-    togglePlayPauseVideo: () => Promise<void>;
+
+    // Teacher features
+    updateTeacherNotesForCurrentSlide: (notes: string) => void;
     clearTeacherAlert: () => Promise<void>;
+
+    // Session management
     isLoadingSession: boolean;
     sessionError: string | null;
-    clearSessionError: () => void;
-    isStudentWindowOpen: boolean;
-    setStudentWindowOpen: (isOpen: boolean) => void;
+
+    // Team data (simplified)
     teams: Team[];
     teamDecisions: Record<string, Record<string, TeamDecision>>;
-    teamRoundData: Record<string, Record<number, TeamRoundData>>;
-    isLoadingTeams: boolean;
-    isLoadingProcessingDecisions: boolean;
-    fetchTeamsForSession: () => Promise<void>;
-    fetchTeamRoundDataForSession: (sessionId: string) => Promise<void>;
     resetTeamDecisionForPhase: (teamId: string, phaseId: string) => Promise<void>;
-    processChoicePhaseDecisions: (phaseId: string, associatedSlide: Slide | null) => Promise<void>;
-    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3, currentPhaseId: string | null) => Promise<void>;
-    processDoubleDownPayoff: () => Promise<void>;
+
+    // Processing (simplified)
+    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => Promise<void>;
-    resetGameProgress: () => void;
-    isPlayingVideo: boolean;
-    videoCurrentTime: number;
-    triggerVideoSeek: boolean;
-    setCurrentTeacherAlertState: (alert: { title: string; message: string } | null) => void;
-    broadcastVideoState: (playing: boolean, time: number) => void;
 }
 
 const initialAppContextLocalStateDefinition: {
-    isStudentWindowOpen: boolean;
     isLoadingProcessing: boolean;
     errorProcessing: string | null;
 } = {
-    isStudentWindowOpen: false,
     isLoadingProcessing: false,
     errorProcessing: null,
 };
@@ -162,10 +153,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             if (error) console.error("Error storing permanent KPI adjustments:", error);
         }
     }, []);
-
-    const broadcastVideoState = useCallback((playing: boolean, time: number) => {
-        gameController.broadcastVideoState(playing, time);
-    }, [gameController]);
 
     const ensureTeamRoundData = useCallback(async (teamId: string, roundNumber: 1 | 2 | 3, sessionId: string): Promise<TeamRoundData> => {
         if (!sessionId || sessionId === 'new') throw new Error("ensureTeamRoundData: Invalid sessionId");
@@ -320,7 +307,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         teams: teams,
         teamDecisions: teamDecisions,
         teamRoundData: teamRoundData,
-        isStudentWindowOpen: localUiState.isStudentWindowOpen,
         isLoading: isLoadingSession || authLoading || isLoadingTeams || localUiState.isLoadingProcessing || !gameController.currentPhaseNode,
         error: sessionError || localUiState.errorProcessing,
         currentTeacherAlert: gameController.currentTeacherAlert,
@@ -749,8 +735,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         isLoadingSession,
         sessionError,
         clearSessionError,
-        isStudentWindowOpen: localUiState.isStudentWindowOpen,
-        setStudentWindowOpen: (isOpen: boolean) => setLocalUiState(s => ({...s, isStudentWindowOpen: isOpen})),
         teams,
         teamDecisions,
         teamRoundData,
@@ -772,14 +756,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         videoCurrentTime: gameController.videoCurrentTime,
         triggerVideoSeek: gameController.triggerVideoSeek,
         setCurrentTeacherAlertState,
-        broadcastVideoState,
     }), [
         combinedAppState, gameController, allPhasesInOrder, isLoadingSession, sessionError, clearSessionError,
-        localUiState.isStudentWindowOpen, teams, teamDecisions, teamRoundData, isLoadingTeams,
+        teams, teamDecisions, teamRoundData, isLoadingTeams,
         fetchWrapperTeams, fetchTeamRoundDataFromHook, resetWrapperTeamDecision, nextSlideCombined,
         processChoicePhaseDecisionsInternal, processInvestmentPayoffsInternal, processDoubleDownPayoffInternal,
         calculateAndFinalizeRoundKPIsInternal, resetGameProgressInternal, gameStructureInstance, setCurrentTeacherAlertState,
-        currentDbSession?.id, localUiState.isLoadingProcessing, broadcastVideoState
+        currentDbSession?.id, localUiState.isLoadingProcessing
     ]);
 
     return (
