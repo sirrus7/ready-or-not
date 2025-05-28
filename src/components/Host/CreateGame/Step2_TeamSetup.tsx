@@ -22,21 +22,24 @@ const generatePasscode = (): string => {
     return Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit numeric passcode
 };
 
-interface Step3Props {
+// Maximum team name length for printing compatibility
+const MAX_TEAM_NAME_LENGTH = 15;
+
+interface Step2Props {
     gameData: NewGameData;
     onDataChange: (field: keyof NewGameData, value: AppTeamConfig[]) => void; // Specifically for teams_config
     onNext: (dataFromStep: Partial<NewGameData>) => void;
     onPrevious: () => void;
 }
 
-const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, onPrevious}) => {
+const Step2TeamSetup: React.FC<Step2Props> = ({gameData, onDataChange, onNext, onPrevious}) => {
     const [localTeams, setLocalTeams] = useState<LocalTeamConfig[]>([]);
     const [editingTeamId, setEditingTeamId] = useState<number | null>(null);
     const [tempTeamName, setTempTeamName] = useState('');
 
     // Initialize or re-initialize teams when gameData.num_teams changes or gameData.teams_config is different
     useEffect(() => {
-        console.log("Step3TeamSetup: useEffect for gameData.num_teams or gameData.teams_config change.", gameData);
+        console.log("Step2TeamSetup: useEffect for gameData.num_teams or gameData.teams_config change.", gameData);
         const numTeams = gameData.num_teams || 0;
         const existingTeamsConfig = gameData.teams_config || [];
         const newLocalTeams: LocalTeamConfig[] = [];
@@ -54,7 +57,7 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
         // This handles initial setup and cases where num_teams might change after this step was visited.
         const newAppTeamConfigs = newLocalTeams.map(({id, ...rest}) => rest);
         if (JSON.stringify(gameData.teams_config) !== JSON.stringify(newAppTeamConfigs)) {
-            console.log("Step3TeamSetup: Updating parent teams_config due to initialization/change.");
+            console.log("Step2TeamSetup: Updating parent teams_config due to initialization/change.");
             onDataChange('teams_config', newAppTeamConfigs);
         }
     }, [gameData.num_teams]); // Only re-initialize if num_teams changes. gameData.teams_config is for initial load.
@@ -65,7 +68,7 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
         if (localTeams.length > 0 && localTeams.length === gameData.num_teams) {
             const appTeamConfigs = localTeams.map(({id, ...rest}) => rest);
             if (JSON.stringify(gameData.teams_config) !== JSON.stringify(appTeamConfigs)) {
-                console.log("Step3TeamSetup: Local teams changed by user, updating parent teams_config.");
+                console.log("Step2TeamSetup: Local teams changed by user, updating parent teams_config.");
                 onDataChange('teams_config', appTeamConfigs);
             }
         }
@@ -78,9 +81,20 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
     };
 
     const handleSaveName = (teamId: number) => {
+        const trimmedName = tempTeamName.trim();
+
+        // Validate team name length
+        if (trimmedName.length > MAX_TEAM_NAME_LENGTH) {
+            alert(`Team name must be ${MAX_TEAM_NAME_LENGTH} characters or less for printing compatibility.`);
+            return;
+        }
+
         setLocalTeams(prevTeams =>
             prevTeams.map(t =>
-                t.id === teamId ? {...t, name: tempTeamName.trim() || `Team ${String.fromCharCode(65 + t.id)}`} : t
+                t.id === teamId ? {
+                    ...t,
+                    name: trimmedName || `Team ${String.fromCharCode(65 + t.id)}`
+                } : t
             )
         );
         setEditingTeamId(null);
@@ -197,15 +211,21 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex-grow mr-2">
                             {editingTeamId === team.id ? (
-                                <input
-                                    type="text"
-                                    value={tempTeamName}
-                                    onChange={handleTempNameChange}
-                                    onBlur={() => handleSaveName(team.id)}
-                                    onKeyPress={(e) => e.key === 'Enter' && handleSaveName(team.id)}
-                                    className="w-full text-sm font-medium text-gray-800 border-blue-500 border px-2 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                    autoFocus
-                                />
+                                <div className="w-full">
+                                    <input
+                                        type="text"
+                                        value={tempTeamName}
+                                        onChange={handleTempNameChange}
+                                        onBlur={() => handleSaveName(team.id)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleSaveName(team.id)}
+                                        className="w-full text-sm font-medium text-gray-800 border-blue-500 border px-2 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        autoFocus
+                                        maxLength={MAX_TEAM_NAME_LENGTH}
+                                    />
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        {tempTeamName.length}/{MAX_TEAM_NAME_LENGTH} characters
+                                    </div>
+                                </div>
                             ) : (
                                 <span className="text-sm font-semibold text-gray-800">{team.name}</span>
                             )}
@@ -272,4 +292,4 @@ const Step3TeamSetup: React.FC<Step3Props> = ({gameData, onDataChange, onNext, o
     );
 };
 
-export default Step3TeamSetup;
+export default Step2TeamSetup;
