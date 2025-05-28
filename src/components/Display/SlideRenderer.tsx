@@ -1,8 +1,7 @@
-// src/components/Display/SlideRenderer.tsx
+// src/components/Display/SlideRenderer.tsx - Enhanced for Master Video Mode
 import React, { useEffect, useRef } from 'react';
-import { useAppContext } from '../../context/AppContext';
 import { Slide } from '../../types';
-import {Tv2, AlertCircle, ListChecks } from 'lucide-react';
+import { Tv2, AlertCircle, ListChecks } from 'lucide-react';
 import LeaderboardChartDisplay from './LeaderboardChartDisplay';
 
 interface SlideRendererProps {
@@ -10,29 +9,80 @@ interface SlideRendererProps {
     isPlayingTarget: boolean;
     videoTimeTarget?: number;
     triggerSeekEvent?: boolean;
+    // Master video mode props (for presentation display)
+    videoRef?: React.RefObject<HTMLVideoElement>;
+    onVideoPlay?: () => void;
+    onVideoPause?: () => void;
+    onVideoTimeUpdate?: () => void;
+    onVolumeChange?: () => void;
+    onLoadedMetadata?: () => void;
+    masterVideoMode?: boolean;
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          slide,
                                                          isPlayingTarget,
+                                                         videoTimeTarget,
+                                                         triggerSeekEvent,
+                                                         videoRef,
+                                                         onVideoPlay,
+                                                         onVideoPause,
+                                                         onVideoTimeUpdate,
+                                                         onVolumeChange,
+                                                         onLoadedMetadata,
+                                                         masterVideoMode = false
                                                      }) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const initialSyncDoneRef = useRef(false);
-    const pendingSyncTimeRef = useRef<number | undefined>(undefined); // Track pending sync time
-    const autoResumeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track auto-resume timeout
-    const { state } = useAppContext();
+    const localVideoRef = useRef<HTMLVideoElement>(null);
+    const activeVideoRef = videoRef || localVideoRef;
 
-    // Reset sync state when slide changes
+    // Handle video synchronization for master mode
     useEffect(() => {
-        initialSyncDoneRef.current = false;
-        pendingSyncTimeRef.current = undefined;
+        if (masterVideoMode && activeVideoRef.current && slide) {
+            const video = activeVideoRef.current;
 
-        // Clear any pending auto-resume when slide changes
-        if (autoResumeTimeoutRef.current) {
-            clearTimeout(autoResumeTimeoutRef.current);
-            autoResumeTimeoutRef.current = null;
+            // Set up event listeners for master video
+            if (onVideoPlay) video.addEventListener('play', onVideoPlay);
+            if (onVideoPause) video.addEventListener('pause', onVideoPause);
+            if (onVideoTimeUpdate) video.addEventListener('timeupdate', onVideoTimeUpdate);
+            if (onVolumeChange) video.addEventListener('volumechange', onVolumeChange);
+            if (onLoadedMetadata) video.addEventListener('loadedmetadata', onLoadedMetadata);
+
+            // Cleanup
+            return () => {
+                if (onVideoPlay) video.removeEventListener('play', onVideoPlay);
+                if (onVideoPause) video.removeEventListener('pause', onVideoPause);
+                if (onVideoTimeUpdate) video.removeEventListener('timeupdate', onVideoTimeUpdate);
+                if (onVolumeChange) video.removeEventListener('volumechange', onVolumeChange);
+                if (onLoadedMetadata) video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            };
         }
-    }, [slide?.id]);
+    }, [masterVideoMode, slide, onVideoPlay, onVideoPause, onVideoTimeUpdate, onVolumeChange, onLoadedMetadata]);
+
+    // Handle play/pause synchronization
+    useEffect(() => {
+        if (activeVideoRef.current && !masterVideoMode) {
+            const video = activeVideoRef.current;
+
+            if (isPlayingTarget && video.paused) {
+                video.play().catch(console.error);
+            } else if (!isPlayingTarget && !video.paused) {
+                video.pause();
+            }
+        }
+    }, [isPlayingTarget, masterVideoMode]);
+
+    // Handle seek synchronization
+    useEffect(() => {
+        if (activeVideoRef.current && videoTimeTarget !== undefined && !masterVideoMode) {
+            const video = activeVideoRef.current;
+            const timeDiff = Math.abs(video.currentTime - videoTimeTarget);
+
+            // Only seek if there's a significant difference (avoid constant micro-adjustments)
+            if (timeDiff > 0.5) {
+                video.currentTime = videoTimeTarget;
+            }
+        }
+    }, [videoTimeTarget, masterVideoMode]);
 
     if (!slide) {
         return (
@@ -63,31 +113,32 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
                     />
                 );
+
             case 'video':
             case 'interactive_invest':
                 const hasVideoSrc = isVideoSourceValid(slide.source_url);
                 if (hasVideoSrc && slide.source_url) {
                     return (
                         <video
-                            ref={videoRef}
+                            ref={activeVideoRef}
                             key={slide.id + "_" + slide.source_url}
                             src={slide.source_url}
                             className="max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none"
                             playsInline
+                            controls={masterVideoMode} // Only show controls on master display
+                            autoPlay={masterVideoMode && isPlayingTarget}
                         >
                             Your browser does not support the video tag.
                         </video>
                     );
                 } else if (slide.type === 'interactive_invest') {
                     return (
-                        <div
-                            className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
+                        <div className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
                             <ListChecks size={32} className="text-blue-400 mx-auto mb-4 animate-pulse"/>
                             <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">{slide.main_text || slide.title || "Investment Decisions"}</h2>
                             <p className="text-md sm:text-lg text-gray-300 mb-4">{slide.sub_text || "Refer to your team device to make investment choices."}</p>
                             {slide.timer_duration_seconds && !slide.source_url && (
-                                <div
-                                    className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
+                                <div className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
                                     TIME: {`${Math.floor(slide.timer_duration_seconds / 60)}:${(slide.timer_duration_seconds % 60).toString().padStart(2, '0')}`}
                                 </div>
                             )}
@@ -99,72 +150,68 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             case 'content_page':
                 return (
-                    <div
-                        className="text-center max-w-3xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-10 rounded-xl shadow-2xl">
-                        {slide.main_text &&
-                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-shadow-lg break-words">{slide.main_text}</h1>}
-                        {slide.sub_text &&
-                            <p className="text-lg sm:text-xl md:text-2xl text-gray-200 mb-6 sm:mb-8 text-shadow break-words">{slide.sub_text}</p>}
+                    <div className="text-center max-w-3xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-10 rounded-xl shadow-2xl">
+                        {slide.main_text && <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-shadow-lg break-words">{slide.main_text}</h1>}
+                        {slide.sub_text && <p className="text-lg sm:text-xl md:text-2xl text-gray-200 mb-6 sm:mb-8 text-shadow break-words">{slide.sub_text}</p>}
                         {slide.bullet_points && slide.bullet_points.length > 0 && (
                             <ul className="list-disc list-inside text-left space-y-2 text-md sm:text-lg md:text-xl text-gray-100 max-w-xl mx-auto">
                                 {slide.bullet_points.map((point, index) => (
-                                    <li key={index} className="text-shadow-sm">{point}</li>))}
+                                    <li key={index} className="text-shadow-sm">{point}</li>
+                                ))}
                             </ul>
                         )}
                     </div>
                 );
+
             case 'interactive_choice':
             case 'interactive_double_down_prompt':
             case 'interactive_double_down_select':
                 return (
-                    <div
-                        className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
+                    <div className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
                         <ListChecks size={32} className="text-blue-400 mx-auto mb-4 animate-pulse"/>
                         <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">{slide.main_text || slide.title || "Team Decision Time"}</h2>
                         <p className="text-md sm:text-lg text-gray-300 mb-4">{slide.sub_text || "Please refer to your devices to make your selections."}</p>
                         {slide.timer_duration_seconds && (
-                            <div
-                                className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
+                            <div className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
                                 TIME: {`${Math.floor(slide.timer_duration_seconds / 60)}:${(slide.timer_duration_seconds % 60).toString().padStart(2, '0')}`}
                             </div>
                         )}
-                        <p className="text-xs text-gray-500 mt-4"> (Timer is active on individual team devices)</p>
+                        <p className="text-xs text-gray-500 mt-4">(Timer is active on individual team devices)</p>
                     </div>
                 );
+
             case 'consequence_reveal':
             case 'payoff_reveal':
                 const hasConsequenceVideo = isVideoSourceValid(slide.source_url);
                 return (
-                    <div
-                        className="text-center max-w-4xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
+                    <div className="text-center max-w-4xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
                         {slide.source_url && !hasConsequenceVideo && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) != null &&
                             <img src={slide.source_url} alt={slide.title || 'Reveal Image'}
                                  className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
                         }
                         {hasConsequenceVideo && slide.source_url &&
                             <video
-                                ref={videoRef}
+                                ref={activeVideoRef}
                                 key={slide.id + "_" + slide.source_url}
                                 src={slide.source_url}
                                 className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto outline-none"
                                 playsInline
                                 loop={slide.title?.toLowerCase().includes('payoff')}
-                                autoPlay={isPlayingTarget}
+                                autoPlay={masterVideoMode && isPlayingTarget}
+                                controls={masterVideoMode}
                             />
                         }
-                        {slide.main_text &&
-                            <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
-                        {slide.sub_text &&
-                            <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
+                        {slide.main_text && <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
+                        {slide.sub_text && <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
                         {slide.details && slide.details.length > 0 && (
-                            <div
-                                className="mt-4 text-left text-md text-gray-100 space-y-1 bg-slate-700/50 p-4 rounded-md max-w-md mx-auto">
+                            <div className="mt-4 text-left text-md text-gray-100 space-y-1 bg-slate-700/50 p-4 rounded-md max-w-md mx-auto">
                                 {slide.details.map((detail, index) => <p key={index}>{detail}</p>)}
                             </div>
                         )}
                         {!slide.source_url && !slide.main_text && <p className="text-xl p-8">Details for {slide.title || 'this event'} will be shown based on team choices or game events.</p>}
                     </div>
                 );
+
             case 'kpi_summary_instructional':
             case 'game_end_summary':
                 if (slide.source_url && slide.source_url.match(/\.(jpeg|jpg|gif|png|svg)$/i) != null) {
@@ -172,25 +219,24 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                 className="max-w-full max-h-full object-contain rounded-lg shadow-lg"/>;
                 }
                 return (
-                    <div
-                        className="text-center max-w-3xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-10 rounded-xl shadow-2xl">
-                        {slide.main_text &&
-                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-shadow-lg break-words">{slide.main_text || slide.title || "Summary"}</h1>}
-                        {slide.sub_text &&
-                            <p className="text-lg sm:text-xl md:text-2xl text-gray-200 text-shadow break-words">{slide.sub_text}</p>}
+                    <div className="text-center max-w-3xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-10 rounded-xl shadow-2xl">
+                        {slide.main_text && <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-shadow-lg break-words">{slide.main_text || slide.title || "Summary"}</h1>}
+                        {slide.sub_text && <p className="text-lg sm:text-xl md:text-2xl text-gray-200 text-shadow break-words">{slide.sub_text}</p>}
                         {!slide.source_url && !slide.main_text && <p className="text-xl">Loading summary information...</p>}
                     </div>
                 );
+
             case 'leaderboard_chart':
-                if (!slide.interactive_data_key || !state.currentPhaseNode?.round_number) {
+                if (!slide.interactive_data_key) {
                     return <div className="p-8 text-center text-xl text-red-500">Leaderboard configuration error for slide ID: {slide.id}.</div>;
                 }
                 return (
                     <LeaderboardChartDisplay
                         dataKey={slide.interactive_data_key}
-                        currentRoundForDisplay={state.currentPhaseNode.round_number as 1 | 2 | 3}
+                        currentRoundForDisplay={1} // This should be derived from context
                     />
                 );
+
             default:
                 console.warn("[SlideRenderer] Fallback: Unsupported slide type encountered:", (slide as any).type, slide);
                 return (
@@ -204,11 +250,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     };
 
     return (
-        <div
-            className={`h-full w-full flex flex-col items-center justify-center text-white p-4 md:p-6 overflow-hidden ${slide?.background_css || 'bg-gray-900'}`}>
-            {slide && slide.id !== null && slide.id !== undefined && (
-                <div
-                    className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-full px-3.5 py-1.5 text-xs font-semibold z-20 shadow-lg">
+        <div className={`h-full w-full flex flex-col items-center justify-center text-white p-4 md:p-6 overflow-hidden ${slide?.background_css || 'bg-gray-900'}`}>
+            {!masterVideoMode && slide && slide.id !== null && slide.id !== undefined && (
+                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-full px-3.5 py-1.5 text-xs font-semibold z-20 shadow-lg">
                     SLIDE: {slide.id} {slide.title ? `(${slide.title})` : ''}
                 </div>
             )}

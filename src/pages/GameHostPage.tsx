@@ -1,9 +1,9 @@
-// src/pages/GameHostPage.tsx - Simplified Version
-import React, { useState } from 'react';
+// src/pages/GameHostPage.tsx - Simplified Perfect Sync Version
+import React from 'react';
 import HostPanel from '../components/Host/HostPanel.tsx';
-import HostControlPanel from '../components/Host/HostControlPanel.tsx';
-import {useAppContext} from '../context/AppContext';
-import {Monitor, AlertCircle, Info} from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
+import { Monitor, AlertCircle, Info, Video } from 'lucide-react';
+import DisplayView from '../components/Display/DisplayView';
 
 const GameHostPage: React.FC = () => {
     const {
@@ -11,10 +11,7 @@ const GameHostPage: React.FC = () => {
         currentSlideData,
     } = useAppContext();
 
-    const {currentSessionId, gameStructure} = state;
-
-    // Simple state for host video toggle
-    const [hostVideoEnabled, setHostVideoEnabled] = useState(true);
+    const { currentSessionId, gameStructure } = state;
 
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
         return (
@@ -30,10 +27,9 @@ const GameHostPage: React.FC = () => {
     const isVideoSlide = currentSlideData && (
         currentSlideData.type === 'video' ||
         (currentSlideData.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
-        ((currentSlideData.type === 'consequence_reveal' || currentSlideData.type === 'payoff_reveal') && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
+        ((currentSlideData.type === 'consequence_reveal' || currentSlideData.type === 'payoff_reveal') &&
+            currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
     );
-
-    const videoUrl = isVideoSlide ? currentSlideData.source_url : null;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 p-3 md:p-4 lg:p-6 overflow-hidden">
@@ -53,10 +49,7 @@ const GameHostPage: React.FC = () => {
                 <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 min-h-0">
                     {/* Teacher Control Panel */}
                     <div className="lg:col-span-1 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-120px)]">
-                        <HostPanel
-                            hostVideoEnabled={hostVideoEnabled}
-                            onToggleHostVideo={() => setHostVideoEnabled(!hostVideoEnabled)}
-                        />
+                        <HostPanel />
                     </div>
 
                     {/* Content Preview Area */}
@@ -64,10 +57,11 @@ const GameHostPage: React.FC = () => {
                         <div className="flex-shrink-0 flex items-center justify-between bg-gray-100 px-4 py-3 border-b border-gray-200">
                             <h2 className="font-semibold text-gray-800 text-sm flex items-center">
                                 <Monitor size={16} className="mr-2 opacity-80"/>
-                                Content Preview & Controls
-                                {!hostVideoEnabled && isVideoSlide && (
-                                    <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                                        Video Disabled
+                                Content Preview
+                                {isVideoSlide && (
+                                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded flex items-center">
+                                        <Video size={12} className="mr-1"/>
+                                        Video Slide
                                     </span>
                                 )}
                             </h2>
@@ -78,7 +72,7 @@ const GameHostPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="flex-grow bg-gray-50 p-4 overflow-y-auto">
+                        <div className="flex-grow bg-gray-50 overflow-hidden">
                             {!currentSlideData ? (
                                 <div className="h-full flex items-center justify-center text-gray-400">
                                     <div className="text-center">
@@ -87,69 +81,29 @@ const GameHostPage: React.FC = () => {
                                         <p className="text-sm mt-1">Navigate to a slide using the journey map</p>
                                     </div>
                                 </div>
-                            ) : isVideoSlide && videoUrl ? (
-                                <div>
-                                    <HostControlPanel
-                                        slideId={currentSlideData.id}
-                                        videoUrl={videoUrl}
-                                        isForCurrentSlide={true}
-                                        hostVideoEnabled={hostVideoEnabled}
-                                    />
-                                    <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                        <p className="text-sm text-blue-800">
-                                            <Info size={16} className="inline mr-1" />
-                                            {hostVideoEnabled
-                                                ? 'This video preview syncs with the student display. Controls affect all viewers.'
-                                                : 'Host video is disabled. Students see full video on presentation screen. Use controls to manage playback.'
-                                            }
-                                        </p>
-                                        {!hostVideoEnabled && (
-                                            <p className="text-xs text-blue-700 mt-2">
-                                                Use the "Host Video: OFF" toggle in the controls below to enable preview
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
                             ) : (
-                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                    <h3 className="font-semibold text-gray-800 mb-3">
-                                        Current Slide Information
-                                    </h3>
-                                    <dl className="space-y-2 text-sm">
-                                        <div>
-                                            <dt className="font-medium text-gray-500">Type:</dt>
-                                            <dd className="text-gray-800 capitalize">{currentSlideData.type.replace(/_/g, ' ')}</dd>
+                                <div className="h-full">
+                                    <DisplayView
+                                        slide={currentSlideData}
+                                        isPlayingTarget={false}
+                                        videoTimeTarget={0}
+                                        triggerSeekEvent={false}
+                                    />
+                                    {isVideoSlide && (
+                                        <div className="absolute bottom-4 left-4 right-4">
+                                            <div className="bg-blue-900/80 backdrop-blur-sm rounded-lg p-3 text-white text-sm">
+                                                <div className="flex items-center mb-2">
+                                                    <Video size={16} className="mr-2 text-blue-300"/>
+                                                    <span className="font-semibold">Video Slide Active</span>
+                                                </div>
+                                                <p className="text-blue-200 text-xs">
+                                                    🎥 This is a preview only. Launch the Student Display to show synchronized content to students.
+                                                    <br/>
+                                                    🎵 Audio and video controls will be perfectly synced between this preview and the student display.
+                                                </p>
+                                            </div>
                                         </div>
-                                        {currentSlideData.main_text && (
-                                            <div>
-                                                <dt className="font-medium text-gray-500">Main Text:</dt>
-                                                <dd className="text-gray-800">{currentSlideData.main_text}</dd>
-                                            </div>
-                                        )}
-                                        {currentSlideData.sub_text && (
-                                            <div>
-                                                <dt className="font-medium text-gray-500">Sub Text:</dt>
-                                                <dd className="text-gray-800">{currentSlideData.sub_text}</dd>
-                                            </div>
-                                        )}
-                                        {currentSlideData.teacher_alert && (
-                                            <div className="mt-3 p-3 bg-yellow-50 rounded border border-yellow-200">
-                                                <dt className="font-medium text-yellow-800 mb-1">Teacher Alert:</dt>
-                                                <dd className="text-yellow-700 text-sm">{currentSlideData.teacher_alert.message}</dd>
-                                            </div>
-                                        )}
-                                    </dl>
-
-                                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                                        <p className="text-sm text-gray-600">
-                                            <Info size={16} className="inline mr-1" />
-                                            {currentSlideData.type === 'image' && 'This image is displayed on the student screen.'}
-                                            {currentSlideData.type === 'interactive_choice' && 'Students are making decisions on their devices.'}
-                                            {currentSlideData.type === 'interactive_invest' && 'Students are selecting investments on their devices.'}
-                                            {currentSlideData.type === 'leaderboard_chart' && 'The leaderboard is displayed on the student screen.'}
-                                            {(currentSlideData.type === 'content_page' || currentSlideData.type === 'kpi_summary_instructional') && 'This content is displayed on the student screen.'}
-                                        </p>
-                                    </div>
+                                    )}
                                 </div>
                             )}
                         </div>
