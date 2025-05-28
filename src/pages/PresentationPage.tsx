@@ -1,9 +1,9 @@
-// src/pages/PresentationPage.tsx - Master Control with Perfect Sync
+// src/pages/PresentationPage.tsx - Pure Display Mode (No User Controls)
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Slide } from '../types';
 import SlideRenderer from '../components/Display/SlideRenderer';
-import { Hourglass, Monitor, Wifi, WifiOff } from 'lucide-react';
+import { Hourglass, Monitor, RefreshCw } from 'lucide-react';
 
 interface VideoState {
     playing: boolean;
@@ -25,10 +25,10 @@ const PresentationPage: React.FC = () => {
         volume: 1,
         lastUpdate: Date.now()
     });
+    const [connectionError, setConnectionError] = useState(false);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const channelRef = useRef<BroadcastChannel | null>(null);
-    const syncIntervalRef = useRef<NodeJS.Timeout>();
     const lastPingRef = useRef<number>(0);
 
     // Broadcast video state to host preview
@@ -66,13 +66,12 @@ const PresentationPage: React.FC = () => {
             const now = Date.now();
             lastPingRef.current = now;
 
-            console.log('[PresentationPage] BroadcastChannel message received:', event.data);
-
             switch (event.data.type) {
                 case 'SLIDE_UPDATE':
                     setIsConnectedToHost(true);
-                    setStatusMessage('Connected to host - Presentation Display Active');
+                    setStatusMessage('Connected - Presentation Display Active');
                     setCurrentSlide(event.data.slide);
+                    setConnectionError(false);
                     console.log('[PresentationPage] Slide updated:', event.data.slide?.id);
 
                     // Reset video state when slide changes
@@ -132,8 +131,8 @@ const PresentationPage: React.FC = () => {
                     break;
 
                 case 'PING':
-                    // Respond to keep-alive pings from host
                     setIsConnectedToHost(true);
+                    setConnectionError(false);
                     channel.postMessage({
                         type: 'PONG',
                         sessionId,
@@ -143,7 +142,6 @@ const PresentationPage: React.FC = () => {
                     break;
 
                 case 'REQUEST_CURRENT_STATE':
-                    // Send current state when requested
                     channel.postMessage({
                         type: 'STATE_RESPONSE',
                         sessionId,
@@ -174,7 +172,8 @@ const PresentationPage: React.FC = () => {
         // Set up connection monitoring
         const connectionTimeout = setTimeout(() => {
             if (!isConnectedToHost) {
-                setStatusMessage('Connection timeout. Please ensure the host dashboard is open in another tab.');
+                setStatusMessage('Connection timeout. Please ensure the host dashboard is open.');
+                setConnectionError(true);
             }
         }, 5000);
 
@@ -184,52 +183,20 @@ const PresentationPage: React.FC = () => {
             if (timeSinceLastPing > 5000) {
                 setIsConnectedToHost(false);
                 setStatusMessage('Lost connection to host. Please check the host dashboard.');
+                setConnectionError(true);
             }
         }, 2000);
 
         return () => {
             clearTimeout(connectionTimeout);
             clearInterval(connectionMonitor);
-            if (syncIntervalRef.current) {
-                clearInterval(syncIntervalRef.current);
-            }
             channel.removeEventListener('message', handleMessage);
             channel.close();
             channelRef.current = null;
         };
     }, [sessionId, isConnectedToHost, videoState, currentSlide, broadcastVideoState]);
 
-    // Set up video state broadcasting
-    useEffect(() => {
-        if (videoRef.current && currentSlide && isConnectedToHost) {
-            const video = videoRef.current;
-
-            // Clear any existing interval
-            if (syncIntervalRef.current) {
-                clearInterval(syncIntervalRef.current);
-            }
-
-            // Broadcast video state periodically when playing
-            syncIntervalRef.current = setInterval(() => {
-                if (!video.paused) {
-                    broadcastVideoState({
-                        playing: !video.paused,
-                        currentTime: video.currentTime,
-                        duration: video.duration || 0,
-                        volume: video.volume
-                    });
-                }
-            }, 250); // High frequency updates for smooth sync
-
-            return () => {
-                if (syncIntervalRef.current) {
-                    clearInterval(syncIntervalRef.current);
-                }
-            };
-        }
-    }, [currentSlide, isConnectedToHost, broadcastVideoState]);
-
-    // Video event handlers
+    // Video event handlers for sync broadcasting
     const handleVideoPlay = useCallback(() => {
         broadcastVideoState({ playing: true });
     }, [broadcastVideoState]);
@@ -240,9 +207,8 @@ const PresentationPage: React.FC = () => {
 
     const handleVideoTimeUpdate = useCallback(() => {
         if (videoRef.current) {
-            // Throttled time updates to prevent overwhelming the channel
             const now = Date.now();
-            if (now - videoState.lastUpdate > 200) { // Update every 200ms max
+            if (now - videoState.lastUpdate > 200) { // Throttle to every 200ms
                 broadcastVideoState({
                     currentTime: videoRef.current.currentTime,
                     duration: videoRef.current.duration || 0
@@ -267,56 +233,45 @@ const PresentationPage: React.FC = () => {
         }
     }, [broadcastVideoState]);
 
-    const handleVideoSeeked = useCallback(() => {
-        if (videoRef.current) {
-            broadcastVideoState({
-                currentTime: videoRef.current.currentTime,
-                playing: !videoRef.current.paused
-            });
-        }
-    }, [broadcastVideoState]);
-
-    // Connection Status Component
-    const ConnectionStatus = () => (
-        <div className="absolute top-4 right-4 z-50">
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                isConnectedToHost
-                    ? 'bg-green-900/80 text-green-200 border border-green-600'
-                    : 'bg-red-900/80 text-red-200 border border-red-600'
-            } backdrop-blur-sm`}>
-                {isConnectedToHost ? (
-                    <Wifi size={16} className="text-green-400" />
-                ) : (
-                    <WifiOff size={16} className="text-red-400" />
-                )}
-                <span>{isConnectedToHost ? 'Connected' : 'Disconnected'}</span>
-            </div>
-        </div>
-    );
-
     // Loading/Connection State
     if (!isConnectedToHost || !currentSlide) {
         return (
             <div className="h-screen w-screen bg-gray-900 flex items-center justify-center relative">
-                <ConnectionStatus />
                 <div className="text-center text-white p-8">
-                    <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse"/>
-                    <h1 className="text-2xl font-bold mb-2">Presentation Display</h1>
-                    <p className="text-lg text-gray-300">{statusMessage}</p>
-                    {sessionId && (
-                        <p className="text-sm text-gray-500 mt-4">
-                            Session ID: {sessionId}
-                        </p>
+                    {connectionError ? (
+                        <>
+                            <Monitor size={48} className="mx-auto mb-4 text-red-400"/>
+                            <h1 className="text-2xl font-bold mb-2 text-red-300">Connection Issue</h1>
+                            <p className="text-lg text-gray-300 mb-4">{statusMessage}</p>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg mx-auto transition-colors"
+                            >
+                                <RefreshCw size={16} />
+                                Reload Page
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse"/>
+                            <h1 className="text-2xl font-bold mb-2">Presentation Display</h1>
+                            <p className="text-lg text-gray-300">{statusMessage}</p>
+                            {sessionId && (
+                                <p className="text-sm text-gray-500 mt-4">
+                                    Session ID: {sessionId}
+                                </p>
+                            )}
+                            <div className="mt-8 text-sm text-gray-400">
+                                <p className="flex items-center justify-center">
+                                    <Monitor size={16} className="mr-2"/>
+                                    Waiting for host to start content display
+                                </p>
+                                <p className="mt-2 text-xs">
+                                    Make sure the teacher dashboard is open in another tab
+                                </p>
+                            </div>
+                        </>
                     )}
-                    <div className="mt-8 text-sm text-gray-400">
-                        <p className="flex items-center justify-center">
-                            <Monitor size={16} className="mr-2"/>
-                            Waiting for host to start content display
-                        </p>
-                        <p className="mt-2 text-xs">
-                            Make sure the teacher dashboard is open in another tab
-                        </p>
-                    </div>
                 </div>
             </div>
         );
@@ -324,9 +279,7 @@ const PresentationPage: React.FC = () => {
 
     return (
         <div className="h-screen w-screen overflow-hidden bg-black relative">
-            <ConnectionStatus />
-
-            {/* Master video display with enhanced event handling */}
+            {/* Pure display - no user controls, completely view-only */}
             <SlideRenderer
                 slide={currentSlide}
                 isPlayingTarget={videoState.playing}
@@ -338,38 +291,18 @@ const PresentationPage: React.FC = () => {
                 onVideoTimeUpdate={handleVideoTimeUpdate}
                 onVolumeChange={handleVolumeChange}
                 onLoadedMetadata={handleLoadedMetadata}
-                masterVideoMode={true}
+                masterVideoMode={true} // Enable master video mode for audio/events
+                syncMode={false} // Not syncing to another display
+                hostMode={false} // No click controls - pure display
             />
 
-            {/* Enhanced video event listeners */}
-            {currentSlide && videoRef.current && (
-                <div style={{ display: 'none' }}>
-                    {/* Hidden event listener setup */}
-                    <video
-                        ref={(el) => {
-                            if (el && videoRef.current && el !== videoRef.current) {
-                                // Additional event listeners for perfect sync
-                                el.addEventListener('seeked', handleVideoSeeked);
-                                el.addEventListener('loadstart', () => {
-                                    console.log('[PresentationPage] Video load started');
-                                });
-                                el.addEventListener('canplaythrough', () => {
-                                    console.log('[PresentationPage] Video ready for smooth playback');
-                                });
-                            }
-                        }}
-                    />
-                </div>
-            )}
-
-            {/* Debug info overlay (only in development) */}
+            {/* Development debug info only */}
             {process.env.NODE_ENV === 'development' && currentSlide && (
                 <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs z-20">
                     <div>Slide: {currentSlide.id}</div>
                     <div>Playing: {videoState.playing ? 'Yes' : 'No'}</div>
                     <div>Time: {Math.floor(videoState.currentTime)}s / {Math.floor(videoState.duration)}s</div>
                     <div>Volume: {Math.round(videoState.volume * 100)}%</div>
-                    <div>Sync Updates: {videoState.lastUpdate}</div>
                 </div>
             )}
         </div>

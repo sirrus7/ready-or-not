@@ -1,4 +1,4 @@
-// src/components/Host/HostGameControls.tsx - Perfect Sync with Master Video Control
+// src/components/Host/HostGameControls.tsx - Simplified without Complex Video Controls
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronLeft,
@@ -10,27 +10,12 @@ import {
     ExternalLink,
     Lightbulb,
     LogOut,
-    Play,
-    Pause,
-    SkipBack,
-    SkipForward,
-    Volume2,
-    Monitor,
-    MonitorOff,
-    RefreshCw
+    Monitor
 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import Modal from '../UI/Modal';
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
-
-interface VideoState {
-    playing: boolean;
-    currentTime: number;
-    duration: number;
-    volume: number;
-    lastUpdate: number;
-}
 
 const HostGameControls: React.FC = () => {
     const {
@@ -53,18 +38,10 @@ const HostGameControls: React.FC = () => {
     const [isExitConfirmModalOpen, setisExitConfirmModalOpen] = useState(false);
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
     const [isPresentationDisplayOpen, setIsPresentationDisplayOpen] = useState(false);
-    const [videoState, setVideoState] = useState<VideoState>({
-        playing: false,
-        currentTime: 0,
-        duration: 0,
-        volume: 1,
-        lastUpdate: 0
-    });
 
     const channelRef = useRef<BroadcastChannel | null>(null);
     const pingIntervalRef = useRef<NodeJS.Timeout>();
     const lastPongRef = useRef<number>(0);
-    const syncIntervalRef = useRef<NodeJS.Timeout>();
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
@@ -90,31 +67,13 @@ const HostGameControls: React.FC = () => {
         const channel = new BroadcastChannel(channelName);
         channelRef.current = channel;
 
-        console.log(`[HostGameControls] Created BroadcastChannel: ${channelName}`);
-
         // Listen for messages from presentation display
         const handleMessage = (event: MessageEvent) => {
-            console.log('[HostGameControls] BroadcastChannel message received:', event.data);
-
             switch (event.data.type) {
-                case 'VIDEO_STATE_UPDATE':
-                    if (event.data.sessionId === state.currentSessionId && event.data.videoState) {
-                        const newState = event.data.videoState;
-                        // Only update if this is newer than our current state
-                        if (newState.lastUpdate > videoState.lastUpdate) {
-                            setVideoState(newState);
-                        }
-                    }
-                    break;
-
                 case 'PONG':
                     if (event.data.sessionId === state.currentSessionId) {
                         lastPongRef.current = Date.now();
                         setIsPresentationDisplayOpen(true);
-                        // Sync video state from pong response
-                        if (event.data.videoState && event.data.videoState.lastUpdate > videoState.lastUpdate) {
-                            setVideoState(event.data.videoState);
-                        }
                     }
                     break;
 
@@ -131,14 +90,6 @@ const HostGameControls: React.FC = () => {
                                 sessionId: state.currentSessionId,
                                 timestamp: Date.now()
                             });
-                        }
-                    }
-                    break;
-
-                case 'STATE_RESPONSE':
-                    if (event.data.sessionId === state.currentSessionId) {
-                        if (event.data.videoState && event.data.videoState.lastUpdate > videoState.lastUpdate) {
-                            setVideoState(event.data.videoState);
                         }
                     }
                     break;
@@ -176,14 +127,11 @@ const HostGameControls: React.FC = () => {
             if (pingIntervalRef.current) {
                 clearInterval(pingIntervalRef.current);
             }
-            if (syncIntervalRef.current) {
-                clearInterval(syncIntervalRef.current);
-            }
             channel.removeEventListener('message', handleMessage);
             channel.close();
             channelRef.current = null;
         };
-    }, [state.currentSessionId, currentSlideData, videoState.lastUpdate]);
+    }, [state.currentSessionId, currentSlideData]);
 
     // Send slide update when current slide changes
     useEffect(() => {
@@ -195,85 +143,8 @@ const HostGameControls: React.FC = () => {
                 sessionId: state.currentSessionId,
                 timestamp: Date.now()
             });
-
-            // Reset video state when slide changes
-            const resetState = {
-                playing: false,
-                currentTime: 0,
-                duration: 0,
-                volume: 1,
-                lastUpdate: Date.now()
-            };
-            setVideoState(resetState);
         }
     }, [currentSlideData, state.currentSessionId]);
-
-    // Video control functions - send commands to presentation display
-    const sendVideoCommand = (action: string, value?: number) => {
-        if (channelRef.current && state.currentSessionId) {
-            const timestamp = Date.now();
-            console.log(`[HostGameControls] Sending video command: ${action}`, value);
-
-            channelRef.current.postMessage({
-                type: 'VIDEO_CONTROL',
-                sessionId: state.currentSessionId,
-                action,
-                value,
-                timestamp
-            });
-
-            // Immediately update local state for responsive UI
-            let stateUpdate: Partial<VideoState> = { lastUpdate: timestamp };
-
-            switch (action) {
-                case 'play':
-                    stateUpdate.playing = true;
-                    break;
-                case 'pause':
-                    stateUpdate.playing = false;
-                    break;
-                case 'seek':
-                    if (value !== undefined) {
-                        stateUpdate.currentTime = value;
-                    }
-                    break;
-                case 'volume':
-                    if (value !== undefined) {
-                        stateUpdate.volume = value;
-                    }
-                    break;
-            }
-
-            setVideoState(prev => ({ ...prev, ...stateUpdate }));
-        }
-    };
-
-    // Enhanced video control functions
-    const handlePlay = () => sendVideoCommand('play');
-    const handlePause = () => sendVideoCommand('pause');
-    const handleSeek = (time: number) => sendVideoCommand('seek', time);
-    const handleVolumeChange = (volume: number) => sendVideoCommand('volume', volume);
-    const handleSkip = (seconds: number) => {
-        const newTime = Math.max(0, Math.min(videoState.duration, videoState.currentTime + seconds));
-        sendVideoCommand('seek', newTime);
-    };
-
-    // Request fresh video state from presentation display
-    const requestVideoStateUpdate = () => {
-        if (channelRef.current && state.currentSessionId) {
-            channelRef.current.postMessage({
-                type: 'REQUEST_VIDEO_STATE',
-                sessionId: state.currentSessionId,
-                timestamp: Date.now()
-            });
-        }
-    };
-
-    const formatTime = (seconds: number): string => {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
 
     const handleOpenDisplay = () => {
         if (!state.currentSessionId) {
@@ -341,9 +212,6 @@ const HostGameControls: React.FC = () => {
 
         if (pingIntervalRef.current) {
             clearInterval(pingIntervalRef.current);
-        }
-        if (syncIntervalRef.current) {
-            clearInterval(syncIntervalRef.current);
         }
 
         navigate('/dashboard');
@@ -433,113 +301,19 @@ const HostGameControls: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Enhanced Video Controls - Only show when video slide is active and display is connected */}
-                {isVideoSlide && isPresentationDisplayOpen && (
-                    <div className="mb-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-semibold text-blue-800 flex items-center">
-                                <Monitor size={16} className="mr-2"/>
-                                Master Video Controls
-                                <span className="ml-2 text-xs bg-blue-200 text-blue-700 px-2 py-1 rounded-full">
-                                    Perfect Sync
-                                </span>
-                            </h4>
-                            <button
-                                onClick={requestVideoStateUpdate}
-                                className="p-1 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-100 transition-colors"
-                                title="Refresh video state"
-                            >
-                                <RefreshCw size={16} />
-                            </button>
-                        </div>
-
-                        {/* Play/Pause and Skip Controls */}
-                        <div className="flex items-center justify-center gap-2 mb-4">
-                            <button
-                                onClick={() => handleSkip(-10)}
-                                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors shadow-sm"
-                                title="Skip back 10s"
-                            >
-                                <SkipBack size={20} />
-                            </button>
-
-                            <button
-                                onClick={videoState.playing ? handlePause : handlePlay}
-                                className="p-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-md"
-                            >
-                                {videoState.playing ? <Pause size={24} /> : <Play size={24} />}
-                            </button>
-
-                            <button
-                                onClick={() => handleSkip(10)}
-                                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors shadow-sm"
-                                title="Skip forward 10s"
-                            >
-                                <SkipForward size={20} />
-                            </button>
-                        </div>
-
-                        {/* Timeline */}
-                        <div className="mb-4">
-                            <input
-                                type="range"
-                                min="0"
-                                max={videoState.duration || 100}
-                                value={videoState.currentTime}
-                                onChange={(e) => handleSeek(parseFloat(e.target.value))}
-                                className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider-thumb"
-                                style={{
-                                    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(videoState.currentTime / (videoState.duration || 100)) * 100}%, #dbeafe ${(videoState.currentTime / (videoState.duration || 100)) * 100}%, #dbeafe 100%)`
-                                }}
-                            />
-                            <div className="flex justify-between text-xs text-blue-600 mt-1">
-                                <span>{formatTime(videoState.currentTime)}</span>
-                                <span className="text-blue-500">
-                                    {videoState.playing ? '▶ PLAYING' : '⏸ PAUSED'}
-                                </span>
-                                <span>{formatTime(videoState.duration)}</span>
+                {/* Simple video instruction for video slides */}
+                {isVideoSlide && (
+                    <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="text-sm text-blue-800">
+                            <div className="flex items-center mb-1">
+                                <Monitor size={14} className="mr-2"/>
+                                <span className="font-medium">Video Slide Active</span>
                             </div>
+                            <p className="text-blue-700 text-xs">
+                                Click directly on the video preview above to play/pause.
+                                Video will sync automatically with the presentation display.
+                            </p>
                         </div>
-
-                        {/* Volume */}
-                        <div className="flex items-center gap-2 mb-3">
-                            <Volume2 size={16} className="text-blue-600" />
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.1"
-                                value={videoState.volume}
-                                onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                                className="flex-1 h-1 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-                            />
-                            <span className="text-xs text-blue-600 w-8">{Math.round(videoState.volume * 100)}%</span>
-                        </div>
-
-                        <div className="text-center">
-                            <div className="text-xs text-blue-700 bg-blue-100 rounded-md px-3 py-2">
-                                🎬 Controls sync instantly across all displays
-                                <br/>
-                                🔊 Audio plays from presentation display only
-                                <br/>
-                                ⚡ Last sync: {new Date(videoState.lastUpdate).toLocaleTimeString()}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Connection Status for Video Slides */}
-                {isVideoSlide && !isPresentationDisplayOpen && (
-                    <div className="mb-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <div className="flex items-center text-yellow-800">
-                            <MonitorOff size={16} className="mr-2" />
-                            <span className="text-sm font-medium">
-                                Video controls available after opening presentation display
-                            </span>
-                        </div>
-                        <p className="text-xs text-yellow-700 mt-1">
-                            Click "Open Presentation Display" to enable synchronized video playback
-                        </p>
                     </div>
                 )}
 
