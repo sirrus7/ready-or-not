@@ -278,47 +278,6 @@ const HostGameControls: React.FC = () => {
     return (
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
             <div className="p-3 md:p-4">
-                {/* Header Section */}
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
-                    <button
-                        onClick={handleOpenDisplay}
-                        className={`flex items-center justify-center gap-2 py-2.5 px-5 rounded-lg transition-colors shadow-md text-sm font-medium w-full sm:w-auto ${
-                            isPresentationDisplayOpen
-                                ? 'bg-green-600 text-white hover:bg-green-700'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                    >
-                        {isPresentationDisplayOpen ? (
-                            <>
-                                <Monitor size={18}/>
-                                Presentation Display Connected
-                            </>
-                        ) : (
-                            <>
-                                <ExternalLink size={18}/>
-                                Open Presentation Display
-                            </>
-                        )}
-                    </button>
-                </div>
-
-                {/* Video instruction for video slides */}
-                {isVideoSlide && (
-                    <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="text-sm text-blue-800">
-                            <div className="flex items-center mb-1">
-                                <Monitor size={14} className="mr-2"/>
-                                <span className="font-medium">Video Slide Active</span>
-                            </div>
-                            <p className="text-blue-700 text-xs">
-                                {isPresentationDisplayOpen
-                                    ? "Video controls are integrated into the video player. Click on the video preview above to control playback."
-                                    : "Click directly on the video preview above to play/pause. Open presentation display for full controls."
-                                }
-                            </p>
-                        </div>
-                    </div>
-                )}
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 border-t border-gray-200 pt-3">
