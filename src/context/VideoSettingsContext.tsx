@@ -29,14 +29,6 @@ const defaultSettings: VideoSettings = {
 
 const VideoSettingsContext = createContext<VideoSettingsContextType | undefined>(undefined);
 
-export const useVideoSettings = () => {
-    const context = useContext(VideoSettingsContext);
-    if (!context) {
-        throw new Error('useVideoSettings must be used within VideoSettingsProvider');
-    }
-    return context;
-};
-
 interface VideoSettingsProviderProps {
     children: React.ReactNode;
     sessionId?: string;
