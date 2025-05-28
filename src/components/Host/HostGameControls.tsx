@@ -1,4 +1,4 @@
-// src/components/Host/HostGameControls.tsx - Perfect Sync with Presentation Display as Source of Truth
+// src/components/Host/HostGameControls.tsx - Cross-Tab Communication with Perfect Sync
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronLeft,
@@ -50,8 +50,7 @@ const HostGameControls: React.FC = () => {
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
     const [isExitConfirmModalOpen, setisExitConfirmModalOpen] = useState(false);
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
-    const [studentWindowRef, setStudentWindowRef] = useState<Window | null>(null);
-    const [isStudentWindowOpen, setIsStudentWindowOpen] = useState(false);
+    const [isPresentationDisplayOpen, setIsPresentationDisplayOpen] = useState(false);
     const [videoState, setVideoState] = useState<VideoState>({
         playing: false,
         currentTime: 0,
@@ -59,7 +58,9 @@ const HostGameControls: React.FC = () => {
         volume: 1
     });
 
+    const channelRef = useRef<BroadcastChannel | null>(null);
     const pingIntervalRef = useRef<NodeJS.Timeout>();
+    const lastPongRef = useRef<number>(0);
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
@@ -77,15 +78,132 @@ const HostGameControls: React.FC = () => {
             currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
     );
 
+    // Initialize BroadcastChannel when session is available
+    useEffect(() => {
+        if (!state.currentSessionId) return;
+
+        const channelName = `game-session-${state.currentSessionId}`;
+        const channel = new BroadcastChannel(channelName);
+        channelRef.current = channel;
+
+        console.log(`[HostGameControls] Created BroadcastChannel: ${channelName}`);
+
+        // Listen for messages from presentation display
+        const handleMessage = (event: MessageEvent) => {
+            console.log('[HostGameControls] BroadcastChannel message received:', event.data);
+
+            switch (event.data.type) {
+                case 'VIDEO_STATE_UPDATE':
+                    if (event.data.sessionId === state.currentSessionId) {
+                        setVideoState(event.data.videoState);
+                    }
+                    break;
+
+                case 'PONG':
+                    if (event.data.sessionId === state.currentSessionId) {
+                        lastPongRef.current = Date.now();
+                        setIsPresentationDisplayOpen(true);
+                        // Sync video state from pong response
+                        if (event.data.videoState) {
+                            setVideoState(event.data.videoState);
+                        }
+                    }
+                    break;
+
+                case 'PRESENTATION_READY':
+                    if (event.data.sessionId === state.currentSessionId) {
+                        setIsPresentationDisplayOpen(true);
+                        // Send current slide when presentation connects
+                        if (currentSlideData) {
+                            channel.postMessage({
+                                type: 'SLIDE_UPDATE',
+                                slide: currentSlideData,
+                                sessionId: state.currentSessionId,
+                                timestamp: Date.now()
+                            });
+                        }
+                    }
+                    break;
+
+                case 'STATE_RESPONSE':
+                    if (event.data.sessionId === state.currentSessionId) {
+                        if (event.data.videoState) {
+                            setVideoState(event.data.videoState);
+                        }
+                    }
+                    break;
+
+                case 'REQUEST_CURRENT_STATE':
+                    if (event.data.sessionId === state.currentSessionId && currentSlideData) {
+                        channel.postMessage({
+                            type: 'SLIDE_UPDATE',
+                            slide: currentSlideData,
+                            sessionId: state.currentSessionId,
+                            timestamp: Date.now()
+                        });
+                    }
+                    break;
+            }
+        };
+
+        channel.addEventListener('message', handleMessage);
+
+        // Set up ping to monitor presentation display connection
+        pingIntervalRef.current = setInterval(() => {
+            channel.postMessage({
+                type: 'PING',
+                sessionId: state.currentSessionId,
+                timestamp: Date.now()
+            });
+
+            // Check if we haven't received a pong in the last 5 seconds
+            if (Date.now() - lastPongRef.current > 5000) {
+                setIsPresentationDisplayOpen(false);
+            }
+        }, 2000);
+
+        return () => {
+            if (pingIntervalRef.current) {
+                clearInterval(pingIntervalRef.current);
+            }
+            channel.removeEventListener('message', handleMessage);
+            channel.close();
+            channelRef.current = null;
+        };
+    }, [state.currentSessionId, currentSlideData]);
+
+    // Send slide update when current slide changes
+    useEffect(() => {
+        if (channelRef.current && currentSlideData && state.currentSessionId) {
+            console.log('[HostGameControls] Sending slide update:', currentSlideData.id);
+            channelRef.current.postMessage({
+                type: 'SLIDE_UPDATE',
+                slide: currentSlideData,
+                sessionId: state.currentSessionId,
+                timestamp: Date.now()
+            });
+
+            // Reset video state when slide changes
+            setVideoState({
+                playing: false,
+                currentTime: 0,
+                duration: 0,
+                volume: 1
+            });
+        }
+    }, [currentSlideData, state.currentSessionId]);
+
     // Video control functions - send commands to presentation display
     const sendVideoCommand = (action: string, value?: number) => {
-        if (studentWindowRef && !studentWindowRef.closed) {
-            studentWindowRef.postMessage({
+        if (channelRef.current && state.currentSessionId) {
+            console.log(`[HostGameControls] Sending video command: ${action}`, value);
+            channelRef.current.postMessage({
                 type: 'VIDEO_CONTROL',
                 sessionId: state.currentSessionId,
                 action,
-                value
-            }, window.location.origin);
+                value,
+                timestamp: Date.now()
+            });
         }
     };
 
@@ -104,112 +222,21 @@ const HostGameControls: React.FC = () => {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const handleOpenDisplay = async () => {
+    const handleOpenDisplay = () => {
         if (!state.currentSessionId) {
             alert("No active session. Please create or select a game first.");
             return;
         }
 
         const url = `/student-display/${state.currentSessionId}`;
-        const features = 'width=1920,height=1080,menubar=no,toolbar=no,location=no,status=no,scrollbars=no,resizable=yes';
-        const studentWindow = window.open(url, 'StudentDisplay', features);
+        const newTab = window.open(url, '_blank');
 
-        if (studentWindow) {
-            setStudentWindowRef(studentWindow);
-            setIsStudentWindowOpen(true);
-
-            // Set up message listener for video state updates from presentation display
-            const handleMessage = (event: MessageEvent) => {
-                if (event.origin !== window.location.origin) return;
-
-                if (event.data.type === 'VIDEO_STATE_UPDATE' && event.data.sessionId === state.currentSessionId) {
-                    setVideoState(event.data.videoState);
-                } else if (event.data.type === 'PONG' && event.data.sessionId === state.currentSessionId) {
-                    // Student display is alive - sync video state
-                    if (event.data.videoState) {
-                        setVideoState(event.data.videoState);
-                    }
-                } else if (event.data.type === 'STUDENT_DISPLAY_READY') {
-                    // Send current slide when display connects
-                    if (currentSlideData) {
-                        studentWindow.postMessage({
-                            type: 'SLIDE_UPDATE',
-                            slide: currentSlideData
-                        }, window.location.origin);
-                    }
-                } else if (event.data.type === 'REQUEST_CURRENT_STATE') {
-                    // Send current slide when requested
-                    if (currentSlideData) {
-                        studentWindow.postMessage({
-                            type: 'SLIDE_UPDATE',
-                            slide: currentSlideData
-                        }, window.location.origin);
-                    }
-                }
-            };
-
-            window.addEventListener('message', handleMessage);
-
-            // Set up ping to keep connection alive and sync video state
-            pingIntervalRef.current = setInterval(() => {
-                if (studentWindow && !studentWindow.closed) {
-                    studentWindow.postMessage({
-                        type: 'PING',
-                        sessionId: state.currentSessionId
-                    }, window.location.origin);
-                } else {
-                    setIsStudentWindowOpen(false);
-                    setStudentWindowRef(null);
-                    if (pingIntervalRef.current) {
-                        clearInterval(pingIntervalRef.current);
-                    }
-                    window.removeEventListener('message', handleMessage);
-                }
-            }, 2000);
-
-            // Monitor if window is closed manually
-            const checkIfClosed = setInterval(() => {
-                if (studentWindow.closed) {
-                    clearInterval(checkIfClosed);
-                    setIsStudentWindowOpen(false);
-                    setStudentWindowRef(null);
-                    if (pingIntervalRef.current) {
-                        clearInterval(pingIntervalRef.current);
-                    }
-                    window.removeEventListener('message', handleMessage);
-                }
-            }, 1000);
+        if (newTab) {
+            console.log('[HostGameControls] Opened presentation display in new tab');
         } else {
-            alert("Failed to open student display. Please ensure pop-ups are allowed for this site.");
+            alert("Failed to open presentation display. Please ensure pop-ups are allowed for this site.");
         }
     };
-
-    // Update student display when slide changes
-    useEffect(() => {
-        if (studentWindowRef && !studentWindowRef.closed && currentSlideData) {
-            studentWindowRef.postMessage({
-                type: 'SLIDE_UPDATE',
-                slide: currentSlideData
-            }, window.location.origin);
-
-            // Reset video state when slide changes
-            setVideoState({
-                playing: false,
-                currentTime: 0,
-                duration: 0,
-                volume: 1
-            });
-        }
-    }, [currentSlideData, studentWindowRef]);
-
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (pingIntervalRef.current) {
-                clearInterval(pingIntervalRef.current);
-            }
-        };
-    }, []);
 
     const openJoinInfoModal = () => setIsJoinCompanyModalOpen(true);
     const closeJoinCompanyModal = () => setIsJoinCompanyModalOpen(false);
@@ -239,13 +266,13 @@ const HostGameControls: React.FC = () => {
     const confirmExitGame = () => {
         setisExitConfirmModalOpen(false);
 
-        // Close student display if open and cleanup
-        if (studentWindowRef && !studentWindowRef.closed) {
-            studentWindowRef.postMessage({
+        // Notify presentation display that session is ending
+        if (channelRef.current && state.currentSessionId) {
+            channelRef.current.postMessage({
                 type: 'SESSION_ENDED',
-                sessionId: state.currentSessionId
-            }, window.location.origin);
-            studentWindowRef.close();
+                sessionId: state.currentSessionId,
+                timestamp: Date.now()
+            });
         }
 
         if (pingIntervalRef.current) {
@@ -320,33 +347,33 @@ const HostGameControls: React.FC = () => {
                     <button
                         onClick={handleOpenDisplay}
                         className={`flex items-center justify-center gap-2 py-2.5 px-5 rounded-lg transition-colors shadow-md text-sm font-medium w-full sm:w-auto ${
-                            isStudentWindowOpen
+                            isPresentationDisplayOpen
                                 ? 'bg-green-600 text-white hover:bg-green-700'
                                 : 'bg-blue-600 text-white hover:bg-blue-700'
                         }`}
                     >
-                        {isStudentWindowOpen ? (
+                        {isPresentationDisplayOpen ? (
                             <>
                                 <Monitor size={18}/>
-                                Presentation Display Active
+                                Presentation Display Connected
                             </>
                         ) : (
                             <>
                                 <ExternalLink size={18}/>
-                                Launch Presentation Display
+                                Open Presentation Display
                             </>
                         )}
                     </button>
                 </div>
 
-                {/* Video Controls - Only show when video slide is active and display is open */}
-                {isVideoSlide && isStudentWindowOpen && (
+                {/* Video Controls - Only show when video slide is active and display is connected */}
+                {isVideoSlide && isPresentationDisplayOpen && (
                     <div className="mb-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center">
                             <Monitor size={16} className="mr-2"/>
                             Master Video Controls
                             <span className="ml-2 text-xs bg-blue-200 text-blue-700 px-2 py-1 rounded-full">
-                                Perfect Sync Active
+                                Cross-Tab Sync
                             </span>
                         </h4>
 
@@ -409,20 +436,20 @@ const HostGameControls: React.FC = () => {
 
                         <div className="text-center">
                             <div className="text-xs text-blue-700 bg-blue-100 rounded-md px-3 py-2">
-                                🎬 Presentation display is the master source • Audio plays from presentation screen<br/>
-                                🔄 All controls sync instantly between this preview and student display
+                                🎬 Presentation display controls the video • Audio plays from presentation tab<br/>
+                                🔄 All controls sync instantly between tabs via BroadcastChannel
                             </div>
                         </div>
                     </div>
                 )}
 
                 {/* Connection Status for Video Slides */}
-                {isVideoSlide && !isStudentWindowOpen && (
+                {isVideoSlide && !isPresentationDisplayOpen && (
                     <div className="mb-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                         <div className="flex items-center text-yellow-800">
                             <MonitorOff size={16} className="mr-2" />
                             <span className="text-sm font-medium">
-                                Video controls available after launching presentation display
+                                Video controls available after opening presentation display in new tab
                             </span>
                         </div>
                     </div>
