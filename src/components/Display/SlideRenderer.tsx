@@ -1,7 +1,7 @@
-// src/components/Display/SlideRenderer.tsx - Enhanced for Perfect Cross-Tab Sync
-import React, { useEffect, useRef, useCallback } from 'react';
+// src/components/Display/SlideRenderer.tsx - Simplified YouTube-style Video Controls
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Slide } from '../../types';
-import { Tv2, AlertCircle, ListChecks } from 'lucide-react';
+import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
 import LeaderboardChartDisplay from './LeaderboardChartDisplay';
 
 interface SlideRendererProps {
@@ -19,6 +19,9 @@ interface SlideRendererProps {
     masterVideoMode?: boolean;
     // New sync mode for perfect synchronization
     syncMode?: boolean;
+    // Host mode for click controls
+    hostMode?: boolean;
+    onHostVideoClick?: (playing: boolean) => void;
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
@@ -33,12 +36,17 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          onVolumeChange,
                                                          onLoadedMetadata,
                                                          masterVideoMode = false,
-                                                         syncMode = false
+                                                         syncMode = false,
+                                                         hostMode = false,
+                                                         onHostVideoClick
                                                      }) => {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const activeVideoRef = videoRef || localVideoRef;
     const lastSeekTimeRef = useRef(0);
     const syncTimeoutRef = useRef<NodeJS.Timeout>();
+    const [showPlayIcon, setShowPlayIcon] = useState(false);
+    const [videoError, setVideoError] = useState(false);
+    const iconTimeoutRef = useRef<NodeJS.Timeout>();
 
     // Handle video synchronization for master mode (presentation display)
     useEffect(() => {
@@ -88,14 +96,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             const timeDiff = Math.abs(video.currentTime - videoTimeTarget);
             const timeSinceLastSeek = now - lastSeekTimeRef.current;
 
-            // Only seek if:
-            // 1. Difference is significant (> 0.3s for smooth playback)
-            // 2. Enough time has passed since last seek (avoid rapid seeking)
-            // 3. Video is loaded and ready
+            // Only seek if difference is significant and enough time has passed
             if (timeDiff > 0.3 && timeSinceLastSeek > 200 && video.readyState >= 2) {
                 video.currentTime = videoTimeTarget;
                 lastSeekTimeRef.current = now;
-                console.log(`[SlideRenderer] Sync seek: ${video.currentTime.toFixed(2)}s (diff: ${timeDiff.toFixed(2)}s)`);
             }
         }
     }, [isPlayingTarget, videoTimeTarget, masterVideoMode]);
@@ -120,10 +124,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             if (videoTimeTarget !== undefined) {
                 syncTimeoutRef.current = setTimeout(() => {
                     syncVideoState();
-                }, 50); // Small delay to batch rapid updates
+                }, 50);
             }
         } else if (!syncMode) {
-            // Fallback to basic sync for non-sync mode
             syncVideoState();
         }
 
@@ -140,28 +143,58 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             const video = activeVideoRef.current;
 
             const handleLoadedData = () => {
-                // Video is ready for sync
                 if (syncMode || !masterVideoMode) {
                     syncVideoState();
                 }
+                setVideoError(false);
             };
 
             const handleCanPlay = () => {
-                // Ensure video is ready for synchronization
                 if (videoTimeTarget !== undefined && Math.abs(video.currentTime - videoTimeTarget) > 0.5) {
                     video.currentTime = videoTimeTarget;
                 }
             };
 
+            const handleError = () => {
+                console.error(`[SlideRenderer] Video error for slide ${slide.id}`);
+                setVideoError(true);
+            };
+
             video.addEventListener('loadeddata', handleLoadedData);
             video.addEventListener('canplay', handleCanPlay);
+            video.addEventListener('error', handleError);
 
             return () => {
                 video.removeEventListener('loadeddata', handleLoadedData);
                 video.removeEventListener('canplay', handleCanPlay);
+                video.removeEventListener('error', handleError);
             };
         }
     }, [slide, syncMode, masterVideoMode, videoTimeTarget, syncVideoState]);
+
+    // Handle host video click
+    const handleVideoClick = useCallback(() => {
+        if (!hostMode || !activeVideoRef.current || !onHostVideoClick) return;
+
+        const video = activeVideoRef.current;
+        const willPlay = video.paused;
+
+        // Show visual feedback
+        setShowPlayIcon(true);
+
+        // Clear existing timeout
+        if (iconTimeoutRef.current) {
+            clearTimeout(iconTimeoutRef.current);
+        }
+
+        // Hide icon after 1 second
+        iconTimeoutRef.current = setTimeout(() => {
+            setShowPlayIcon(false);
+        }, 1000);
+
+        // Notify parent component
+        onHostVideoClick(willPlay);
+    }, [hostMode, onHostVideoClick]);
 
     if (!slide) {
         return (
@@ -177,6 +210,88 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         if (!url) return false;
         const lowerUrl = url.toLowerCase();
         return lowerUrl.includes(".mp4") || lowerUrl.includes(".webm") || lowerUrl.includes(".ogg");
+    };
+
+    const renderVideoContent = (slide: Slide, hasVideoSrc: boolean) => {
+        if (videoError) {
+            return (
+                <div className="flex flex-col items-center justify-center h-full bg-red-900/20 backdrop-blur-sm rounded-lg border border-red-600/30 p-8">
+                    <AlertCircle size={48} className="text-red-400 mb-4" />
+                    <h3 className="text-xl font-semibold text-red-300 mb-2">Video Load Error</h3>
+                    <p className="text-red-200 text-center mb-4">
+                        Unable to load video content for this slide.
+                    </p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                    >
+                        <RefreshCw size={16} />
+                        Reload Page
+                    </button>
+                </div>
+            );
+        }
+
+        if (!hasVideoSrc || !slide.source_url) {
+            return (
+                <div className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
+                    <ListChecks size={32} className="text-blue-400 mx-auto mb-4 animate-pulse"/>
+                    <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">{slide.main_text || slide.title || "Interactive Content"}</h2>
+                    <p className="text-md sm:text-lg text-gray-300 mb-4">{slide.sub_text || "Refer to your team device for interactions."}</p>
+                    {slide.timer_duration_seconds && (
+                        <div className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
+                            TIME: {`${Math.floor(slide.timer_duration_seconds / 60)}:${(slide.timer_duration_seconds % 60).toString().padStart(2, '0')}`}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const videoElement = (
+            <video
+                ref={activeVideoRef}
+                key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : syncMode ? 'sync' : 'preview'}`}
+                src={slide.source_url}
+                className={`max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none ${hostMode ? 'cursor-pointer' : ''}`}
+                playsInline
+                controls={false} // Always false - no native controls
+                autoPlay={false}
+                preload="auto"
+                muted={!masterVideoMode}
+                crossOrigin="anonymous"
+                onClick={hostMode ? handleVideoClick : undefined}
+                onLoadedMetadata={() => {
+                    if (masterVideoMode && onLoadedMetadata) {
+                        onLoadedMetadata();
+                    }
+                }}
+            >
+                Your browser does not support the video tag.
+            </video>
+        );
+
+        // Wrap video with overlay for host mode
+        if (hostMode) {
+            return (
+                <div className="relative">
+                    {videoElement}
+                    {/* YouTube-style play/pause icon overlay */}
+                    {showPlayIcon && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="bg-black/60 rounded-full p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                                {isPlayingTarget ? (
+                                    <Pause size={48} className="text-white" />
+                                ) : (
+                                    <Play size={48} className="text-white ml-1" />
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        return videoElement;
     };
 
     const renderContent = () => {
@@ -196,47 +311,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             case 'video':
             case 'interactive_invest':
                 const hasVideoSrc = isVideoSourceValid(slide.source_url);
-                if (hasVideoSrc && slide.source_url) {
-                    return (
-                        <video
-                            ref={activeVideoRef}
-                            key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : syncMode ? 'sync' : 'preview'}`}
-                            src={slide.source_url}
-                            className="max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none"
-                            playsInline
-                            controls={masterVideoMode} // Only show controls on master display
-                            autoPlay={false} // Never autoplay - controlled by our sync system
-                            preload="auto" // Changed to auto for better sync performance
-                            muted={!masterVideoMode} // Mute preview videos, only master has audio
-                            crossOrigin="anonymous"
-                            onLoadedMetadata={() => {
-                                if (masterVideoMode && onLoadedMetadata) {
-                                    onLoadedMetadata();
-                                }
-                            }}
-                            onError={(e) => {
-                                console.error(`[SlideRenderer] Video error for slide ${slide.id}:`, e);
-                            }}
-                        >
-                            Your browser does not support the video tag.
-                        </video>
-                    );
-                } else if (slide.type === 'interactive_invest') {
-                    return (
-                        <div className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
-                            <ListChecks size={32} className="text-blue-400 mx-auto mb-4 animate-pulse"/>
-                            <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">{slide.main_text || slide.title || "Investment Decisions"}</h2>
-                            <p className="text-md sm:text-lg text-gray-300 mb-4">{slide.sub_text || "Refer to your team device to make investment choices."}</p>
-                            {slide.timer_duration_seconds && !slide.source_url && (
-                                <div className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
-                                    TIME: {`${Math.floor(slide.timer_duration_seconds / 60)}:${(slide.timer_duration_seconds % 60).toString().padStart(2, '0')}`}
-                                </div>
-                            )}
-                        </div>
-                    );
-                }
-                console.error(`[SlideRenderer] Video source missing or invalid for slide ID: ${slide.id}, type: '${slide.type}', URL: '${slide.source_url}'`);
-                return <div className="text-red-500 p-4 text-center">Video source missing or invalid for slide ID: {slide.id}, type '{slide.type}'.</div>;
+                return renderVideoContent(slide, hasVideoSrc);
 
             case 'content_page':
                 return (
@@ -279,26 +354,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             <img src={slide.source_url} alt={slide.title || 'Reveal Image'}
                                  className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
                         }
-                        {hasConsequenceVideo && slide.source_url &&
-                            <video
-                                ref={activeVideoRef}
-                                key={`${slide.id}_${slide.source_url}_${masterVideoMode ? 'master' : syncMode ? 'sync' : 'preview'}`}
-                                src={slide.source_url}
-                                className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto outline-none"
-                                playsInline
-                                loop={slide.title?.toLowerCase().includes('payoff')}
-                                autoPlay={false} // Controlled by our sync system
-                                controls={masterVideoMode}
-                                preload="auto"
-                                muted={!masterVideoMode}
-                                crossOrigin="anonymous"
-                                onLoadedMetadata={() => {
-                                    if (masterVideoMode && onLoadedMetadata) {
-                                        onLoadedMetadata();
-                                    }
-                                }}
-                            />
-                        }
+                        {hasConsequenceVideo && slide.source_url && renderVideoContent(slide, true)}
                         {slide.main_text && <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
                         {slide.sub_text && <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
                         {slide.details && slide.details.length > 0 && (
@@ -331,7 +387,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 return (
                     <LeaderboardChartDisplay
                         dataKey={slide.interactive_data_key}
-                        currentRoundForDisplay={1} // This should be derived from context
+                        currentRoundForDisplay={1}
                     />
                 );
 
@@ -349,15 +405,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
     return (
         <div className={`h-full w-full flex flex-col items-center justify-center text-white p-4 md:p-6 overflow-hidden ${slide?.background_css || 'bg-gray-900'}`}>
-            {/* Show slide ID overlay in master mode and sync mode for debugging */}
-            {(masterVideoMode || (syncMode && process.env.NODE_ENV === 'development')) && slide && slide.id !== null && slide.id !== undefined && (
-                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-full px-3.5 py-1.5 text-xs font-semibold z-20 shadow-lg">
-                    SLIDE: {slide.id} {slide.title ? `(${slide.title})` : ''}
-                    {syncMode && !masterVideoMode && (
-                        <span className="ml-2 text-green-400">SYNC</span>
-                    )}
-                </div>
-            )}
             {renderContent()}
         </div>
     );
