@@ -258,12 +258,15 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 autoPlay={false}
                 preload="auto"
                 muted={!masterVideoMode}
-                crossOrigin="anonymous"
                 onClick={hostMode ? handleVideoClick : undefined}
                 onLoadedMetadata={() => {
                     if (masterVideoMode && onLoadedMetadata) {
                         onLoadedMetadata();
                     }
+                }}
+                onError={(e) => {
+                    console.error('[SlideRenderer] Video loading error:', e);
+                    setVideoError(true);
                 }}
             >
                 Your browser does not support the video tag.

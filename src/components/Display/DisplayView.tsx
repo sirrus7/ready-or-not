@@ -151,14 +151,6 @@ const DisplayView: React.FC<DisplayViewProps> = ({
         );
     }
 
-    // Check if this is a video slide
-    const isVideoSlide = slide && (
-        slide.type === 'video' ||
-        (slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
-        ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
-            slide.source_url?.match(/\.(mp4|webm|ogg)$/i))
-    );
-
     return (
         <div className="h-full w-full overflow-hidden relative">
             {/* Simplified SlideRenderer with host click functionality */}
@@ -173,33 +165,6 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 hostMode={true} // Enable click controls for host
                 onHostVideoClick={handleHostVideoClick}
             />
-
-            {/* Minimal preview watermark */}
-            <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs z-20">
-                <div className="flex items-center">
-                    <Monitor size={12} className="mr-1 text-blue-400"/>
-                    <span>Host Preview</span>
-                    {slide.id !== undefined && (
-                        <span className="ml-2 text-gray-300">• Slide {slide.id}</span>
-                    )}
-                    {isVideoSlide && (
-                        <span className="ml-2 text-blue-300">• Click to Play/Pause</span>
-                    )}
-                </div>
-            </div>
-
-            {/* Connection info only for video slides when not connected */}
-            {isVideoSlide && !isConnectedToPresentationDisplay && (
-                <div className="absolute top-4 right-4 bg-yellow-900/90 backdrop-blur-sm rounded-lg p-3 text-white text-sm max-w-xs z-20">
-                    <div className="flex items-center mb-1">
-                        <Info size={14} className="mr-2 text-yellow-300"/>
-                        <span className="font-medium text-yellow-200">Video Preview</span>
-                    </div>
-                    <p className="text-yellow-100 text-xs">
-                        Open presentation display for synchronized playback
-                    </p>
-                </div>
-            )}
         </div>
     );
 };
