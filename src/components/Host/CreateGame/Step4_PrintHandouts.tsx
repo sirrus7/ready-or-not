@@ -2,16 +2,23 @@
 import React, {useState, useMemo} from 'react';
 import {NewGameData} from '../../../types'; // Ensure path is correct
 import { generateTeamNameCardsPDF } from '../../../utils/generateTeamNameCards';
-import {ArrowLeft, ArrowRight, Download, Printer as PrinterIcon, ShoppingCart, Mail, Info} from 'lucide-react';
+import {ArrowLeft, ArrowRight, Download, Printer as PrinterIcon, ShoppingCart, Mail, Info, ChevronDown, ChevronUp} from 'lucide-react';
 
-interface Step2Props {
+interface Step4Props {
     gameData: NewGameData;
     onNext: () => void;
     onPrevious: () => void;
 }
 
-const Step2PrintHandouts: React.FC<Step2Props> = ({gameData, onNext, onPrevious}) => {
+const Step4PrintHandouts: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => {
     const [selectedOption, setSelectedOption] = useState<'order' | 'diy'>('diy');
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+        core: false,
+        round1: false,
+        round2: false,
+        round3: false,
+        special: false
+    });
 
     const {num_players, num_teams, name: gameName, game_version} = gameData;
 
@@ -74,37 +81,60 @@ Thank you,
 [Your Name]
   `.trim();
 
+    const downloadItem = (url: string, filename?: string) => {
+        if (filename === 'team-name-cards') {
+            // Generate team name cards PDF - this will automatically download
+            generateTeamNameCardsPDF(gameData.teams_config);
+        } else {
+            // Open other PDFs in new tab like the rest
+            window.open(url, '_blank');
+        }
+    };
+
+    const toggleSection = (sectionId: string) => {
+        setExpandedSections(prev => ({
+            ...prev,
+            [sectionId]: !prev[sectionId]
+        }));
+    };
+
     const handleDownloadAllPDFs = () => {
-        // Generate team name cards
+        // Generate team name cards first
         generateTeamNameCardsPDF(gameData.teams_config);
 
-        // Open other static PDFs
+        // Download all static PDFs directly (no new tabs)
         const staticPdfs = [
-            '/game-materials/core/game-board.pdf',
-            '/game-materials/core/briefing-packet.pdf',
-            '/game-materials/core/vocabulary-definitions.pdf',
-            '/game-materials/core/permanent-kpi-impact-cards.pdf',
-            '/game-materials/core/biz-growth-strategy-report.pdf',
-            '/game-materials/round-1/rd1-position-sheet.pdf',
-            '/game-materials/round-1/rd1-investment-cards.pdf',
-            '/game-materials/round-1/rd1-team-summary-sheet.pdf',
-            '/game-materials/round-2/rd2-position-sheet.pdf',
-            '/game-materials/round-2/rd2-investment-cards.pdf',
-            '/game-materials/round-2/rd2-team-summary-sheet.pdf',
-            '/game-materials/round-3/rd3-investment-cards.pdf',
-            '/game-materials/round-3/rd3-team-summary-sheet.pdf'
+            { url: '/game-materials/core/game-board.pdf', filename: 'game-board.pdf' },
+            { url: '/game-materials/core/briefing-packet.pdf', filename: 'briefing-packet.pdf' },
+            { url: '/game-materials/core/vocabulary-definitions.pdf', filename: 'vocabulary-definitions.pdf' },
+            { url: '/game-materials/core/permanent-kpi-impact-cards.pdf', filename: 'permanent-kpi-impact-cards.pdf' },
+            { url: '/game-materials/core/biz-growth-strategy-report.pdf', filename: 'biz-growth-strategy-report.pdf' },
+            { url: '/game-materials/round-1/rd1-position-sheet.pdf', filename: 'rd1-position-sheet.pdf' },
+            { url: '/game-materials/round-1/rd1-investment-cards.pdf', filename: 'rd1-investment-cards.pdf' },
+            { url: '/game-materials/round-1/rd1-team-summary-sheet.pdf', filename: 'rd1-team-summary-sheet.pdf' },
+            { url: '/game-materials/round-2/rd2-position-sheet.pdf', filename: 'rd2-position-sheet.pdf' },
+            { url: '/game-materials/round-2/rd2-investment-cards.pdf', filename: 'rd2-investment-cards.pdf' },
+            { url: '/game-materials/round-2/rd2-team-summary-sheet.pdf', filename: 'rd2-team-summary-sheet.pdf' },
+            { url: '/game-materials/round-3/rd3-investment-cards.pdf', filename: 'rd3-investment-cards.pdf' },
+            { url: '/game-materials/round-3/rd3-team-summary-sheet.pdf', filename: 'rd3-team-summary-sheet.pdf' }
         ];
 
-        // Open each PDF with a delay to avoid popup blockers
+        // Create and trigger download for each PDF with delays
         staticPdfs.forEach((pdf, index) => {
             setTimeout(() => {
-                window.open(pdf, '_blank');
-            }, (index + 1) * 500); // Start after team cards
+                const link = document.createElement('a');
+                link.href = pdf.url;
+                link.download = pdf.filename;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }, (index + 1) * 300); // Reduced delay since we're not opening tabs
         });
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 text-gray-700">
             <p className="text-sm text-gray-600 mb-1">
                 This simulation requires physical handouts for player interaction. Choose your preferred method to
                 obtain them:
@@ -185,62 +215,313 @@ Thank you,
                         className="text-slate-700">{calculatedMaterials.totalPlayers} players</strong> and <strong
                         className="text-slate-700">{calculatedMaterials.totalTeams} teams</strong>.
                     </p>
-                    <p className="text-xs text-gray-500 mb-4">
-                        All materials should be printed on standard 8.5" x 11" paper unless otherwise noted. Refer to
-                        the main "How To Host Guide" PDF for detailed assembly.
+                    <p className="text-xs text-gray-500 mb-6">
+                        Click individual items to download, or use "Download All" at the bottom. Numbers show <strong>quantities needed</strong> for your {calculatedMaterials.totalTeams} teams and {calculatedMaterials.totalPlayers} players.
                     </p>
-                    <div
-                        className="text-sm text-gray-700 bg-white p-4 rounded-md border border-gray-300 max-h-80 overflow-y-auto scrollbar-thin pr-2">
-                        <h4 className="font-medium text-gray-800 mb-2 text-base">Core Game Components:</h4>
-                        <ul className="list-disc list-inside space-y-1.5 pl-4 mb-3">
-                            <li>Game Boards: {calculatedMaterials.gameBoards} <span className="text-xs text-gray-500">(Recommend 11x17/12x18, color, laminated)</span>
-                            </li>
-                            <li>Briefing Packets: {calculatedMaterials.briefingPackets} <span
-                                className="text-xs text-gray-500">(1 per player, double-sided, color)</span></li>
-                            <li>Vocabulary Definitions: {calculatedMaterials.vocabSheets} <span
-                                className="text-xs text-gray-500">(1 per team, double-sided B&W)</span></li>
-                            <li>Team Name Cards: {calculatedMaterials.teamNameCards} <span
-                                className="text-xs text-gray-500">(1 per team, heavy card stock, color)</span></li>
-                        </ul>
-                        <h4 className="font-medium text-gray-800 mb-2 mt-4 text-base">Round 1 Materials:</h4>
-                        <ul className="list-disc list-inside space-y-1.5 pl-4 mb-3">
-                            <li>RD-1 Position Sheets: {calculatedMaterials.rd1PosSheets} sets <span
-                                className="text-xs text-gray-500">(1 per team, single-sided, color)</span></li>
-                            <li>RD-1 Investment Cards: {calculatedMaterials.rd1InvestCards} sets <span
-                                className="text-xs text-gray-500">(1 per team, single-sided, color)</span></li>
-                            <li>RD-1 Team Summary Sheets: {calculatedMaterials.rd1SummarySheets} <span
-                                className="text-xs text-gray-500">(1 per team, single-sided, color)</span></li>
-                        </ul>
-                        <h4 className="font-medium text-gray-800 mb-2 mt-4 text-base">Round 2 Materials:</h4>
-                        <ul className="list-disc list-inside space-y-1.5 pl-4 mb-3">
-                            <li>RD-2 Position Sheets: {calculatedMaterials.rd2PosSheets} sets <span
-                                className="text-xs text-gray-500">(1 per team)</span></li>
-                            <li>RD-2 Investment Cards: {calculatedMaterials.rd2InvestCards} sets <span
-                                className="text-xs text-gray-500">(1 per team)</span></li>
-                            <li>RD-2 Team Summary Sheets: {calculatedMaterials.rd2SummarySheets} <span
-                                className="text-xs text-gray-500">(1 per team)</span></li>
-                        </ul>
-                        <h4 className="font-medium text-gray-800 mb-2 mt-4 text-base">Round 3 Materials:</h4>
-                        <ul className="list-disc list-inside space-y-1.5 pl-4 mb-3">
-                            <li>RD-3 Investment Cards: {calculatedMaterials.rd3InvestCards} sets <span
-                                className="text-xs text-gray-500">(1 per team)</span></li>
-                            <li>RD-3 Team Summary Sheets: {calculatedMaterials.rd3SummarySheets} <span
-                                className="text-xs text-gray-500">(1 per team)</span></li>
-                        </ul>
-                        <h4 className="font-medium text-gray-800 mb-2 mt-4 text-base">Special Handouts:</h4>
-                        <ul className="list-disc list-inside space-y-1.5 pl-4">
-                            <li>Permanent KPI Impact Cards: {calculatedMaterials.kpiImpactCards} <span
-                                className="text-xs text-gray-500">(Print file, cut as needed, color)</span></li>
-                            <li>Biz Growth Strategy Reports: {calculatedMaterials.bizGrowthReports} <span
-                                className="text-xs text-gray-500">(1 per team, B&W)</span></li>
-                        </ul>
+
+                    {/* Core Game Components */}
+                    <div className="mb-4">
+                        <button
+                            onClick={() => toggleSection('core')}
+                            className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                        >
+                            <div className="flex items-center">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                                <h4 className="font-medium text-gray-800 text-sm">Core Game Components</h4>
+                                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">4 items</span>
+                            </div>
+                            {expandedSections.core ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+
+                        {expandedSections.core && (
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pl-4">
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Game Boards</h5>
+                                        <span className="text-sm font-bold bg-blue-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.gameBoards}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">11x17 recommended, color, laminated</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/core/game-board.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Briefing Packets</h5>
+                                        <span className="text-sm font-bold bg-blue-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.briefingPackets}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 per player, double-sided, color</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/core/briefing-packet.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Vocabulary Sheets</h5>
+                                        <span className="text-sm font-bold bg-blue-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.vocabSheets}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 per team, double-sided</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/core/vocabulary-definitions.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Team Name Cards</h5>
+                                        <span className="text-sm font-bold bg-blue-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.teamNameCards}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 per team, card stock, color</p>
+                                    <button
+                                        onClick={() => downloadItem('', 'team-name-cards')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    <button
-                        onClick={handleDownloadAllPDFs}
-                        className="mt-4 inline-flex items-center gap-2 bg-green-600 text-white text-sm font-semibold py-2.5 px-4 rounded-md hover:bg-green-700 transition-colors shadow hover:shadow-md"
-                    >
-                        <Download size={16}/> Download All Printable PDFs (Placeholder)
-                    </button>
+
+                    {/* Round 1 Materials */}
+                    <div className="mb-4">
+                        <button
+                            onClick={() => toggleSection('round1')}
+                            className="w-full flex items-center justify-between p-3 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors"
+                        >
+                            <div className="flex items-center">
+                                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                                <h4 className="font-medium text-gray-800 text-sm">Round 1 Materials</h4>
+                                <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded">3 items</span>
+                            </div>
+                            {expandedSections.round1 ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+
+                        {expandedSections.round1 && (
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 pl-4">
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Position Sheets</h5>
+                                        <span className="text-sm font-bold bg-green-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd1PosSheets}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 set per team</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/round-1/rd1-position-sheet.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Investment Cards</h5>
+                                        <span className="text-sm font-bold bg-green-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd1InvestCards}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 set per team</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/round-1/rd1-investment-cards.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Summary Sheets</h5>
+                                        <span className="text-sm font-bold bg-green-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd1SummarySheets}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 per team</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/round-1/rd1-team-summary-sheet.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Round 2 Materials */}
+                    <div className="mb-4">
+                        <button
+                            onClick={() => toggleSection('round2')}
+                            className="w-full flex items-center justify-between p-3 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors"
+                        >
+                            <div className="flex items-center">
+                                <div className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></div>
+                                <h4 className="font-medium text-gray-800 text-sm">Round 2 Materials</h4>
+                                <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">3 items</span>
+                            </div>
+                            {expandedSections.round2 ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+
+                        {expandedSections.round2 && (
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 pl-4">
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Position Sheets</h5>
+                                        <span className="text-sm font-bold bg-yellow-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd2PosSheets}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 set per team</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/round-2/rd2-position-sheet.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Investment Cards</h5>
+                                        <span className="text-sm font-bold bg-yellow-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd2InvestCards}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 set per team</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/round-2/rd2-investment-cards.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Summary Sheets</h5>
+                                        <span className="text-sm font-bold bg-yellow-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd2SummarySheets}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 per team</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/round-2/rd2-team-summary-sheet.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Round 3 Materials */}
+                    <div className="mb-4">
+                        <button
+                            onClick={() => toggleSection('round3')}
+                            className="w-full flex items-center justify-between p-3 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors"
+                        >
+                            <div className="flex items-center">
+                                <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
+                                <h4 className="font-medium text-gray-800 text-sm">Round 3 Materials</h4>
+                                <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">2 items</span>
+                            </div>
+                            {expandedSections.round3 ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+
+                        {expandedSections.round3 && (
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pl-4">
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Investment Cards</h5>
+                                        <span className="text-sm font-bold bg-purple-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd3InvestCards}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 set per team</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/round-3/rd3-investment-cards.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Summary Sheets</h5>
+                                        <span className="text-sm font-bold bg-purple-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd3SummarySheets}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 per team</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/round-3/rd3-team-summary-sheet.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Special Materials */}
+                    <div className="mb-6">
+                        <button
+                            onClick={() => toggleSection('special')}
+                            className="w-full flex items-center justify-between p-3 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors"
+                        >
+                            <div className="flex items-center">
+                                <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
+                                <h4 className="font-medium text-gray-800 text-sm">Special Materials</h4>
+                                <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">2 items</span>
+                            </div>
+                            {expandedSections.special ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+
+                        {expandedSections.special && (
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pl-4">
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">KPI Impact Cards</h5>
+                                        <span className="text-sm font-bold bg-red-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.kpiImpactCards}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">Print and cut as needed, color</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/core/permanent-kpi-impact-cards.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-medium text-gray-700 text-sm">Growth Strategy Reports</h5>
+                                        <span className="text-sm font-bold bg-red-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.bizGrowthReports}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">1 per team</p>
+                                    <button
+                                        onClick={() => downloadItem('/game-materials/core/biz-growth-strategy-report.pdf')}
+                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Download size={12}/> Download PDF
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Download All Button */}
+                    <div className="border-t border-gray-200 pt-4">
+                        <button
+                            onClick={handleDownloadAllPDFs}
+                            className="w-full bg-green-600 text-white text-sm font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-lg flex items-center justify-center gap-2"
+                        >
+                            <Download size={18}/> Download All Materials (13 files)
+                        </button>
+                        <p className="text-xs text-gray-500 mt-2 text-center">
+                            This will download all PDFs with small delays to prevent popup blocking. Team name cards will be generated automatically.
+                        </p>
+                    </div>
                 </div>
             )}
 
@@ -264,4 +545,4 @@ Thank you,
     );
 };
 
-export default Step2PrintHandouts;
+export default Step4PrintHandouts;
