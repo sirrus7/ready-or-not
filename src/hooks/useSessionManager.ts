@@ -4,8 +4,6 @@ import {useNavigate} from 'react-router-dom';
 import {supabase} from '../lib/supabase';
 import {GameSession, User, GameStructure} from '../types';
 
-// readyOrNotGame_2_0_DD is not directly used here but passed in as gameStructure for initial phase/slide
-
 interface SessionManagerOutput {
     session: GameSession | null;
     isLoading: boolean;
