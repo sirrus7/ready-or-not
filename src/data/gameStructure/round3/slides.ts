@@ -9,7 +9,7 @@ export const round3Slides: Slide[] = [
         type: 'video',
         source_url: "placeholder_rd3_intro.mp4",
         auto_advance_after_video: false,
-        teacher_alert: {
+        host_alert: {
             title: "Begin RD-3 Investments",
             message: "Teams will now make RD-3 Investments. The timer video will begin."
         }
@@ -23,7 +23,7 @@ export const round3Slides: Slide[] = [
         main_text: "RD-3 INVEST: TIMER ACTIVE",
         sub_text: "Video timer active. Make your RD-3 investment decisions.",
         auto_advance_after_video: false,
-        teacher_alert: {
+        host_alert: {
             title: "RD-3 Investments Closed",
             message: "RD-3 investments are closed. Prepare for Double Down. Click OK."
         }
@@ -39,7 +39,7 @@ export const round3Slides: Slide[] = [
         sub_text: "Decide if your team wants to take the Double Down risk/reward. Timer on screen.",
         timer_duration_seconds: 3 * 60,
         background_css: 'bg-red-700',
-        teacher_alert: {
+        host_alert: {
             title: "Double Down Decision Closed",
             message: "Teams have made their Double Down choice. Click OK for selection or to skip to CH8."
         }
@@ -52,7 +52,7 @@ export const round3Slides: Slide[] = [
         main_text: "CHOOSE YOUR DOUBLE DOWN",
         sub_text: "If you opted-in: Sacrifice one RD-3 investment and Double Down on another.",
         background_css: 'bg-red-800',
-        teacher_alert: {
+        host_alert: {
             title: "Double Down Selections Made",
             message: "Double Down selections are complete (if applicable). Click OK to proceed to CH8."
         }
@@ -75,7 +75,7 @@ export const round3Slides: Slide[] = [
         sub_text: "Teams: Your systems have been compromised. Select your response.",
         timer_duration_seconds: 180,
         background_css: 'bg-red-900',
-        teacher_alert: {
+        host_alert: {
             title: "CH8 Closed",
             message: "CH8 Decisions are in. Click OK for consequences."
         }
@@ -115,7 +115,7 @@ export const round3Slides: Slide[] = [
         type: 'video',
         source_url: "placeholder_ch8_career.mp4",
         auto_advance_after_video: false,
-        teacher_alert: {
+        host_alert: {
             title: "CH8 Complete",
             message: "Prepare for CH9. Click OK to proceed."
         }
@@ -138,7 +138,7 @@ export const round3Slides: Slide[] = [
         sub_text: "Teams: A major competitor has disrupted the market. How do you respond?",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
-        teacher_alert: {
+        host_alert: {
             title: "CH9 Closed",
             message: "Final challenge decisions are in. Click OK for consequences."
         }
@@ -178,7 +178,7 @@ export const round3Slides: Slide[] = [
         type: 'video',
         source_url: "placeholder_ch9_career.mp4",
         auto_advance_after_video: false,
-        teacher_alert: {
+        host_alert: {
             title: "CH9 Complete",
             message: "Prepare for RD-3 Investment Payoffs. Click OK to proceed."
         }
@@ -200,7 +200,7 @@ export const round3Slides: Slide[] = [
         sub_text: "Your final round investments are now paying off",
         details: ["Investment payoffs will be calculated based on your selections"],
         source_url: 'placeholder_rd3_payoffs.jpg',
-        teacher_alert: {
+        host_alert: {
             title: "RD-3 Payoffs Complete",
             message: "RD-3 investment payoffs revealed. Prepare for Double Down results."
         }
@@ -224,7 +224,7 @@ export const round3Slides: Slide[] = [
         sub_text: "The dice have determined your fate!",
         details: ["Double Down results will be calculated based on dice roll"],
         source_url: 'placeholder_dd_results.jpg',
-        teacher_alert: {
+        host_alert: {
             title: "Double Down Complete",
             message: "Double Down results revealed. Prepare for final KPIs."
         }
@@ -238,7 +238,7 @@ export const round3Slides: Slide[] = [
         main_text: "END OF ROUND 3 KPIs",
         sub_text: "CFOs: Review your team's final KPIs on your device. This is the end of the simulation!",
         source_url: 'placeholder_rd3_kpis.jpg',
-        teacher_alert: {
+        host_alert: {
             title: "Final KPI Review",
             message: "Ensure teams have reviewed their final KPIs. Click OK for Final Leaderboard."
         }
@@ -305,7 +305,7 @@ export const round3Slides: Slide[] = [
         interactive_data_key: 'rd3_leaderboard_income',
         main_text: "🏆 FINAL RANKINGS 🏆",
         sub_text: "The ultimate winners of Ready or Not 2.0! Congratulations to all teams!",
-        teacher_alert: {
+        host_alert: {
             title: "Game Complete!",
             message: "The simulation is finished! Click OK for final celebration."
         }

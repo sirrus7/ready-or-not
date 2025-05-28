@@ -31,10 +31,10 @@ interface AppContextProps {
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
 
-    // Teacher features
-    updateTeacherNotesForCurrentSlide: (notes: string) => void;
-    clearTeacherAlert: () => Promise<void>;
-    setCurrentTeacherAlertState: (alert: { title: string; message: string } | null) => void;
+    // Host features
+    updateHostNotesForCurrentSlide: (notes: string) => void;
+    clearHostAlert: () => Promise<void>;
+    setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
 
     // Session management
     isLoadingSession: boolean;
@@ -472,16 +472,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         currentPhaseId: gameController.currentPhaseNode?.id || null,
         currentSlideIdInPhase: currentDbSession?.current_slide_id_in_phase ??
             (gameController.currentPhaseNode === gameStructureInstance?.welcome_phases[0] ? 0 : null),
-        teacherNotes: gameController.teacherNotes,
+        hostNotes: gameController.teacherNotes,
         isPlaying: false, // Removed - no longer managed here
         teams: teams,
         teamDecisions: teamDecisions,
         teamRoundData: teamRoundData,
-        isStudentWindowOpen: false, // Moved to local component state
+        isPlayerWindowOpen: false, // Moved to local component state
         isLoading: isLoadingSession || authLoading || isLoadingTeams || isLoadingProcessing ||
             !gameController.currentPhaseNode,
         error: sessionError || processingError,
-        currentTeacherAlert: gameController.currentTeacherAlert,
+        currentHostAlert: gameController.currentHostAlert,
     }), [currentDbSession, gameStructureInstance, gameController, teams, teamDecisions, teamRoundData,
         isLoadingSession, authLoading, isLoadingTeams, isLoadingProcessing, sessionError, processingError]);
 
@@ -501,11 +501,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         currentSlideData: gameController.currentSlideData,
         allPhasesInOrder,
         selectPhase: gameController.selectPhase,
-        updateTeacherNotesForCurrentSlide: gameController.updateTeacherNotesForCurrentSlide,
+        updateHostNotesForCurrentSlide: gameController.updateHostNotesForCurrentSlide,
         nextSlide: nextSlideWithProcessing,
         previousSlide: gameController.previousSlide,
-        clearTeacherAlert: gameController.clearTeacherAlert,
-        setCurrentTeacherAlertState: gameController.setCurrentTeacherAlertState,
+        clearHostAlert: gameController.clearHostAlert,
+        setCurrentHostAlertState: gameController.setCurrentHostAlertState,
         isLoadingSession,
         sessionError,
         clearSessionError,

@@ -310,7 +310,7 @@ const PresentationPage: React.FC = () => {
                                     Waiting for host to start content display
                                 </p>
                                 <p className="mt-2 text-xs">
-                                    Make sure the teacher dashboard is open in another tab
+                                    Make sure the host dashboard is open in another tab
                                 </p>
                             </div>
                         </>

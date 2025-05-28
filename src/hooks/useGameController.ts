@@ -7,16 +7,16 @@ export interface GameControllerOutput {
     currentPhaseNode: GamePhaseNode | null;
     currentSlideData: Slide | null;
     teacherNotes: Record<string, string>;
-    currentTeacherAlert: { title: string; message: string } | null;
+    currentHostAlert: { title: string; message: string } | null;
     allPhasesInOrder: GamePhaseNode[];
     allTeamsSubmittedCurrentInteractivePhase: boolean;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
     selectPhase: (phaseId: string) => Promise<void>;
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
-    updateTeacherNotesForCurrentSlide: (notes: string) => void;
-    clearTeacherAlert: () => Promise<void>;
-    setCurrentTeacherAlertState: (alert: { title: string; message: string } | null) => void;
+    updateHostNotesForCurrentSlide: (notes: string) => void;
+    clearHostAlert: () => Promise<void>;
+    setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
 }
 
 export const useGameController = (
@@ -27,8 +27,8 @@ export const useGameController = (
 ): GameControllerOutput => {
     const [currentPhaseIdState, setCurrentPhaseIdState] = useState<string | null>(null);
     const [currentSlideIdInPhaseState, setCurrentSlideIdInPhaseState] = useState<number | null>(0);
-    const [teacherNotesState, setTeacherNotesState] = useState<Record<string, string>>({});
-    const [currentTeacherAlertState, setCurrentTeacherAlertState] = useState<{
+    const [hostNotesState, setHostNotesState] = useState<Record<string, string>>({});
+    const [currentHostAlertState, setCurrentHostAlertState] = useState<{
         title: string;
         message: string
     } | null>(null);
@@ -64,13 +64,13 @@ export const useGameController = (
         if (dbSession) {
             setCurrentPhaseIdState(dbSession.current_phase_id);
             setCurrentSlideIdInPhaseState(dbSession.current_slide_id_in_phase ?? 0);
-            setTeacherNotesState(dbSession.teacher_notes || {});
+            setHostNotesState(dbSession.teacher_notes || {});
         } else {
             const firstPhaseId = gameStructure?.welcome_phases?.[0]?.id || allPhasesInOrder[0]?.id || null;
             setCurrentPhaseIdState(firstPhaseId);
             setCurrentSlideIdInPhaseState(0);
-            setTeacherNotesState({});
-            setCurrentTeacherAlertState(null);
+            setHostNotesState({});
+            setCurrentHostAlertState(null);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
         }
     }, [dbSession, gameStructure, allPhasesInOrder]);
@@ -82,12 +82,12 @@ export const useGameController = (
             slideLoadTimestamp.current = Date.now();
             console.log(`[GameController] Processing slide ${currentSlideData.id}, isNew: ${isNewActualSlide}, type: ${currentSlideData.type}`);
 
-            if (isNewActualSlide && currentTeacherAlertState) {
-                setCurrentTeacherAlertState(null);
+            if (isNewActualSlide && currentHostAlertState) {
+                setCurrentHostAlertState(null);
             }
         }
         previousSlideIdRef.current = currentSlideData?.id;
-    }, [currentSlideData, currentTeacherAlertState]);
+    }, [currentSlideData, currentHostAlertState]);
 
     const advanceToNextSlideInternal = useCallback(async () => {
         if (!currentPhaseNode || currentSlideIdInPhaseState === null || !dbSession || !gameStructure || !allPhasesInOrder.length) return;
@@ -97,7 +97,7 @@ export const useGameController = (
         let nextSlideIndexInPhase = currentSlideIdInPhaseState + 1;
 
         if (isLastSlideInPhase) {
-            if (currentPhaseNode.is_interactive_student_phase && currentPhaseNode.phase_type === 'choice') {
+            if (currentPhaseNode.is_interactive_player_phase && currentPhaseNode.phase_type === 'choice') {
                 await processChoicePhaseDecisionsFunction(currentPhaseNode.id, currentSlideData);
             }
 
@@ -124,25 +124,25 @@ export const useGameController = (
 
     useEffect(() => {
         if (allTeamsSubmittedCurrentInteractivePhaseState) {
-            setCurrentTeacherAlertState({title: ALL_SUBMIT_ALERT_TITLE, message: ALL_SUBMIT_ALERT_MESSAGE});
+            setCurrentHostAlertState({title: ALL_SUBMIT_ALERT_TITLE, message: ALL_SUBMIT_ALERT_MESSAGE});
         }
-    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData, setCurrentTeacherAlertState, ALL_SUBMIT_ALERT_TITLE, ALL_SUBMIT_ALERT_MESSAGE]);
+    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData, setCurrentHostAlertState, ALL_SUBMIT_ALERT_TITLE, ALL_SUBMIT_ALERT_MESSAGE]);
 
     const nextSlide = useCallback(async () => {
-        if (currentTeacherAlertState) {
+        if (currentHostAlertState) {
             return;
         }
 
-        if (currentSlideData?.teacher_alert) {
-            setCurrentTeacherAlertState(currentSlideData.teacher_alert);
+        if (currentSlideData?.host_alert) {
+            setCurrentHostAlertState(currentSlideData.host_alert);
             return;
         }
 
         await advanceToNextSlideInternal();
-    }, [currentTeacherAlertState, currentSlideData, advanceToNextSlideInternal, setCurrentTeacherAlertState]);
+    }, [currentHostAlertState, currentSlideData, advanceToNextSlideInternal, setCurrentHostAlertState]);
 
-    const clearTeacherAlert = useCallback(async () => {
-        setCurrentTeacherAlertState(null);
+    const clearHostAlert = useCallback(async () => {
+        setCurrentHostAlertState(null);
         await advanceToNextSlideInternal();
     }, [advanceToNextSlideInternal]);
 
@@ -152,16 +152,16 @@ export const useGameController = (
             await updateSessionInDb({
                 current_phase_id: phaseId,
                 current_slide_id_in_phase: 0,
-                teacher_notes: teacherNotesState
+                teacher_notes: hostNotesState
             });
-            if (currentTeacherAlertState) setCurrentTeacherAlertState(null);
+            if (currentHostAlertState) setCurrentHostAlertState(null);
             setCurrentPhaseIdState(phaseId);
             setCurrentSlideIdInPhaseState(0);
         }
-    }, [allPhasesInOrder, dbSession, updateSessionInDb, teacherNotesState, gameStructure?.slides, currentTeacherAlertState]);
+    }, [allPhasesInOrder, dbSession, updateSessionInDb, hostNotesState, gameStructure?.slides, currentHostAlertState]);
 
     const previousSlide = useCallback(async () => {
-        if (currentTeacherAlertState) return;
+        if (currentHostAlertState) return;
 
         if (currentPhaseNode && currentSlideIdInPhaseState !== null && dbSession && gameStructure?.slides) {
             let newPhaseId = currentPhaseIdState;
@@ -183,36 +183,36 @@ export const useGameController = (
                 current_phase_id: newPhaseId,
                 current_slide_id_in_phase: newSlideIndex,
             });
-            if (currentTeacherAlertState) setCurrentTeacherAlertState(null);
+            if (currentHostAlertState) setCurrentHostAlertState(null);
             setCurrentPhaseIdState(newPhaseId);
             setCurrentSlideIdInPhaseState(newSlideIndex);
         }
-    }, [currentTeacherAlertState, currentPhaseNode, currentSlideIdInPhaseState, dbSession, allPhasesInOrder, updateSessionInDb, currentPhaseIdState, gameStructure?.slides]);
+    }, [currentHostAlertState, currentPhaseNode, currentSlideIdInPhaseState, dbSession, allPhasesInOrder, updateSessionInDb, currentPhaseIdState, gameStructure?.slides]);
 
     const updateTeacherNotesForCurrentSlide = useCallback(async (notes: string) => {
         if (currentSlideData && dbSession) {
             const slideKey = String(currentSlideData.id);
-            const newTeacherNotes = {...teacherNotesState, [slideKey]: notes};
-            setTeacherNotesState(newTeacherNotes);
+            const newTeacherNotes = {...hostNotesState, [slideKey]: notes};
+            setHostNotesState(newTeacherNotes);
             await updateSessionInDb({teacher_notes: newTeacherNotes});
         }
-    }, [currentSlideData, dbSession, teacherNotesState, updateSessionInDb]);
+    }, [currentSlideData, dbSession, hostNotesState, updateSessionInDb]);
 
     return {
         currentPhaseId: currentPhaseIdState,
         currentSlideIdInPhase: currentSlideIdInPhaseState,
         currentPhaseNode,
         currentSlideData,
-        teacherNotes: teacherNotesState,
-        currentTeacherAlert: currentTeacherAlertState,
+        teacherNotes: hostNotesState,
+        currentHostAlert: currentHostAlertState,
         allPhasesInOrder,
         allTeamsSubmittedCurrentInteractivePhase: allTeamsSubmittedCurrentInteractivePhaseState,
         setAllTeamsSubmittedCurrentInteractivePhase: setAllTeamsSubmittedCurrentInteractivePhaseState,
         selectPhase,
         nextSlide,
         previousSlide,
-        updateTeacherNotesForCurrentSlide,
-        clearTeacherAlert,
-        setCurrentTeacherAlertState
+        updateHostNotesForCurrentSlide: updateTeacherNotesForCurrentSlide,
+        clearHostAlert: clearHostAlert,
+        setCurrentHostAlertState: setCurrentHostAlertState
     };
 };

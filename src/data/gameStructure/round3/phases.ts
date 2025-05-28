@@ -10,7 +10,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'invest',
         round_number: 3,
         slide_ids: [200, 201],
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 12
     },
     {
@@ -21,7 +21,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'double-down-prompt',
         round_number: 3,
         slide_ids: [202],
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 3
     },
     {
@@ -32,7 +32,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'double-down-select',
         round_number: 3,
         slide_ids: [203],
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 2
     },
     {
@@ -43,7 +43,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'choice',
         round_number: 3,
         slide_ids: [210, 211],
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 3
     },
     {
@@ -54,7 +54,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'consequence',
         round_number: 3,
         slide_ids: [212, 213, 214, 215],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 5
     },
     {
@@ -65,7 +65,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'choice',
         round_number: 3,
         slide_ids: [220, 221],
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 3
     },
     {
@@ -76,7 +76,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'consequence',
         round_number: 3,
         slide_ids: [222, 223, 224, 225],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 5
     },
     {
@@ -86,7 +86,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'payoff',
         round_number: 3,
         slide_ids: [230, 231],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 5
     },
     {
@@ -96,7 +96,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'double-down-payoff',
         round_number: 3,
         slide_ids: [240, 241],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 3
     },
     {
@@ -106,7 +106,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'kpi',
         round_number: 3,
         slide_ids: [250],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 2
     },
     {
@@ -116,7 +116,7 @@ export const round3Phases: GamePhaseNode[] = [
         phase_type: 'leaderboard',
         round_number: 3,
         slide_ids: [251, 252, 253, 254, 255, 256, 257, 258],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 10
     }
 ];

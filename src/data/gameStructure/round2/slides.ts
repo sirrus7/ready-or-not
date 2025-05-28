@@ -9,7 +9,7 @@ export const round2Slides: Slide[] = [
         type: 'video',
         source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_065.mp4?alt=media",
         auto_advance_after_video: false,
-        teacher_alert: {
+        host_alert: {
             title: "Begin RD-2 Investments",
             message: "The RD-2 Investment overview video will play next, followed by the investment period. Ensure teams are ready."
         }
@@ -23,7 +23,7 @@ export const round2Slides: Slide[] = [
         main_text: "RD-2 INVEST: TIMER ACTIVE",
         sub_text: "Video timer active. Make your RD-2 investment decisions on your team device.",
         auto_advance_after_video: false,
-        teacher_alert: {
+        host_alert: {
             title: "RD-2 Investment Period Ended",
             message: "RD-2 investments are closed. Click OK to proceed."
         }
@@ -46,7 +46,7 @@ export const round2Slides: Slide[] = [
         sub_text: "Teams: Discuss and select your response using your team device.",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-800',
-        teacher_alert: {
+        host_alert: {
             title: "CH4 Closed",
             message: "CH4 Decisions are in. Click OK for consequences."
         }
@@ -86,7 +86,7 @@ export const round2Slides: Slide[] = [
         type: 'video',
         source_url: "placeholder_ch4_career.mp4",
         auto_advance_after_video: false,
-        teacher_alert: {
+        host_alert: {
             title: "CH4 Complete",
             message: "Prepare for next challenge. Click OK to proceed."
         }
@@ -108,7 +108,7 @@ export const round2Slides: Slide[] = [
         sub_text: "Your Round 2 investments are now paying off",
         details: ["Investment payoffs will be calculated based on your selections"],
         source_url: 'placeholder_rd2_payoffs.jpg',
-        teacher_alert: {
+        host_alert: {
             title: "RD-2 Payoffs Complete",
             message: "All investment payoffs for Round 2 have been revealed. Click OK to review KPIs."
         }
@@ -122,7 +122,7 @@ export const round2Slides: Slide[] = [
         main_text: "END OF ROUND 2 KPIs",
         sub_text: "CFOs: Review your team's final KPIs on your device and record them on your Team Summary Sheet.",
         source_url: 'placeholder_rd2_kpis.jpg',
-        teacher_alert: {
+        host_alert: {
             title: "RD-2 KPI Review",
             message: "Ensure teams have reviewed their KPIs. Click OK to display the Leaderboard."
         }
@@ -181,7 +181,7 @@ export const round2Slides: Slide[] = [
         interactive_data_key: 'rd2_leaderboard_income',
         main_text: "RD-2 Leaderboard: Net Income (Overall Ranking)",
         sub_text: "Final profit ranking for Round 2. Click OK to proceed to Round 3 setup.",
-        teacher_alert: {
+        host_alert: {
             title: "Round 2 Complete!",
             message: "Round 2 is concluded. Click OK to prepare for Round 3."
         }

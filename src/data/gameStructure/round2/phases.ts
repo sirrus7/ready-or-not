@@ -10,7 +10,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'invest',
         round_number: 2,
         slide_ids: [100, 101],
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 12
     },
     {
@@ -21,7 +21,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'choice',
         round_number: 2,
         slide_ids: [102, 103],
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 3
     },
     {
@@ -32,7 +32,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'consequence',
         round_number: 2,
         slide_ids: [104, 105, 106, 107],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 5
     },
     {
@@ -43,7 +43,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'choice',
         round_number: 2,
         slide_ids: [], // To be added when slides are created
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 3
     },
     {
@@ -54,7 +54,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'consequence',
         round_number: 2,
         slide_ids: [], // To be added when slides are created
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 5
     },
     {
@@ -65,7 +65,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'choice',
         round_number: 2,
         slide_ids: [], // To be added when slides are created
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 3
     },
     {
@@ -76,7 +76,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'consequence',
         round_number: 2,
         slide_ids: [], // To be added when slides are created
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 5
     },
     {
@@ -87,7 +87,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'choice',
         round_number: 2,
         slide_ids: [], // To be added when slides are created
-        is_interactive_student_phase: true,
+        is_interactive_player_phase: true,
         expected_duration_minutes: 3
     },
     {
@@ -98,7 +98,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'consequence',
         round_number: 2,
         slide_ids: [], // To be added when slides are created
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 5
     },
     {
@@ -108,7 +108,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'payoff',
         round_number: 2,
         slide_ids: [120, 121],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 5
     },
     {
@@ -118,7 +118,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'kpi',
         round_number: 2,
         slide_ids: [130],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 2
     },
     {
@@ -128,7 +128,7 @@ export const round2Phases: GamePhaseNode[] = [
         phase_type: 'leaderboard',
         round_number: 2,
         slide_ids: [131, 132, 133, 134, 135, 136, 137],
-        is_interactive_student_phase: false,
+        is_interactive_player_phase: false,
         expected_duration_minutes: 5
     }
 ];
