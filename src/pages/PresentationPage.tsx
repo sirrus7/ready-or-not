@@ -1,4 +1,4 @@
-// src/pages/PresentationPage.tsx - Fixed Command Acknowledgment
+// src/pages/PresentationPage.tsx - Fixed Initial State Transfer
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Slide } from '../types';
@@ -30,6 +30,8 @@ const PresentationPage: React.FC = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const channelRef = useRef<BroadcastChannel | null>(null);
     const lastPingRef = useRef<number>(0);
+    const commandTimeoutRef = useRef<NodeJS.Timeout>();
+    const slideLoadTimeRef = useRef<number>(0);
 
     // Broadcast video state to host preview
     const broadcastVideoState = useCallback((newState: Partial<VideoState>) => {
@@ -51,7 +53,6 @@ const PresentationPage: React.FC = () => {
                     videoState: updatedState,
                     timestamp
                 });
-                console.log('[PresentationPage] Sent VIDEO_STATE_UPDATE message');
             }
 
             return updatedState;
@@ -79,9 +80,10 @@ const PresentationPage: React.FC = () => {
                     setStatusMessage('Connected - Presentation Display Active');
                     setCurrentSlide(event.data.slide);
                     setConnectionError(false);
+                    slideLoadTimeRef.current = now;
                     console.log('[PresentationPage] Slide updated:', event.data.slide?.id);
 
-                    // Reset video state when slide changes
+                    // Reset video state when slide changes, but don't broadcast yet
                     const newVideoState = {
                         playing: false,
                         currentTime: 0,
@@ -90,35 +92,38 @@ const PresentationPage: React.FC = () => {
                         lastUpdate: now
                     };
                     setVideoState(newVideoState);
+                    break;
 
-                    // Broadcast the reset state
-                    if (channel) {
-                        channel.postMessage({
-                            type: 'VIDEO_STATE_UPDATE',
-                            sessionId,
-                            videoState: newVideoState,
-                            timestamp: now
-                        });
-                    }
+                case 'INITIAL_VIDEO_STATE':
+                    if (event.data.sessionId === sessionId && event.data.videoState) {
+                        console.log('[PresentationPage] Received initial video state:', event.data.videoState);
+                        const initialState = event.data.videoState;
+                        setVideoState(initialState);
 
-                    // Handle auto-play prevention when opening display on video slide
-                    if (event.data.preventAutoPlay && videoRef.current) {
-                        console.log('[PresentationPage] Auto-play prevented due to preventAutoPlay flag');
-                        // Ensure video is paused and reset
-                        if (videoRef.current.src !== event.data.slide?.source_url) {
-                            // Video source will change, let it load but stay paused
-                            videoRef.current.addEventListener('loadeddata', function pauseOnLoad() {
-                                if (videoRef.current) {
-                                    videoRef.current.pause();
-                                    videoRef.current.currentTime = 0;
-                                    console.log('[PresentationPage] Video paused on load due to preventAutoPlay');
+                        // Apply the initial state to video if it exists
+                        if (videoRef.current && currentSlide) {
+                            const video = videoRef.current;
+
+                            // Clear any existing timeout
+                            if (commandTimeoutRef.current) {
+                                clearTimeout(commandTimeoutRef.current);
+                            }
+
+                            commandTimeoutRef.current = setTimeout(() => {
+                                // Set time position first
+                                if (initialState.currentTime > 0 && Math.abs(video.currentTime - initialState.currentTime) > 0.5) {
+                                    video.currentTime = initialState.currentTime;
                                 }
-                                videoRef.current?.removeEventListener('loadeddata', pauseOnLoad);
-                            }, { once: true });
-                        } else {
-                            // Same video, just pause and reset
-                            videoRef.current.pause();
-                            videoRef.current.currentTime = 0;
+
+                                // Then set play state
+                                if (initialState.playing && video.paused) {
+                                    video.play().catch(console.error);
+                                } else if (!initialState.playing && !video.paused) {
+                                    video.pause();
+                                }
+
+                                console.log('[PresentationPage] Applied initial video state');
+                            }, 200);
                         }
                     }
                     break;
@@ -127,29 +132,30 @@ const PresentationPage: React.FC = () => {
                     if (videoRef.current) {
                         const { action, value, expectAck } = event.data;
                         console.log(`[PresentationPage] Video control received: ${action}`, value);
-                        console.log(`[PresentationPage] Current video state - paused: ${videoRef.current.paused}, currentTime: ${videoRef.current.currentTime}`);
 
                         let commandSuccess = false;
 
                         switch (action) {
                             case 'play':
                                 console.log(`[PresentationPage] Executing PLAY command`);
+                                if (value !== undefined && Math.abs(videoRef.current.currentTime - value) > 0.5) {
+                                    videoRef.current.currentTime = value;
+                                }
                                 videoRef.current.play()
                                     .then(() => {
-                                        console.log(`[PresentationPage] PLAY successful - video is now playing`);
-                                        // Don't broadcast here - let the onPlay event handle it
+                                        console.log(`[PresentationPage] PLAY successful`);
                                     })
                                     .catch((error) => {
                                         console.error(`[PresentationPage] PLAY failed:`, error);
-                                        broadcastVideoState({ playing: false });
                                     });
                                 commandSuccess = true;
                                 break;
                             case 'pause':
                                 console.log(`[PresentationPage] Executing PAUSE command`);
+                                if (value !== undefined && Math.abs(videoRef.current.currentTime - value) > 0.5) {
+                                    videoRef.current.currentTime = value;
+                                }
                                 videoRef.current.pause();
-                                console.log(`[PresentationPage] PAUSE executed - video paused: ${videoRef.current.paused}`);
-                                // Don't broadcast here - let the onPause event handle it
                                 commandSuccess = true;
                                 break;
                             case 'seek':
@@ -249,6 +255,9 @@ const PresentationPage: React.FC = () => {
         }, 2000);
 
         return () => {
+            if (commandTimeoutRef.current) {
+                clearTimeout(commandTimeoutRef.current);
+            }
             clearTimeout(connectionTimeout);
             clearInterval(connectionMonitor);
             channel.removeEventListener('message', handleMessage);
@@ -289,11 +298,19 @@ const PresentationPage: React.FC = () => {
     const handleLoadedMetadata = useCallback(() => {
         if (videoRef.current) {
             console.log('[PresentationPage] Video metadata loaded');
-            broadcastVideoState({
+            const newState = {
                 duration: videoRef.current.duration,
                 currentTime: videoRef.current.currentTime,
                 volume: videoRef.current.volume
-            });
+            };
+            broadcastVideoState(newState);
+
+            // Check if we need to auto-play (for new slides)
+            const timeSinceSlideLoad = Date.now() - slideLoadTimeRef.current;
+            if (timeSinceSlideLoad < 1000) { // If this is a fresh slide load
+                console.log('[PresentationPage] Fresh slide - checking for auto-play');
+                // Don't auto-play here - wait for host command
+            }
         }
     }, [broadcastVideoState]);
 

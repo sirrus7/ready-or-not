@@ -1,4 +1,4 @@
-// src/components/Display/SlideRenderer.tsx - Fixed Auto-play and Pause/Resume
+// src/components/Display/SlideRenderer.tsx - Fixed Manual Sync
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
@@ -17,14 +17,14 @@ interface SlideRendererProps {
     onVolumeChange?: () => void;
     onLoadedMetadata?: () => void;
     masterVideoMode?: boolean;
-    // New sync mode for perfect synchronization
+    // Sync mode for sync behavior
     syncMode?: boolean;
     // Host mode for click controls
     hostMode?: boolean;
     onHostVideoClick?: (playing: boolean) => void;
     // Allow audio on host preview when presentation display is disconnected
     allowHostAudio?: boolean;
-    // NEW: Enable native video controls
+    // Enable native video controls
     enableNativeControls?: boolean;
     onSeek?: (time: number) => void;
 }
@@ -51,12 +51,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const activeVideoRef = videoRef || localVideoRef;
     const lastSeekTimeRef = useRef(0);
-    const syncTimeoutRef = useRef<NodeJS.Timeout>();
+    const lastSyncTimeRef = useRef(0);
     const [showPlayIcon, setShowPlayIcon] = useState(false);
     const [videoError, setVideoError] = useState(false);
     const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
     const iconTimeoutRef = useRef<NodeJS.Timeout>();
     const currentSlideIdRef = useRef<number | null>(null);
+    const lastTargetTimeRef = useRef<number>(0);
 
     // Reset auto-play flag when slide changes
     useEffect(() => {
@@ -64,12 +65,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             console.log(`[SlideRenderer] Slide changed from ${currentSlideIdRef.current} to ${slide.id}, resetting auto-play flag`);
             setHasAutoPlayed(false);
             currentSlideIdRef.current = slide.id;
+            lastTargetTimeRef.current = 0;
         }
     }, [slide?.id]);
 
-    // Auto-play logic for video slides
+    // Auto-play logic for video slides - ONLY when NOT in sync mode
     useEffect(() => {
-        if (!activeVideoRef.current || !slide || hasAutoPlayed) return;
+        if (!activeVideoRef.current || !slide || hasAutoPlayed || syncMode) return;
 
         const video = activeVideoRef.current;
         const isVideoSlide = slide.type === 'video' ||
@@ -77,13 +79,11 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
                 slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
 
-        if (isVideoSlide && video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
-            // For master video mode (presentation display), check if we should prevent auto-play
+        if (isVideoSlide && video.readyState >= 2) {
+            // For master video mode (presentation display), don't auto-play unless commanded
             if (masterVideoMode) {
-                // In master mode, we'll rely on host commands to start playback
-                // This prevents auto-play when presentation display first opens on a video slide
                 console.log(`[SlideRenderer] Master mode - not auto-playing, waiting for host command for slide ${slide.id}`);
-                setHasAutoPlayed(true); // Mark as handled so we don't keep trying
+                setHasAutoPlayed(true);
                 return;
             }
 
@@ -96,14 +96,57 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     console.log(`[SlideRenderer] Auto-play successful for slide ${slide.id}`);
                 } catch (error) {
                     console.warn(`[SlideRenderer] Auto-play failed for slide ${slide.id}:`, error);
-                    // Auto-play failed (probably due to browser policy), but that's okay
-                    setHasAutoPlayed(true); // Still mark as attempted to prevent retrying
+                    setHasAutoPlayed(true);
                 }
             };
 
             attemptAutoPlay();
         }
-    }, [slide, hasAutoPlayed, activeVideoRef.current?.readyState, masterVideoMode]);
+    }, [slide, hasAutoPlayed, activeVideoRef.current?.readyState, masterVideoMode, syncMode]);
+
+    // Manual sync for host preview when connected to presentation display
+    useEffect(() => {
+        if (!activeVideoRef.current || masterVideoMode || !syncMode) return;
+
+        const video = activeVideoRef.current;
+        const now = Date.now();
+
+        // Throttle sync operations
+        if (now - lastSyncTimeRef.current < 200) return;
+        lastSyncTimeRef.current = now;
+
+        console.log(`[SlideRenderer] Manual sync - target playing: ${isPlayingTarget}, target time: ${videoTimeTarget}`);
+
+        // Sync play/pause state
+        const shouldPlay = isPlayingTarget;
+        const currentlyPlaying = !video.paused;
+
+        if (shouldPlay !== currentlyPlaying) {
+            console.log(`[SlideRenderer] Syncing play state: ${shouldPlay ? 'play' : 'pause'}`);
+            if (shouldPlay) {
+                video.play().catch(console.error);
+            } else {
+                video.pause();
+            }
+        }
+
+        // Sync time position - only if there's a significant difference
+        if (videoTimeTarget !== undefined && video.readyState >= 2) {
+            const timeDiff = Math.abs(video.currentTime - videoTimeTarget);
+            const timeSinceLastSeek = now - lastSeekTimeRef.current;
+            const targetTimeChanged = Math.abs(videoTimeTarget - lastTargetTimeRef.current) > 0.1;
+
+            // Only seek if:
+            // 1. Time difference is significant (> 1 second), OR
+            // 2. Target time changed significantly (new command from presentation)
+            if ((timeDiff > 1.0 && timeSinceLastSeek > 1000) || (targetTimeChanged && timeSinceLastSeek > 100)) {
+                console.log(`[SlideRenderer] Syncing time: ${videoTimeTarget}s (diff: ${timeDiff}s, changed: ${targetTimeChanged})`);
+                video.currentTime = videoTimeTarget;
+                lastSeekTimeRef.current = now;
+                lastTargetTimeRef.current = videoTimeTarget;
+            }
+        }
+    }, [isPlayingTarget, videoTimeTarget, masterVideoMode, syncMode]);
 
     // Handle video synchronization for master mode (presentation display)
     useEffect(() => {
@@ -111,41 +154,27 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             const video = activeVideoRef.current;
             console.log(`[SlideRenderer] Setting up master video mode event listeners for slide ${slide.id}`);
 
-            // Set up event listeners for master video
             const handlePlay = () => {
-                console.log(`[SlideRenderer] Video play event (via addEventListener) for slide ${slide.id}`);
-                if (onVideoPlay) {
-                    console.log(`[SlideRenderer] Calling onVideoPlay handler via addEventListener`);
-                    onVideoPlay();
-                }
+                console.log(`[SlideRenderer] Video play event for slide ${slide.id}`);
+                if (onVideoPlay) onVideoPlay();
             };
 
             const handlePause = () => {
-                console.log(`[SlideRenderer] Video pause event (via addEventListener) for slide ${slide.id}`);
-                if (onVideoPause) {
-                    console.log(`[SlideRenderer] Calling onVideoPause handler via addEventListener`);
-                    onVideoPause();
-                }
+                console.log(`[SlideRenderer] Video pause event for slide ${slide.id}`);
+                if (onVideoPause) onVideoPause();
             };
 
             const handleTimeUpdate = () => {
-                if (onVideoTimeUpdate) {
-                    onVideoTimeUpdate();
-                }
+                if (onVideoTimeUpdate) onVideoTimeUpdate();
             };
 
             const handleVolumeChange = () => {
-                if (onVolumeChange) {
-                    onVolumeChange();
-                }
+                if (onVolumeChange) onVolumeChange();
             };
 
             const handleLoadedMetadata = () => {
-                console.log(`[SlideRenderer] Video metadata loaded (via addEventListener) for slide ${slide.id}`);
-                if (onLoadedMetadata) {
-                    console.log(`[SlideRenderer] Calling onLoadedMetadata handler via addEventListener`);
-                    onLoadedMetadata();
-                }
+                console.log(`[SlideRenderer] Video metadata loaded for slide ${slide.id}`);
+                if (onLoadedMetadata) onLoadedMetadata();
             };
 
             // Add event listeners
@@ -155,13 +184,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             video.addEventListener('volumechange', handleVolumeChange);
             video.addEventListener('loadedmetadata', handleLoadedMetadata);
 
-            // Test if video is already playing
-            if (!video.paused) {
-                console.log(`[SlideRenderer] Video is already playing on setup`);
-                handlePlay();
-            }
-
-            // Cleanup
             return () => {
                 console.log(`[SlideRenderer] Cleaning up master video mode event listeners for slide ${slide.id}`);
                 video.removeEventListener('play', handlePlay);
@@ -173,113 +195,24 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     }, [masterVideoMode, slide?.id, onVideoPlay, onVideoPause, onVideoTimeUpdate, onVolumeChange, onLoadedMetadata]);
 
-    // Enhanced synchronization for preview mode
-    const syncVideoState = useCallback(() => {
-        if (!activeVideoRef.current || masterVideoMode) return;
-
-        const video = activeVideoRef.current;
-        const now = Date.now();
-
-        // Only sync if we're in sync mode (connected to presentation display)
-        if (!syncMode) return;
-
-        // Sync play/pause state with immediate response
-        if (isPlayingTarget && video.paused) {
-            console.log('[SlideRenderer] Syncing play state');
-            video.play().catch(console.error);
-        } else if (!isPlayingTarget && !video.paused) {
-            console.log('[SlideRenderer] Syncing pause state');
-            video.pause();
-        }
-
-        // Sync time position with smart tolerance
-        if (videoTimeTarget !== undefined) {
-            const timeDiff = Math.abs(video.currentTime - videoTimeTarget);
-            const timeSinceLastSeek = now - lastSeekTimeRef.current;
-
-            // Only seek if difference is significant and enough time has passed
-            if (timeDiff > 0.5 && timeSinceLastSeek > 300 && video.readyState >= 2) {
-                console.log(`[SlideRenderer] Syncing time: ${videoTimeTarget}s (diff: ${timeDiff}s)`);
-                video.currentTime = videoTimeTarget;
-                lastSeekTimeRef.current = now;
-            }
-        }
-    }, [isPlayingTarget, videoTimeTarget, masterVideoMode, syncMode]);
-
-    // Enhanced sync effect with proper handling for different modes
-    useEffect(() => {
-        if (!activeVideoRef.current) return;
-
-        const video = activeVideoRef.current;
-
-        // Only apply sync logic for non-master modes (host preview) and when native controls are disabled
-        if (!masterVideoMode && !enableNativeControls) {
-            if (syncMode) {
-                // In sync mode, be more responsive to state changes
-                console.log(`[SlideRenderer] Sync mode - playing: ${isPlayingTarget}, time: ${videoTimeTarget}`);
-
-                // Clear any pending operations
-                if (syncTimeoutRef.current) {
-                    clearTimeout(syncTimeoutRef.current);
-                }
-
-                // Immediate play/pause sync
-                if (isPlayingTarget !== !video.paused) {
-                    if (isPlayingTarget) {
-                        video.play().catch(console.error);
-                    } else {
-                        video.pause();
-                    }
-                }
-
-                // Time sync with small delay to allow for smooth playback
-                if (videoTimeTarget !== undefined) {
-                    syncTimeoutRef.current = setTimeout(() => {
-                        syncVideoState();
-                    }, 100);
-                }
-            }
-            // When not in sync mode (no presentation display), don't apply any automatic sync
-            // Let the video play naturally based on user interaction
-        }
-        // For master mode (presentation display) or native controls mode, don't apply any sync logic
-        // Let it play naturally based on commands or user interaction
-
-        return () => {
-            if (syncTimeoutRef.current) {
-                clearTimeout(syncTimeoutRef.current);
-            }
-        };
-    }, [isPlayingTarget, videoTimeTarget, syncMode, masterVideoMode, syncVideoState, enableNativeControls]);
-
     // Handle video loading and metadata
     useEffect(() => {
         if (activeVideoRef.current && slide) {
             const video = activeVideoRef.current;
 
             const handleLoadedData = () => {
-                // Only apply sync for sync mode when connected to presentation display
-                if (!masterVideoMode && !enableNativeControls && syncMode) {
-                    syncVideoState();
-                }
                 setVideoError(false);
+                console.log(`[SlideRenderer] Video data loaded for slide ${slide.id}`);
 
-                // Try auto-play when video data is loaded
-                if (!hasAutoPlayed) {
+                // Only auto-play if not in sync mode and not master mode
+                if (!hasAutoPlayed && !syncMode && !masterVideoMode) {
                     const isVideoSlide = slide.type === 'video' ||
                         (slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
                         ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
                             slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
 
                     if (isVideoSlide) {
-                        // For master video mode (presentation display), don't auto-play
-                        if (masterVideoMode) {
-                            console.log(`[SlideRenderer] Master mode - video loaded but not auto-playing for slide ${slide.id}`);
-                            setHasAutoPlayed(true); // Mark as handled
-                            return;
-                        }
-
-                        console.log(`[SlideRenderer] Video data loaded, attempting auto-play for slide ${slide.id}`);
+                        console.log(`[SlideRenderer] Auto-playing on data load for slide ${slide.id}`);
                         video.play()
                             .then(() => {
                                 setHasAutoPlayed(true);
@@ -287,16 +220,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             })
                             .catch(error => {
                                 console.warn(`[SlideRenderer] Auto-play failed on loadeddata for slide ${slide.id}:`, error);
-                                setHasAutoPlayed(true); // Mark as attempted
+                                setHasAutoPlayed(true);
                             });
                     }
-                }
-            };
-
-            const handleCanPlay = () => {
-                // Only apply time sync for sync mode when connected to presentation display
-                if (!masterVideoMode && !enableNativeControls && syncMode && videoTimeTarget !== undefined && Math.abs(video.currentTime - videoTimeTarget) > 0.5) {
-                    video.currentTime = videoTimeTarget;
                 }
             };
 
@@ -305,7 +231,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 setVideoError(true);
             };
 
-            // For native controls mode, set up seek handling
             const handleSeeked = () => {
                 if (enableNativeControls && onSeek && video.currentTime !== undefined) {
                     onSeek(video.currentTime);
@@ -313,7 +238,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             };
 
             video.addEventListener('loadeddata', handleLoadedData);
-            video.addEventListener('canplay', handleCanPlay);
             video.addEventListener('error', handleError);
 
             if (enableNativeControls) {
@@ -322,14 +246,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             return () => {
                 video.removeEventListener('loadeddata', handleLoadedData);
-                video.removeEventListener('canplay', handleCanPlay);
                 video.removeEventListener('error', handleError);
                 if (enableNativeControls) {
                     video.removeEventListener('seeked', handleSeeked);
                 }
             };
         }
-    }, [slide, syncMode, masterVideoMode, videoTimeTarget, syncVideoState, enableNativeControls, onSeek, hasAutoPlayed]);
+    }, [slide, syncMode, masterVideoMode, enableNativeControls, onSeek, hasAutoPlayed]);
 
     // Handle host video click (only when native controls are disabled)
     const handleVideoClick = useCallback(() => {
@@ -410,62 +333,22 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         const shouldHaveAudio = masterVideoMode || allowHostAudio;
 
         // Use a stable key that only changes when the slide or source URL changes
-        // This prevents the video from being recreated on every state change
         const videoKey = `video_${slide.id}_${slide.source_url}`;
 
         const videoElement = (
             <video
                 ref={activeVideoRef}
-                key={videoKey} // Only recreate when slide/source changes, not on state changes
+                key={videoKey}
                 src={slide.source_url}
                 className={`max-w-full max-h-full object-contain rounded-lg shadow-lg outline-none ${
                     hostMode && !enableNativeControls ? 'cursor-pointer' : ''
                 }`}
                 playsInline
-                controls={enableNativeControls} // Enable native controls when requested
+                controls={enableNativeControls}
                 autoPlay={false} // We handle auto-play manually
                 preload="auto"
                 muted={!shouldHaveAudio}
                 onClick={hostMode && !enableNativeControls ? handleVideoClick : undefined}
-                onPlay={(e) => {
-                    console.log(`[SlideRenderer] Video onPlay INLINE event fired for slide ${slide.id}, masterVideoMode: ${masterVideoMode}`);
-                    if (masterVideoMode && onVideoPlay) {
-                        console.log(`[SlideRenderer] Calling onVideoPlay handler from INLINE event`);
-                        onVideoPlay();
-                    }
-                }}
-                onPause={(e) => {
-                    console.log(`[SlideRenderer] Video onPause INLINE event fired for slide ${slide.id}, masterVideoMode: ${masterVideoMode}`);
-                    if (masterVideoMode && onVideoPause) {
-                        console.log(`[SlideRenderer] Calling onVideoPause handler from INLINE event`);
-                        onVideoPause();
-                    }
-                }}
-                onTimeUpdate={(e) => {
-                    if (masterVideoMode && onVideoTimeUpdate) {
-                        onVideoTimeUpdate();
-                    }
-                }}
-                onVolumeChange={(e) => {
-                    if (masterVideoMode && onVolumeChange) {
-                        onVolumeChange();
-                    }
-                }}
-                onLoadedMetadata={(e) => {
-                    console.log(`[SlideRenderer] Video metadata loaded INLINE for slide ${slide.id}, masterVideoMode: ${masterVideoMode}`);
-                    if (masterVideoMode && onLoadedMetadata) {
-                        console.log(`[SlideRenderer] Calling onLoadedMetadata handler from INLINE event`);
-                        onLoadedMetadata();
-                    }
-                }}
-                onCanPlay={(e) => {
-                    console.log(`[SlideRenderer] Video canPlay event for slide ${slide.id}, masterVideoMode: ${masterVideoMode}`);
-                    // Check if video is already playing when it becomes ready
-                    if (masterVideoMode && activeVideoRef.current && !activeVideoRef.current.paused && onVideoPlay) {
-                        console.log(`[SlideRenderer] Video is already playing when canPlay fired`);
-                        onVideoPlay();
-                    }
-                }}
                 onError={(e) => {
                     console.error('[SlideRenderer] Video loading error:', e);
                     setVideoError(true);
@@ -480,7 +363,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             return (
                 <div className="relative">
                     {videoElement}
-                    {/* YouTube-style play/pause icon overlay */}
                     {showPlayIcon && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="bg-black/60 rounded-full p-4 backdrop-blur-sm animate-in fade-in duration-200">
