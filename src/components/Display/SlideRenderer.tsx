@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
 import LeaderboardChartDisplay from './LeaderboardChartDisplay';
+import { isVideo } from "../../utils/videoUtils.ts";
 
 interface SlideRendererProps {
     slide: Slide | null;
@@ -83,7 +84,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
 
         const video = activeVideoRef.current;
-        const isVideoSlide = !!isVideo(slide);
+        const isVideoSlide = isVideo(slide.source_url);
 
         console.log(`[SlideRenderer] Is video slide: ${isVideoSlide}, source: ${slide.source_url}`);
 
@@ -403,10 +404,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         return videoElement;
     };
 
-    const isVideo = (slide: Slide) => {
-        return slide.source_url && !slide.source_url.match(/\.(mp4|webm|ogg)$/i);
-    }
-
     const renderContent = () => {
         if (!slide) return <div className="text-xl text-gray-400 p-4 text-center">Waiting for slide data...</div>;
 
@@ -434,7 +431,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             default:
                 {
-                    const hasVideoFile = !!isVideo(slide);
+                    const hasVideoFile = isVideo(slide.source_url);
                     console.log(`[SlideRenderer] Slide ${slide.id} (${slide.type}) → Video rendering (hasFile: ${hasVideoFile})`);
                     return renderVideoContent(slide, hasVideoFile);
                 }
