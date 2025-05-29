@@ -39,13 +39,8 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
         ? window.location.pathname.split('/classroom/')[1]
         : null;
 
-    // Check if current slide is a video
-    const isVideoSlide = slide && (
-        slide.type === 'video' ||
-        (slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
-        ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
-            slide.source_url?.match(/\.(mp4|webm|ogg)$/i))
-    );
+    // Check if current slide has a video - SIMPLIFIED: Just check for video file
+    const isVideoSlide = slide && slide.source_url && slide.source_url.match(/\.(mp4|webm|ogg)$/i);
 
     // Track slide changes to handle auto-play properly
     useEffect(() => {
