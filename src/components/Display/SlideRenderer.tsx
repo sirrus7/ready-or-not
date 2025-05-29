@@ -83,10 +83,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
 
         const video = activeVideoRef.current;
-        const isVideoSlide = slide.type === 'video' ||
-            (slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
-            ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
-                slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
+        const isVideoSlide = slide.source_url && slide.source_url.match(/\.(mp4|webm|ogg)$/i);
 
         console.log(`[SlideRenderer] Is video slide: ${isVideoSlide}, source: ${slide.source_url}`);
 
@@ -321,8 +318,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
     const isVideoSourceValid = (url?: string): boolean => {
         if (!url) return false;
-        const lowerUrl = url.toLowerCase();
-        return lowerUrl.includes(".mp4") || lowerUrl.includes(".webm") || lowerUrl.includes(".ogg");
+        return url.match(/\.(mp4|webm|ogg)$/i) !== null;
     };
 
     const renderVideoContent = (slide: Slide, hasVideoSrc: boolean) => {
@@ -412,27 +408,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         return videoElement;
     };
 
-    const renderContent = () => {
-        if (!slide) return <div className="text-xl text-gray-400 p-4 text-center">Waiting for slide data...</div>;
-
+    const renderNonVideoContent = (slide: Slide) => {
+        // Render slide content when it doesn't have a video source
         switch (slide.type) {
-            case 'image':
-                if (!slide.source_url) return <div className="text-red-500 p-4 text-center">Image source missing for slide ID: {slide.id}.</div>;
-                return (
-                    <img
-                        src={slide.source_url}
-                        alt={slide.title || 'Slide Image'}
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                    />
-                );
-
-            case 'video':
-            case 'interactive_invest':
-            {
-                const hasVideoSrc = isVideoSourceValid(slide.source_url);
-                return renderVideoContent(slide, hasVideoSrc);
-            }
-
             case 'content_page':
                 return (
                     <div className="text-center max-w-3xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-10 rounded-xl shadow-2xl">
@@ -465,17 +443,28 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     </div>
                 );
 
+            case 'interactive_invest':
+                return (
+                    <div className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
+                        <ListChecks size={32} className="text-blue-400 mx-auto mb-4 animate-pulse"/>
+                        <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">{slide.main_text || slide.title || "Investment Time"}</h2>
+                        <p className="text-md sm:text-lg text-gray-300 mb-4">{slide.sub_text || "Refer to your team device to make investment decisions."}</p>
+                        {slide.timer_duration_seconds && (
+                            <div className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
+                                TIME: {`${Math.floor(slide.timer_duration_seconds / 60)}:${(slide.timer_duration_seconds % 60).toString().padStart(2, '0')}`}
+                            </div>
+                        )}
+                    </div>
+                );
+
             case 'consequence_reveal':
             case 'payoff_reveal':
-            {
-                const hasConsequenceVideo = isVideoSourceValid(slide.source_url);
                 return (
                     <div className="text-center max-w-4xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
-                        {slide.source_url && !hasConsequenceVideo && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) != null &&
+                        {slide.source_url && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) && (
                             <img src={slide.source_url} alt={slide.title || 'Reveal Image'}
                                  className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
-                        }
-                        {hasConsequenceVideo && slide.source_url && renderVideoContent(slide, true)}
+                        )}
                         {slide.main_text && <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
                         {slide.sub_text && <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
                         {slide.details && slide.details.length > 0 && (
@@ -486,11 +475,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         {!slide.source_url && !slide.main_text && <p className="text-xl p-8">Details for {slide.title || 'this event'} will be shown based on team choices or game events.</p>}
                     </div>
                 );
-            }
 
             case 'kpi_summary_instructional':
             case 'game_end_summary':
-                if (slide.source_url && slide.source_url.match(/\.(jpeg|jpg|gif|png|svg)$/i) != null) {
+                if (slide.source_url && slide.source_url.match(/\.(jpeg|jpg|gif|png|svg)$/i)) {
                     return <img src={slide.source_url} alt={slide.title || 'Summary Screen'}
                                 className="max-w-full max-h-full object-contain rounded-lg shadow-lg"/>;
                 }
@@ -501,6 +489,65 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         {!slide.source_url && !slide.main_text && <p className="text-xl">Loading summary information...</p>}
                     </div>
                 );
+
+            case 'double_down_dice_roll':
+                return (
+                    <div className="text-center max-w-2xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
+                        {slide.main_text && <h2 className="text-3xl md:text-4xl font-bold mb-4 text-shadow-md break-words">{slide.main_text}</h2>}
+                        {slide.sub_text && <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
+                        {slide.source_url && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) && (
+                            <img src={slide.source_url} alt="Dice Roll Result"
+                                 className="max-w-full max-h-[50vh] object-contain rounded-lg shadow-lg my-4 mx-auto"/>
+                        )}
+                        {!slide.source_url && !slide.main_text && <p className="text-xl p-8">Rolling the dice...</p>}
+                    </div>
+                );
+
+            default:
+                return (
+                    <div className="text-center max-w-2xl mx-auto p-6 bg-gray-800/50 rounded-lg">
+                        <h2 className="text-xl font-bold mb-2">{slide.title || slide.main_text || "Content"}</h2>
+                        {slide.sub_text && <p className="text-gray-300">{slide.sub_text}</p>}
+                    </div>
+                );
+        }
+    };
+
+    const renderContent = () => {
+        if (!slide) return <div className="text-xl text-gray-400 p-4 text-center">Waiting for slide data...</div>;
+
+        switch (slide.type) {
+            case 'image':
+                if (!slide.source_url) return <div className="text-red-500 p-4 text-center">Image source missing for slide ID: {slide.id}.</div>;
+                return (
+                    <img
+                        src={slide.source_url}
+                        alt={slide.title || 'Slide Image'}
+                        className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                    />
+                );
+
+            case 'video':
+            case 'interactive_invest':
+            case 'interactive_choice':
+            case 'interactive_double_down_prompt':
+            case 'interactive_double_down_select':
+            case 'consequence_reveal':
+            case 'payoff_reveal':
+            case 'double_down_dice_roll':
+            case 'content_page':
+            case 'kpi_summary_instructional':
+            case 'game_end_summary':
+            {
+                // Check if this specific slide has a video file
+                if (slide.source_url && slide.source_url.match(/\.(mp4|webm|ogg)$/i)) {
+                    // This slide has a video source - render with video controls and sync
+                    return renderVideoContent(slide, true);
+                } else {
+                    // This slide type can have video but this instance doesn't - render as content
+                    return renderNonVideoContent(slide);
+                }
+            }
 
             case 'leaderboard_chart':
                 if (!slide.interactive_data_key) {
