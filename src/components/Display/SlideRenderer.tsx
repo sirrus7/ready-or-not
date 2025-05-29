@@ -1,4 +1,4 @@
-// src/components/Display/SlideRenderer.tsx - Fixed Auto-play and Sync Logic
+// src/components/Display/SlideRenderer.tsx - Fixed Host Click Responsiveness
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
@@ -64,7 +64,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     }, [slide]);
 
-    // CONSOLIDATED AUTO-PLAY LOGIC - Single source of truth with debugging
+    // CONSOLIDATED AUTO-PLAY LOGIC
     useEffect(() => {
         console.log(`[SlideRenderer] Auto-play effect triggered:`, {
             hasVideoRef: !!activeVideoRef.current,
@@ -95,13 +95,11 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             return;
         }
 
-        // Wait for video to be ready, but don't block on readyState
         const attemptAutoPlayWhenReady = () => {
             console.log(`[SlideRenderer] Attempting auto-play when ready, readyState: ${video.readyState}`);
 
             if (video.readyState < 2) {
                 console.log(`[SlideRenderer] Video not ready (readyState: ${video.readyState}), waiting for loadeddata`);
-                // Video not ready, wait for it
                 const handleLoadedData = () => {
                     console.log(`[SlideRenderer] Video loadeddata event fired, retrying auto-play`);
                     video.removeEventListener('loadeddata', handleLoadedData);
@@ -109,7 +107,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 };
                 video.addEventListener('loadeddata', handleLoadedData);
 
-                // Also try again after a short delay in case the event was missed
                 setTimeout(() => {
                     if (video.readyState >= 2) {
                         video.removeEventListener('loadeddata', handleLoadedData);
@@ -122,9 +119,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             console.log(`[SlideRenderer] Auto-play decision for slide ${slide.id}:`);
             console.log(`  - Master mode: ${masterVideoMode}, Sync mode: ${syncMode}, Host mode: ${hostMode}`);
 
-            // CLEAR PRIORITY SYSTEM:
+            // FIXED AUTO-PLAY LOGIC:
             // 1. Master mode (presentation display) - wait for host command
-            // 2. Sync mode (host with presentation) - wait for host click
+            // 2. Sync mode (host with presentation) - STILL AUTO-PLAY but will be controlled by host clicks
             // 3. Host only mode - auto-play immediately
 
             if (masterVideoMode) {
@@ -133,14 +130,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 return;
             }
 
-            if (syncMode) {
-                console.log(`[SlideRenderer] Sync mode - waiting for host interaction`);
-                setHasAutoPlayed(true);
-                return;
-            }
-
-            // Host only mode - auto-play
-            console.log(`[SlideRenderer] Host only mode - attempting auto-play NOW`);
+            // FIXED: In sync mode OR host only mode, auto-play the video
+            // Host clicks will control it afterwards
+            console.log(`[SlideRenderer] ${syncMode ? 'Sync' : 'Host only'} mode - attempting auto-play NOW`);
             const attemptAutoPlay = async () => {
                 try {
                     console.log(`[SlideRenderer] Calling video.play() for slide ${slide.id}`);
@@ -156,20 +148,28 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             attemptAutoPlay();
         };
 
-        // Start the attempt immediately
         console.log(`[SlideRenderer] Starting auto-play attempt for slide ${slide.id}`);
         attemptAutoPlayWhenReady();
     }, [slide, hasAutoPlayed, masterVideoMode, syncMode, hostMode, activeVideoRef]);
 
-    // IMPROVED SYNC LOGIC - Reduced threshold and better conditions
+    // IMPROVED SYNC LOGIC - Only applies when NOT ignoring and sync is needed
     useEffect(() => {
-        if (!activeVideoRef.current || masterVideoMode || !syncMode) return;
+        if (!activeVideoRef.current || masterVideoMode || !syncMode) {
+            return;
+        }
 
         const video = activeVideoRef.current;
 
-        console.log(`[SlideRenderer] Syncing - target playing: ${isPlayingTarget}, target time: ${videoTimeTarget}`);
+        // Check if we should ignore sync (due to recent user interaction)
+        const timeSinceLastCommand = Date.now() - (videoTimeTarget || 0);
+        if (timeSinceLastCommand < 1000) {
+            console.log(`[SlideRenderer] Skipping sync - recent user command (${timeSinceLastCommand}ms ago)`);
+            return;
+        }
 
-        // Sync play/pause state - ALWAYS when different
+        console.log(`[SlideRenderer] Sync check - target playing: ${isPlayingTarget}, current playing: ${!video.paused}, target time: ${videoTimeTarget}`);
+
+        // Sync play/pause state - but ONLY if significantly different
         const shouldPlay = isPlayingTarget;
         const currentlyPlaying = !video.paused;
 
@@ -182,12 +182,11 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             }
         }
 
-        // Sync time position - IMPROVED TOLERANCE (reduced from 1.0s to 0.5s)
+        // Sync time position with reduced threshold - but ONLY if needed
         if (videoTimeTarget !== undefined && video.readyState >= 2) {
             const timeDiff = Math.abs(video.currentTime - videoTimeTarget);
 
-            // REDUCED threshold for better sync + handle fresh start
-            if (timeDiff > 0.5 || (video.currentTime === 0 && videoTimeTarget === 0)) {
+            if (timeDiff > 1.0) { // Increased threshold to 1 second
                 console.log(`[SlideRenderer] Syncing time: ${videoTimeTarget}s (diff: ${timeDiff}s)`);
                 video.currentTime = videoTimeTarget;
             }
@@ -223,7 +222,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 if (onLoadedMetadata) onLoadedMetadata();
             };
 
-            // Add event listeners
             video.addEventListener('play', handlePlay);
             video.addEventListener('pause', handlePause);
             video.addEventListener('timeupdate', handleTimeUpdate);
@@ -241,7 +239,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     }, [masterVideoMode, slide?.id, onVideoPlay, onVideoPause, onVideoTimeUpdate, onVolumeChange, onLoadedMetadata]);
 
-    // Handle video loading and metadata - NO AUTO-PLAY HERE
+    // Handle video loading and metadata
     useEffect(() => {
         if (activeVideoRef.current && slide) {
             const video = activeVideoRef.current;
@@ -249,7 +247,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             const handleLoadedData = () => {
                 setVideoError(false);
                 console.log(`[SlideRenderer] Video data loaded for slide ${slide.id}`);
-                // NO AUTO-PLAY HERE - handled by consolidated auto-play logic above
             };
 
             const handleError = () => {
@@ -280,12 +277,19 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     }, [slide, enableNativeControls, onSeek]);
 
-    // Handle host video click (only when native controls are disabled)
+    // FIXED: Handle host video click - ALWAYS works when in host mode
     const handleVideoClick = useCallback(() => {
-        if (!hostMode || !activeVideoRef.current || !onHostVideoClick || enableNativeControls) return;
+        console.log(`[SlideRenderer] Video click - hostMode: ${hostMode}, enableNativeControls: ${enableNativeControls}, hasCallback: ${!!onHostVideoClick}`);
+
+        if (!hostMode || !activeVideoRef.current || !onHostVideoClick || enableNativeControls) {
+            console.log(`[SlideRenderer] Video click ignored - conditions not met`);
+            return;
+        }
 
         const video = activeVideoRef.current;
         const willPlay = video.paused;
+
+        console.log(`[SlideRenderer] Processing video click - current paused: ${video.paused}, will play: ${willPlay}`);
 
         // Show visual feedback
         setShowPlayIcon(true);
@@ -300,7 +304,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             setShowPlayIcon(false);
         }, 1000);
 
-        // Notify parent component
+        // IMPORTANT: Always call the callback - DisplayView must handle this
+        console.log(`[SlideRenderer] Calling onHostVideoClick with willPlay: ${willPlay}`);
         onHostVideoClick(willPlay);
     }, [hostMode, onHostVideoClick, enableNativeControls]);
 
