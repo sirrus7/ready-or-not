@@ -1,4 +1,4 @@
-// src/components/Display/SlideRenderer.tsx - Fixed Manual Sync
+// src/components/Display/SlideRenderer.tsx - Fixed Auto-play and Sync Logic
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
@@ -55,6 +55,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const iconTimeoutRef = useRef<NodeJS.Timeout>();
     const currentSlideIdRef = useRef<number | null>(null);
 
+    // Reset auto-play flag when slide changes
     useEffect(() => {
         if (slide && slide.id !== currentSlideIdRef.current) {
             console.log(`[SlideRenderer] Slide changed from ${currentSlideIdRef.current} to ${slide.id}, resetting auto-play flag`);
@@ -63,8 +64,23 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     }, [slide]);
 
+    // CONSOLIDATED AUTO-PLAY LOGIC - Single source of truth with debugging
     useEffect(() => {
-        if (!activeVideoRef.current || !slide || hasAutoPlayed || syncMode) return;
+        console.log(`[SlideRenderer] Auto-play effect triggered:`, {
+            hasVideoRef: !!activeVideoRef.current,
+            hasSlide: !!slide,
+            slideId: slide?.id,
+            slideType: slide?.type,
+            hasAutoPlayed,
+            masterVideoMode,
+            syncMode,
+            hostMode
+        });
+
+        if (!activeVideoRef.current || !slide || hasAutoPlayed) {
+            console.log(`[SlideRenderer] Auto-play skipped - early return conditions`);
+            return;
+        }
 
         const video = activeVideoRef.current;
         const isVideoSlide = slide.type === 'video' ||
@@ -72,31 +88,80 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
                 slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
 
-        if (isVideoSlide && video.readyState >= 2) {
+        console.log(`[SlideRenderer] Is video slide: ${isVideoSlide}, source: ${slide.source_url}`);
+
+        if (!isVideoSlide) {
+            console.log(`[SlideRenderer] Not a video slide, skipping auto-play`);
+            return;
+        }
+
+        // Wait for video to be ready, but don't block on readyState
+        const attemptAutoPlayWhenReady = () => {
+            console.log(`[SlideRenderer] Attempting auto-play when ready, readyState: ${video.readyState}`);
+
+            if (video.readyState < 2) {
+                console.log(`[SlideRenderer] Video not ready (readyState: ${video.readyState}), waiting for loadeddata`);
+                // Video not ready, wait for it
+                const handleLoadedData = () => {
+                    console.log(`[SlideRenderer] Video loadeddata event fired, retrying auto-play`);
+                    video.removeEventListener('loadeddata', handleLoadedData);
+                    attemptAutoPlayWhenReady();
+                };
+                video.addEventListener('loadeddata', handleLoadedData);
+
+                // Also try again after a short delay in case the event was missed
+                setTimeout(() => {
+                    if (video.readyState >= 2) {
+                        video.removeEventListener('loadeddata', handleLoadedData);
+                        attemptAutoPlayWhenReady();
+                    }
+                }, 500);
+                return;
+            }
+
+            console.log(`[SlideRenderer] Auto-play decision for slide ${slide.id}:`);
+            console.log(`  - Master mode: ${masterVideoMode}, Sync mode: ${syncMode}, Host mode: ${hostMode}`);
+
+            // CLEAR PRIORITY SYSTEM:
+            // 1. Master mode (presentation display) - wait for host command
+            // 2. Sync mode (host with presentation) - wait for host click
+            // 3. Host only mode - auto-play immediately
+
             if (masterVideoMode) {
-                console.log(`[SlideRenderer] Master mode - not auto-playing, waiting for host command for slide ${slide.id}`);
+                console.log(`[SlideRenderer] Master mode - waiting for host command`);
                 setHasAutoPlayed(true);
                 return;
             }
 
-            console.log(`[SlideRenderer] Auto-playing video for slide ${slide.id}`);
+            if (syncMode) {
+                console.log(`[SlideRenderer] Sync mode - waiting for host interaction`);
+                setHasAutoPlayed(true);
+                return;
+            }
 
+            // Host only mode - auto-play
+            console.log(`[SlideRenderer] Host only mode - attempting auto-play NOW`);
             const attemptAutoPlay = async () => {
                 try {
+                    console.log(`[SlideRenderer] Calling video.play() for slide ${slide.id}`);
                     await video.play();
                     setHasAutoPlayed(true);
-                    console.log(`[SlideRenderer] Auto-play successful for slide ${slide.id}`);
+                    console.log(`[SlideRenderer] ✅ Auto-play SUCCESSFUL for slide ${slide.id}`);
                 } catch (error) {
-                    console.warn(`[SlideRenderer] Auto-play failed for slide ${slide.id}:`, error);
+                    console.error(`[SlideRenderer] ❌ Auto-play FAILED for slide ${slide.id}:`, error);
                     setHasAutoPlayed(true);
                 }
             };
 
             attemptAutoPlay();
-        }
-    }, [slide, hasAutoPlayed, masterVideoMode, syncMode, activeVideoRef]);
+        };
 
-    // Manual sync for host preview when connected to presentation display
+        // Start the attempt immediately
+        console.log(`[SlideRenderer] Starting auto-play attempt for slide ${slide.id}`);
+        attemptAutoPlayWhenReady();
+    }, [slide, hasAutoPlayed, masterVideoMode, syncMode, hostMode, activeVideoRef]);
+
+    // IMPROVED SYNC LOGIC - Reduced threshold and better conditions
     useEffect(() => {
         if (!activeVideoRef.current || masterVideoMode || !syncMode) return;
 
@@ -104,7 +169,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
         console.log(`[SlideRenderer] Syncing - target playing: ${isPlayingTarget}, target time: ${videoTimeTarget}`);
 
-        // Sync play/pause state
+        // Sync play/pause state - ALWAYS when different
         const shouldPlay = isPlayingTarget;
         const currentlyPlaying = !video.paused;
 
@@ -117,12 +182,12 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             }
         }
 
-        // Sync time position - only if there's a significant difference
+        // Sync time position - IMPROVED TOLERANCE (reduced from 1.0s to 0.5s)
         if (videoTimeTarget !== undefined && video.readyState >= 2) {
             const timeDiff = Math.abs(video.currentTime - videoTimeTarget);
 
-            // Only seek if difference is significant (> 1 second)
-            if (timeDiff > 1.0) {
+            // REDUCED threshold for better sync + handle fresh start
+            if (timeDiff > 0.5 || (video.currentTime === 0 && videoTimeTarget === 0)) {
                 console.log(`[SlideRenderer] Syncing time: ${videoTimeTarget}s (diff: ${timeDiff}s)`);
                 video.currentTime = videoTimeTarget;
             }
@@ -176,7 +241,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
     }, [masterVideoMode, slide?.id, onVideoPlay, onVideoPause, onVideoTimeUpdate, onVolumeChange, onLoadedMetadata]);
 
-    // Handle video loading and metadata
+    // Handle video loading and metadata - NO AUTO-PLAY HERE
     useEffect(() => {
         if (activeVideoRef.current && slide) {
             const video = activeVideoRef.current;
@@ -184,27 +249,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             const handleLoadedData = () => {
                 setVideoError(false);
                 console.log(`[SlideRenderer] Video data loaded for slide ${slide.id}`);
-
-                // Only auto-play if not in sync mode and not master mode
-                if (!hasAutoPlayed && !syncMode && !masterVideoMode) {
-                    const isVideoSlide = slide.type === 'video' ||
-                        (slide.type === 'interactive_invest' && slide.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
-                        ((slide.type === 'consequence_reveal' || slide.type === 'payoff_reveal') &&
-                            slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
-
-                    if (isVideoSlide) {
-                        console.log(`[SlideRenderer] Auto-playing on data load for slide ${slide.id}`);
-                        video.play()
-                            .then(() => {
-                                setHasAutoPlayed(true);
-                                console.log(`[SlideRenderer] Auto-play successful on loadeddata for slide ${slide.id}`);
-                            })
-                            .catch(error => {
-                                console.warn(`[SlideRenderer] Auto-play failed on loadeddata for slide ${slide.id}:`, error);
-                                setHasAutoPlayed(true);
-                            });
-                    }
-                }
+                // NO AUTO-PLAY HERE - handled by consolidated auto-play logic above
             };
 
             const handleError = () => {
@@ -233,7 +278,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 }
             };
         }
-    }, [slide, syncMode, masterVideoMode, enableNativeControls, onSeek, hasAutoPlayed]);
+    }, [slide, enableNativeControls, onSeek]);
 
     // Handle host video click (only when native controls are disabled)
     const handleVideoClick = useCallback(() => {
@@ -378,10 +423,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             case 'video':
             case 'interactive_invest':
-                { 
-                    const hasVideoSrc = isVideoSourceValid(slide.source_url);
-                    return renderVideoContent(slide, hasVideoSrc); 
-                }
+            {
+                const hasVideoSrc = isVideoSourceValid(slide.source_url);
+                return renderVideoContent(slide, hasVideoSrc);
+            }
 
             case 'content_page':
                 return (
@@ -417,26 +462,26 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             case 'consequence_reveal':
             case 'payoff_reveal':
-                { 
-                    const hasConsequenceVideo = isVideoSourceValid(slide.source_url);
-                    return (
-                        <div className="text-center max-w-4xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
-                            {slide.source_url && !hasConsequenceVideo && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) != null &&
-                                <img src={slide.source_url} alt={slide.title || 'Reveal Image'}
-                                     className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
-                            }
-                            {hasConsequenceVideo && slide.source_url && renderVideoContent(slide, true)}
-                            {slide.main_text && <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
-                            {slide.sub_text && <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
-                            {slide.details && slide.details.length > 0 && (
-                                <div className="mt-4 text-left text-md text-gray-100 space-y-1 bg-slate-700/50 p-4 rounded-md max-w-md mx-auto">
-                                    {slide.details.map((detail, index) => <p key={index}>{detail}</p>)}
-                                </div>
-                            )}
-                            {!slide.source_url && !slide.main_text && <p className="text-xl p-8">Details for {slide.title || 'this event'} will be shown based on team choices or game events.</p>}
-                        </div>
-                    ); 
-                }
+            {
+                const hasConsequenceVideo = isVideoSourceValid(slide.source_url);
+                return (
+                    <div className="text-center max-w-4xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
+                        {slide.source_url && !hasConsequenceVideo && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) != null &&
+                            <img src={slide.source_url} alt={slide.title || 'Reveal Image'}
+                                 className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
+                        }
+                        {hasConsequenceVideo && slide.source_url && renderVideoContent(slide, true)}
+                        {slide.main_text && <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
+                        {slide.sub_text && <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
+                        {slide.details && slide.details.length > 0 && (
+                            <div className="mt-4 text-left text-md text-gray-100 space-y-1 bg-slate-700/50 p-4 rounded-md max-w-md mx-auto">
+                                {slide.details.map((detail, index) => <p key={index}>{detail}</p>)}
+                            </div>
+                        )}
+                        {!slide.source_url && !slide.main_text && <p className="text-xl p-8">Details for {slide.title || 'this event'} will be shown based on team choices or game events.</p>}
+                    </div>
+                );
+            }
 
             case 'kpi_summary_instructional':
             case 'game_end_summary':
