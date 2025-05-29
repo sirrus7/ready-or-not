@@ -1,4 +1,4 @@
-// src/pages/PresentationPage.tsx - Fixed Initial State Transfer
+// src/pages/PresentationPage.tsx - Fixed Excessive Logging
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Slide } from '../types';
@@ -32,10 +32,17 @@ const PresentationPage: React.FC = () => {
     const lastPingRef = useRef<number>(0);
     const commandTimeoutRef = useRef<NodeJS.Timeout>();
     const slideLoadTimeRef = useRef<number>(0);
+    const lastStateUpdateRef = useRef<number>(0); // ADDED: Prevent duplicate updates
 
-    // Broadcast video state to host preview
+    // Broadcast video state to host preview - WITH THROTTLING
     const broadcastVideoState = useCallback((newState: Partial<VideoState>) => {
         const timestamp = Date.now();
+
+        // THROTTLE: Only update every 1 second to prevent log spam
+        if (timestamp - lastStateUpdateRef.current < 1000) {
+            return;
+        }
+        lastStateUpdateRef.current = timestamp;
 
         setVideoState(prevState => {
             const updatedState = {
@@ -44,7 +51,7 @@ const PresentationPage: React.FC = () => {
                 lastUpdate: timestamp
             };
 
-            console.log('[PresentationPage] Broadcasting video state:', updatedState);
+            console.log('[PresentationPage] Broadcasting video state (throttled):', updatedState);
 
             if (channelRef.current && sessionId) {
                 channelRef.current.postMessage({
@@ -92,6 +99,7 @@ const PresentationPage: React.FC = () => {
                         lastUpdate: now
                     };
                     setVideoState(newVideoState);
+                    lastStateUpdateRef.current = now; // Reset throttle timer
                     break;
 
                 case 'INITIAL_VIDEO_STATE':
@@ -99,9 +107,10 @@ const PresentationPage: React.FC = () => {
                         console.log('[PresentationPage] Received initial video state:', event.data.videoState);
                         const initialState = event.data.videoState;
                         setVideoState(initialState);
+                        lastStateUpdateRef.current = now; // Reset throttle timer
 
-                        // Apply the initial state to video if it exists
-                        if (videoRef.current && currentSlide) {
+                        // Apply the initial state to video IMMEDIATELY if it exists
+                        if (videoRef.current) {
                             const video = videoRef.current;
 
                             // Clear any existing timeout
@@ -109,21 +118,25 @@ const PresentationPage: React.FC = () => {
                                 clearTimeout(commandTimeoutRef.current);
                             }
 
-                            commandTimeoutRef.current = setTimeout(() => {
-                                // Set time position first
-                                if (initialState.currentTime > 0 && Math.abs(video.currentTime - initialState.currentTime) > 0.5) {
-                                    video.currentTime = initialState.currentTime;
-                                }
+                            // Apply state immediately, no delay
+                            console.log('[PresentationPage] Applying initial state immediately');
 
-                                // Then set play state
-                                if (initialState.playing && video.paused) {
-                                    video.play().catch(console.error);
-                                } else if (!initialState.playing && !video.paused) {
-                                    video.pause();
-                                }
+                            // Set time position first
+                            if (initialState.currentTime !== undefined && Math.abs(video.currentTime - initialState.currentTime) > 0.1) {
+                                video.currentTime = initialState.currentTime;
+                                console.log('[PresentationPage] Set video time to:', initialState.currentTime);
+                            }
 
-                                console.log('[PresentationPage] Applied initial video state');
-                            }, 200);
+                            // Then set play state (should be paused when connecting)
+                            if (initialState.playing && video.paused) {
+                                video.play().catch(console.error);
+                                console.log('[PresentationPage] Started video playback');
+                            } else if (!initialState.playing && !video.paused) {
+                                video.pause();
+                                console.log('[PresentationPage] Paused video');
+                            }
+
+                            console.log('[PresentationPage] Applied initial video state immediately');
                         }
                     }
                     break;
@@ -266,7 +279,7 @@ const PresentationPage: React.FC = () => {
         };
     }, [sessionId, isConnectedToHost, videoState, currentSlide, broadcastVideoState]);
 
-    // Video event handlers for sync broadcasting
+    // Video event handlers for sync broadcasting - WITH THROTTLING
     const handleVideoPlay = useCallback(() => {
         console.log('[PresentationPage] Video play event');
         broadcastVideoState({ playing: true });
@@ -279,15 +292,16 @@ const PresentationPage: React.FC = () => {
 
     const handleVideoTimeUpdate = useCallback(() => {
         if (videoRef.current) {
+            // THROTTLED: Only broadcast every 1 second (was 200ms)
             const now = Date.now();
-            if (now - videoState.lastUpdate > 200) { // Throttle to every 200ms
+            if (now - lastStateUpdateRef.current > 1000) {
                 broadcastVideoState({
                     currentTime: videoRef.current.currentTime,
                     duration: videoRef.current.duration || 0
                 });
             }
         }
-    }, [broadcastVideoState, videoState.lastUpdate]);
+    }, [broadcastVideoState]);
 
     const handleVolumeChange = useCallback(() => {
         if (videoRef.current) {
