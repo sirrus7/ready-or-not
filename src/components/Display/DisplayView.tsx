@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import SlideRenderer from './SlideRenderer';
 import { Slide } from '../../types';
 import { Hourglass, Monitor } from 'lucide-react';
+import { isVideo } from "../../utils/videoUtils.ts";
 
 interface DisplayViewProps {
     slide: Slide | null;
@@ -40,7 +41,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
         : null;
 
     // Check if current slide has a video - SIMPLIFIED: Just check for video file
-    const isVideoSlide = slide && slide.source_url && slide.source_url.match(/\.(mp4|webm|ogg)$/i);
+    const isVideoSlide = isVideo(slide?.source_url)
 
     // Track slide changes to handle auto-play properly
     useEffect(() => {
