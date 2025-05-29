@@ -33,7 +33,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          slide,
                                                          isPlayingTarget,
                                                          videoTimeTarget,
-                                                         triggerSeekEvent,
                                                          videoRef,
                                                          onVideoPlay,
                                                          onVideoPause,
@@ -50,26 +49,20 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                      }) => {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const activeVideoRef = videoRef || localVideoRef;
-    const lastSeekTimeRef = useRef(0);
-    const lastSyncTimeRef = useRef(0);
     const [showPlayIcon, setShowPlayIcon] = useState(false);
     const [videoError, setVideoError] = useState(false);
     const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
     const iconTimeoutRef = useRef<NodeJS.Timeout>();
     const currentSlideIdRef = useRef<number | null>(null);
-    const lastTargetTimeRef = useRef<number>(0);
 
-    // Reset auto-play flag when slide changes
     useEffect(() => {
         if (slide && slide.id !== currentSlideIdRef.current) {
             console.log(`[SlideRenderer] Slide changed from ${currentSlideIdRef.current} to ${slide.id}, resetting auto-play flag`);
             setHasAutoPlayed(false);
             currentSlideIdRef.current = slide.id;
-            lastTargetTimeRef.current = 0;
         }
-    }, [slide?.id]);
+    }, [slide]);
 
-    // Auto-play logic for video slides - ONLY when NOT in sync mode
     useEffect(() => {
         if (!activeVideoRef.current || !slide || hasAutoPlayed || syncMode) return;
 
@@ -80,7 +73,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 slide.source_url?.match(/\.(mp4|webm|ogg)$/i));
 
         if (isVideoSlide && video.readyState >= 2) {
-            // For master video mode (presentation display), don't auto-play unless commanded
             if (masterVideoMode) {
                 console.log(`[SlideRenderer] Master mode - not auto-playing, waiting for host command for slide ${slide.id}`);
                 setHasAutoPlayed(true);
@@ -102,20 +94,15 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             attemptAutoPlay();
         }
-    }, [slide, hasAutoPlayed, activeVideoRef.current?.readyState, masterVideoMode, syncMode]);
+    }, [slide, hasAutoPlayed, masterVideoMode, syncMode, activeVideoRef]);
 
     // Manual sync for host preview when connected to presentation display
     useEffect(() => {
         if (!activeVideoRef.current || masterVideoMode || !syncMode) return;
 
         const video = activeVideoRef.current;
-        const now = Date.now();
 
-        // Throttle sync operations
-        if (now - lastSyncTimeRef.current < 200) return;
-        lastSyncTimeRef.current = now;
-
-        console.log(`[SlideRenderer] Manual sync - target playing: ${isPlayingTarget}, target time: ${videoTimeTarget}`);
+        console.log(`[SlideRenderer] Syncing - target playing: ${isPlayingTarget}, target time: ${videoTimeTarget}`);
 
         // Sync play/pause state
         const shouldPlay = isPlayingTarget;
@@ -133,20 +120,14 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         // Sync time position - only if there's a significant difference
         if (videoTimeTarget !== undefined && video.readyState >= 2) {
             const timeDiff = Math.abs(video.currentTime - videoTimeTarget);
-            const timeSinceLastSeek = now - lastSeekTimeRef.current;
-            const targetTimeChanged = Math.abs(videoTimeTarget - lastTargetTimeRef.current) > 0.1;
 
-            // Only seek if:
-            // 1. Time difference is significant (> 1 second), OR
-            // 2. Target time changed significantly (new command from presentation)
-            if ((timeDiff > 1.0 && timeSinceLastSeek > 1000) || (targetTimeChanged && timeSinceLastSeek > 100)) {
-                console.log(`[SlideRenderer] Syncing time: ${videoTimeTarget}s (diff: ${timeDiff}s, changed: ${targetTimeChanged})`);
+            // Only seek if difference is significant (> 1 second)
+            if (timeDiff > 1.0) {
+                console.log(`[SlideRenderer] Syncing time: ${videoTimeTarget}s (diff: ${timeDiff}s)`);
                 video.currentTime = videoTimeTarget;
-                lastSeekTimeRef.current = now;
-                lastTargetTimeRef.current = videoTimeTarget;
             }
         }
-    }, [isPlayingTarget, videoTimeTarget, masterVideoMode, syncMode]);
+    }, [isPlayingTarget, videoTimeTarget, masterVideoMode, syncMode, activeVideoRef]);
 
     // Handle video synchronization for master mode (presentation display)
     useEffect(() => {
@@ -397,8 +378,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             case 'video':
             case 'interactive_invest':
-                const hasVideoSrc = isVideoSourceValid(slide.source_url);
-                return renderVideoContent(slide, hasVideoSrc);
+                { 
+                    const hasVideoSrc = isVideoSourceValid(slide.source_url);
+                    return renderVideoContent(slide, hasVideoSrc); 
+                }
 
             case 'content_page':
                 return (
@@ -434,24 +417,26 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             case 'consequence_reveal':
             case 'payoff_reveal':
-                const hasConsequenceVideo = isVideoSourceValid(slide.source_url);
-                return (
-                    <div className="text-center max-w-4xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
-                        {slide.source_url && !hasConsequenceVideo && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) != null &&
-                            <img src={slide.source_url} alt={slide.title || 'Reveal Image'}
-                                 className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
-                        }
-                        {hasConsequenceVideo && slide.source_url && renderVideoContent(slide, true)}
-                        {slide.main_text && <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
-                        {slide.sub_text && <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
-                        {slide.details && slide.details.length > 0 && (
-                            <div className="mt-4 text-left text-md text-gray-100 space-y-1 bg-slate-700/50 p-4 rounded-md max-w-md mx-auto">
-                                {slide.details.map((detail, index) => <p key={index}>{detail}</p>)}
-                            </div>
-                        )}
-                        {!slide.source_url && !slide.main_text && <p className="text-xl p-8">Details for {slide.title || 'this event'} will be shown based on team choices or game events.</p>}
-                    </div>
-                );
+                { 
+                    const hasConsequenceVideo = isVideoSourceValid(slide.source_url);
+                    return (
+                        <div className="text-center max-w-4xl mx-auto bg-black/20 backdrop-blur-md p-6 md:p-8 rounded-xl shadow-2xl">
+                            {slide.source_url && !hasConsequenceVideo && slide.source_url.match(/\.(jpeg|jpg|gif|png)$/i) != null &&
+                                <img src={slide.source_url} alt={slide.title || 'Reveal Image'}
+                                     className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg mb-4 mx-auto"/>
+                            }
+                            {hasConsequenceVideo && slide.source_url && renderVideoContent(slide, true)}
+                            {slide.main_text && <h2 className="text-2xl md:text-3xl font-bold mb-2 text-shadow-md break-words">{slide.main_text || slide.title}</h2>}
+                            {slide.sub_text && <p className="text-lg text-gray-200 text-shadow-sm break-words">{slide.sub_text}</p>}
+                            {slide.details && slide.details.length > 0 && (
+                                <div className="mt-4 text-left text-md text-gray-100 space-y-1 bg-slate-700/50 p-4 rounded-md max-w-md mx-auto">
+                                    {slide.details.map((detail, index) => <p key={index}>{detail}</p>)}
+                                </div>
+                            )}
+                            {!slide.source_url && !slide.main_text && <p className="text-xl p-8">Details for {slide.title || 'this event'} will be shown based on team choices or game events.</p>}
+                        </div>
+                    ); 
+                }
 
             case 'kpi_summary_instructional':
             case 'game_end_summary':
@@ -479,11 +464,11 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 );
 
             default:
-                console.warn("[SlideRenderer] Fallback: Unsupported slide type encountered:", (slide as any).type, slide);
+                console.warn("[SlideRenderer] Fallback: Unsupported slide type encountered:", (slide as Slide).type, slide);
                 return (
                     <div className="text-center p-6 bg-red-800/50 rounded-lg">
                         <AlertCircle size={32} className="mx-auto mb-2 text-red-300"/>
-                        <p className="text-lg text-red-200">Unsupported slide type: {(slide as any).type}</p>
+                        <p className="text-lg text-red-200">Unsupported slide type: {(slide as Slide).type}</p>
                         <p className="text-sm text-red-300 mt-1">Content: {slide.main_text || slide.title}</p>
                     </div>
                 );

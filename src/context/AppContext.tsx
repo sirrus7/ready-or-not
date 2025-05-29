@@ -452,9 +452,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook, gameController, navigate]);
 
     // Wrapper for team fetching
-    const fetchWrapperTeams = useCallback(() => {
+    const fetchWrapperTeams = useCallback(async () => {
         if (currentDbSession?.id && currentDbSession.id !== 'new') {
-            fetchTeamsFromHook(currentDbSession.id);
+            await fetchTeamsFromHook(currentDbSession.id);
         }
     }, [currentDbSession?.id, fetchTeamsFromHook]);
 

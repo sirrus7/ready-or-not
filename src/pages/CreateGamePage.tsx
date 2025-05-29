@@ -69,7 +69,7 @@ const CreateGamePage: React.FC = () => {
         }
     };
 
-    const handleDataChange = (field: keyof NewGameData, value: any) => {
+    const handleDataChange = (field: keyof NewGameData, value: NewGameData[keyof NewGameData]) => {
         console.log(`CreateGamePage: handleDataChange - Field: ${field}, Value:`, value);
         setGameData(prev => ({...prev, [field]: value}));
     };
