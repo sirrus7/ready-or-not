@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import SlideRenderer from './SlideRenderer';
 import { Slide } from '../../types';
-import { Hourglass, Monitor, Info } from 'lucide-react';
+import { Hourglass, Monitor } from 'lucide-react';
 
 interface DisplayViewProps {
     slide: Slide | null;
@@ -19,12 +19,7 @@ interface VideoSyncState {
     lastUpdate: number;
 }
 
-const DisplayView: React.FC<DisplayViewProps> = ({
-                                                     slide,
-                                                     isPlayingTarget = false,
-                                                     videoTimeTarget = 0,
-                                                     triggerSeekEvent = false,
-                                                 }) => {
+const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const channelRef = useRef<BroadcastChannel | null>(null);
     const [syncState, setSyncState] = useState<VideoSyncState>({
@@ -36,7 +31,6 @@ const DisplayView: React.FC<DisplayViewProps> = ({
     });
     const [isConnectedToPresentationDisplay, setIsConnectedToPresentationDisplay] = useState(false);
     const lastCommandTimeRef = useRef<number>(0);
-    const ignoreNextSyncRef = useRef<boolean>(false);
     const slideChangeTimeRef = useRef<number>(0);
 
     // Get session ID from current URL or context
@@ -219,48 +213,36 @@ const DisplayView: React.FC<DisplayViewProps> = ({
         }
     }, [sessionId, isConnectedToPresentationDisplay]);
 
-    // Handle video events - only when NOT connected to presentation or for metadata
     const handleHostVideoPlay = useCallback(() => {
         if (videoRef.current) {
             const now = Date.now();
-            const timeSinceCommand = now - lastCommandTimeRef.current;
-
-            // Only update state if this wasn't triggered by our own command and we're not syncing
-            if (timeSinceCommand > 100 && (!isConnectedToPresentationDisplay || !ignoreNextSyncRef.current)) {
-                console.log('[DisplayView] Host video play event');
-                setSyncState(prev => ({
-                    ...prev,
-                    playing: true,
-                    currentTime: videoRef.current!.currentTime,
-                    lastUpdate: now
-                }));
-            }
-            ignoreNextSyncRef.current = false;
+            console.log('[DisplayView] Host video play event');
+            setSyncState(prev => ({
+                ...prev,
+                playing: true,
+                currentTime: videoRef.current!.currentTime,
+                lastUpdate: now
+            }));
         }
-    }, [isConnectedToPresentationDisplay]);
+    }, []);
 
     const handleHostVideoPause = useCallback(() => {
         if (videoRef.current) {
             const now = Date.now();
-            const timeSinceCommand = now - lastCommandTimeRef.current;
-
-            if (timeSinceCommand > 100 && (!isConnectedToPresentationDisplay || !ignoreNextSyncRef.current)) {
-                console.log('[DisplayView] Host video pause event');
-                setSyncState(prev => ({
-                    ...prev,
-                    playing: false,
-                    currentTime: videoRef.current!.currentTime,
-                    lastUpdate: now
-                }));
-            }
-            ignoreNextSyncRef.current = false;
+            console.log('[DisplayView] Host video pause event');
+            setSyncState(prev => ({
+                ...prev,
+                playing: false,
+                currentTime: videoRef.current!.currentTime,
+                lastUpdate: now
+            }));
         }
-    }, [isConnectedToPresentationDisplay]);
+    }, []);
 
     const handleHostVideoTimeUpdate = useCallback(() => {
-        if (videoRef.current && !isConnectedToPresentationDisplay) {
+        if (videoRef.current) {
             const now = Date.now();
-            // Only update when not connected to presentation - let sync handle it when connected
+            // Throttle updates to prevent excessive state changes
             if (now - syncState.lastUpdate > 500) {
                 setSyncState(prev => ({
                     ...prev,
@@ -270,7 +252,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 }));
             }
         }
-    }, [isConnectedToPresentationDisplay, syncState.lastUpdate]);
+    }, [syncState.lastUpdate]);
 
     const handleHostVideoVolumeChange = useCallback(() => {
         if (videoRef.current) {
@@ -297,15 +279,12 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 ...newState
             }));
 
-            // Handle auto-play when presentation display is connected
             if (isConnectedToPresentationDisplay && isVideoSlide) {
                 const timeSinceSlideChange = Date.now() - slideChangeTimeRef.current;
-                // Auto-play if this is a new slide (within 2 seconds of slide change)
                 if (timeSinceSlideChange < 2000) {
                     console.log('[DisplayView] Auto-playing for connected presentation display');
                     setTimeout(() => {
                         if (videoRef.current && channelRef.current) {
-                            ignoreNextSyncRef.current = true;
                             videoRef.current.play().catch(console.error);
 
                             const playState = {
@@ -375,7 +354,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 onVolumeChange={handleHostVideoVolumeChange}
                 onLoadedMetadata={handleLoadedMetadata}
                 masterVideoMode={false}
-                syncMode={false} // DISABLED - we handle sync manually to prevent loops
+                syncMode={isConnectedToPresentationDisplay}
                 hostMode={true}
                 onHostVideoClick={handleHostVideoClick}
                 allowHostAudio={!isConnectedToPresentationDisplay}

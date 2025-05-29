@@ -5,10 +5,8 @@ import {
     QrCode,
     Trophy,
     FileText,
-    ExternalLink,
     Lightbulb,
     LogOut,
-    Monitor
 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import Modal from '../UI/Modal';
