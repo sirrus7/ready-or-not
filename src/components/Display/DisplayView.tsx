@@ -1,4 +1,4 @@
-// src/components/Display/DisplayView.tsx - Fixed State Transfer and Sync Mode
+// src/components/Display/DisplayView.tsx - Fixed Host Click Responsiveness
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import SlideRenderer from './SlideRenderer';
 import { Slide } from '../../types';
@@ -32,6 +32,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
     const [isConnectedToPresentationDisplay, setIsConnectedToPresentationDisplay] = useState(false);
     const lastCommandTimeRef = useRef<number>(0);
     const slideChangeTimeRef = useRef<number>(0);
+    const ignoreVideoEventsRef = useRef<boolean>(false); // NEW: Prevent event loops
 
     // Get session ID from current URL or context
     const sessionId = window.location.pathname.includes('/classroom/')
@@ -111,42 +112,32 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
                         setIsConnectedToPresentationDisplay(true);
                         console.log('[DisplayView] Presentation display connected');
 
-                        // IMMEDIATELY pause host video when presentation connects
-                        if (videoRef.current && !videoRef.current.paused) {
-                            videoRef.current.pause();
-                            console.log('[DisplayView] Paused host video due to presentation connection');
-                        }
-
-                        // FIXED: Wait for video readiness before sending state - SINGLE SEND
+                        // Send current state to presentation (preserve current playing state)
                         if (videoRef.current && isVideoSlide) {
-                            const sendStateOnce = () => {
-                                const video = videoRef.current!;
+                            const video = videoRef.current;
+                            const currentlyPlaying = !video.paused;
 
-                                // Always send current state, regardless of readyState
-                                const currentState = {
-                                    playing: false, // Always start paused when presentation connects
-                                    currentTime: video.currentTime,
-                                    duration: video.duration || 0,
-                                    volume: video.volume,
-                                    lastUpdate: now
-                                };
-
-                                console.log('[DisplayView] Sending initial state:', currentState);
-                                setSyncState(currentState);
-
-                                // Send immediately, no delay
-                                if (channelRef.current) {
-                                    channelRef.current.postMessage({
-                                        type: 'INITIAL_VIDEO_STATE',
-                                        sessionId,
-                                        videoState: currentState,
-                                        timestamp: now
-                                    });
-                                    console.log('[DisplayView] Sent initial state (once) - time:', currentState.currentTime);
-                                }
+                            const currentState = {
+                                playing: currentlyPlaying, // FIXED: Preserve current playing state
+                                currentTime: video.currentTime,
+                                duration: video.duration || 0,
+                                volume: video.volume,
+                                lastUpdate: now
                             };
 
-                            sendStateOnce();
+                            console.log('[DisplayView] Sending current state (preserving playback):', currentState);
+                            setSyncState(currentState);
+
+                            // Send immediately to presentation
+                            if (channelRef.current) {
+                                channelRef.current.postMessage({
+                                    type: 'INITIAL_VIDEO_STATE',
+                                    sessionId,
+                                    videoState: currentState,
+                                    timestamp: now
+                                });
+                                console.log('[DisplayView] Sent current state to presentation');
+                            }
                         }
                     }
                     break;
@@ -171,11 +162,8 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
                 console.log('[DisplayView] Connection timeout - marking as disconnected');
                 setIsConnectedToPresentationDisplay(false);
 
-                // IMMEDIATELY pause video when presentation disconnects
-                if (videoRef.current && !videoRef.current.paused) {
-                    videoRef.current.pause();
-                    console.log('[DisplayView] Paused host video due to presentation disconnect');
-                }
+                // When presentation disconnects, don't auto-pause - let user control
+                console.log('[DisplayView] Presentation disconnected - host video control restored');
             }
         }, 1000);
 
@@ -188,7 +176,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
         };
     }, [sessionId, slide?.id, syncState.lastUpdate, isConnectedToPresentationDisplay, isVideoSlide]);
 
-    // Handle host video click for maintaining sync
+    // FIXED: Handle host video click - COMPLETELY OVERRIDE SYNC
     const handleHostVideoClick = useCallback((shouldPlay: boolean) => {
         if (!sessionId || !videoRef.current) {
             console.warn('[DisplayView] No session ID or video ref for video command');
@@ -200,42 +188,97 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
         const command = shouldPlay ? 'play' : 'pause';
         const currentTime = videoRef.current.currentTime;
 
-        console.log(`[DisplayView] Host click - command: ${command}, time: ${currentTime}, connected: ${isConnectedToPresentationDisplay}`);
+        console.log(`[DisplayView] ===== HOST CLICK ===== command: ${command}, time: ${currentTime}`);
 
-        // Update local state immediately
-        const newState = {
-            playing: shouldPlay,
-            currentTime: currentTime,
-            duration: videoRef.current.duration || 0,
-            volume: videoRef.current.volume,
-            lastUpdate: timestamp
-        };
-        setSyncState(newState);
+        // CRITICAL: Prevent ALL sync operations for a period after user click
+        ignoreVideoEventsRef.current = true;
 
-        // Control local video immediately
+        // Control local video FIRST, before any state changes
         if (shouldPlay) {
-            videoRef.current.play().catch(console.error);
-        } else {
-            videoRef.current.pause();
-        }
+            console.log('[DisplayView] EXECUTING PLAY on host video...');
+            videoRef.current.play()
+                .then(() => {
+                    console.log('[DisplayView] ✅ Host video PLAY SUCCESS');
 
-        // Send command to presentation display if connected
-        if (isConnectedToPresentationDisplay && channelRef.current) {
-            channelRef.current.postMessage({
-                type: 'VIDEO_CONTROL',
-                sessionId,
-                action: command,
-                value: currentTime, // Include current time for seeking
-                timestamp,
-                expectAck: true
-            });
+                    // Update state AFTER successful play
+                    const newState = {
+                        playing: true,
+                        currentTime: videoRef.current!.currentTime,
+                        duration: videoRef.current!.duration || 0,
+                        volume: videoRef.current!.volume,
+                        lastUpdate: timestamp
+                    };
+                    setSyncState(newState);
+
+                    // Send to presentation after local success
+                    if (isConnectedToPresentationDisplay && channelRef.current) {
+                        channelRef.current.postMessage({
+                            type: 'VIDEO_CONTROL',
+                            sessionId,
+                            action: 'play',
+                            value: currentTime,
+                            timestamp,
+                            expectAck: true
+                        });
+                        console.log('[DisplayView] Sent PLAY command to presentation');
+                    }
+                })
+                .catch((error) => {
+                    console.error('[DisplayView] ❌ Host video PLAY FAILED:', error);
+                })
+                .finally(() => {
+                    // Re-enable sync after delay
+                    setTimeout(() => {
+                        ignoreVideoEventsRef.current = false;
+                        console.log('[DisplayView] Re-enabled sync after PLAY');
+                    }, 500);
+                });
+        } else {
+            console.log('[DisplayView] EXECUTING PAUSE on host video...');
+            videoRef.current.pause();
+            console.log('[DisplayView] ✅ Host video PAUSED');
+
+            // Update state immediately for pause
+            const newState = {
+                playing: false,
+                currentTime: videoRef.current.currentTime,
+                duration: videoRef.current.duration || 0,
+                volume: videoRef.current.volume,
+                lastUpdate: timestamp
+            };
+            setSyncState(newState);
+
+            // Send to presentation
+            if (isConnectedToPresentationDisplay && channelRef.current) {
+                channelRef.current.postMessage({
+                    type: 'VIDEO_CONTROL',
+                    sessionId,
+                    action: 'pause',
+                    value: currentTime,
+                    timestamp,
+                    expectAck: true
+                });
+                console.log('[DisplayView] Sent PAUSE command to presentation');
+            }
+
+            // Re-enable sync after delay
+            setTimeout(() => {
+                ignoreVideoEventsRef.current = false;
+                console.log('[DisplayView] Re-enabled sync after PAUSE');
+            }, 200);
         }
     }, [sessionId, isConnectedToPresentationDisplay]);
 
+    // FIXED: Video event handlers - Only update state when not ignoring
     const handleHostVideoPlay = useCallback(() => {
+        if (ignoreVideoEventsRef.current) {
+            console.log('[DisplayView] Ignoring play event (triggered by our own action)');
+            return;
+        }
+
         if (videoRef.current) {
             const now = Date.now();
-            console.log('[DisplayView] Host video play event');
+            console.log('[DisplayView] Host video play event (natural)');
             setSyncState(prev => ({
                 ...prev,
                 playing: true,
@@ -246,9 +289,14 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
     }, []);
 
     const handleHostVideoPause = useCallback(() => {
+        if (ignoreVideoEventsRef.current) {
+            console.log('[DisplayView] Ignoring pause event (triggered by our own action)');
+            return;
+        }
+
         if (videoRef.current) {
             const now = Date.now();
-            console.log('[DisplayView] Host video pause event');
+            console.log('[DisplayView] Host video pause event (natural)');
             setSyncState(prev => ({
                 ...prev,
                 playing: false,
@@ -259,9 +307,13 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
     }, []);
 
     const handleHostVideoTimeUpdate = useCallback(() => {
+        if (ignoreVideoEventsRef.current) {
+            return; // Don't spam logs for time updates
+        }
+
         if (videoRef.current) {
             const now = Date.now();
-            // INCREASED throttle to prevent excessive updates (was 500ms, now 1000ms)
+            // Throttle time updates to prevent excessive state changes
             if (now - syncState.lastUpdate > 1000) {
                 setSyncState(prev => ({
                     ...prev,
@@ -274,6 +326,11 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
     }, [syncState.lastUpdate]);
 
     const handleHostVideoVolumeChange = useCallback(() => {
+        if (ignoreVideoEventsRef.current) {
+            console.log('[DisplayView] Ignoring volume change event');
+            return;
+        }
+
         if (videoRef.current) {
             setSyncState(prev => ({
                 ...prev,
@@ -298,40 +355,10 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
                 ...newState
             }));
 
-            if (isConnectedToPresentationDisplay && isVideoSlide) {
-                const timeSinceSlideChange = Date.now() - slideChangeTimeRef.current;
-                if (timeSinceSlideChange < 2000) {
-                    console.log('[DisplayView] Auto-playing for connected presentation display');
-                    setTimeout(() => {
-                        if (videoRef.current && channelRef.current) {
-                            videoRef.current.play().catch(console.error);
-
-                            const playState = {
-                                playing: true,
-                                currentTime: 0,
-                                duration: videoRef.current.duration || 0,
-                                volume: videoRef.current.volume,
-                                lastUpdate: Date.now()
-                            };
-
-                            setSyncState(playState);
-                            lastCommandTimeRef.current = Date.now();
-
-                            // Send play command to presentation
-                            channelRef.current.postMessage({
-                                type: 'VIDEO_CONTROL',
-                                sessionId,
-                                action: 'play',
-                                value: 0,
-                                timestamp: Date.now(),
-                                expectAck: true
-                            });
-                        }
-                    }, 100);
-                }
-            }
+            // REMOVED: Auto-play logic when presentation connects
+            // The auto-play should be controlled by SlideRenderer based on mode
         }
-    }, [isConnectedToPresentationDisplay, isVideoSlide, sessionId]);
+    }, []);
 
     if (!slide) {
         return (
@@ -360,7 +387,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
                 </div>
             )}
 
-            {/* SlideRenderer with FIXED sync mode logic */}
+            {/* SlideRenderer with proper sync mode configuration */}
             <SlideRenderer
                 slide={slide}
                 isPlayingTarget={syncState.playing}
@@ -373,18 +400,20 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
                 onVolumeChange={handleHostVideoVolumeChange}
                 onLoadedMetadata={handleLoadedMetadata}
                 masterVideoMode={false}
-                syncMode={isConnectedToPresentationDisplay} // FIXED: Properly set sync mode
-                hostMode={true}
-                onHostVideoClick={handleHostVideoClick}
-                allowHostAudio={!isConnectedToPresentationDisplay} // FIXED: Audio when not connected
+                syncMode={isConnectedToPresentationDisplay} // Sync mode when presentation is connected
+                hostMode={true} // Always enable host click controls
+                onHostVideoClick={handleHostVideoClick} // This must always be responsive
+                allowHostAudio={!isConnectedToPresentationDisplay} // Audio when not connected
             />
 
-            {/* DEBUG INFO - Show sync mode status */}
+            {/* DEBUG INFO */}
             {process.env.NODE_ENV === 'development' && (
                 <div className="absolute top-20 left-4 z-20 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs">
-                    <div>Connected to Presentation: {isConnectedToPresentationDisplay ? 'YES' : 'NO'}</div>
+                    <div>Connected: {isConnectedToPresentationDisplay ? 'YES' : 'NO'}</div>
                     <div>Sync Mode: {isConnectedToPresentationDisplay ? 'ENABLED' : 'DISABLED'}</div>
-                    <div>Audio Allowed: {!isConnectedToPresentationDisplay ? 'YES' : 'NO'}</div>
+                    <div>Host Clicks: ALWAYS ENABLED</div>
+                    <div>Audio: {!isConnectedToPresentationDisplay ? 'YES' : 'NO'}</div>
+                    <div>Ignoring Events: {ignoreVideoEventsRef.current ? 'YES' : 'NO'}</div>
                 </div>
             )}
         </div>
