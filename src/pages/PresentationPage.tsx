@@ -1,17 +1,10 @@
-// src/pages/PresentationPage.tsx - Fixed Excessive Logging
+// src/pages/PresentationPage.tsx - Refactored with BroadcastManager
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Slide } from '../types';
 import SlideRenderer from '../components/Display/SlideRenderer';
 import { Hourglass, Monitor, RefreshCw } from 'lucide-react';
-
-interface VideoState {
-    playing: boolean;
-    currentTime: number;
-    duration: number;
-    volume: number;
-    lastUpdate: number;
-}
+import { useBroadcastManager, VideoState } from '../utils/broadcastManager';
 
 const PresentationPage: React.FC = () => {
     const { sessionId } = useParams<{ sessionId: string }>();
@@ -28,11 +21,12 @@ const PresentationPage: React.FC = () => {
     const [connectionError, setConnectionError] = useState(false);
 
     const videoRef = useRef<HTMLVideoElement>(null);
-    const channelRef = useRef<BroadcastChannel | null>(null);
-    const lastPingRef = useRef<number>(0);
     const commandTimeoutRef = useRef<NodeJS.Timeout>();
     const slideLoadTimeRef = useRef<number>(0);
-    const lastStateUpdateRef = useRef<number>(0); // ADDED: Prevent duplicate updates
+    const lastStateUpdateRef = useRef<number>(0);
+
+    // Use broadcast manager
+    const broadcastManager = useBroadcastManager(sessionId || null, 'presentation');
 
     // Broadcast video state to host preview - WITH THROTTLING
     const broadcastVideoState = useCallback((newState: Partial<VideoState>) => {
@@ -53,203 +47,169 @@ const PresentationPage: React.FC = () => {
 
             console.log('[PresentationPage] Broadcasting video state (throttled):', updatedState);
 
-            if (channelRef.current && sessionId) {
-                channelRef.current.postMessage({
-                    type: 'VIDEO_STATE_UPDATE',
-                    sessionId,
-                    videoState: updatedState,
-                    timestamp
-                });
+            if (broadcastManager) {
+                broadcastManager.sendVideoState(updatedState);
             }
 
             return updatedState;
         });
-    }, [sessionId]);
+    }, [broadcastManager]);
 
-    // Initialize BroadcastChannel for cross-tab communication
+    // Set up broadcast manager listeners
     useEffect(() => {
-        if (!sessionId) return;
+        if (!broadcastManager) return;
 
-        const channelName = `game-session-${sessionId}`;
-        const channel = new BroadcastChannel(channelName);
-        channelRef.current = channel;
+        console.log(`[PresentationPage] Setting up broadcast listeners`);
 
-        console.log(`[PresentationPage] Created BroadcastChannel: ${channelName}`);
+        // Handle slide updates
+        const unsubscribeSlideUpdate = broadcastManager.subscribe('SLIDE_UPDATE', (message) => {
+            setIsConnectedToHost(true);
+            setStatusMessage('Connected - Presentation Display Active');
+            setCurrentSlide(message.slide);
+            setConnectionError(false);
+            slideLoadTimeRef.current = Date.now();
+            console.log('[PresentationPage] Slide updated:', message.slide?.id);
 
-        // Listen for messages from host
-        const handleMessage = (event: MessageEvent) => {
-            const now = Date.now();
-            lastPingRef.current = now;
+            // Reset video state when slide changes, but don't broadcast yet
+            const newVideoState: VideoState = {
+                playing: false,
+                currentTime: 0,
+                duration: 0,
+                volume: 1,
+                lastUpdate: Date.now()
+            };
+            setVideoState(newVideoState);
+            lastStateUpdateRef.current = Date.now(); // Reset throttle timer
+        });
 
-            switch (event.data.type) {
-                case 'SLIDE_UPDATE':
-                    setIsConnectedToHost(true);
-                    setStatusMessage('Connected - Presentation Display Active');
-                    setCurrentSlide(event.data.slide);
-                    setConnectionError(false);
-                    slideLoadTimeRef.current = now;
-                    console.log('[PresentationPage] Slide updated:', event.data.slide?.id);
+        // Handle initial video state from host
+        const unsubscribeInitialState = broadcastManager.subscribe('INITIAL_VIDEO_STATE', (message) => {
+            if (message.videoState) {
+                console.log('[PresentationPage] Received initial video state:', message.videoState);
+                const initialState = message.videoState;
+                setVideoState(initialState);
+                lastStateUpdateRef.current = Date.now();
 
-                    // Reset video state when slide changes, but don't broadcast yet
-                    const newVideoState = {
-                        playing: false,
-                        currentTime: 0,
-                        duration: 0,
-                        volume: 1,
-                        lastUpdate: now
-                    };
-                    setVideoState(newVideoState);
-                    lastStateUpdateRef.current = now; // Reset throttle timer
-                    break;
+                // Apply the initial state to video IMMEDIATELY if it exists
+                if (videoRef.current) {
+                    const video = videoRef.current;
 
-                case 'INITIAL_VIDEO_STATE':
-                    if (event.data.sessionId === sessionId && event.data.videoState) {
-                        console.log('[PresentationPage] Received initial video state:', event.data.videoState);
-                        const initialState = event.data.videoState;
-                        setVideoState(initialState);
-                        lastStateUpdateRef.current = now; // Reset throttle timer
-
-                        // Apply the initial state to video IMMEDIATELY if it exists
-                        if (videoRef.current) {
-                            const video = videoRef.current;
-
-                            // Clear any existing timeout
-                            if (commandTimeoutRef.current) {
-                                clearTimeout(commandTimeoutRef.current);
-                            }
-
-                            // Apply state immediately, no delay
-                            console.log('[PresentationPage] Applying initial state immediately');
-
-                            // Set time position first
-                            if (initialState.currentTime !== undefined && Math.abs(video.currentTime - initialState.currentTime) > 0.1) {
-                                video.currentTime = initialState.currentTime;
-                                console.log('[PresentationPage] Set video time to:', initialState.currentTime);
-                            }
-
-                            // Then set play state (should be paused when connecting)
-                            if (initialState.playing && video.paused) {
-                                video.play().catch(console.error);
-                                console.log('[PresentationPage] Started video playback');
-                            } else if (!initialState.playing && !video.paused) {
-                                video.pause();
-                                console.log('[PresentationPage] Paused video');
-                            }
-
-                            console.log('[PresentationPage] Applied initial video state immediately');
-                        }
+                    // Clear any existing timeout
+                    if (commandTimeoutRef.current) {
+                        clearTimeout(commandTimeoutRef.current);
                     }
-                    break;
 
-                case 'VIDEO_CONTROL':
-                    if (videoRef.current) {
-                        const { action, value, expectAck } = event.data;
-                        console.log(`[PresentationPage] Video control received: ${action}`, value);
+                    console.log('[PresentationPage] Applying initial state immediately');
 
-                        let commandSuccess = false;
-
-                        switch (action) {
-                            case 'play':
-                                console.log(`[PresentationPage] Executing PLAY command`);
-                                if (value !== undefined && Math.abs(videoRef.current.currentTime - value) > 0.5) {
-                                    videoRef.current.currentTime = value;
-                                }
-                                videoRef.current.play()
-                                    .then(() => {
-                                        console.log(`[PresentationPage] PLAY successful`);
-                                    })
-                                    .catch((error) => {
-                                        console.error(`[PresentationPage] PLAY failed:`, error);
-                                    });
-                                commandSuccess = true;
-                                break;
-                            case 'pause':
-                                console.log(`[PresentationPage] Executing PAUSE command`);
-                                if (value !== undefined && Math.abs(videoRef.current.currentTime - value) > 0.5) {
-                                    videoRef.current.currentTime = value;
-                                }
-                                videoRef.current.pause();
-                                commandSuccess = true;
-                                break;
-                            case 'seek':
-                                console.log(`[PresentationPage] Executing SEEK command to: ${value}`);
-                                videoRef.current.currentTime = value;
-                                broadcastVideoState({
-                                    currentTime: value,
-                                    playing: !videoRef.current.paused
-                                });
-                                commandSuccess = true;
-                                break;
-                            case 'volume':
-                                console.log(`[PresentationPage] Executing VOLUME command to: ${value}`);
-                                videoRef.current.volume = value;
-                                broadcastVideoState({ volume: value });
-                                commandSuccess = true;
-                                break;
-                        }
-
-                        // Send acknowledgment if requested
-                        if (expectAck && commandSuccess) {
-                            channel.postMessage({
-                                type: 'VIDEO_COMMAND_ACK',
-                                sessionId,
-                                command: action,
-                                success: true,
-                                timestamp: now
-                            });
-                            console.log(`[PresentationPage] Sent ACK for command: ${action}`);
-                        }
-                    } else {
-                        console.error(`[PresentationPage] VIDEO_CONTROL received but videoRef.current is null`);
+                    // Set time position first
+                    if (initialState.currentTime !== undefined &&
+                        Math.abs(video.currentTime - initialState.currentTime) > 0.1) {
+                        video.currentTime = initialState.currentTime;
+                        console.log('[PresentationPage] Set video time to:', initialState.currentTime);
                     }
-                    break;
 
-                case 'SESSION_ENDED':
-                    setCurrentSlide(null);
-                    setIsConnectedToHost(false);
-                    setStatusMessage('Session has ended');
-                    break;
-
-                case 'PING':
-                    setIsConnectedToHost(true);
-                    setConnectionError(false);
-                    channel.postMessage({
-                        type: 'PONG',
-                        sessionId,
-                        videoState,
-                        timestamp: now
-                    });
-                    break;
-
-                case 'REQUEST_CURRENT_STATE':
-                    channel.postMessage({
-                        type: 'STATE_RESPONSE',
-                        sessionId,
-                        slide: currentSlide,
-                        videoState,
-                        timestamp: now
-                    });
-                    break;
+                    // Then set play state
+                    if (initialState.playing && video.paused) {
+                        video.play().catch(console.error);
+                        console.log('[PresentationPage] Started video playback');
+                    } else if (!initialState.playing && !video.paused) {
+                        video.pause();
+                        console.log('[PresentationPage] Paused video');
+                    }
+                }
             }
-        };
+        });
 
-        channel.addEventListener('message', handleMessage);
+        // Handle video control commands
+        const unsubscribeVideoControl = broadcastManager.subscribe('VIDEO_CONTROL', (message) => {
+            if (videoRef.current) {
+                const { action, value, expectAck } = message;
+                console.log(`[PresentationPage] Video control received: ${action}`, value);
+
+                let commandSuccess = false;
+
+                switch (action) {
+                    case 'play':
+                        console.log(`[PresentationPage] Executing PLAY command`);
+                        if (value !== undefined && Math.abs(videoRef.current.currentTime - value) > 0.5) {
+                            videoRef.current.currentTime = value;
+                        }
+                        videoRef.current.play()
+                            .then(() => console.log(`[PresentationPage] PLAY successful`))
+                            .catch((error) => console.error(`[PresentationPage] PLAY failed:`, error));
+                        commandSuccess = true;
+                        break;
+                    case 'pause':
+                        console.log(`[PresentationPage] Executing PAUSE command`);
+                        if (value !== undefined && Math.abs(videoRef.current.currentTime - value) > 0.5) {
+                            videoRef.current.currentTime = value;
+                        }
+                        videoRef.current.pause();
+                        commandSuccess = true;
+                        break;
+                    case 'seek':
+                        console.log(`[PresentationPage] Executing SEEK command to: ${value}`);
+                        videoRef.current.currentTime = value;
+                        broadcastVideoState({
+                            currentTime: value,
+                            playing: !videoRef.current.paused
+                        });
+                        commandSuccess = true;
+                        break;
+                    case 'volume':
+                        console.log(`[PresentationPage] Executing VOLUME command to: ${value}`);
+                        videoRef.current.volume = value;
+                        broadcastVideoState({ volume: value });
+                        commandSuccess = true;
+                        break;
+                }
+
+                // Send acknowledgment if requested
+                if (expectAck && commandSuccess) {
+                    broadcastManager.broadcast('VIDEO_COMMAND_ACK', {
+                        command: action,
+                        success: true
+                    });
+                    console.log(`[PresentationPage] Sent ACK for command: ${action}`);
+                }
+            } else {
+                console.error(`[PresentationPage] VIDEO_CONTROL received but videoRef.current is null`);
+            }
+        });
+
+        // Handle session ended
+        const unsubscribeSessionEnded = broadcastManager.subscribe('SESSION_ENDED', () => {
+            setCurrentSlide(null);
+            setIsConnectedToHost(false);
+            setStatusMessage('Session has ended');
+        });
+
+        // Handle current state requests
+        const unsubscribeStateRequest = broadcastManager.subscribe('REQUEST_CURRENT_STATE', () => {
+            broadcastManager.broadcast('STATE_RESPONSE', {
+                slide: currentSlide,
+                videoState
+            });
+        });
+
+        // Connection monitoring
+        const unsubscribeConnection = broadcastManager.onConnectionChange((status) => {
+            const isHost = status.connectionType === 'host';
+            setIsConnectedToHost(status.isConnected && isHost);
+            setConnectionError(!status.isConnected);
+
+            if (!status.isConnected) {
+                setStatusMessage('Lost connection to host. Please check the host dashboard.');
+            }
+        });
 
         // Announce that presentation display is ready
-        channel.postMessage({
-            type: 'PRESENTATION_READY',
-            sessionId,
-            timestamp: Date.now()
-        });
+        broadcastManager.announcePresentation();
 
         // Request current state from host
-        channel.postMessage({
-            type: 'REQUEST_CURRENT_STATE',
-            sessionId,
-            timestamp: Date.now()
-        });
+        broadcastManager.requestCurrentState();
 
-        // Set up connection monitoring
+        // Set up connection timeout
         const connectionTimeout = setTimeout(() => {
             if (!isConnectedToHost) {
                 setStatusMessage('Connection timeout. Please ensure the host dashboard is open.');
@@ -257,27 +217,19 @@ const PresentationPage: React.FC = () => {
             }
         }, 5000);
 
-        // Monitor connection status
-        const connectionMonitor = setInterval(() => {
-            const timeSinceLastPing = Date.now() - lastPingRef.current;
-            if (timeSinceLastPing > 5000) {
-                setIsConnectedToHost(false);
-                setStatusMessage('Lost connection to host. Please check the host dashboard.');
-                setConnectionError(true);
-            }
-        }, 2000);
-
         return () => {
             if (commandTimeoutRef.current) {
                 clearTimeout(commandTimeoutRef.current);
             }
             clearTimeout(connectionTimeout);
-            clearInterval(connectionMonitor);
-            channel.removeEventListener('message', handleMessage);
-            channel.close();
-            channelRef.current = null;
+            unsubscribeSlideUpdate();
+            unsubscribeInitialState();
+            unsubscribeVideoControl();
+            unsubscribeSessionEnded();
+            unsubscribeStateRequest();
+            unsubscribeConnection();
         };
-    }, [sessionId, isConnectedToHost, videoState, currentSlide, broadcastVideoState]);
+    }, [broadcastManager, isConnectedToHost, videoState, currentSlide, broadcastVideoState]);
 
     // Video event handlers for sync broadcasting - WITH THROTTLING
     const handleVideoPlay = useCallback(() => {
@@ -321,7 +273,7 @@ const PresentationPage: React.FC = () => {
 
             // Check if we need to auto-play (for new slides)
             const timeSinceSlideLoad = Date.now() - slideLoadTimeRef.current;
-            if (timeSinceSlideLoad < 1000) { // If this is a fresh slide load
+            if (timeSinceSlideLoad < 1000) {
                 console.log('[PresentationPage] Fresh slide - checking for auto-play');
                 // Don't auto-play here - wait for host command
             }

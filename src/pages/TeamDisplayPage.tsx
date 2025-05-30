@@ -1,4 +1,4 @@
-// src/pages/TeamDisplayPage.tsx
+// src/pages/TeamDisplayPage.tsx - Refactored with BroadcastManager
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import TeamLogin from '../components/Game/TeamLogin';
@@ -12,9 +12,10 @@ import {
     HostBroadcastPayload,
     TeamRoundData
 } from '../types';
-import {addConnectionListener, createMonitoredChannel, supabase} from '../lib/supabase';
+import {addConnectionListener, supabase} from '../lib/supabase';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {AlertTriangle, CheckCircle, Hourglass, Smartphone} from 'lucide-react';
+import { useBroadcastManager } from '../utils/broadcastManager';
 
 const TeamDisplayPage: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
@@ -38,6 +39,9 @@ const TeamDisplayPage: React.FC = () => {
     const currentActivePhaseRef = useRef<GamePhaseNode | null>(null);
     const currentTeamKpisRef = useRef<TeamRoundData | null>(null);
     const decisionPhaseTimerEndTimeRef = useRef<number | undefined>(undefined);
+
+    // Use broadcast manager for team communication
+    const broadcastManager = useBroadcastManager(sessionId || null, 'display');
 
     // Check if we're on mobile/tablet
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -75,30 +79,27 @@ const TeamDisplayPage: React.FC = () => {
         decisionPhaseTimerEndTimeRef.current = decisionPhaseTimerEndTime;
     }, [decisionPhaseTimerEndTime]);
 
+    // Supabase connection monitoring (keep existing logic)
     useEffect(() => {
         let connectionCleanup: (() => void) | null = null;
 
         try {
             connectionCleanup = addConnectionListener((status) => {
-                console.log(`[CompanyDisplayPage] Supabase connection status: ${status}`);
+                console.log(`[TeamDisplayPage] Supabase connection status: ${status}`);
                 setSupabaseConnectionStatus(status);
 
-                // Only set error if we have a persistent disconnection
                 if (status === 'error') {
-                    // Don't immediately show error - wait a bit to see if it recovers
                     setTimeout(() => {
                         if (supabaseConnectionStatus === 'error') {
                             setPageError("Connection to game server lost. Please refresh the page.");
                         }
-                    }, 5000); // Wait 5 seconds before showing error
+                    }, 5000);
                 } else if (status === 'connected') {
-                    // Clear any existing error when we reconnect
                     setPageError(null);
                 }
             });
         } catch (err) {
             console.warn('[TeamDisplayPage] Connection listener setup failed:', err);
-            // Don't set page error for connection listener setup failure
         }
 
         return () => {
@@ -106,7 +107,7 @@ const TeamDisplayPage: React.FC = () => {
                 connectionCleanup();
             }
         };
-    }, []); // Remove supabaseConnectionStatus from dependencies to prevent loops
+    }, []);
 
     const fetchInitialTeamData = useCallback(async (teamId: string, activePhase: GamePhaseNode | null) => {
         if (!sessionId || !activePhase || !teamId) {
@@ -115,9 +116,8 @@ const TeamDisplayPage: React.FC = () => {
             return;
         }
 
-        console.log(`[CompanyDisplayPage] Fetching initial data for team ${teamId}, phase ${activePhase.id}, round ${activePhase.round_number}`);
+        console.log(`[TeamDisplayPage] Fetching initial data for team ${teamId}, phase ${activePhase.id}, round ${activePhase.round_number}`);
         setIsLoadingData(true);
-        // Don't clear existing errors immediately - let them persist unless we have a new error
 
         try {
             // Fetch current KPIs using RPC
@@ -171,7 +171,6 @@ const TeamDisplayPage: React.FC = () => {
                 setSubmissionMessage(null);
             }
 
-            // Clear any previous data fetch errors if this succeeds
             if (pageError && pageError.includes("Failed to load your team's data")) {
                 setPageError(null);
             }
@@ -183,116 +182,81 @@ const TeamDisplayPage: React.FC = () => {
         }
     }, [sessionId, pageError]);
 
+    // Set up broadcast manager for teacher updates
     useEffect(() => {
-        if (!sessionId) {
-            setPageError("No game session ID found in the URL.");
+        if (!sessionId || !broadcastManager) {
             return;
         }
 
-        const realtimeChannelName = `teacher-updates-${sessionId}`;
-        console.log(`[CompanyDisplayPage] Subscribing to Supabase real-time: ${realtimeChannelName}`);
+        console.log(`[TeamDisplayPage] Setting up broadcast listener for teacher updates`);
 
-        let realtimeChannel: any = null;
+        // Subscribe to teacher state updates
+        const unsubscribeTeacherUpdates = broadcastManager.subscribe('teacher_state_update', (message) => {
+            console.log(`[TeamDisplayPage] Received teacher broadcast:`, message);
 
-        try {
-            realtimeChannel = createMonitoredChannel(realtimeChannelName);
+            const teacherPayload = message as HostBroadcastPayload;
+            const newPhaseNode = teacherPayload.currentPhaseId ? gameStructure.allPhases.find(p => p.id === teacherPayload.currentPhaseId) || null : null;
+            const newSlide = teacherPayload.currentSlideId !== null ? gameStructure.slides.find(s => s.id === teacherPayload.currentSlideId) || null : null;
 
-            realtimeChannel.on('broadcast', {event: 'teacher_state_update'}, (payload: any) => {
-                console.log(`[CompanyDisplayPage] Received teacher broadcast:`, payload.payload);
+            // Update state immediately
+            setCurrentActivePhase(newPhaseNode);
+            setCurrentActiveSlide(newSlide);
+            setDecisionOptionsKey(teacherPayload.decisionOptionsKey);
 
-                const teacherPayload = payload.payload as HostBroadcastPayload;
-                const newPhaseNode = teacherPayload.currentPhaseId ? gameStructure.allPhases.find(p => p.id === teacherPayload.currentPhaseId) || null : null;
-                const newSlide = teacherPayload.currentSlideId !== null ? gameStructure.slides.find(s => s.id === teacherPayload.currentSlideId) || null : null;
+            // Decision activation logic
+            const shouldActivateDecisions = teacherPayload.isDecisionPhaseActive &&
+                loggedInTeamId &&
+                newPhaseNode?.is_interactive_player_phase &&
+                (newSlide?.type === 'interactive_invest' ||
+                    newSlide?.type === 'interactive_choice' ||
+                    newSlide?.type === 'interactive_double_down_prompt' ||
+                    newSlide?.type === 'interactive_double_down_select') &&
+                submissionStatusRef.current !== 'success';
 
-                // Update state immediately
-                setCurrentActivePhase(newPhaseNode);
-                setCurrentActiveSlide(newSlide);
-                setDecisionOptionsKey(teacherPayload.decisionOptionsKey);
+            if (shouldActivateDecisions) {
+                console.log(`[TeamDisplayPage] ACTIVATING decision time for phase ${newPhaseNode?.id}, slide ${newSlide?.id}`);
+                setIsStudentDecisionTime(true);
+                isStudentDecisionTimeRef.current = true;
 
-                // Decision activation logic
-                const shouldActivateDecisions = teacherPayload.isDecisionPhaseActive &&
-                    loggedInTeamId &&
-                    newPhaseNode?.is_interactive_player_phase &&
-                    (newSlide?.type === 'interactive_invest' ||
-                        newSlide?.type === 'interactive_choice' ||
-                        newSlide?.type === 'interactive_double_down_prompt' ||
-                        newSlide?.type === 'interactive_double_down_select') &&
-                    submissionStatusRef.current !== 'success';
+                if (submissionStatusRef.current !== 'idle') {
+                    setSubmissionStatus('idle');
+                    submissionStatusRef.current = 'idle';
+                    setSubmissionMessage(null);
+                }
+            } else if (!teacherPayload.isDecisionPhaseActive) {
+                console.log(`[TeamDisplayPage] DEACTIVATING decision time - broadcast says not active`);
+                setIsStudentDecisionTime(false);
+                isStudentDecisionTimeRef.current = false;
+            }
 
-                if (shouldActivateDecisions) {
-                    console.log(`[CompanyDisplayPage] ACTIVATING decision time for phase ${newPhaseNode?.id}, slide ${newSlide?.id}`);
-                    setIsStudentDecisionTime(true);
-                    isStudentDecisionTimeRef.current = true;
+            // Handle timer
+            if (teacherPayload.decisionPhaseTimerEndTime !== decisionPhaseTimerEndTimeRef.current) {
+                setDecisionPhaseTimerEndTime(teacherPayload.decisionPhaseTimerEndTime);
+            }
 
-                    if (submissionStatusRef.current !== 'idle') {
-                        setSubmissionStatus('idle');
-                        submissionStatusRef.current = 'idle';
-                        setSubmissionMessage(null);
+            // Handle phase changes for data fetching
+            if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== currentActivePhaseRef.current?.id) {
+                console.log(`[TeamDisplayPage] Phase changed, fetching data for ${newPhaseNode.id}`);
+                fetchInitialTeamData(loggedInTeamId, newPhaseNode);
+            }
+
+            // Handle KPI updates for round changes
+            if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
+                if (currentTeamKpisRef.current?.round_number !== newPhaseNode.round_number || !currentTeamKpisRef.current) {
+                    if (newPhaseNode.id !== currentActivePhaseRef.current?.id) {
+                        fetchInitialTeamData(loggedInTeamId, newPhaseNode);
                     }
-                } else if (!teacherPayload.isDecisionPhaseActive) {
-                    console.log(`[CompanyDisplayPage] DEACTIVATING decision time - broadcast says not active`);
-                    setIsStudentDecisionTime(false);
-                    isStudentDecisionTimeRef.current = false;
                 }
-
-                // Handle timer
-                if (teacherPayload.decisionPhaseTimerEndTime !== decisionPhaseTimerEndTimeRef.current) {
-                    setDecisionPhaseTimerEndTime(teacherPayload.decisionPhaseTimerEndTime);
-                }
-
-                // Handle phase changes for data fetching
-                if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== currentActivePhaseRef.current?.id) {
-                    console.log(`[CompanyDisplayPage] Phase changed, fetching data for ${newPhaseNode.id}`);
-                    fetchInitialTeamData(loggedInTeamId, newPhaseNode);
-                }
-
-                // Handle KPI updates for round changes
-                if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
-                    if (currentTeamKpisRef.current?.round_number !== newPhaseNode.round_number || !currentTeamKpisRef.current) {
-                        if (newPhaseNode.id !== currentActivePhaseRef.current?.id) {
-                            fetchInitialTeamData(loggedInTeamId, newPhaseNode);
-                        }
-                    }
-                } else if (newPhaseNode?.round_number === 0) {
-                    setCurrentTeamKpis(null);
-                }
-            });
-
-            realtimeChannel.subscribe((status: string) => {
-                console.log(`[CompanyDisplayPage] Subscription status: ${status}`);
-                if (status === 'SUBSCRIBED') {
-                    console.log(`[CompanyDisplayPage] Successfully subscribed to real-time updates`);
-                    // Clear connection errors when successfully subscribed
-                    if (pageError && pageError.includes("Lost connection to game updates")) {
-                        setPageError(null);
-                    }
-                } else if (status === 'CLOSED') {
-                    console.log(`[CompanyDisplayPage] Real-time subscription closed`);
-                } else if (status === 'CHANNEL_ERROR') {
-                    console.error(`[CompanyDisplayPage] Real-time subscription error`);
-                    // Don't immediately set error - wait to see if it recovers
-                    setTimeout(() => {
-                        setPageError("Lost connection to game updates. Please refresh the page.");
-                    }, 3000);
-                }
-            });
-        } catch (err) {
-            console.error(`[CompanyDisplayPage] Error setting up real-time subscription:`, err);
-            // Only set error if it's a critical setup failure
-            setPageError("Failed to connect to game updates. Please refresh the page.");
-        }
+            } else if (newPhaseNode?.round_number === 0) {
+                setCurrentTeamKpis(null);
+            }
+        });
 
         return () => {
-            console.log(`[CompanyDisplayPage] Cleaning up Supabase real-time subscription`);
-            if (realtimeChannel && realtimeChannel.unsubscribe) {
-                try {
-                    realtimeChannel.unsubscribe();
-                } catch (err) {
-                    console.warn('[TeamDisplayPage] Error unsubscribing from channel:', err);
-                }
-            }
+            console.log(`[TeamDisplayPage] Cleaning up broadcast subscription`);
+            unsubscribeTeacherUpdates();
         };
-    }, [sessionId, gameStructure, fetchInitialTeamData, loggedInTeamId, pageError]);
+    }, [sessionId, broadcastManager, gameStructure, fetchInitialTeamData, loggedInTeamId]);
 
     // Timer effect
     useEffect(() => {
@@ -324,7 +288,7 @@ const TeamDisplayPage: React.FC = () => {
             submissionStatusRef.current !== 'success' &&
             submissionStatusRef.current !== 'submitting') {
 
-            console.log(`[CompanyDisplayPage] Timer ended for CHOICE phase ${currentActivePhase.id}. Auto-submitting default.`);
+            console.log(`[TeamDisplayPage] Timer ended for CHOICE phase ${currentActivePhase.id}. Auto-submitting default.`);
 
             const optionsKey = decisionOptionsKey || currentActivePhase.id;
             const options = gameStructure.all_challenge_options[optionsKey] || [];
@@ -452,7 +416,7 @@ const TeamDisplayPage: React.FC = () => {
             // Show success feedback without modal - integrate into main UI
             setTimeout(() => {
                 setSubmissionMessage(null);
-            }, 5000); // Give more time to see success message
+            }, 5000);
 
         } catch (err) {
             console.error('[TeamDisplayPage] === SUBMISSION FAILED ===');
