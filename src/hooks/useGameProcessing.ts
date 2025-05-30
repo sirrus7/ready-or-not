@@ -2,7 +2,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../utils/supabase';
-import { useSupabaseMutation } from './useSupabaseOperation';
+import { useSupabaseMutation } from './supabase';
 import {
     Team,
     TeamDecision,

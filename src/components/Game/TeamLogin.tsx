@@ -1,7 +1,7 @@
 // src/components/Game/TeamLogin.tsx
 import React, { useState, useEffect } from 'react';
 import { db, useSupabaseConnection } from '../../utils/supabase';
-import { useSupabaseQuery } from '../../hooks/useSupabaseOperation'
+import { useSupabaseQuery } from '../../hooks/supabase'
 import { LogIn, Users, Hourglass, AlertTriangle } from 'lucide-react';
 
 interface TeamLoginProps {

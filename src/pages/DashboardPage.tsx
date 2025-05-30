@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import {useAuth} from '../context/AuthContext';
 import {db} from '../utils/supabase';
-import {useSupabaseQuery, useSupabaseMutation} from '../hooks/useSupabaseOperation'
+import {useSupabaseQuery, useSupabaseMutation} from '../hooks/supabase'
 import {GameSession} from '../types';
 import Modal from '../components/UI/Modal';
 

@@ -4,9 +4,10 @@
 // Core client
 export { supabase } from './client';
 
+export { db } from './services';
+
 // Enhanced database operations
 export {
-    db,
     formatSupabaseError,
     withRetry,
     callRPC
