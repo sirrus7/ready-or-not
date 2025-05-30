@@ -1,4 +1,4 @@
-// src/hooks/useSessionManager.ts - UPDATED
+// src/hooks/useSessionManager.ts - Session CRUD operations
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, formatSupabaseError } from '../utils/supabase';

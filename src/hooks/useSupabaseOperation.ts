@@ -1,4 +1,4 @@
-// src/hooks/useSupabaseOperation.ts - Enhanced Error Handling for Supabase Operations
+// src/hooks/useSupabaseOperation.ts - Generic DB operation wrapper
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { formatSupabaseError } from '../utils/supabase';
 
