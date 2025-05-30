@@ -56,17 +56,17 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const iconTimeoutRef = useRef<NodeJS.Timeout>();
     const currentSlideIdRef = useRef<number | null>(null);
 
-    // Reset auto-play flag when slide changes
-    useEffect(() => {
+
+    const updateSlideChange = () => {
         if (slide && slide.id !== currentSlideIdRef.current) {
-            console.log(`[SlideRenderer] Slide changed from ${currentSlideIdRef.current} to ${slide.id}, resetting auto-play flag`);
             setHasAutoPlayed(false);
             currentSlideIdRef.current = slide.id;
         }
-    }, [slide]);
+    }
 
-    // CONSOLIDATED AUTO-PLAY LOGIC
     useEffect(() => {
+        updateSlideChange();
+
         console.log(`[SlideRenderer] Auto-play effect triggered:`, {
             hasVideoRef: !!activeVideoRef.current,
             hasSlide: !!slide,
