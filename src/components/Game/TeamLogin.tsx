@@ -1,4 +1,4 @@
-// src/components/Game/TeamLogin.tsx
+// src/components/Game/TeamLogin.tsx - Fixed null reference error
 import React, { useState, useEffect } from 'react';
 import { db, useSupabaseConnection } from '../../utils/supabase';
 import { useSupabaseQuery } from '../../hooks/supabase'
@@ -18,7 +18,7 @@ const TeamLogin: React.FC<TeamLoginProps> = ({ sessionId, onLoginSuccess }) => {
     const connection = useSupabaseConnection();
 
     const {
-        data: availableTeams = [],
+        data: availableTeamsData,
         isLoading: isLoadingTeams,
         error: teamsError,
         refresh: refetchTeams
@@ -35,6 +35,9 @@ const TeamLogin: React.FC<TeamLoginProps> = ({ sessionId, onLoginSuccess }) => {
             }
         }
     );
+
+    // Safely handle teams data - ensure it's never null
+    const availableTeams = availableTeamsData || [];
 
     // Set initial team selection
     useEffect(() => {

@@ -1,4 +1,4 @@
-// src/App.tsx - Updated with VideoSettingsProvider
+// src/App.tsx
 import React from 'react';
 import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from './context/AuthContext';
@@ -8,10 +8,10 @@ import PrivateRoute from './components/PrivateRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
 import GameHostPage from './pages/GameHostPage';
-import PresentationPage from './pages/PresentationPage.tsx';
+import PresentationPage from './pages/PresentationPage';
 import DashboardPage from './pages/DashboardPage';
 import CreateGamePage from './pages/CreateGamePage';
-import TeamDisplayPage from './pages/TeamDisplayPage.tsx';
+import TeamDisplayPage from './pages/TeamDisplayPage';
 
 // Wrapper component to extract sessionId and pass it to providers
 const SessionAwareProviders: React.FC<{ children: React.ReactNode }> = ({children}) => {
