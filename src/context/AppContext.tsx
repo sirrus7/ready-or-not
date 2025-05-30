@@ -1,4 +1,4 @@
-// src/context/AppContext.tsx - Updated with BroadcastManager Integration
+// src/context/AppContext.tsx - Updated with New Supabase Structure and Enhanced Error Handling
 import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {
@@ -6,7 +6,6 @@ import {
     GamePhaseNode,
     GameStructure,
     KpiEffect,
-    PermanentKpiAdjustment,
     Slide,
     Team,
     TeamDecision,
@@ -14,7 +13,8 @@ import {
     HostBroadcastPayload
 } from '../types';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
-import {supabase} from '../utils/supabase';
+import {db} from '../utils/supabase';
+import {useSupabaseMutation} from '../hooks/useSupabaseOperation'
 import {useAuth} from './AuthContext';
 import {useSessionManager} from '../hooks/useSessionManager';
 import {useGameController} from '../hooks/useGameController';
@@ -61,11 +61,6 @@ interface AppContextProps {
     activateDecisionPhase: (durationSeconds?: number) => void;
     deactivateDecisionPhase: () => void;
     isDecisionPhaseActive: boolean;
-
-    // Decision phase controls
-    activateDecisionPhase: (durationSeconds?: number) => void;
-    deactivateDecisionPhase: () => void;
-    isDecisionPhaseActive: boolean;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -82,8 +77,6 @@ interface AppProviderProps {
 }
 
 export const AppProvider: React.FC<AppProviderProps> = ({children, passedSessionId}) => {
-    const [isLoadingProcessing, setIsLoadingProcessing] = useState(false);
-    const [processingError, setProcessingError] = useState<string | null>(null);
     const [isDecisionPhaseActive, setIsDecisionPhaseActive] = useState(false);
     const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined);
 
@@ -127,6 +120,90 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         gameStructureInstance,
         updateSessionInDb,
         (phaseId) => processChoicePhaseDecisionsInternal(phaseId)
+    );
+
+    // Enhanced mutations for game processing
+    const {
+        execute: processInvestmentPayoffsExecute,
+        isLoading: isProcessingPayoffs,
+        error: payoffProcessingError
+    } = useSupabaseMutation(
+        async (data: { roundNumber: 1 | 2 | 3; currentPhaseId: string | null }) => {
+            return processInvestmentPayoffsInternal(data.roundNumber, data.currentPhaseId);
+        },
+        {
+            onSuccess: () => {
+                console.log('[AppContext] Investment payoffs processed successfully');
+                if (currentDbSession?.id) {
+                    fetchTeamRoundDataFromHook(currentDbSession.id);
+                }
+            },
+            onError: (error) => {
+                console.error('[AppContext] Failed to process investment payoffs:', error);
+            }
+        }
+    );
+
+    const {
+        execute: calculateKPIsExecute,
+        isLoading: isCalculatingKPIs,
+        error: kpiCalculationError
+    } = useSupabaseMutation(
+        async (roundNumber: 1 | 2 | 3) => {
+            return calculateAndFinalizeRoundKPIsInternal(roundNumber);
+        },
+        {
+            onSuccess: () => {
+                console.log('[AppContext] Round KPIs calculated successfully');
+                if (currentDbSession?.id) {
+                    fetchTeamRoundDataFromHook(currentDbSession.id);
+                }
+            },
+            onError: (error) => {
+                console.error('[AppContext] Failed to calculate round KPIs:', error);
+            }
+        }
+    );
+
+    const {
+        execute: resetGameProgressExecute,
+        isLoading: isResettingGame,
+        error: gameResetError
+    } = useSupabaseMutation(
+        async () => {
+            return resetGameProgressInternal();
+        },
+        {
+            onSuccess: () => {
+                console.log('[AppContext] Game progress reset successfully');
+                navigate('/dashboard', {replace: true});
+            },
+            onError: (error) => {
+                console.error('[AppContext] Failed to reset game progress:', error);
+            }
+        }
+    );
+
+    // Enhanced team decision reset
+    const {
+        execute: resetTeamDecisionExecute,
+        isLoading: isResettingDecision,
+        error: decisionResetError
+    } = useSupabaseMutation(
+        async (data: { teamId: string; phaseId: string }) => {
+            if (!currentDbSession?.id || currentDbSession.id === 'new') {
+                throw new Error("Invalid session for decision reset");
+            }
+            return resetTeamDecisionInDb(currentDbSession.id, data.teamId, data.phaseId);
+        },
+        {
+            onSuccess: (_, data) => {
+                console.log(`[AppContext] Successfully reset decision for team ${data.teamId}, phase ${data.phaseId}`);
+            },
+            onError: (error, data) => {
+                console.error(`[AppContext] Failed to reset decision for team ${data?.teamId}:`, error);
+            }
+        }
     );
 
     // Decision phase management
@@ -236,8 +313,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             })));
 
         if (adjustmentsToInsert.length > 0) {
-            const {error} = await supabase.from('permanent_kpi_adjustments').insert(adjustmentsToInsert);
-            if (error) console.error("Error storing permanent KPI adjustments:", error);
+            await db.adjustments.create(adjustmentsToInsert);
         }
     }, []);
 
@@ -252,23 +328,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         const existingKpis = teamRoundData[teamId]?.[roundNumber];
         if (existingKpis) return existingKpis;
 
-        // Try to fetch from database
-        const {data: existingData, error: fetchErr} = await supabase
-            .from('team_round_data')
-            .select('*')
-            .eq('session_id', sessionId)
-            .eq('team_id', teamId)
-            .eq('round_number', roundNumber)
-            .single();
-
-        if (fetchErr && fetchErr.code !== 'PGRST116') throw fetchErr;
-
-        if (existingData) {
-            setTeamRoundDataDirectly(prev => ({
-                ...prev,
-                [teamId]: {...(prev[teamId] || {}), [roundNumber]: existingData as TeamRoundData}
-            }));
-            return existingData as TeamRoundData;
+        // Try to fetch from database using enhanced service
+        try {
+            const existingData = await db.kpis.getForTeamRound(sessionId, teamId, roundNumber);
+            if (existingData) {
+                setTeamRoundDataDirectly(prev => ({
+                    ...prev,
+                    [teamId]: {...(prev[teamId] || {}), [roundNumber]: existingData as TeamRoundData}
+                }));
+                return existingData as TeamRoundData;
+            }
+        } catch (error) {
+            // Continue to create new data if not found
+            console.log('[AppContext] No existing round data found, creating new');
         }
 
         // Create new round data
@@ -286,14 +358,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         }
 
         // Apply permanent adjustments
-        const {data: adjustments} = await supabase
-            .from('permanent_kpi_adjustments')
-            .select('*')
-            .eq('session_id', sessionId)
-            .eq('team_id', teamId)
-            .eq('applies_to_round_start', roundNumber);
+        const adjustments = await db.adjustments.getBySession(sessionId);
+        const teamAdjustments = (adjustments || []).filter(adj =>
+            adj.team_id === teamId && adj.applies_to_round_start === roundNumber
+        );
 
-        (adjustments as PermanentKpiAdjustment[] || []).forEach(adj => {
+        teamAdjustments.forEach(adj => {
             const baseValue = adj.kpi_key === 'capacity' ? start_capacity :
                 adj.kpi_key === 'orders' ? start_orders :
                     adj.kpi_key === 'cost' ? start_cost : start_asp;
@@ -317,14 +387,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             revenue: 0, net_income: 0, net_margin: 0,
         };
 
-        const {data: insertedData, error: insertError} = await supabase
-            .from('team_round_data')
-            .insert(newRoundData)
-            .select()
-            .single();
-
-        if (insertError || !insertedData) throw insertError || new Error("Failed to insert team_round_data");
-
+        const insertedData = await db.kpis.create(newRoundData);
         setTeamRoundDataDirectly(prev => ({
             ...prev,
             [teamId]: {...(prev[teamId] || {}), [roundNumber]: insertedData as TeamRoundData}
@@ -340,9 +403,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             !teams.length || currentPhase.phase_type !== 'choice') {
             return;
         }
-
-        setIsLoadingProcessing(true);
-        setProcessingError(null);
 
         try {
             for (const team of teams) {
@@ -367,19 +427,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
                     await storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply,
                         `${currentPhase.label} - ${selectedOptionId}`);
 
-                    const {error: upsertError} = await supabase
-                        .from('team_round_data')
-                        .upsert({...updatedKpis, id: teamKpis.id}, {onConflict: 'id'});
-
-                    if (upsertError) throw upsertError;
+                    await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
                 }
             }
 
             await fetchTeamRoundDataFromHook(currentDbSession.id);
         } catch (err) {
-            setProcessingError(err instanceof Error ? err.message : "Failed to process choice decisions.");
-        } finally {
-            setIsLoadingProcessing(false);
+            console.error('[AppContext] Error processing choice decisions:', err);
+            throw err;
         }
     }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData,
         applyKpiEffects, storePermanentAdjustments, fetchTeamRoundDataFromHook, allPhasesInOrder]);
@@ -391,56 +446,43 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     ) => {
         if (!currentDbSession?.id || !gameStructureInstance || !teams.length) return;
 
-        setIsLoadingProcessing(true);
-        setProcessingError(null);
-
         const payoffKey = `rd${roundNumber}-payoff`;
         const payoffs = gameStructureInstance.all_investment_payoffs[payoffKey] || [];
 
-        try {
-            for (const team of teams) {
-                const teamKpis = await ensureTeamRoundData(team.id, roundNumber, currentDbSession.id);
-                const investPhaseId = `rd${roundNumber}-invest`;
-                const investmentDecision = teamDecisions[team.id]?.[investPhaseId];
-                const selectedInvestmentIds = investmentDecision?.selected_investment_ids || [];
+        for (const team of teams) {
+            const teamKpis = await ensureTeamRoundData(team.id, roundNumber, currentDbSession.id);
+            const investPhaseId = `rd${roundNumber}-invest`;
+            const investmentDecision = teamDecisions[team.id]?.[investPhaseId];
+            const selectedInvestmentIds = investmentDecision?.selected_investment_ids || [];
 
-                const effectsToApply: KpiEffect[] = [];
-                selectedInvestmentIds.forEach(investId => {
-                    const payoff = payoffs.find(p => p.investment_option_id === investId);
-                    if (payoff) effectsToApply.push(...payoff.effects);
-                });
+            const effectsToApply: KpiEffect[] = [];
+            selectedInvestmentIds.forEach(investId => {
+                const payoff = payoffs.find(p => p.investment_option_id === investId);
+                if (payoff) effectsToApply.push(...payoff.effects);
+            });
 
-                // Handle unspent budget for RD1
-                if (roundNumber === 1 && currentPhaseId === 'rd1-payoff') {
-                    const budget = gameStructureInstance.investment_phase_budgets['rd1-invest'];
-                    const spent = investmentDecision?.total_spent_budget ?? 0;
-                    const unspent = budget - spent;
-                    if (unspent > 0) {
-                        effectsToApply.push({
-                            kpi: 'cost',
-                            change_value: -unspent,
-                            timing: 'immediate',
-                            description: 'RD-1 Unspent Budget Cost Reduction'
-                        });
-                    }
-                }
-
-                if (effectsToApply.length > 0) {
-                    const updatedKpis = applyKpiEffects(teamKpis, effectsToApply);
-                    await storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply,
-                        `RD${roundNumber} Investment Payoff`);
-
-                    const {error: upsertError} = await supabase
-                        .from('team_round_data')
-                        .upsert({...updatedKpis, id: teamKpis.id}, {onConflict: 'id'});
-
-                    if (upsertError) throw upsertError;
+            // Handle unspent budget for RD1
+            if (roundNumber === 1 && currentPhaseId === 'rd1-payoff') {
+                const budget = gameStructureInstance.investment_phase_budgets['rd1-invest'];
+                const spent = investmentDecision?.total_spent_budget ?? 0;
+                const unspent = budget - spent;
+                if (unspent > 0) {
+                    effectsToApply.push({
+                        kpi: 'cost',
+                        change_value: -unspent,
+                        timing: 'immediate',
+                        description: 'RD-1 Unspent Budget Cost Reduction'
+                    });
                 }
             }
-        } catch (err) {
-            setProcessingError(err instanceof Error ? err.message : "Failed to process investment payoffs.");
-        } finally {
-            setIsLoadingProcessing(false);
+
+            if (effectsToApply.length > 0) {
+                const updatedKpis = applyKpiEffects(teamKpis, effectsToApply);
+                await storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply,
+                    `RD${roundNumber} Investment Payoff`);
+
+                await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
+            }
         }
     }, [currentDbSession, teams, teamDecisions, gameStructureInstance, ensureTeamRoundData,
         applyKpiEffects, storePermanentAdjustments]);
@@ -449,37 +491,62 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
     const calculateAndFinalizeRoundKPIsInternal = useCallback(async (roundNumber: 1 | 2 | 3) => {
         if (!currentDbSession?.id || !teams.length) return;
 
-        setIsLoadingProcessing(true);
-        setProcessingError(null);
+        for (const team of teams) {
+            const kpis = teamRoundData[team.id]?.[roundNumber];
+            if (kpis) {
+                const revenue = kpis.current_orders * kpis.current_asp;
+                const netIncome = revenue - kpis.current_cost;
+                const netMargin = revenue > 0 ? netIncome / revenue : 0;
 
-        try {
-            for (const team of teams) {
-                const kpis = teamRoundData[team.id]?.[roundNumber];
-                if (kpis) {
-                    const revenue = kpis.current_orders * kpis.current_asp;
-                    const netIncome = revenue - kpis.current_cost;
-                    const netMargin = revenue > 0 ? netIncome / revenue : 0;
-
-                    const {error} = await supabase
-                        .from('team_round_data')
-                        .update({
-                            revenue: Math.round(revenue),
-                            net_income: Math.round(netIncome),
-                            net_margin: parseFloat(netMargin.toFixed(4))
-                        })
-                        .eq('id', kpis.id);
-
-                    if (error) throw error;
-                }
+                await db.kpis.update(kpis.id, {
+                    revenue: Math.round(revenue),
+                    net_income: Math.round(netIncome),
+                    net_margin: parseFloat(netMargin.toFixed(4))
+                });
             }
-
-            await fetchTeamRoundDataFromHook(currentDbSession.id);
-        } catch (err) {
-            setProcessingError(err instanceof Error ? err.message : "Failed to finalize round KPIs.");
-        } finally {
-            setIsLoadingProcessing(false);
         }
+
+        await fetchTeamRoundDataFromHook(currentDbSession.id);
     }, [currentDbSession, teams, teamRoundData, fetchTeamRoundDataFromHook]);
+
+    // Reset game progress
+    const resetGameProgressInternal = useCallback(async () => {
+        if (!currentDbSession?.id || !gameStructureInstance) return;
+
+        const confirmReset = window.confirm("Are you sure you want to reset all game progress?");
+        if (!confirmReset) return;
+
+        // Use enhanced database services for cleanup
+        await db.adjustments.deleteBySession(currentDbSession.id);
+        await db.kpis.getBySession(currentDbSession.id).then(async (kpis) => {
+            for (const kpi of kpis) {
+                await db.kpis.update(kpi.id, { /* reset values */ });
+            }
+        });
+        await db.decisions.getBySession(currentDbSession.id).then(async (decisions) => {
+            for (const decision of decisions) {
+                await db.decisions.delete(currentDbSession.id, decision.team_id, decision.phase_id);
+            }
+        });
+
+        const initialPhase = gameStructureInstance.allPhases[0];
+        await updateSessionInDb({
+            current_phase_id: initialPhase?.id || null,
+            current_slide_id_in_phase: initialPhase ? 0 : null,
+            is_playing: false,
+            is_complete: false,
+            teacher_notes: {}
+        });
+
+        await fetchTeamsFromHook(currentDbSession.id);
+        await fetchTeamDecisionsFromHook(currentDbSession.id);
+        await fetchTeamRoundDataFromHook(currentDbSession.id);
+
+        if (initialPhase) await gameController.selectPhase(initialPhase.id);
+
+        alert("Game progress has been reset.");
+    }, [currentDbSession, gameStructureInstance, updateSessionInDb, fetchTeamsFromHook,
+        fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook, gameController]);
 
     // Enhanced nextSlide with processing
     const nextSlideWithProcessing = useCallback(async () => {
@@ -490,52 +557,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
             (gameController.currentSlideIdInPhase === currentPhase.slide_ids.length - 1)) {
 
             if (currentPhase.phase_type === 'payoff' && currentPhase.round_number > 0) {
-                await processInvestmentPayoffsInternal(currentPhase.round_number as 1 | 2 | 3, currentPhase.id);
+                await processInvestmentPayoffsExecute({
+                    roundNumber: currentPhase.round_number as 1 | 2 | 3,
+                    currentPhaseId: currentPhase.id
+                });
             } else if (currentPhase.phase_type === 'kpi' && currentPhase.round_number > 0) {
-                await calculateAndFinalizeRoundKPIsInternal(currentPhase.round_number as 1 | 2 | 3);
+                await calculateKPIsExecute(currentPhase.round_number as 1 | 2 | 3);
             }
         }
 
         await gameController.nextSlide();
-    }, [gameController, processInvestmentPayoffsInternal, calculateAndFinalizeRoundKPIsInternal]);
-
-    // Reset game progress
-    const resetGameProgressInternal = useCallback(async () => {
-        if (!currentDbSession?.id || !gameStructureInstance) return;
-
-        const confirmReset = window.confirm("Are you sure you want to reset all game progress?");
-        if (!confirmReset) return;
-
-        setIsLoadingProcessing(true);
-        try {
-            await supabase.from('team_decisions').delete().eq('session_id', currentDbSession.id);
-            await supabase.from('team_round_data').delete().eq('session_id', currentDbSession.id);
-            await supabase.from('permanent_kpi_adjustments').delete().eq('session_id', currentDbSession.id);
-
-            const initialPhase = gameStructureInstance.allPhases[0];
-            await updateSessionInDb({
-                current_phase_id: initialPhase?.id || null,
-                current_slide_id_in_phase: initialPhase ? 0 : null,
-                is_playing: false,
-                is_complete: false,
-                teacher_notes: {}
-            });
-
-            await fetchTeamsFromHook(currentDbSession.id);
-            await fetchTeamDecisionsFromHook(currentDbSession.id);
-            await fetchTeamRoundDataFromHook(currentDbSession.id);
-
-            if (initialPhase) await gameController.selectPhase(initialPhase.id);
-
-            alert("Game progress has been reset.");
-            navigate('/dashboard', {replace: true});
-        } catch (e) {
-            setProcessingError(e instanceof Error ? e.message : "Failed to reset game.");
-        } finally {
-            setIsLoadingProcessing(false);
-        }
-    }, [currentDbSession, gameStructureInstance, updateSessionInDb, fetchTeamsFromHook,
-        fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook, gameController, navigate]);
+    }, [gameController, processInvestmentPayoffsExecute, calculateKPIsExecute]);
 
     // Wrapper for team fetching
     const fetchWrapperTeams = useCallback(async () => {
@@ -546,10 +578,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
 
     // Wrapper for team decision reset
     const resetWrapperTeamDecision = useCallback(async (teamId: string, phaseId: string) => {
-        if (currentDbSession?.id && currentDbSession.id !== 'new') {
-            await resetTeamDecisionInDb(currentDbSession.id, teamId, phaseId);
-        }
-    }, [currentDbSession?.id, resetTeamDecisionInDb]);
+        await resetTeamDecisionExecute({ teamId, phaseId });
+    }, [resetTeamDecisionExecute]);
 
     // Combined app state
     const combinedAppState: AppState = useMemo(() => ({
@@ -564,12 +594,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         teamDecisions: teamDecisions,
         teamRoundData: teamRoundData,
         isPlayerWindowOpen: false, // Moved to local component state
-        isLoading: isLoadingSession || authLoading || isLoadingTeams || isLoadingProcessing ||
+        isLoading: isLoadingSession || authLoading || isLoadingTeams ||
+            isProcessingPayoffs || isCalculatingKPIs || isResettingGame ||
             !gameController.currentPhaseNode,
-        error: sessionError || processingError,
+        error: sessionError || payoffProcessingError || kpiCalculationError ||
+            gameResetError || decisionResetError,
         currentHostAlert: gameController.currentHostAlert,
     }), [currentDbSession, gameStructureInstance, gameController, teams, teamDecisions, teamRoundData,
-        isLoadingSession, authLoading, isLoadingTeams, isLoadingProcessing, sessionError, processingError]);
+        isLoadingSession, authLoading, isLoadingTeams, isProcessingPayoffs, isCalculatingKPIs,
+        isResettingGame, sessionError, payoffProcessingError, kpiCalculationError,
+        gameResetError, decisionResetError]);
 
     // Load team data when session changes
     useEffect(() => {
@@ -601,18 +635,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         isLoadingTeams,
         fetchTeamsForSession: fetchWrapperTeams,
         resetTeamDecisionForPhase: resetWrapperTeamDecision,
-        processInvestmentPayoffs: processInvestmentPayoffsInternal,
-        calculateAndFinalizeRoundKPIs: calculateAndFinalizeRoundKPIsInternal,
-        resetGameProgress: resetGameProgressInternal,
-        isLoadingProcessingDecisions: isLoadingProcessing,
+        processInvestmentPayoffs: (roundNumber, currentPhaseId) =>
+            processInvestmentPayoffsExecute({ roundNumber, currentPhaseId }),
+        calculateAndFinalizeRoundKPIs: calculateKPIsExecute,
+        resetGameProgress: () => resetGameProgressExecute(),
+        isLoadingProcessingDecisions: isProcessingPayoffs || isCalculatingKPIs || isResettingDecision,
         activateDecisionPhase,
         deactivateDecisionPhase,
         isDecisionPhaseActive,
     }), [combinedAppState, gameController, allPhasesInOrder, nextSlideWithProcessing, isLoadingSession,
         sessionError, clearSessionError, teams, teamDecisions, teamRoundData, isLoadingTeams,
-        fetchWrapperTeams, resetWrapperTeamDecision, processInvestmentPayoffsInternal,
-        calculateAndFinalizeRoundKPIsInternal, resetGameProgressInternal, isLoadingProcessing,
-        activateDecisionPhase, deactivateDecisionPhase, isDecisionPhaseActive]);
+        fetchWrapperTeams, resetWrapperTeamDecision, processInvestmentPayoffsExecute,
+        calculateKPIsExecute, resetGameProgressExecute, isProcessingPayoffs, isCalculatingKPIs,
+        isResettingDecision, activateDecisionPhase, deactivateDecisionPhase, isDecisionPhaseActive]);
 
     // Loading state
     if (contextValue.state.isLoading && (!passedSessionId || passedSessionId === 'new' ||

@@ -1,5 +1,5 @@
 // src/pages/TeamDisplayPage.tsx - Refactored with New Supabase Structure
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import TeamLogin from '../components/Game/TeamLogin';
 import KpiDisplay from '../components/Game/KpiDisplay';
@@ -10,9 +10,9 @@ import {
     InvestmentOption,
     Slide,
     HostBroadcastPayload,
-    TeamRoundData
 } from '../types';
-import {db, formatSupabaseError, useSupabaseConnection} from '../utils/supabase';
+import {db, useSupabaseConnection} from '../utils/supabase';
+import {useSupabaseQuery, useSupabaseMutation} from '../hooks/useSupabaseOperation'
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {AlertTriangle, CheckCircle, Hourglass, Smartphone} from 'lucide-react';
 import { useBroadcastManager } from '../utils/broadcastManager';
@@ -21,23 +21,19 @@ const TeamDisplayPage: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(localStorage.getItem(`ron_teamId_${sessionId}`));
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(localStorage.getItem(`ron_teamName_${sessionId}`));
-    const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
     const [currentActivePhase, setCurrentActivePhase] = useState<GamePhaseNode | null>(null);
     const [isStudentDecisionTime, setIsStudentDecisionTime] = useState<boolean>(false);
     const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined);
     const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | undefined>(undefined);
     const [decisionOptionsKey, setDecisionOptionsKey] = useState<string | undefined>(undefined);
-    const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
     const [pageError, setPageError] = useState<string | null>(null);
-    const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
     const [isSubmissionFeedbackModalOpen, setIsSubmissionFeedbackModalOpen] = useState(false);
+
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
-    const submissionStatusRef = useRef(submissionStatus);
     const isStudentDecisionTimeRef = useRef(isStudentDecisionTime);
     const currentActivePhaseRef = useRef<GamePhaseNode | null>(null);
-    const currentTeamKpisRef = useRef<TeamRoundData | null>(null);
     const decisionPhaseTimerEndTimeRef = useRef<number | undefined>(undefined);
 
     // Use broadcast manager for team communication
@@ -48,6 +44,72 @@ const TeamDisplayPage: React.FC = () => {
     const isTablet = /iPad|Android.*(?:(?!Mobile)|(?=.*Tablet))|KFAPWI/i.test(navigator.userAgent);
 
     const connection = useSupabaseConnection();
+
+    // Enhanced query for team KPIs with automatic refetching
+    const {
+        data: currentTeamKpis,
+        isLoading: isLoadingKpis,
+        error: kpisError,
+        refresh: refetchKpis
+    } = useSupabaseQuery(
+        () => {
+            if (!sessionId || !loggedInTeamId || !currentActivePhase || currentActivePhase.round_number === 0) {
+                return Promise.resolve(null);
+            }
+            return db.kpis.getForTeamRound(sessionId, loggedInTeamId, currentActivePhase.round_number);
+        },
+        [sessionId, loggedInTeamId, currentActivePhase?.round_number],
+        {
+            cacheKey: `team-kpis-${sessionId}-${loggedInTeamId}-${currentActivePhase?.round_number}`,
+            cacheTimeout: 30 * 1000, // 30 seconds
+            retryOnError: true,
+            maxRetries: 2,
+            onError: (error) => {
+                console.error("[TeamDisplayPage] Error fetching team KPIs:", error);
+                setPageError(`Failed to load your team's data: ${error}`);
+            }
+        }
+    );
+
+    // Enhanced mutation for decision submission
+    const {
+        execute: submitDecision,
+        isLoading: isSubmittingDecision,
+        error: submissionError
+    } = useSupabaseMutation(
+        async (decisionData: any) => {
+            if (!sessionId || !loggedInTeamId || !currentActivePhase) {
+                throw new Error('Missing required data for submission');
+            }
+
+            const submissionPayload = {
+                ...decisionData,
+                session_id: sessionId,
+                team_id: loggedInTeamId,
+                phase_id: currentActivePhase.id,
+                round_number: currentActivePhase.round_number as 0 | 1 | 2 | 3,
+                submitted_at: new Date().toISOString(),
+            };
+
+            return db.decisions.create(submissionPayload);
+        },
+        {
+            onSuccess: () => {
+                setSubmissionMessage(`Decisions for ${currentActivePhase?.label} submitted successfully!`);
+                setIsStudentDecisionTime(false);
+                isStudentDecisionTimeRef.current = false;
+                setTimeRemainingSeconds(undefined);
+                setDecisionPhaseTimerEndTime(undefined);
+
+                // Auto-dismiss success message
+                setTimeout(() => setSubmissionMessage(null), 5000);
+            },
+            onError: (error) => {
+                console.error('[TeamDisplayPage] Submission failed:', error);
+                setSubmissionMessage(`Failed to submit decisions: ${error}`);
+            }
+        }
+    );
 
     // Set initial viewport for mobile
     useEffect(() => {
@@ -60,10 +122,6 @@ const TeamDisplayPage: React.FC = () => {
     }, [isMobile, isTablet]);
 
     useEffect(() => {
-        submissionStatusRef.current = submissionStatus;
-    }, [submissionStatus]);
-
-    useEffect(() => {
         isStudentDecisionTimeRef.current = isStudentDecisionTime;
     }, [isStudentDecisionTime]);
 
@@ -72,71 +130,8 @@ const TeamDisplayPage: React.FC = () => {
     }, [currentActivePhase]);
 
     useEffect(() => {
-        currentTeamKpisRef.current = currentTeamKpis;
-    }, [currentTeamKpis]);
-
-    useEffect(() => {
         decisionPhaseTimerEndTimeRef.current = decisionPhaseTimerEndTime;
     }, [decisionPhaseTimerEndTime]);
-
-    const fetchInitialTeamData = useCallback(async (teamId: string, activePhase: GamePhaseNode | null) => {
-        if (!sessionId || !activePhase || !teamId) {
-            setCurrentTeamKpis(null);
-            setIsLoadingData(false);
-            return;
-        }
-
-        console.log(`[TeamDisplayPage] Fetching initial data for team ${teamId}, phase ${activePhase.id}, round ${activePhase.round_number}`);
-        setIsLoadingData(true);
-
-        try {
-            // Fetch current KPIs using new database structure
-            if (activePhase.round_number > 0) {
-                const kpiData = await db.kpis.getForTeamRound(
-                    sessionId,
-                    teamId,
-                    activePhase.round_number
-                );
-                setCurrentTeamKpis(kpiData as TeamRoundData);
-            } else {
-                setCurrentTeamKpis(null);
-            }
-
-            // Check for existing submission for this phase
-            if (activePhase.is_interactive_player_phase) {
-                const existingDecision = await db.decisions.getForPhase(
-                    sessionId,
-                    teamId,
-                    activePhase.id
-                );
-
-                if (existingDecision?.submitted_at) {
-                    setSubmissionStatus('success');
-                    submissionStatusRef.current = 'success';
-                    setSubmissionMessage(`Decisions for "${activePhase.label}" were already submitted.`);
-                    setIsStudentDecisionTime(false);
-                    isStudentDecisionTimeRef.current = false;
-                } else {
-                    setSubmissionStatus('idle');
-                    submissionStatusRef.current = 'idle';
-                    setSubmissionMessage(null);
-                }
-            } else {
-                setSubmissionStatus('idle');
-                submissionStatusRef.current = 'idle';
-                setSubmissionMessage(null);
-            }
-
-            if (pageError && pageError.includes("Failed to load your team's data")) {
-                setPageError(null);
-            }
-        } catch (err) {
-            console.error("[TeamDisplayPage] Error fetching initial team data:", err);
-            setPageError(`Failed to load your team's data: ${formatSupabaseError(err)}`);
-        } finally {
-            setIsLoadingData(false);
-        }
-    }, [sessionId, pageError]);
 
     // Set up broadcast manager for teacher updates
     useEffect(() => {
@@ -166,19 +161,15 @@ const TeamDisplayPage: React.FC = () => {
                 (newSlide?.type === 'interactive_invest' ||
                     newSlide?.type === 'interactive_choice' ||
                     newSlide?.type === 'interactive_double_down_prompt' ||
-                    newSlide?.type === 'interactive_double_down_select') &&
-                submissionStatusRef.current !== 'success';
+                    newSlide?.type === 'interactive_double_down_select');
 
             if (shouldActivateDecisions) {
                 console.log(`[TeamDisplayPage] ACTIVATING decision time for phase ${newPhaseNode?.id}, slide ${newSlide?.id}`);
                 setIsStudentDecisionTime(true);
                 isStudentDecisionTimeRef.current = true;
 
-                if (submissionStatusRef.current !== 'idle') {
-                    setSubmissionStatus('idle');
-                    submissionStatusRef.current = 'idle';
-                    setSubmissionMessage(null);
-                }
+                // Clear any previous submission messages when starting new decision phase
+                setSubmissionMessage(null);
             } else if (!teacherPayload.isDecisionPhaseActive) {
                 console.log(`[TeamDisplayPage] DEACTIVATING decision time - broadcast says not active`);
                 setIsStudentDecisionTime(false);
@@ -190,21 +181,11 @@ const TeamDisplayPage: React.FC = () => {
                 setDecisionPhaseTimerEndTime(teacherPayload.decisionPhaseTimerEndTime);
             }
 
-            // Handle phase changes for data fetching
-            if (loggedInTeamId && newPhaseNode && newPhaseNode.id !== currentActivePhaseRef.current?.id) {
-                console.log(`[TeamDisplayPage] Phase changed, fetching data for ${newPhaseNode.id}`);
-                fetchInitialTeamData(loggedInTeamId, newPhaseNode);
-            }
-
-            // Handle KPI updates for round changes
+            // Refresh KPIs when phase changes to a different round
             if (loggedInTeamId && newPhaseNode && newPhaseNode.round_number > 0) {
-                if (currentTeamKpisRef.current?.round_number !== newPhaseNode.round_number || !currentTeamKpisRef.current) {
-                    if (newPhaseNode.id !== currentActivePhaseRef.current?.id) {
-                        fetchInitialTeamData(loggedInTeamId, newPhaseNode);
-                    }
+                if (currentActivePhaseRef.current?.round_number !== newPhaseNode.round_number) {
+                    refetchKpis();
                 }
-            } else if (newPhaseNode?.round_number === 0) {
-                setCurrentTeamKpis(null);
             }
         });
 
@@ -212,7 +193,7 @@ const TeamDisplayPage: React.FC = () => {
             console.log(`[TeamDisplayPage] Cleaning up broadcast subscription`);
             unsubscribeTeacherUpdates();
         };
-    }, [sessionId, broadcastManager, gameStructure, fetchInitialTeamData, loggedInTeamId]);
+    }, [sessionId, broadcastManager, gameStructure, loggedInTeamId, refetchKpis]);
 
     // Timer effect
     useEffect(() => {
@@ -241,8 +222,7 @@ const TeamDisplayPage: React.FC = () => {
     useEffect(() => {
         if (isStudentDecisionTimeRef.current && timeRemainingSeconds === 0 &&
             currentActivePhase?.phase_type === 'choice' &&
-            submissionStatusRef.current !== 'success' &&
-            submissionStatusRef.current !== 'submitting') {
+            !isSubmittingDecision) {
 
             console.log(`[TeamDisplayPage] Timer ended for CHOICE phase ${currentActivePhase.id}. Auto-submitting default.`);
 
@@ -251,42 +231,16 @@ const TeamDisplayPage: React.FC = () => {
             const defaultOption = options.find(opt => opt.is_default_choice) || (options.length > 0 ? options[options.length - 1] : null);
 
             if (defaultOption && loggedInTeamId && sessionId && currentActivePhase) {
-                setSubmissionStatus('submitting');
-                submissionStatusRef.current = 'submitting';
                 setSubmissionMessage('Time is up! Submitting the default choice...');
 
                 const decisionData = {
-                    session_id: sessionId,
-                    team_id: loggedInTeamId,
-                    phase_id: currentActivePhase.id,
-                    round_number: currentActivePhase.round_number as 0 | 1 | 2 | 3,
                     selected_challenge_option_id: defaultOption.id,
-                    submitted_at: new Date().toISOString(),
                 };
 
-                // Use new database structure for insertion
-                db.decisions.create(decisionData)
-                    .then(() => {
-                        setSubmissionStatus('success');
-                        setSubmissionMessage(`Time's up! Default choice "${defaultOption.text.substring(0, 20)}..." submitted.`);
-                        setIsStudentDecisionTime(false);
-                        setTimeRemainingSeconds(undefined);
-                        setTimeout(() => setSubmissionMessage(null), 5000);
-                    })
-                    .catch(err => {
-                        console.error("[TeamDisplayPage] Auto-submit error:", err);
-                        setSubmissionStatus('error');
-                        setSubmissionMessage(`Failed to auto-submit: ${formatSupabaseError(err)}`);
-                    });
+                submitDecision(decisionData);
             }
         }
-    }, [timeRemainingSeconds, currentActivePhase, gameStructure, decisionOptionsKey, loggedInTeamId, sessionId]);
-
-    useEffect(() => {
-        if (loggedInTeamId && currentActivePhase) {
-            fetchInitialTeamData(loggedInTeamId, currentActivePhase);
-        }
-    }, [loggedInTeamId, currentActivePhase, fetchInitialTeamData]);
+    }, [timeRemainingSeconds, currentActivePhase, gameStructure, decisionOptionsKey, loggedInTeamId, sessionId, isSubmittingDecision, submitDecision]);
 
     const handleLoginSuccess = (teamId: string, teamName: string) => {
         localStorage.setItem(`ron_teamId_${sessionId}`, teamId);
@@ -294,7 +248,6 @@ const TeamDisplayPage: React.FC = () => {
         setLoggedInTeamId(teamId);
         setLoggedInTeamName(teamName);
         setPageError(null);
-        setIsLoadingData(true);
     };
 
     const handleDecisionSubmit = async (decisionDataPayload: any) => {
@@ -311,60 +264,13 @@ const TeamDisplayPage: React.FC = () => {
             if (!currentActivePhase) missingItems.push('currentActivePhase');
 
             console.error('[TeamDisplayPage] Missing required data:', missingItems);
-            setSubmissionStatus('error');
             setSubmissionMessage(`Cannot submit: Missing ${missingItems.join(', ')}`);
             setIsSubmissionFeedbackModalOpen(true);
             return;
         }
 
-        setSubmissionStatus('submitting');
-        submissionStatusRef.current = 'submitting';
         setSubmissionMessage(`Submitting decisions for ${currentActivePhase.label}...`);
-
-        const submissionPayload = {
-            ...decisionDataPayload,
-            session_id: sessionId,
-            team_id: loggedInTeamId,
-            phase_id: currentActivePhase.id,
-            round_number: currentActivePhase.round_number as 0 | 1 | 2 | 3,
-            submitted_at: new Date().toISOString(),
-        };
-
-        console.log('[TeamDisplayPage] === SUBMITTING TO DATABASE ===');
-        console.log('[TeamDisplayPage] Full payload:', JSON.stringify(submissionPayload, null, 2));
-
-        try {
-            console.log('[TeamDisplayPage] Attempting insert...');
-
-            // Using new database structure - need to add create method to decisions
-            const result = await db.decisions.create(submissionPayload);
-
-            console.log('[TeamDisplayPage] === SUBMISSION SUCCESSFUL ===');
-            console.log('[TeamDisplayPage] Response data:', result);
-
-            setSubmissionStatus('success');
-            submissionStatusRef.current = 'success';
-            setSubmissionMessage(`Decisions for ${currentActivePhase.label} submitted successfully!`);
-            setIsStudentDecisionTime(false);
-            isStudentDecisionTimeRef.current = false;
-            setTimeRemainingSeconds(undefined);
-            setDecisionPhaseTimerEndTime(undefined);
-
-            // Show success feedback without modal - integrate into main UI
-            setTimeout(() => {
-                setSubmissionMessage(null);
-            }, 5000);
-
-        } catch (err) {
-            console.error('[TeamDisplayPage] === SUBMISSION FAILED ===');
-            console.error('[TeamDisplayPage] Error details:', err);
-
-            setSubmissionStatus('error');
-            submissionStatusRef.current = 'error';
-
-            const errorMessage = formatSupabaseError(err);
-            setSubmissionMessage(`Failed to submit decisions: ${errorMessage}`);
-        }
+        await submitDecision(decisionDataPayload);
     };
 
     // Computed values for current phase
@@ -398,12 +304,20 @@ const TeamDisplayPage: React.FC = () => {
                 <AlertTriangle size={48} className="mb-4 text-yellow-300"/>
                 <h1 className="text-2xl font-bold mb-2 text-center">Connection Problem</h1>
                 <p className="text-center mb-4 px-4">{connection.error}</p>
-                <button
-                    onClick={() => window.location.reload()}
-                    className="px-6 py-3 bg-yellow-400 text-red-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors"
-                >
-                    Try Reloading Page
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={connection.forceReconnect}
+                        className="px-6 py-3 bg-yellow-400 text-red-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors"
+                    >
+                        Reconnect
+                    </button>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-500 transition-colors"
+                    >
+                        Reload Page
+                    </button>
+                </div>
             </div>
         );
     }
@@ -465,18 +379,18 @@ const TeamDisplayPage: React.FC = () => {
             <div className="flex-1 min-h-0">
                 <div className="h-full overflow-y-auto">
                     <div className="p-3 md:p-4 min-h-full flex flex-col">
-                        {isLoadingData || !currentActivePhase ? (
+                        {(isLoadingKpis && currentActivePhase?.round_number > 0) || !currentActivePhase ? (
                             <div className="flex-1 flex items-center justify-center text-center text-gray-400 py-12">
                                 <div>
                                     <Hourglass size={40} className="mx-auto mb-4 animate-pulse"/>
                                     <p className="text-lg">
-                                        {isLoadingData && currentActivePhase ? `Loading data for ${currentActivePhase.label}...` :
+                                        {isLoadingKpis && currentActivePhase ? `Loading data for ${currentActivePhase.label}...` :
                                             !currentActivePhase ? "Waiting for game to start..." :
                                                 "Loading..."}
                                     </p>
                                 </div>
                             </div>
-                        ) : isStudentDecisionTimeRef.current && currentActivePhase && submissionStatusRef.current !== 'success' ? (
+                        ) : isStudentDecisionTimeRef.current && currentActivePhase && !isSubmittingDecision ? (
                             <div className="flex-1">
                                 <DecisionPanel
                                     sessionId={sessionId}
@@ -497,30 +411,29 @@ const TeamDisplayPage: React.FC = () => {
                                     {/* Show submission status prominently when available */}
                                     {submissionMessage && (
                                         <div className={`mb-6 p-4 rounded-xl border-2 shadow-lg text-center ${
-                                            submissionStatus === 'submitting' ? 'bg-blue-900/50 border-blue-600 text-blue-200' :
-                                                submissionStatus === 'success' ? 'bg-green-900/50 border-green-600 text-green-200' :
-                                                    submissionStatus === 'error' ? 'bg-red-900/50 border-red-600 text-red-200' :
+                                            isSubmittingDecision ? 'bg-blue-900/50 border-blue-600 text-blue-200' :
+                                                submissionError ? 'bg-red-900/50 border-red-600 text-red-200' :
+                                                    submissionMessage.includes('successfully') ? 'bg-green-900/50 border-green-600 text-green-200' :
                                                         'bg-gray-800 border-gray-600 text-gray-200'
                                         }`}>
                                             <div className="flex items-center justify-center mb-2">
-                                                {submissionStatus === 'submitting' &&
+                                                {isSubmittingDecision &&
                                                     <Hourglass size={24} className="mr-2 animate-pulse"/>}
-                                                {submissionStatus === 'success' &&
+                                                {!isSubmittingDecision && submissionMessage.includes('successfully') &&
                                                     <CheckCircle size={24} className="mr-2"/>}
-                                                {submissionStatus === 'error' &&
+                                                {submissionError &&
                                                     <AlertTriangle size={24} className="mr-2"/>}
                                                 <span className="text-lg font-semibold">
-                                                    {submissionStatus === 'submitting' ? 'Submitting...' :
-                                                        submissionStatus === 'success' ? 'Success!' :
-                                                            submissionStatus === 'error' ? 'Error' : 'Status Update'}
+                                                    {isSubmittingDecision ? 'Submitting...' :
+                                                        submissionMessage.includes('successfully') ? 'Success!' :
+                                                            submissionError ? 'Error' : 'Status Update'}
                                                 </span>
                                             </div>
                                             <p className="text-sm">{submissionMessage}</p>
-                                            {submissionStatus === 'error' && (
+                                            {submissionError && (
                                                 <button
                                                     onClick={() => {
                                                         setSubmissionMessage(null);
-                                                        setSubmissionStatus('idle');
                                                     }}
                                                     className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
                                                 >
@@ -542,20 +455,17 @@ const TeamDisplayPage: React.FC = () => {
                                                 <p className="text-sm text-gray-300 mb-4">{currentActiveSlide.sub_text}</p>
                                             )}
 
-                                            {submissionStatusRef.current === 'success' && !submissionMessage && (
-                                                <div
-                                                    className="mt-6 p-4 bg-green-900/50 rounded-lg border border-green-700">
+                                            {submissionMessage?.includes('successfully') && !isSubmittingDecision && (
+                                                <div className="mt-6 p-4 bg-green-900/50 rounded-lg border border-green-700">
                                                     <p className="text-green-400 flex items-center justify-center">
                                                         <CheckCircle size={20} className="mr-2"/>
-                                                        Decisions submitted
-                                                        for {currentActivePhase?.label || "previous phase"}.
+                                                        Decisions submitted for {currentActivePhase?.label || "previous phase"}.
                                                         Waiting for facilitator.
                                                     </p>
                                                 </div>
                                             )}
-                                            {(submissionStatusRef.current !== 'success' && !isStudentDecisionTimeRef.current && !submissionMessage) && (
-                                                <div
-                                                    className="mt-6 p-4 bg-yellow-900/50 rounded-lg border border-yellow-700">
+                                            {!submissionMessage?.includes('successfully') && !isStudentDecisionTimeRef.current && !submissionMessage && (
+                                                <div className="mt-6 p-4 bg-yellow-900/50 rounded-lg border border-yellow-700">
                                                     <p className="text-yellow-400 flex items-center justify-center">
                                                         <Hourglass size={20} className="mr-2 animate-pulse"/>
                                                         Waiting for facilitator...
@@ -567,7 +477,7 @@ const TeamDisplayPage: React.FC = () => {
                                         <div className="text-center text-gray-400 py-12">
                                             <Hourglass size={40} className="mx-auto mb-4 animate-pulse"/>
                                             <p className="text-lg">
-                                                {submissionStatusRef.current === 'success' && !submissionMessage ?
+                                                {submissionMessage?.includes('successfully') && !isSubmittingDecision ?
                                                     "Decisions submitted. Waiting for facilitator..." :
                                                     `Waiting for facilitator to start ${currentActivePhase?.label || "next phase"}...`
                                                 }
@@ -587,21 +497,8 @@ const TeamDisplayPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Submission Feedback Modal - Only for critical errors or submission in progress */}
-            {isSubmissionFeedbackModalOpen && submissionStatus === 'submitting' && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
-                        <Hourglass size={32} className="mx-auto mb-3 text-blue-500 animate-pulse"/>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Processing Submission...</h3>
-                        <p className="text-sm text-gray-600">
-                            {submissionMessage || "Submitting your decisions..."}
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {/* Critical Error Modal */}
-            {isSubmissionFeedbackModalOpen && submissionStatus === 'error' && submissionMessage?.includes('Cannot submit') && (
+            {/* Submission Feedback Modal - Only for critical errors */}
+            {isSubmissionFeedbackModalOpen && submissionMessage?.includes('Cannot submit') && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
                         <AlertTriangle size={32} className="mx-auto mb-3 text-red-500"/>
@@ -613,7 +510,6 @@ const TeamDisplayPage: React.FC = () => {
                             onClick={() => {
                                 setIsSubmissionFeedbackModalOpen(false);
                                 setSubmissionMessage(null);
-                                setSubmissionStatus('idle');
                             }}
                             className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
                         >
@@ -622,6 +518,19 @@ const TeamDisplayPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Connection status indicator */}
+            <div className="fixed bottom-4 right-4 z-20">
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    connection.isConnected
+                        ? 'bg-green-900/80 text-green-300 border border-green-700'
+                        : 'bg-red-900/80 text-red-300 border border-red-700'
+                }`}>
+                    {connection.isConnected
+                        ? `● Live ${connection.latency ? `(${connection.latency}ms)` : ''}`
+                        : '● Disconnected'}
+                </div>
+            </div>
         </div>
     );
 };

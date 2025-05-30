@@ -1,7 +1,7 @@
-// src/components/Game/TeamLogin.tsx - UPDATED
+// src/components/Game/TeamLogin.tsx
 import React, { useState, useEffect } from 'react';
-import { db, formatSupabaseError, useSupabaseConnection } from '../../utils/supabase';
-import { Team } from '../../types';
+import { db, useSupabaseConnection } from '../../utils/supabase';
+import { useSupabaseQuery } from '../../hooks/useSupabaseOperation'
 import { LogIn, Users, Hourglass, AlertTriangle } from 'lucide-react';
 
 interface TeamLoginProps {
@@ -10,64 +10,52 @@ interface TeamLoginProps {
 }
 
 const TeamLogin: React.FC<TeamLoginProps> = ({ sessionId, onLoginSuccess }) => {
-    const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const [passcode, setPasscode] = useState<string>('');
-    const [error, setError] = useState<string>('');
-    const [isLoadingTeams, setIsLoadingTeams] = useState<boolean>(true);
     const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+    const [loginError, setLoginError] = useState<string>('');
 
     const connection = useSupabaseConnection();
 
-    useEffect(() => {
-        const fetchTeams = async () => {
-            if (!sessionId) {
-                setError("Session ID is missing.");
-                setIsLoadingTeams(false);
-                return;
+    const {
+        data: availableTeams = [],
+        isLoading: isLoadingTeams,
+        error: teamsError,
+        refresh: refetchTeams
+    } = useSupabaseQuery(
+        () => db.teams.getBySession(sessionId),
+        [sessionId],
+        {
+            cacheKey: `teams-${sessionId}`,
+            cacheTimeout: 2 * 60 * 1000, // 2 minutes
+            retryOnError: true,
+            maxRetries: 2,
+            onError: (error) => {
+                console.error("[TeamLogin] Error fetching teams:", error);
             }
-
-            setIsLoadingTeams(true);
-            setError('');
-
-            try {
-                const teams = await db.teams.getBySession(sessionId);
-                setAvailableTeams(teams as Team[]);
-
-                if (teams.length > 0) {
-                    setSelectedTeamId(teams[0].id);
-                } else {
-                    setError('No teams are currently set up for this game session or the session ID is incorrect. Please wait for the facilitator or check the ID.');
-                }
-            } catch (err) {
-                console.error("[TeamLogin] Error fetching teams:", err);
-                setError(`Failed to load teams: ${formatSupabaseError(err)}`);
-            } finally {
-                setIsLoadingTeams(false);
-            }
-        };
-
-        if (connection.isConnected) {
-            fetchTeams();
-        } else if (connection.status === 'error') {
-            setError(`Connection error: ${connection.error}`);
-            setIsLoadingTeams(false);
         }
-    }, [sessionId, connection.isConnected, connection.status, connection.error]);
+    );
+
+    // Set initial team selection
+    useEffect(() => {
+        if (availableTeams.length > 0 && !selectedTeamId) {
+            setSelectedTeamId(availableTeams[0].id);
+        }
+    }, [availableTeams, selectedTeamId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedTeamId) {
-            setError('Please select a team.');
+            setLoginError('Please select a team.');
             return;
         }
         if (!passcode.trim()) {
-            setError('Please enter the team passcode.');
+            setLoginError('Please enter the team passcode.');
             return;
         }
 
         setIsLoggingIn(true);
-        setError('');
+        setLoginError('');
 
         try {
             const verifiedTeam = await db.teams.verifyLogin(
@@ -79,11 +67,11 @@ const TeamLogin: React.FC<TeamLoginProps> = ({ sessionId, onLoginSuccess }) => {
             if (verifiedTeam) {
                 onLoginSuccess(verifiedTeam.id, verifiedTeam.name);
             } else {
-                setError('Incorrect passcode or invalid team for this session.');
+                setLoginError('Incorrect passcode or invalid team for this session.');
             }
         } catch (err) {
             console.error("[TeamLogin] Login error:", err);
-            setError(`Login failed: ${formatSupabaseError(err)}`);
+            setLoginError(`Login failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
         } finally {
             setIsLoggingIn(false);
         }
@@ -97,12 +85,20 @@ const TeamLogin: React.FC<TeamLoginProps> = ({ sessionId, onLoginSuccess }) => {
                     <AlertTriangle size={48} className="mx-auto mb-4 text-red-400"/>
                     <h2 className="text-xl font-bold mb-2">Connection Problem</h2>
                     <p className="mb-4">{connection.error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                    >
-                        Retry Connection
-                    </button>
+                    <div className="flex gap-3 justify-center">
+                        <button
+                            onClick={connection.forceReconnect}
+                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                        >
+                            Retry Connection
+                        </button>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                        >
+                            Reload Page
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -126,10 +122,20 @@ const TeamLogin: React.FC<TeamLoginProps> = ({ sessionId, onLoginSuccess }) => {
                     </div>
                 )}
 
-                {error && !isLoadingTeams && (
+                {(loginError || teamsError) && !isLoadingTeams && (
                     <div className="mb-4 p-3 bg-red-500/30 text-red-300 border border-red-500/50 rounded-md text-sm flex items-start">
                         <AlertTriangle size={18} className="mr-2 mt-0.5 flex-shrink-0"/>
-                        <span>{error}</span>
+                        <div>
+                            <span>{loginError || teamsError}</span>
+                            {teamsError && (
+                                <button
+                                    onClick={refetchTeams}
+                                    className="block mt-2 text-xs text-red-200 underline hover:text-red-100"
+                                >
+                                    Try again
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -185,13 +191,32 @@ const TeamLogin: React.FC<TeamLoginProps> = ({ sessionId, onLoginSuccess }) => {
                     </form>
                 )}
 
-                {!isLoadingTeams && availableTeams.length === 0 && !error && (
-                    <p className="text-center text-yellow-400 text-sm my-4">
-                        No teams found for this session ID. Please ensure the Session ID in your URL is correct and that the facilitator has started the game.
-                    </p>
+                {!isLoadingTeams && availableTeams.length === 0 && !teamsError && (
+                    <div className="text-center">
+                        <p className="text-yellow-400 text-sm my-4">
+                            No teams found for this session ID. Please ensure the Session ID in your URL is correct and that the facilitator has started the game.
+                        </p>
+                        <button
+                            onClick={refetchTeams}
+                            className="text-sm text-blue-400 underline hover:text-blue-300"
+                        >
+                            Refresh teams list
+                        </button>
+                    </div>
                 )}
 
                 <p className="text-xs text-gray-500 mt-6 text-center">Session ID: {sessionId}</p>
+
+                {/* Connection status indicator */}
+                <div className="mt-2 text-center">
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                        connection.isConnected
+                            ? 'bg-green-900/30 text-green-400'
+                            : 'bg-yellow-900/30 text-yellow-400'
+                    }`}>
+                        {connection.isConnected ? '● Connected' : '● Connecting...'}
+                    </span>
+                </div>
             </div>
         </div>
     );

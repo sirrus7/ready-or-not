@@ -4,19 +4,15 @@ import {useAppContext} from '../../context/AppContext';
 import {TeamDecision} from '../../types';
 import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, Wifi, WifiOff, AlertTriangle} from 'lucide-react';
 import {useRealtimeSubscription, useSupabaseConnection} from '../../utils/supabase';
+import {useSupabaseMutation} from '../../hooks/useSupabaseOperation'
 import Modal from '../UI/Modal';
 
-interface TeamSubmissionTableProps {
-    // No props needed directly, it will consume from AppContext
-}
-
-const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
-    const {state, currentPhaseNode, resetTeamDecisionForPhase, fetchTeamsForSession} = useAppContext();
+const TeamSubmissions: React.FC = () => {
+    const {state, currentPhaseNode, fetchTeamsForSession} = useAppContext();
     const {teams, teamDecisions, currentSessionId, gameStructure} = state;
 
     const currentPhaseIdFromNode = currentPhaseNode?.id;
 
-    const [isLoadingReset, setIsLoadingReset] = useState<Record<string, boolean>>({});
     const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
     const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
 
@@ -27,7 +23,31 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
     // Connection monitoring
     const connection = useSupabaseConnection();
 
-    // Set up real-time subscription using new hook
+    // Enhanced mutation hook for resetting decisions
+    const {
+        execute: resetDecision,
+        isLoading: isResetting,
+        error: resetError
+    } = useSupabaseMutation(
+        async (teamId: string, phaseId: string) => {
+            // Use the resetTeamDecisionForPhase from AppContext which handles both DB and state
+            const { resetTeamDecisionForPhase } = useAppContext();
+            return resetTeamDecisionForPhase(teamId, phaseId);
+        },
+        {
+            onSuccess: (_, teamId) => {
+                console.log(`[TeamSubmissionTable] Successfully reset team ${teamId} decision`);
+                setLastUpdateTime(new Date().toLocaleTimeString());
+                // Optionally refresh teams data
+                setTimeout(() => fetchTeamsForSession(), 500);
+            },
+            onError: (error, teamId) => {
+                console.error(`[TeamSubmissionTable] Failed to reset team ${teamId} decision:`, error);
+            }
+        }
+    );
+
+    // Enhanced real-time subscription
     useRealtimeSubscription(
         `team-decisions-realtime-${currentSessionId}`,
         {
@@ -35,12 +55,8 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
             filter: `session_id=eq.${currentSessionId}`,
             onchange: (payload) => {
                 console.log(`[TeamSubmissionTable] Real-time team decision update:`, payload);
-
-                // Update the last update time
                 setLastUpdateTime(new Date().toLocaleTimeString());
-
-                // The AppContext already handles team decision updates via its own subscription,
-                // so we don't need to manually update state here. This is just for status tracking.
+                setRealtimeStatus('connected');
             }
         },
         !!(currentSessionId && currentSessionId !== 'new' && currentPhaseIdFromNode)
@@ -74,7 +90,6 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
 
             const selectedNames = decision.selected_investment_ids.map(id => {
                 const option = investmentOptionsForPhase.find(opt => opt.id === id);
-                // Show first part of name, or fallback to last few chars of ID
                 return option ? option.name.split('.')[0] || option.name.substring(0,15) : `ID: ${id.substring(id.length - 4)}`;
             }).join(', ');
             const totalSpent = decision.total_spent_budget !== undefined ? ` ($${(decision.total_spent_budget / 1000).toFixed(0)}k)` : '';
@@ -144,29 +159,9 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
             return;
         }
 
-        setIsLoadingReset(prev => ({...prev, [teamToReset.id]: true}));
-
-        try {
-            console.log(`[TeamSubmissionTable] Resetting decision for team ${teamToReset.id}, phase ${currentPhaseIdFromNode}`);
-
-            // Use the AppContext reset function which handles both DB and local state
-            await resetTeamDecisionForPhase(teamToReset.id, currentPhaseIdFromNode);
-
-            console.log(`[TeamSubmissionTable] Successfully reset team ${teamToReset.name} decision`);
-
-            // Force a refresh of the team decisions to ensure UI is updated
-            setTimeout(() => {
-                setLastUpdateTime(new Date().toLocaleTimeString());
-            }, 500);
-
-        } catch (err) {
-            console.error("Error resetting team decision:", err);
-            alert(`Failed to reset decision for ${teamToReset.name}. Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        } finally {
-            setIsLoadingReset(prev => ({...prev, [teamToReset.id]: false}));
-            setIsResetModalOpen(false);
-            setTeamToReset(null);
-        }
+        await resetDecision(teamToReset.id, currentPhaseIdFromNode);
+        setIsResetModalOpen(false);
+        setTeamToReset(null);
     };
 
     const handleManualRefresh = async () => {
@@ -174,7 +169,6 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
 
         console.log(`[TeamSubmissionTable] Manual refresh triggered`);
         try {
-            // Refresh teams data without reloading the page
             await fetchTeamsForSession();
             setLastUpdateTime(new Date().toLocaleTimeString());
         } catch (error) {
@@ -212,7 +206,7 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
                         {currentPhaseNode && <span className="text-xs text-gray-500">Phase ID: {currentPhaseNode.id}</span>}
                     </div>
                     <div className="flex items-center gap-3">
-                        {/* Real-time status indicator */}
+                        {/* Enhanced real-time status indicator */}
                         <div className="flex items-center gap-1 text-xs">
                             {realtimeStatus === 'connected' ? (
                                 <Wifi size={14} className="text-green-500" />
@@ -230,9 +224,14 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
                                     realtimeStatus === 'connecting' ? 'Connecting...' :
                                         'Disconnected'}
                             </span>
+                            {connection.latency && (
+                                <span className="text-gray-500 ml-1">
+                                    ({connection.latency}ms)
+                                </span>
+                            )}
                         </div>
 
-                        {/* Manual refresh button - now safe to use */}
+                        {/* Manual refresh button */}
                         <button
                             onClick={handleManualRefresh}
                             className="flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300"
@@ -240,6 +239,17 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
                         >
                             <RotateCcw size={14}/> Refresh
                         </button>
+
+                        {/* Connection actions */}
+                        {!connection.isConnected && (
+                            <button
+                                onClick={connection.forceReconnect}
+                                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-red-100 hover:bg-red-200 text-red-700 transition-colors"
+                                title="Force reconnection"
+                            >
+                                <AlertTriangle size={14}/> Reconnect
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -249,24 +259,27 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
                     </div>
                 )}
 
+                {/* Show reset error if any */}
+                {resetError && (
+                    <div className="mb-3 p-2 bg-red-100 text-red-700 border border-red-200 rounded-md text-sm">
+                        Reset failed: {resetError}
+                    </div>
+                )}
+
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-100">
                         <tr>
-                            <th scope="col"
-                                className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Team
                             </th>
-                            <th scope="col"
-                                className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Status
                             </th>
-                            <th scope="col"
-                                className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Selection/Details
                             </th>
-                            <th scope="col"
-                                className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Reset
                             </th>
                         </tr>
@@ -308,11 +321,11 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
                                         {hasSubmitted && (
                                             <button
                                                 onClick={() => handleResetClick(team.id, team.name)}
-                                                disabled={isLoadingReset[team.id]}
+                                                disabled={isResetting}
                                                 className="text-red-600 hover:text-red-800 disabled:opacity-50 p-1.5 rounded-full hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1 transition-colors"
                                                 title="Reset this team's submission"
                                             >
-                                                {isLoadingReset[team.id] ? <RotateCcw size={18} className="animate-spin"/> :
+                                                {isResetting ? <RotateCcw size={18} className="animate-spin"/> :
                                                     <XCircle size={18}/>}
                                             </button>
                                         )}
@@ -329,7 +342,7 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
             <Modal
                 isOpen={isResetModalOpen}
                 onClose={() => {
-                    if (!teamToReset || !isLoadingReset[teamToReset.id]) {
+                    if (!isResetting) {
                         setIsResetModalOpen(false);
                         setTeamToReset(null);
                     }
@@ -357,14 +370,14 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
                             type="button"
                             className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm disabled:opacity-50 w-full sm:w-auto"
                             onClick={confirmReset}
-                            disabled={isLoadingReset[teamToReset?.id || ''] || !teamToReset}
+                            disabled={isResetting || !teamToReset}
                         >
-                            {isLoadingReset[teamToReset?.id || ''] ? (
+                            {isResetting ? (
                                 <RotateCcw className="animate-spin h-5 w-5 mr-2"/>
                             ) : (
                                 <XCircle className="h-5 w-5 mr-2"/>
                             )}
-                            {isLoadingReset[teamToReset?.id || ''] ? 'Resetting...' : 'Yes, Reset'}
+                            {isResetting ? 'Resetting...' : 'Yes, Reset'}
                         </button>
                         <button
                             type="button"
@@ -373,7 +386,7 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
                                 setIsResetModalOpen(false);
                                 setTeamToReset(null);
                             }}
-                            disabled={isLoadingReset[teamToReset?.id || '']}
+                            disabled={isResetting}
                         >
                             Cancel
                         </button>

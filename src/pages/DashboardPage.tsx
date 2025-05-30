@@ -1,5 +1,5 @@
 // src/pages/DashboardPage.tsx - Updated with New Supabase Structure
-import React, {useEffect, useState, useCallback} from 'react';
+import React, {useState} from 'react';
 import {Link, useNavigate} from 'react-router-dom';
 import {
     PlusCircle,
@@ -12,7 +12,8 @@ import {
     XCircle
 } from 'lucide-react';
 import {useAuth} from '../context/AuthContext';
-import {db, formatSupabaseError} from '../utils/supabase';
+import {db} from '../utils/supabase';
+import {useSupabaseQuery, useSupabaseMutation} from '../hooks/useSupabaseOperation'
 import {GameSession} from '../types';
 import Modal from '../components/UI/Modal';
 
@@ -37,8 +38,7 @@ const SimpleGameList: React.FC<GameListProps> = ({
                                                  }) => {
     if (isLoading) {
         return (
-            <div
-                className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 min-h-[200px] flex items-center justify-center">
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 min-h-[200px] flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                 <p className="ml-3 text-gray-500">Loading {listType} games...</p>
             </div>
@@ -50,8 +50,7 @@ const SimpleGameList: React.FC<GameListProps> = ({
             <h2 className="text-lg md:text-xl font-semibold text-gray-700 mb-4 flex items-center">
                 {icon}
                 <span className="ml-2">{title}</span>
-                <span
-                    className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-medium">{games.length}</span>
+                <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-medium">{games.length}</span>
             </h2>
             {games.length === 0 &&
                 <p className="text-gray-500 italic text-sm px-1 py-4 text-center">No {listType} games found.</p>}
@@ -65,8 +64,7 @@ const SimpleGameList: React.FC<GameListProps> = ({
                                 className="flex-grow flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 text-left hover:bg-gray-50/80 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400"
                             >
                                 <div className="flex-grow mb-1 sm:mb-0">
-                                    <span
-                                        className="font-medium text-blue-600 block text-base leading-tight">{game.name || `Session ${game.id.substring(0, 8)}`}</span>
+                                    <span className="font-medium text-blue-600 block text-base leading-tight">{game.name || `Session ${game.id.substring(0, 8)}`}</span>
                                     <span className="text-xs text-gray-500">
                                         Created: {new Date(game.created_at).toLocaleDateString()}
                                         {game.class_name && ` | Class: ${game.class_name}`}
@@ -99,64 +97,75 @@ const SimpleGameList: React.FC<GameListProps> = ({
     );
 };
 
-
 const DashboardPage: React.FC = () => {
     const {user, signOut, loading: authLoading} = useAuth();
     const navigate = useNavigate();
-    const [currentGames, setCurrentGames] = useState<GameSession[]>([]);
-    const [completedGames, setCompletedGames] = useState<GameSession[]>([]);
-    const [isLoadingGames, setIsLoadingGames] = useState<boolean>(true);
-
-    // Unified message state: can be for errors or success
     const [notification, setNotification] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
-
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
     const [gameToDelete, setGameToDelete] = useState<{ id: string; name: string } | null>(null);
-    const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
     const capitalizeName = (str: string): string => {
         return str
-            .split(/[.\-_]/) // Split by common email separators
+            .split(/[.\-_]/)
             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(' ');
     };
 
-    const fetchGames = useCallback(async () => {
-        if (!user) {
-            setIsLoadingGames(false);
-            return;
-        }
-        setIsLoadingGames(true);
-        setNotification(null); // Clear previous notifications on new fetch
-        try {
-            // Using new database structure
-            const data = await db.sessions.getByTeacher(user.id);
-
-            if (data) {
-                setCurrentGames(data.filter(session => !session.is_complete));
-                setCompletedGames(data.filter(session => session.is_complete));
-            } else {
-                setCurrentGames([]);
-                setCompletedGames([]);
+    // Use the new query hook for fetching games
+    const {
+        data: allGames = [],
+        isLoading: isLoadingGames,
+        error: gamesError,
+        refresh: refetchGames
+    } = useSupabaseQuery(
+        () => db.sessions.getByTeacher(user?.id || ''),
+        [user?.id],
+        {
+            cacheKey: `teacher-sessions-${user?.id}`,
+            cacheTimeout: 2 * 60 * 1000, // 2 minutes
+            retryOnError: true,
+            maxRetries: 2,
+            onError: (error) => {
+                console.error("DashboardPage: Error fetching games:", error);
+                setNotification({type: 'error', message: error});
             }
-        } catch (err) {
-            console.error("DashboardPage: Error fetching games:", err);
-            setNotification({type: 'error', message: formatSupabaseError(err)});
-        } finally {
-            setIsLoadingGames(false);
         }
-    }, [user]);
+    );
 
-    useEffect(() => {
-        if (!authLoading && user) {
-            fetchGames();
-        } else if (!authLoading && !user) {
-            setIsLoadingGames(false);
+    // Use mutation hook for deleting games
+    const {
+        execute: deleteGame,
+        isLoading: isDeleting,
+        error: deleteError
+    } = useSupabaseMutation(
+        async (gameId: string) => {
+            return db.sessions.delete(gameId);
+        },
+        {
+            onSuccess: (_, gameId) => {
+                const deletedGame = allGames.find(g => g.id === gameId);
+                setNotification({
+                    type: 'success',
+                    message: `Game "${deletedGame?.name || 'Unknown'}" deleted successfully.`
+                });
+                // Auto-dismiss success message
+                setTimeout(() => setNotification(null), 4000);
+                // Refresh the games list
+                refetchGames();
+            },
+            onError: (error) => {
+                console.error("DashboardPage: Error deleting game:", error);
+                setNotification({type: 'error', message: error});
+            }
         }
-    }, [user, authLoading, fetchGames]);
+    );
+
+    // Split games into current and completed
+    const currentGames = allGames.filter(session => !session.is_complete);
+    const completedGames = allGames.filter(session => session.is_complete);
 
     const handleGameSelect = (sessionId: string) => {
-        const selectedGame = [...currentGames, ...completedGames].find(g => g.id === sessionId);
+        const selectedGame = allGames.find(g => g.id === sessionId);
         if (selectedGame) {
             if (selectedGame.is_complete) {
                 alert(`Navigating to report for completed game: ${sessionId} (Not yet implemented)`);
@@ -168,34 +177,17 @@ const DashboardPage: React.FC = () => {
 
     const handleOpenDeleteModal = (sessionId: string, gameName: string) => {
         setGameToDelete({id: sessionId, name: gameName});
-        setNotification(null); // Clear any existing notifications
+        setNotification(null);
         setIsDeleteModalOpen(true);
     };
 
     const handleConfirmDelete = async () => {
-        if (!gameToDelete || !user) return;
-        setIsDeleting(true);
-        setNotification(null);
+        if (!gameToDelete) return;
 
-        try {
-            // Using new database structure
-            await db.sessions.delete(gameToDelete.id);
-
-            setCurrentGames(prev => prev.filter(game => game.id !== gameToDelete.id));
-            setNotification({type: 'success', message: `Game "${gameToDelete.name}" deleted successfully.`});
-            // Auto-dismiss success message after a few seconds
-            setTimeout(() => setNotification(null), 4000);
-
-        } catch (err) {
-            console.error("DashboardPage: Error deleting game session:", err);
-            setNotification({type: 'error', message: formatSupabaseError(err)});
-        } finally {
-            setIsDeleting(false);
-            setIsDeleteModalOpen(false);
-            setGameToDelete(null);
-        }
+        await deleteGame(gameToDelete.id);
+        setIsDeleteModalOpen(false);
+        setGameToDelete(null);
     };
-
 
     const handleLogout = async () => {
         try {
@@ -204,15 +196,24 @@ const DashboardPage: React.FC = () => {
         } catch (error) {
             setNotification({
                 type: 'error',
-                message: formatSupabaseError(error)
+                message: error instanceof Error ? error.message : 'Logout failed'
             });
         }
     };
 
+    // Show error from games query
+    if (gamesError && !isLoadingGames) {
+        setNotification({type: 'error', message: gamesError});
+    }
+
+    // Show delete error
+    if (deleteError) {
+        setNotification({type: 'error', message: deleteError});
+    }
+
     if (authLoading && !user) {
         return (
-            <div
-                className="min-h-screen bg-gradient-to-br from-slate-100 to-sky-100 flex flex-col items-center justify-center p-4">
+            <div className="min-h-screen bg-gradient-to-br from-slate-100 to-sky-100 flex flex-col items-center justify-center p-4">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
                 <p className="mt-4 text-gray-600">Loading Dashboard...</p>
             </div>
@@ -221,8 +222,7 @@ const DashboardPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-100 to-sky-100 p-4 md:p-8">
-            <header
-                className="max-w-6xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+            <header className="max-w-6xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center">
                 <div>
                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800">Teacher Dashboard</h1>
                     <p className="text-gray-600 text-sm md:text-base">
@@ -231,7 +231,7 @@ const DashboardPage: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-2 sm:space-x-3 mt-3 sm:mt-0">
                     <button
-                        onClick={fetchGames}
+                        onClick={refetchGames}
                         disabled={isLoadingGames}
                         className="flex items-center gap-1.5 text-xs sm:text-sm text-blue-600 hover:text-blue-800 bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded-lg font-medium transition-colors border border-blue-200 disabled:opacity-70"
                         title="Refresh game lists"
@@ -275,8 +275,7 @@ const DashboardPage: React.FC = () => {
             )}
 
             <main className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                <div
-                    className="md:col-span-1 bg-blue-600 text-white p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow flex flex-col items-center justify-center text-center order-first md:order-none">
+                <div className="md:col-span-1 bg-blue-600 text-white p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow flex flex-col items-center justify-center text-center order-first md:order-none">
                     <PlusCircle size={40} className="mb-2 opacity-80"/>
                     <h2 className="text-xl lg:text-2xl font-bold mb-1.5">Start a New Game</h2>
                     <p className="text-xs lg:text-sm opacity-90 mb-5">
@@ -284,7 +283,6 @@ const DashboardPage: React.FC = () => {
                     </p>
                     <Link
                         to="/create-game"
-                        onClick={() => console.log("DashboardPage: 'Create Game' link clicked, navigating to /create-game")}
                         className="bg-white text-blue-700 font-semibold py-2.5 px-6 lg:py-3 lg:px-8 rounded-lg hover:bg-blue-50 transition-colors shadow-md text-sm lg:text-base"
                     >
                         Create Game
@@ -293,15 +291,18 @@ const DashboardPage: React.FC = () => {
 
                 <div className="md:col-span-2 space-y-6">
                     <SimpleGameList
-                        title="Active Games" games={currentGames} isLoading={isLoadingGames && !notification?.message}
+                        title="Active Games"
+                        games={currentGames}
+                        isLoading={isLoadingGames}
                         onGameSelect={handleGameSelect}
                         onGameDelete={handleOpenDeleteModal}
                         icon={<Activity size={20} className="text-orange-500"/>}
                         listType="current"
                     />
                     <SimpleGameList
-                        title="Completed Games" games={completedGames}
-                        isLoading={isLoadingGames && !notification?.message}
+                        title="Completed Games"
+                        games={completedGames}
+                        isLoading={isLoadingGames}
                         onGameSelect={handleGameSelect}
                         icon={<CheckCircle size={20} className="text-green-500"/>}
                         listType="completed"
@@ -309,6 +310,7 @@ const DashboardPage: React.FC = () => {
                 </div>
             </main>
 
+            {/* Delete Confirmation Modal */}
             {isDeleteModalOpen && gameToDelete && (
                 <Modal
                     isOpen={isDeleteModalOpen}
@@ -320,18 +322,15 @@ const DashboardPage: React.FC = () => {
                 >
                     <div className="p-1">
                         <div className="flex items-start">
-                            <div
-                                className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-red-100 sm:mx-0 sm:h-8 sm:w-8">
+                            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-red-100 sm:mx-0 sm:h-8 sm:w-8">
                                 <AlertTriangle className="h-5 w-5 text-red-600" aria-hidden="true"/>
                             </div>
                             <div className="ml-3 text-left">
                                 <p className="text-sm text-gray-700 mt-0.5">
-                                    Are you sure you want to delete the game session <strong
-                                    className="font-semibold">{gameToDelete.name}</strong>?
+                                    Are you sure you want to delete the game session <strong className="font-semibold">{gameToDelete.name}</strong>?
                                 </p>
                                 <p className="text-xs text-red-600 mt-1">
-                                    This action cannot be undone. All associated team data, decisions, and KPIs for this
-                                    session will be permanently removed.
+                                    This action cannot be undone. All associated team data, decisions, and KPIs for this session will be permanently removed.
                                 </p>
                             </div>
                         </div>
