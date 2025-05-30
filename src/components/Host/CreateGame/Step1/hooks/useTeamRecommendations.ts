@@ -1,5 +1,5 @@
 // src/components/Host/CreateGame/Step1/hooks/useTeamRecommendations.ts - Recommendation logic
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { calculateTeamRecommendation } from '../utils/teamCalculations';
 
 interface UseTeamRecommendationsProps {
@@ -58,7 +58,7 @@ export const useTeamRecommendations = ({
     }, [onTeamCountChange]);
 
     // Initialize recommendation based on current players
-    React.useEffect(() => {
+    useEffect(() => {
         if (!isInitializing.current && numPlayers > 0) {
             isInitializing.current = true;
             const result = calculateTeamRecommendation(numPlayers);

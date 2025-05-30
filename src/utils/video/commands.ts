@@ -1,4 +1,4 @@
-// src/utils/video/commands.ts - Video command execution logic
+// src/utils/video/commands.ts - Enhanced with auto-play logic
 import { useCallback, useRef } from 'react';
 
 interface UseVideoCommandsConfig {
@@ -50,19 +50,43 @@ export const useVideoCommands = ({ videoRef, onStateChange }: UseVideoCommandsCo
         }
     }, [videoRef, onStateChange]);
 
-    // Auto-play logic for new videos
-    const handleAutoPlay = useCallback(async (hasAutoPlayedRef: React.MutableRefObject<boolean>) => {
+    // Enhanced auto-play logic for new videos
+    const handleAutoPlay = useCallback(async (
+        hasAutoPlayedRef: React.MutableRefObject<boolean>,
+        mode: 'master' | 'host' | 'independent',
+        isConnectedToPresentation: boolean
+    ) => {
         if (hasAutoPlayedRef.current || !videoRef.current) return;
 
         const video = videoRef.current;
-        if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
-            hasAutoPlayedRef.current = true;
+        if (video.readyState < 2) return; // Need HAVE_CURRENT_DATA or higher
 
-            try {
+        hasAutoPlayedRef.current = true;
+        console.log(`[VideoCommands] Auto-play triggered - mode: ${mode}, connected: ${isConnectedToPresentation}`);
+
+        try {
+            // Auto-play behavior based on mode and connection status
+            if (mode === 'master') {
+                // Presentation display always auto-plays
                 await video.play();
-            } catch (error) {
-                console.warn('[VideoCommands] Auto-play failed:', error);
+                console.log('[VideoCommands] Master auto-play successful');
+            } else if (mode === 'host') {
+                if (isConnectedToPresentation) {
+                    // Host with presentation: coordinate auto-play
+                    console.log('[VideoCommands] Host coordinating auto-play with presentation');
+                    // The broadcast manager will handle the coordination
+                } else {
+                    // Host only: auto-play directly
+                    await video.play();
+                    console.log('[VideoCommands] Host-only auto-play successful');
+                }
+            } else {
+                // Independent mode: auto-play directly
+                await video.play();
+                console.log('[VideoCommands] Independent auto-play successful');
             }
+        } catch (error) {
+            console.warn('[VideoCommands] Auto-play failed:', error);
         }
     }, [videoRef]);
 

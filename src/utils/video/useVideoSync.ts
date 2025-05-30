@@ -1,8 +1,8 @@
-// src/utils/video/useVideoSync.ts - Main video sync hook (orchestrator)
+// src/utils/video/useVideoSync.ts - Enhanced main orchestrator
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useBroadcastManager } from '../broadcastManager';
 import { VideoSyncConfig, VideoSyncReturn, VideoState } from './types';
-import { createInitialVideoState } from './helpers';
+import { createInitialVideoState, isVideoReady } from './helpers';
 import { useVideoCommands } from './commands';
 import { useVideoSyncLogic } from './sync';
 import { useVideoEvents } from './events';
@@ -46,17 +46,25 @@ export const useVideoSync = (config: VideoSyncConfig): VideoSyncReturn => {
         onStateChange: () => updateVideoState({})
     });
 
-    // Auto-play wrapper
+    // Enhanced auto-play wrapper
     const triggerAutoPlay = useCallback(async () => {
         if (mode === 'host' && isConnectedToPresentation && broadcastManager) {
+            // REQUIREMENT: Host with presentation - coordinate auto-play
+            console.log('[useVideoSync] Host coordinating auto-play with presentation');
+
+            // Send coordinated auto-play command to presentation
             broadcastManager.sendVideoControl('play', 0);
+
+            // Also play host video
+            await handleAutoPlay(hasAutoPlayedRef, mode, isConnectedToPresentation);
         } else {
-            await handleAutoPlay(hasAutoPlayedRef);
+            // Host-only or master mode - direct auto-play
+            await handleAutoPlay(hasAutoPlayedRef, mode, isConnectedToPresentation);
         }
     }, [mode, isConnectedToPresentation, broadcastManager, handleAutoPlay]);
 
     // Sync logic
-    const { correctSync, clearSyncTimeout } = useVideoSyncLogic({
+    const { correctSync, handleInitialSync, clearSyncTimeout } = useVideoSyncLogic({
         videoRef,
         ignoreEventsRef,
         onStateUpdate: updateVideoState
@@ -69,12 +77,13 @@ export const useVideoSync = (config: VideoSyncConfig): VideoSyncReturn => {
         broadcastManager,
         ignoreEventsRef,
         videoState,
+        isConnectedToPresentation,
         onAutoPlay: triggerAutoPlay,
         onStateUpdate: updateVideoState
     });
 
-    // Broadcast integration
-    useVideoBroadcast({
+    // Broadcast integration with enhanced handlers
+    const { sendCoordinatedAutoPlay } = useVideoBroadcast({
         broadcastManager,
         mode,
         videoRef,
@@ -82,18 +91,41 @@ export const useVideoSync = (config: VideoSyncConfig): VideoSyncReturn => {
         lastCommandTimeRef,
         allowHostAudio: allowHostAudio || false,
         onExecuteCommand: executeCommand,
-        onConnectionChange: setIsConnectedToPresentation,
-        onSyncCorrection: correctSync
+        onConnectionChange: (connected) => {
+            const wasConnected = isConnectedToPresentation;
+            setIsConnectedToPresentation(connected);
+
+            // Handle audio switching based on connection changes
+            const video = videoRef.current;
+            if (video && mode === 'host') {
+                if (!wasConnected && connected) {
+                    // Just connected to presentation - mute host
+                    video.muted = true;
+                    console.log('[useVideoSync] Host muted due to presentation connection');
+                } else if (wasConnected && !connected) {
+                    // Just disconnected from presentation - restore host audio
+                    video.muted = !allowHostAudio;
+                    console.log('[useVideoSync] Host audio restored after presentation disconnect');
+                }
+            }
+        },
+        onSyncCorrection: (remoteState) => correctSync(remoteState, mode),
+        onInitialSync: handleInitialSync
     });
 
-    // Control functions
+    // Enhanced control functions
     const play = useCallback(async (time?: number): Promise<boolean> => {
         const currentTime = time ?? videoState.currentTime;
 
         if (mode === 'host' && isConnectedToPresentation && broadcastManager) {
+            // REQUIREMENT: Host with presentation - coordinate play command
+            console.log('[useVideoSync] Host sending coordinated play command');
             broadcastManager.sendVideoControl('play', currentTime);
-            return true;
+
+            // Also execute locally for immediate feedback
+            return executeCommand('play', currentTime);
         }
+
         return executeCommand('play', currentTime);
     }, [mode, isConnectedToPresentation, broadcastManager, videoState.currentTime, executeCommand]);
 
@@ -101,21 +133,31 @@ export const useVideoSync = (config: VideoSyncConfig): VideoSyncReturn => {
         const currentTime = time ?? videoState.currentTime;
 
         if (mode === 'host' && isConnectedToPresentation && broadcastManager) {
+            // REQUIREMENT: Host with presentation - coordinate pause command
+            console.log('[useVideoSync] Host sending coordinated pause command');
             broadcastManager.sendVideoControl('pause', currentTime);
-            return true;
+
+            // Also execute locally for immediate feedback
+            return executeCommand('pause', currentTime);
         }
+
         return executeCommand('pause', currentTime);
     }, [mode, isConnectedToPresentation, broadcastManager, videoState.currentTime, executeCommand]);
 
     const seek = useCallback(async (time: number): Promise<boolean> => {
         if (mode === 'host' && isConnectedToPresentation && broadcastManager) {
+            // REQUIREMENT: Host with presentation - coordinate seek command
+            console.log('[useVideoSync] Host sending coordinated seek command');
             broadcastManager.sendVideoControl('seek', time);
-            return true;
+
+            // Also execute locally
+            return executeCommand('seek', time);
         }
+
         return executeCommand('seek', time);
     }, [mode, isConnectedToPresentation, broadcastManager, executeCommand]);
 
-    // Handle video clicks
+    // Handle video clicks for host mode
     const handleVideoClick = useCallback(async () => {
         if (mode === 'host' && onHostVideoClick && !enableNativeControls) {
             const willPlay = !videoState.playing;
@@ -140,16 +182,48 @@ export const useVideoSync = (config: VideoSyncConfig): VideoSyncReturn => {
         }
     }, [videoUrl, updateVideoState, clearSyncTimeout]);
 
-    // Generate video props
+    // Handle presentation auto-play coordination
+    useEffect(() => {
+        if (mode === 'host' && isConnectedToPresentation && broadcastManager && videoUrl && !hasAutoPlayedRef.current) {
+            const video = videoRef.current;
+            if (video && isVideoReady(video)) {
+                console.log('[useVideoSync] Triggering coordinated auto-play for new video');
+                setTimeout(() => {
+                    if (sendCoordinatedAutoPlay) {
+                        sendCoordinatedAutoPlay(broadcastManager);
+                    }
+                    triggerAutoPlay();
+                }, 200);
+            }
+        }
+    }, [mode, isConnectedToPresentation, broadcastManager, videoUrl, triggerAutoPlay, sendCoordinatedAutoPlay]);
+
+    // Generate video props with correct audio settings
     const getVideoProps = useCallback(() => {
-        const shouldHaveAudio = mode === 'master' ||
-            (mode === 'host' && allowHostAudio && !isConnectedToPresentation);
+        // REQUIREMENT: Audio settings based on mode and connection
+        let shouldHaveAudio = false;
+
+        if (mode === 'master') {
+            // Presentation display always has audio
+            shouldHaveAudio = true;
+        } else if (mode === 'host') {
+            if (isConnectedToPresentation) {
+                // Host muted when presentation connected
+                shouldHaveAudio = false;
+            } else {
+                // Host-only mode - audio based on allowHostAudio
+                shouldHaveAudio = allowHostAudio;
+            }
+        } else {
+            // Independent mode
+            shouldHaveAudio = true;
+        }
 
         return {
             ref: videoRef,
             playsInline: true,
             controls: enableNativeControls,
-            autoPlay: false,
+            autoPlay: false, // We handle auto-play manually
             muted: !shouldHaveAudio,
             preload: 'auto' as const,
             onClick: mode === 'host' && !enableNativeControls ? handleVideoClick : undefined,
@@ -160,7 +234,7 @@ export const useVideoSync = (config: VideoSyncConfig): VideoSyncReturn => {
                 objectFit: 'contain' as const
             }
         };
-    }, [mode, allowHostAudio, isConnectedToPresentation, enableNativeControls, handleVideoClick]);
+    }, [mode, isConnectedToPresentation, allowHostAudio, enableNativeControls, handleVideoClick]);
 
     return {
         videoRef,

@@ -1,4 +1,4 @@
-// src/utils/broadcastManager.ts - Fixed with Enhanced Video Commands
+// src/utils/broadcastManager.ts - Enhanced with video coordination
 export interface VideoState {
     playing: boolean;
     currentTime: number;
@@ -221,6 +221,15 @@ export class SessionBroadcastManager {
     // Enhanced video control helpers
     sendVideoControl(action: string, value?: number, expectAck: boolean = false): void {
         console.log(`[BroadcastManager] Sending video control: ${action}`, value);
+
+        // Handle special coordinated actions
+        if (action === 'COORDINATED_AUTOPLAY') {
+            this.broadcast('COORDINATED_AUTOPLAY', {
+                timestamp: Date.now()
+            });
+            return;
+        }
+
         this.broadcast('VIDEO_CONTROL', {
             action,
             value,

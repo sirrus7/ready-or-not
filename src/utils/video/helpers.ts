@@ -1,4 +1,4 @@
-// src/utils/video/helpers.ts - Pure helper functions
+// src/utils/video/helpers.ts - Enhanced helper functions
 import { VideoState } from './types';
 
 // Simple video detection
@@ -33,11 +33,11 @@ export const getVideoState = (video: HTMLVideoElement | null): VideoState | null
     };
 };
 
-// Check if two video states need syncing
+// Enhanced sync checking with configurable tolerance
 export const needsSync = (
     localState: VideoState,
     remoteState: VideoState,
-    tolerance: number = 1.0
+    tolerance: number = 1.5 // Increased default tolerance
 ): { timeDiff: boolean; playStateDiff: boolean } => {
     const timeDiff = Math.abs(localState.currentTime - remoteState.currentTime) > tolerance;
     const playStateDiff = localState.playing !== remoteState.playing;
@@ -45,10 +45,50 @@ export const needsSync = (
     return { timeDiff, playStateDiff };
 };
 
-// Throttle function for video state updates
+// Enhanced throttle function with adaptive timing
 export const shouldThrottleUpdate = (
     lastUpdate: number,
-    throttleMs: number = 1000
+    throttleMs: number = 1000,
+    isPlaying: boolean = false
 ): boolean => {
-    return (Date.now() - lastUpdate) < throttleMs;
+    // More frequent updates when playing for better sync
+    const adaptiveThrottle = isPlaying ? throttleMs * 0.5 : throttleMs;
+    return (Date.now() - lastUpdate) < adaptiveThrottle;
+};
+
+// Calculate optimal sync timing
+export const calculateSyncTiming = (
+    localTime: number,
+    remoteTime: number,
+    tolerance: number = 1.5
+): 'immediate' | 'gradual' | 'none' => {
+    const difference = Math.abs(localTime - remoteTime);
+
+    if (difference > tolerance * 2) {
+        return 'immediate'; // Large difference, sync immediately
+    } else if (difference > tolerance) {
+        return 'gradual'; // Medium difference, sync gradually
+    } else {
+        return 'none'; // Small difference, no sync needed
+    }
+};
+
+// Video readiness check
+export const isVideoReady = (video: HTMLVideoElement | null): boolean => {
+    if (!video) return false;
+    return video.readyState >= 2; // HAVE_CURRENT_DATA or higher
+};
+
+// Safe video operation wrapper
+export const safeVideoOperation = async (
+    operation: () => Promise<void>,
+    context: string = 'video operation'
+): Promise<boolean> => {
+    try {
+        await operation();
+        return true;
+    } catch (error) {
+        console.warn(`[VideoHelpers] ${context} failed:`, error);
+        return false;
+    }
 };
