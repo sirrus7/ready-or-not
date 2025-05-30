@@ -2,7 +2,7 @@
 import React, {useState, useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useAuth} from '../context/AuthContext';
-import {supabase} from '../lib/supabase';
+import {supabase} from '../utils/supabase';
 import {NewGameData} from '../types';
 
 import Step1GameDetails from '../components/Host/CreateGame/Step1_GameDetails';
