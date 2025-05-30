@@ -1,9 +1,9 @@
-// src/components/Host/TeamSubmissions.tsx
+// src/components/Host/TeamSubmissions.tsx - Updated with New Supabase Structure
 import React, {useState, useEffect} from 'react';
 import {useAppContext} from '../../context/AppContext';
 import {TeamDecision} from '../../types';
 import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, Wifi, WifiOff, AlertTriangle} from 'lucide-react';
-import {supabase} from '../../lib/supabase';
+import {useRealtimeSubscription, useSupabaseConnection} from '../../utils/supabase';
 import Modal from '../UI/Modal';
 
 interface TeamSubmissionTableProps {
@@ -24,26 +24,16 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
     const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
     const [teamToReset, setTeamToReset] = useState<{id: string, name: string} | null>(null);
 
-    // Set up real-time subscription for team decisions
-    useEffect(() => {
-        if (!currentSessionId || currentSessionId === 'new' || !currentPhaseIdFromNode) {
-            setRealtimeStatus('disconnected');
-            return;
-        }
+    // Connection monitoring
+    const connection = useSupabaseConnection();
 
-        console.log(`[TeamSubmissionTable] Setting up real-time subscription for session ${currentSessionId}, phase ${currentPhaseIdFromNode}`);
-        setRealtimeStatus('connecting');
-
-        const channelName = `team-decisions-realtime-${currentSessionId}`;
-        const channel = supabase.channel(channelName);
-
-        channel
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'team_decisions',
-                filter: `session_id=eq.${currentSessionId}`
-            }, (payload) => {
+    // Set up real-time subscription using new hook
+    useRealtimeSubscription(
+        `team-decisions-realtime-${currentSessionId}`,
+        {
+            table: 'team_decisions',
+            filter: `session_id=eq.${currentSessionId}`,
+            onchange: (payload) => {
                 console.log(`[TeamSubmissionTable] Real-time team decision update:`, payload);
 
                 // Update the last update time
@@ -51,23 +41,21 @@ const TeamSubmissions: React.FC<TeamSubmissionTableProps> = () => {
 
                 // The AppContext already handles team decision updates via its own subscription,
                 // so we don't need to manually update state here. This is just for status tracking.
-            })
-            .subscribe((status) => {
-                console.log(`[TeamSubmissionTable] Real-time subscription status: ${status}`);
-                if (status === 'SUBSCRIBED') {
-                    setRealtimeStatus('connected');
-                } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-                    setRealtimeStatus('disconnected');
-                } else {
-                    setRealtimeStatus('connecting');
-                }
-            });
+            }
+        },
+        !!(currentSessionId && currentSessionId !== 'new' && currentPhaseIdFromNode)
+    );
 
-        return () => {
-            console.log(`[TeamSubmissionTable] Cleaning up real-time subscription`);
-            supabase.removeChannel(channel);
-        };
-    }, [currentSessionId, currentPhaseIdFromNode]);
+    // Monitor connection status
+    useEffect(() => {
+        if (connection.isConnected) {
+            setRealtimeStatus('connected');
+        } else if (connection.status === 'connecting') {
+            setRealtimeStatus('connecting');
+        } else {
+            setRealtimeStatus('disconnected');
+        }
+    }, [connection.isConnected, connection.status]);
 
     const getTeamDecisionForCurrentPhase = (teamId: string): TeamDecision | undefined => {
         if (!currentPhaseIdFromNode) return undefined;
