@@ -1,4 +1,4 @@
-// src/pages/GameHostPage.tsx - Refactored with BroadcastManager
+// src/pages/GameHostPage.tsx - Minor cleanup for simplified video system
 import React, { useState, useEffect } from 'react';
 import HostPanel from '../components/Host/HostPanel.tsx';
 import { useAppContext } from '../context/AppContext';
@@ -57,44 +57,10 @@ const PresentationDisplayButton: React.FC = () => {
         }
     }, [broadcastManager, currentSlideData]);
 
-    // Check if current slide is a video
-    const isVideoSlide = currentSlideData && (
-        currentSlideData.type === 'video' ||
-        (currentSlideData.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
-        ((currentSlideData.type === 'consequence_reveal' || currentSlideData.type === 'payoff_reveal') &&
-            currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
-    );
-
     const handleOpenDisplay = () => {
         if (!state.currentSessionId) {
             alert("No active session. Please create or select a game first.");
             return;
-        }
-
-        // Get current video state from host video if it exists
-        let hostVideoState = null;
-        if (isVideoSlide) {
-            const displayViewContainer = document.querySelector('[data-component="display-view"]');
-            if (displayViewContainer) {
-                const videoElement = displayViewContainer.querySelector('video') as HTMLVideoElement;
-                if (videoElement) {
-                    hostVideoState = {
-                        playing: !videoElement.paused,
-                        currentTime: videoElement.currentTime,
-                        duration: videoElement.duration || 0,
-                        volume: videoElement.volume,
-                        lastUpdate: Date.now()
-                    };
-
-                    console.log('[PresentationDisplayButton] Captured host video state:', hostVideoState);
-
-                    // Pause the host video to prevent conflicts
-                    if (!videoElement.paused) {
-                        videoElement.pause();
-                        console.log('[PresentationDisplayButton] Paused host video before opening display');
-                    }
-                }
-            }
         }
 
         const url = `/student-display/${state.currentSessionId}`;
@@ -106,16 +72,7 @@ const PresentationDisplayButton: React.FC = () => {
             // Give the new tab time to initialize, then send state
             setTimeout(() => {
                 if (broadcastManager && currentSlideData) {
-                    // Send slide update first
                     broadcastManager.sendSlideUpdate(currentSlideData);
-
-                    // Send initial video state if we captured one
-                    if (hostVideoState && isVideoSlide) {
-                        setTimeout(() => {
-                            broadcastManager.sendInitialVideoState(hostVideoState);
-                            console.log('[PresentationDisplayButton] Sent initial video state to presentation');
-                        }, 300);
-                    }
                 }
             }, 1000);
         } else {
@@ -218,12 +175,8 @@ const GameHostPage: React.FC = () => {
                             ) : (
                                 <>
                                     <div className="h-full">
-                                        <DisplayView
-                                            slide={currentSlideData}
-                                            isPlayingTarget={false}
-                                            videoTimeTarget={0}
-                                            triggerSeekEvent={false}
-                                        />
+                                        {/* DisplayView now handles all video complexity automatically */}
+                                        <DisplayView slide={currentSlideData} />
                                     </div>
 
                                     {/* Presentation Display Button - Top Right */}

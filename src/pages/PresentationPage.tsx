@@ -1,180 +1,41 @@
-// src/pages/PresentationPage.tsx - Refactored with BroadcastManager
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+// src/pages/PresentationPage.tsx - Refactored with Simplified Video System
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Slide } from '../types';
 import SlideRenderer from '../components/Display/SlideRenderer';
 import { Hourglass, Monitor, RefreshCw } from 'lucide-react';
-import { useBroadcastManager, VideoState } from '../utils/broadcastManager';
+import { useBroadcastManager } from '../utils/broadcastManager';
 
 const PresentationPage: React.FC = () => {
     const { sessionId } = useParams<{ sessionId: string }>();
     const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
     const [isConnectedToHost, setIsConnectedToHost] = useState(false);
     const [statusMessage, setStatusMessage] = useState('Connecting to session...');
-    const [videoState, setVideoState] = useState<VideoState>({
-        playing: false,
-        currentTime: 0,
-        duration: 0,
-        volume: 1,
-        lastUpdate: Date.now()
-    });
     const [connectionError, setConnectionError] = useState(false);
 
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const commandTimeoutRef = useRef<NodeJS.Timeout>();
-    const slideLoadTimeRef = useRef<number>(0);
-    const lastStateUpdateRef = useRef<number>(0);
-
-    // Use broadcast manager
+    // Broadcast manager for host communication only
     const broadcastManager = useBroadcastManager(sessionId || null, 'presentation');
 
-    // Broadcast video state to host preview - WITH THROTTLING
-    const broadcastVideoState = useCallback((newState: Partial<VideoState>) => {
-        const timestamp = Date.now();
-
-        // THROTTLE: Only update every 1 second to prevent log spam
-        if (timestamp - lastStateUpdateRef.current < 1000) {
-            return;
-        }
-        lastStateUpdateRef.current = timestamp;
-
-        setVideoState(prevState => {
-            const updatedState = {
-                ...prevState,
-                ...newState,
-                lastUpdate: timestamp
-            };
-
-            console.log('[PresentationPage] Broadcasting video state (throttled):', updatedState);
-
-            if (broadcastManager) {
-                broadcastManager.sendVideoState(updatedState);
-            }
-
-            return updatedState;
-        });
-    }, [broadcastManager]);
-
-    // Set up broadcast manager listeners
+    // Set up broadcast manager listeners for slide updates
     useEffect(() => {
         if (!broadcastManager) return;
 
         console.log(`[PresentationPage] Setting up broadcast listeners`);
 
-        // Handle slide updates
+        // Handle slide updates from host
         const unsubscribeSlideUpdate = broadcastManager.subscribe('SLIDE_UPDATE', (message) => {
             setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
             setCurrentSlide(message.slide);
             setConnectionError(false);
-            slideLoadTimeRef.current = Date.now();
             console.log('[PresentationPage] Slide updated:', message.slide?.id);
-
-            // Reset video state when slide changes, but don't broadcast yet
-            const newVideoState: VideoState = {
-                playing: false,
-                currentTime: 0,
-                duration: 0,
-                volume: 1,
-                lastUpdate: Date.now()
-            };
-            setVideoState(newVideoState);
-            lastStateUpdateRef.current = Date.now(); // Reset throttle timer
         });
 
-        // Handle initial video state from host
-        const unsubscribeInitialState = broadcastManager.subscribe('INITIAL_VIDEO_STATE', (message) => {
-            if (message.videoState) {
-                console.log('[PresentationPage] Received initial video state:', message.videoState);
-                const initialState = message.videoState;
-                setVideoState(initialState);
-                lastStateUpdateRef.current = Date.now();
-
-                // Apply the initial state to video IMMEDIATELY if it exists
-                if (videoRef.current) {
-                    const video = videoRef.current;
-
-                    // Clear any existing timeout
-                    if (commandTimeoutRef.current) {
-                        clearTimeout(commandTimeoutRef.current);
-                    }
-
-                    console.log('[PresentationPage] Applying initial state immediately');
-
-                    // Set time position first
-                    if (initialState.currentTime !== undefined &&
-                        Math.abs(video.currentTime - initialState.currentTime) > 0.1) {
-                        video.currentTime = initialState.currentTime;
-                        console.log('[PresentationPage] Set video time to:', initialState.currentTime);
-                    }
-
-                    // Then set play state
-                    if (initialState.playing && video.paused) {
-                        video.play().catch(console.error);
-                        console.log('[PresentationPage] Started video playback');
-                    } else if (!initialState.playing && !video.paused) {
-                        video.pause();
-                        console.log('[PresentationPage] Paused video');
-                    }
-                }
-            }
-        });
-
-        // Handle video control commands
-        const unsubscribeVideoControl = broadcastManager.subscribe('VIDEO_CONTROL', (message) => {
-            if (videoRef.current) {
-                const { action, value, expectAck } = message;
-                console.log(`[PresentationPage] Video control received: ${action}`, value);
-
-                let commandSuccess = false;
-
-                switch (action) {
-                    case 'play':
-                        console.log(`[PresentationPage] Executing PLAY command`);
-                        if (value !== undefined && Math.abs(videoRef.current.currentTime - value) > 0.5) {
-                            videoRef.current.currentTime = value;
-                        }
-                        videoRef.current.play()
-                            .then(() => console.log(`[PresentationPage] PLAY successful`))
-                            .catch((error) => console.error(`[PresentationPage] PLAY failed:`, error));
-                        commandSuccess = true;
-                        break;
-                    case 'pause':
-                        console.log(`[PresentationPage] Executing PAUSE command`);
-                        if (value !== undefined && Math.abs(videoRef.current.currentTime - value) > 0.5) {
-                            videoRef.current.currentTime = value;
-                        }
-                        videoRef.current.pause();
-                        commandSuccess = true;
-                        break;
-                    case 'seek':
-                        console.log(`[PresentationPage] Executing SEEK command to: ${value}`);
-                        videoRef.current.currentTime = value;
-                        broadcastVideoState({
-                            currentTime: value,
-                            playing: !videoRef.current.paused
-                        });
-                        commandSuccess = true;
-                        break;
-                    case 'volume':
-                        console.log(`[PresentationPage] Executing VOLUME command to: ${value}`);
-                        videoRef.current.volume = value;
-                        broadcastVideoState({ volume: value });
-                        commandSuccess = true;
-                        break;
-                }
-
-                // Send acknowledgment if requested
-                if (expectAck && commandSuccess) {
-                    broadcastManager.broadcast('VIDEO_COMMAND_ACK', {
-                        command: action,
-                        success: true
-                    });
-                    console.log(`[PresentationPage] Sent ACK for command: ${action}`);
-                }
-            } else {
-                console.error(`[PresentationPage] VIDEO_CONTROL received but videoRef.current is null`);
-            }
+        // Handle current state requests from host
+        const unsubscribeStateRequest = broadcastManager.subscribe('REQUEST_CURRENT_STATE', () => {
+            broadcastManager.broadcast('STATE_RESPONSE', {
+                slide: currentSlide
+            });
         });
 
         // Handle session ended
@@ -182,14 +43,6 @@ const PresentationPage: React.FC = () => {
             setCurrentSlide(null);
             setIsConnectedToHost(false);
             setStatusMessage('Session has ended');
-        });
-
-        // Handle current state requests
-        const unsubscribeStateRequest = broadcastManager.subscribe('REQUEST_CURRENT_STATE', () => {
-            broadcastManager.broadcast('STATE_RESPONSE', {
-                slide: currentSlide,
-                videoState
-            });
         });
 
         // Connection monitoring
@@ -218,67 +71,13 @@ const PresentationPage: React.FC = () => {
         }, 5000);
 
         return () => {
-            if (commandTimeoutRef.current) {
-                clearTimeout(commandTimeoutRef.current);
-            }
             clearTimeout(connectionTimeout);
             unsubscribeSlideUpdate();
-            unsubscribeInitialState();
-            unsubscribeVideoControl();
-            unsubscribeSessionEnded();
             unsubscribeStateRequest();
+            unsubscribeSessionEnded();
             unsubscribeConnection();
         };
-    }, [broadcastManager, isConnectedToHost, videoState, currentSlide, broadcastVideoState]);
-
-    // Video event handlers for sync broadcasting - WITH THROTTLING
-    const handleVideoPlay = useCallback(() => {
-        console.log('[PresentationPage] Video play event');
-        broadcastVideoState({ playing: true });
-    }, [broadcastVideoState]);
-
-    const handleVideoPause = useCallback(() => {
-        console.log('[PresentationPage] Video pause event');
-        broadcastVideoState({ playing: false });
-    }, [broadcastVideoState]);
-
-    const handleVideoTimeUpdate = useCallback(() => {
-        if (videoRef.current) {
-            // THROTTLED: Only broadcast every 1 second (was 200ms)
-            const now = Date.now();
-            if (now - lastStateUpdateRef.current > 1000) {
-                broadcastVideoState({
-                    currentTime: videoRef.current.currentTime,
-                    duration: videoRef.current.duration || 0
-                });
-            }
-        }
-    }, [broadcastVideoState]);
-
-    const handleVolumeChange = useCallback(() => {
-        if (videoRef.current) {
-            broadcastVideoState({ volume: videoRef.current.volume });
-        }
-    }, [broadcastVideoState]);
-
-    const handleLoadedMetadata = useCallback(() => {
-        if (videoRef.current) {
-            console.log('[PresentationPage] Video metadata loaded');
-            const newState = {
-                duration: videoRef.current.duration,
-                currentTime: videoRef.current.currentTime,
-                volume: videoRef.current.volume
-            };
-            broadcastVideoState(newState);
-
-            // Check if we need to auto-play (for new slides)
-            const timeSinceSlideLoad = Date.now() - slideLoadTimeRef.current;
-            if (timeSinceSlideLoad < 1000) {
-                console.log('[PresentationPage] Fresh slide - checking for auto-play');
-                // Don't auto-play here - wait for host command
-            }
-        }
-    }, [broadcastVideoState]);
+    }, [broadcastManager, isConnectedToHost, currentSlide]);
 
     // Loading/Connection State
     if (!isConnectedToHost || !currentSlide) {
@@ -326,30 +125,19 @@ const PresentationPage: React.FC = () => {
 
     return (
         <div className="h-screen w-screen overflow-hidden bg-black relative">
-            {/* Pure display - no user controls, completely view-only */}
+            {/* Pure presentation display - SlideRenderer handles all video sync automatically */}
             <SlideRenderer
                 slide={currentSlide}
-                isPlayingTarget={videoState.playing}
-                videoTimeTarget={videoState.currentTime}
-                triggerSeekEvent={false}
-                videoRef={videoRef}
-                onVideoPlay={handleVideoPlay}
-                onVideoPause={handleVideoPause}
-                onVideoTimeUpdate={handleVideoTimeUpdate}
-                onVolumeChange={handleVolumeChange}
-                onLoadedMetadata={handleLoadedMetadata}
-                masterVideoMode={true} // Enable master video mode for audio/events
-                syncMode={false} // Not syncing to another display
-                hostMode={false} // No click controls - pure display
+                sessionId={sessionId}
+                videoMode="master" // Master mode: controls video and broadcasts state
             />
 
             {/* Development debug info only */}
             {process.env.NODE_ENV === 'development' && currentSlide && (
                 <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs z-20">
                     <div>Slide: {currentSlide.id}</div>
-                    <div>Playing: {videoState.playing ? 'Yes' : 'No'}</div>
-                    <div>Time: {Math.floor(videoState.currentTime)}s / {Math.floor(videoState.duration)}s</div>
-                    <div>Volume: {Math.round(videoState.volume * 100)}%</div>
+                    <div>Mode: Master (Presentation Display)</div>
+                    <div>Connected: {isConnectedToHost ? 'Yes' : 'No'}</div>
                 </div>
             )}
         </div>
