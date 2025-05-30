@@ -1,3 +1,4 @@
+// src/hooks/useGameController.ts - Game navigation & slide management
 import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {GameSession, GameStructure, GamePhaseNode, Slide} from '../types';
 
