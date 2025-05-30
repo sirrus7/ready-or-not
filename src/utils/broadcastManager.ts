@@ -1,4 +1,4 @@
-// src/utils/broadcastManager.ts
+// src/utils/broadcastManager.ts - Fixed with Enhanced Video Commands
 export interface VideoState {
     playing: boolean;
     currentTime: number;
@@ -96,6 +96,7 @@ export class SessionBroadcastManager {
 
             case 'PRESENTATION_READY':
                 if (this.mode !== 'presentation') {
+                    console.log('[BroadcastManager] Presentation display is ready');
                     this.updateConnectionStatus({
                         isConnected: true,
                         lastPing: now,
@@ -105,6 +106,7 @@ export class SessionBroadcastManager {
                 break;
 
             case 'SESSION_ENDED':
+                console.log('[BroadcastManager] Session ended');
                 this.updateConnectionStatus({
                     isConnected: false,
                     lastPing: 0,
@@ -216,47 +218,68 @@ export class SessionBroadcastManager {
         return { ...this.connectionStatus };
     }
 
-    // Video control helpers
+    // Enhanced video control helpers
     sendVideoControl(action: string, value?: number, expectAck: boolean = false): void {
+        console.log(`[BroadcastManager] Sending video control: ${action}`, value);
         this.broadcast('VIDEO_CONTROL', {
             action,
             value,
-            expectAck
+            expectAck,
+            timestamp: Date.now()
         });
     }
 
     sendVideoState(videoState: VideoState): void {
+        // Throttle video state updates to prevent spam
+        const now = Date.now();
+        if (now - videoState.lastUpdate < 200) return; // Max 5 updates per second
+
         this.broadcast('VIDEO_STATE_UPDATE', {
-            videoState
+            videoState: {
+                ...videoState,
+                lastUpdate: now
+            }
         });
     }
 
     sendSlideUpdate(slide: any): void {
+        console.log(`[BroadcastManager] Sending slide update:`, slide?.id);
         this.broadcast('SLIDE_UPDATE', {
-            slide
+            slide,
+            timestamp: Date.now()
         });
     }
 
     // Presentation-specific methods
     announcePresentation(): void {
+        console.log(`[BroadcastManager] Announcing presentation ready`);
         this.broadcast('PRESENTATION_READY', {
-            connectionType: 'presentation'
+            connectionType: 'presentation',
+            timestamp: Date.now()
         });
     }
 
     requestCurrentState(): void {
-        this.broadcast('REQUEST_CURRENT_STATE', {});
+        console.log(`[BroadcastManager] Requesting current state`);
+        this.broadcast('REQUEST_CURRENT_STATE', {
+            timestamp: Date.now()
+        });
     }
 
     sendInitialVideoState(videoState: VideoState): void {
+        console.log(`[BroadcastManager] Sending initial video state:`, videoState);
         this.broadcast('INITIAL_VIDEO_STATE', {
-            videoState
+            videoState,
+            timestamp: Date.now()
         });
     }
 
     // Team communication helpers
     sendTeacherStateUpdate(payload: any): void {
-        this.broadcast('teacher_state_update', payload);
+        this.broadcast('teacher_state_update', {
+            ...payload,
+            timestamp: Date.now()
+        });
     }
 
     // Cleanup

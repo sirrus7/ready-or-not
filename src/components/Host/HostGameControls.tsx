@@ -1,4 +1,4 @@
-// src/components/Host/HostGameControls.tsx - Minor cleanup for simplified video system
+// src/components/Host/HostGameControls.tsx - Fixed with Enhanced Presentation Display Logic
 import React, { useState, useEffect } from 'react';
 import {
     Users,
@@ -7,6 +7,8 @@ import {
     FileText,
     Lightbulb,
     LogOut,
+    ExternalLink,
+    Monitor
 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import Modal from '../UI/Modal';
@@ -45,48 +47,67 @@ const HostGameControls: React.FC = () => {
         }
     };
 
-    // Set up broadcast manager listeners for presentation status
+    // Enhanced presentation display connection monitoring
     useEffect(() => {
         if (!broadcastManager) return;
+
+        console.log('[HostGameControls] Setting up broadcast listeners');
 
         // Monitor connection to presentation display
         const unsubscribeConnection = broadcastManager.onConnectionChange((status) => {
             const isPresentation = status.connectionType === 'presentation';
-            setIsPresentationDisplayOpen(status.isConnected && isPresentation);
-        });
+            const wasConnected = isPresentationDisplayOpen;
+            const nowConnected = status.isConnected && isPresentation;
 
-        // Handle presentation ready
-        const unsubscribeReady = broadcastManager.subscribe('PRESENTATION_READY', (message) => {
-            setIsPresentationDisplayOpen(true);
-            console.log('[HostGameControls] Presentation display connected');
+            setIsPresentationDisplayOpen(nowConnected);
 
-            // Send current slide when presentation connects
-            if (currentSlideData) {
-                broadcastManager.sendSlideUpdate(currentSlideData);
+            if (!wasConnected && nowConnected) {
+                console.log('[HostGameControls] Presentation display connected');
+            } else if (wasConnected && !nowConnected) {
+                console.log('[HostGameControls] Presentation display disconnected');
             }
         });
 
-        // Handle current state requests
+        // Handle presentation ready events
+        const unsubscribeReady = broadcastManager.subscribe('PRESENTATION_READY', () => {
+            console.log('[HostGameControls] Presentation ready received');
+            setIsPresentationDisplayOpen(true);
+
+            // Send current slide when presentation connects
+            if (currentSlideData) {
+                console.log('[HostGameControls] Sending current slide to presentation:', currentSlideData.id);
+                setTimeout(() => {
+                    broadcastManager.sendSlideUpdate(currentSlideData);
+                }, 100);
+            }
+        });
+
+        // Handle current state requests from presentation
         const unsubscribeStateRequest = broadcastManager.subscribe('REQUEST_CURRENT_STATE', () => {
+            console.log('[HostGameControls] Presentation requesting current state');
             if (currentSlideData) {
                 broadcastManager.sendSlideUpdate(currentSlideData);
             }
         });
 
         return () => {
+            console.log('[HostGameControls] Cleaning up broadcast listeners');
             unsubscribeConnection();
             unsubscribeReady();
             unsubscribeStateRequest();
         };
-    }, [broadcastManager, currentSlideData]);
+    }, [broadcastManager, currentSlideData, isPresentationDisplayOpen]);
 
     // Send slide updates when current slide changes
     useEffect(() => {
-        if (broadcastManager && currentSlideData) {
-            console.log('[HostGameControls] Sending slide update:', currentSlideData.id);
-            broadcastManager.sendSlideUpdate(currentSlideData);
+        if (broadcastManager && currentSlideData && isPresentationDisplayOpen) {
+            console.log('[HostGameControls] Sending slide update to presentation:', currentSlideData.id);
+            // Small delay to ensure presentation is ready
+            setTimeout(() => {
+                broadcastManager.sendSlideUpdate(currentSlideData);
+            }, 50);
         }
-    }, [broadcastManager, currentSlideData]);
+    }, [broadcastManager, currentSlideData, isPresentationDisplayOpen]);
 
     const handleOpenDisplay = () => {
         if (!state.currentSessionId) {
@@ -95,24 +116,24 @@ const HostGameControls: React.FC = () => {
         }
 
         const url = `/student-display/${state.currentSessionId}`;
-        const newTab = window.open(url, '_blank');
+        console.log('[HostGameControls] Opening presentation display:', url);
+
+        const newTab = window.open(url, '_blank', 'width=1920,height=1080');
 
         if (newTab) {
-            console.log('[HostGameControls] Opened presentation display in new tab');
-            // Give the new tab time to initialize before sending state
+            console.log('[HostGameControls] Presentation display opened in new tab');
+
+            // Give the new tab time to initialize and connect
             setTimeout(() => {
                 if (broadcastManager && currentSlideData) {
+                    console.log('[HostGameControls] Sending initial slide after delay:', currentSlideData.id);
                     broadcastManager.sendSlideUpdate(currentSlideData);
                 }
-            }, 1000);
+            }, 1500); // Increased delay for reliable connection
         } else {
             alert("Failed to open presentation display. Please ensure pop-ups are allowed for this site.");
         }
     };
-
-    // NOTE: Video control commands are no longer needed here!
-    // The SlideRenderer + useVideoSync hook handles all video control automatically
-    // when the host clicks on videos in DisplayView
 
     const openJoinInfoModal = () => setIsJoinCompanyModalOpen(true);
     const closeJoinCompanyModal = () => setIsJoinCompanyModalOpen(false);
@@ -144,6 +165,7 @@ const HostGameControls: React.FC = () => {
 
         // Notify presentation display that session is ending via broadcast manager
         if (broadcastManager) {
+            console.log('[HostGameControls] Broadcasting session end');
             broadcastManager.broadcast('SESSION_ENDED', {});
         }
 
@@ -178,6 +200,27 @@ const HostGameControls: React.FC = () => {
     return (
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
             <div className="p-3 md:p-4">
+                {/* Presentation Display Status/Button */}
+                <div className="mb-3 pb-3 border-b border-gray-200">
+                    {isPresentationDisplayOpen ? (
+                        <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center gap-2 text-green-700">
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                <Monitor size={16}/>
+                                <span className="text-sm font-medium">Presentation Display Active</span>
+                            </div>
+                            <span className="text-xs text-green-600">Synced with student display</span>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleOpenDisplay}
+                            className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md text-sm"
+                        >
+                            <ExternalLink size={16}/>
+                            <span>Launch Student Display</span>
+                        </button>
+                    )}
+                </div>
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 border-t border-gray-200 pt-3">
