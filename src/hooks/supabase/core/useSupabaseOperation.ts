@@ -1,6 +1,8 @@
-// src/hooks/useSupabaseOperation.ts - Generic DB operation wrapper
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { formatSupabaseError } from '../utils/supabase';
+// src/hooks/supabase/core/useSupabaseOperation.ts - Core logic (150 lines)
+import { useState, useCallback, useRef } from 'react';
+import { formatSupabaseError } from '../../../utils/supabase';
+import { OperationCache } from '../utils/operationCache';
+import { RetryManager } from '../utils/retryLogic';
 
 export interface OperationState<T = any> {
     data: T | null;
@@ -32,14 +34,6 @@ export interface OperationOptions {
     transform?: (data: any) => any;
 }
 
-interface CacheEntry {
-    data: any;
-    timestamp: number;
-}
-
-// Simple in-memory cache
-const operationCache = new Map<string, CacheEntry>();
-
 export const useSupabaseOperation = <T = any>(
     operation: () => Promise<T>,
     options: OperationOptions = {}
@@ -51,7 +45,7 @@ export const useSupabaseOperation = <T = any>(
         initialLoading = false,
         suppressLoadingFor = 0,
         cacheKey,
-        cacheTimeout = 5 * 60 * 1000, // 5 minutes default
+        cacheTimeout = 5 * 60 * 1000,
         onSuccess,
         onError,
         transform
@@ -66,7 +60,8 @@ export const useSupabaseOperation = <T = any>(
     });
 
     const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const retryCountRef = useRef(0);
+    const cache = useRef(new OperationCache());
+    const retryManager = useRef(new RetryManager(maxRetries));
 
     const clearLoadingTimeout = useCallback(() => {
         if (loadingTimeoutRef.current) {
@@ -85,40 +80,19 @@ export const useSupabaseOperation = <T = any>(
 
     const showError = useCallback((errorMessage: string) => {
         if (showErrorToast) {
-            // You can integrate with your toast system here
+            // Integrate with your toast system here
             console.error('[Operation Error]', errorMessage);
         }
         onError?.(errorMessage);
     }, [showErrorToast, onError]);
-
-    const checkCache = useCallback((): T | null => {
-        if (!cacheKey) return null;
-
-        const cached = operationCache.get(cacheKey);
-        if (cached && (Date.now() - cached.timestamp) < cacheTimeout) {
-            console.log(`[useSupabaseOperation] Cache hit for ${cacheKey}`);
-            return cached.data;
-        }
-
-        return null;
-    }, [cacheKey, cacheTimeout]);
-
-    const setCache = useCallback((data: T) => {
-        if (cacheKey) {
-            operationCache.set(cacheKey, {
-                data,
-                timestamp: Date.now()
-            });
-        }
-    }, [cacheKey]);
 
     const executeOperation = useCallback(async (
         showLoading: boolean = true,
         isRetry: boolean = false
     ): Promise<T | null> => {
         // Check cache first
-        if (!isRetry) {
-            const cachedData = checkCache();
+        if (!isRetry && cacheKey) {
+            const cachedData = cache.current.get<T>(cacheKey, cacheTimeout);
             if (cachedData) {
                 updateState({
                     data: cachedData,
@@ -130,10 +104,8 @@ export const useSupabaseOperation = <T = any>(
             }
         }
 
-        // Clear any existing loading timeout
-        clearLoadingTimeout();
-
         // Handle loading state with optional suppression
+        clearLoadingTimeout();
         if (showLoading) {
             if (suppressLoadingFor > 0) {
                 loadingTimeoutRef.current = setTimeout(() => {
@@ -145,17 +117,16 @@ export const useSupabaseOperation = <T = any>(
         }
 
         try {
-            console.log(`[useSupabaseOperation] Executing operation (retry: ${isRetry})`);
             const result = await operation();
-
-            // Clear loading timeout and state
             clearLoadingTimeout();
 
             // Transform data if transformer provided
             const transformedData = transform ? transform(result) : result;
 
             // Cache the result
-            setCache(transformedData);
+            if (cacheKey) {
+                cache.current.set(cacheKey, transformedData);
+            }
 
             // Update state
             updateState({
@@ -166,7 +137,7 @@ export const useSupabaseOperation = <T = any>(
             });
 
             // Reset retry count on success
-            retryCountRef.current = 0;
+            retryManager.current.reset();
 
             // Call success callback
             onSuccess?.(transformedData);
@@ -175,19 +146,13 @@ export const useSupabaseOperation = <T = any>(
 
         } catch (error) {
             clearLoadingTimeout();
-
             const errorMessage = formatSupabaseError(error);
-            console.error('[useSupabaseOperation] Operation failed:', errorMessage);
 
             // Handle retries
-            if (retryOnError && retryCountRef.current < maxRetries) {
-                retryCountRef.current++;
-                console.log(`[useSupabaseOperation] Retrying... (${retryCountRef.current}/${maxRetries})`);
+            if (retryOnError && retryManager.current.shouldRetry()) {
+                console.log(`[useSupabaseOperation] Retrying... (${retryManager.current.getAttemptCount()}/${maxRetries})`);
 
-                // Exponential backoff
-                const delay = Math.min(1000 * Math.pow(2, retryCountRef.current - 1), 5000);
-                await new Promise(resolve => setTimeout(resolve, delay));
-
+                await retryManager.current.delay();
                 return executeOperation(false, true);
             }
 
@@ -199,12 +164,11 @@ export const useSupabaseOperation = <T = any>(
             });
 
             showError(errorMessage);
-
             return null;
         }
     }, [
-        operation, checkCache, updateState, clearLoadingTimeout, suppressLoadingFor,
-        transform, setCache, onSuccess, retryOnError, maxRetries, showError
+        operation, cacheKey, cacheTimeout, updateState, clearLoadingTimeout,
+        suppressLoadingFor, transform, onSuccess, retryOnError, maxRetries, showError
     ]);
 
     const execute = useCallback(() => {
@@ -214,8 +178,9 @@ export const useSupabaseOperation = <T = any>(
     const refresh = useCallback(() => {
         // Clear cache and re-execute
         if (cacheKey) {
-            operationCache.delete(cacheKey);
+            cache.current.delete(cacheKey);
         }
+        retryManager.current.reset();
         return executeOperation(true, false);
     }, [cacheKey, executeOperation]);
 
@@ -228,7 +193,7 @@ export const useSupabaseOperation = <T = any>(
 
     const clearData = useCallback(() => {
         if (cacheKey) {
-            operationCache.delete(cacheKey);
+            cache.current.delete(cacheKey);
         }
         updateState({
             data: null,
@@ -236,11 +201,13 @@ export const useSupabaseOperation = <T = any>(
             hasError: false,
             isLoading: false
         });
+        retryManager.current.reset();
     }, [cacheKey, updateState]);
 
     // Cleanup on unmount
     const cleanup = useCallback(() => {
         clearLoadingTimeout();
+        retryManager.current.reset();
     }, [clearLoadingTimeout]);
 
     return {
@@ -255,63 +222,14 @@ export const useSupabaseOperation = <T = any>(
         cleanup,
 
         // Computed values
-        canRetry: state.hasError && retryOnError && retryCountRef.current < maxRetries,
-        retryCount: retryCountRef.current,
+        canRetry: state.hasError && retryOnError && retryManager.current.canRetry(),
+        retryCount: retryManager.current.getAttemptCount(),
 
         // Cache utilities
         clearCache: () => {
             if (cacheKey) {
-                operationCache.delete(cacheKey);
+                cache.current.delete(cacheKey);
             }
         }
     };
-};
-
-// Specialized hooks for common patterns
-export const useSupabaseQuery = <T = any>(
-    queryFn: () => Promise<T>,
-    dependencies: any[] = [],
-    options: OperationOptions = {}
-) => {
-    const operation = useSupabaseOperation(queryFn, {
-        retryOnError: true,
-        maxRetries: 2,
-        suppressLoadingFor: 200,
-        ...options
-    });
-
-    // Auto-execute when dependencies change
-    useEffect(() => {
-        operation.execute();
-    }, dependencies);
-
-    // Cleanup on unmount
-    useEffect(() => {
-        return operation.cleanup;
-    }, []);
-
-    return operation;
-};
-
-export const useSupabaseMutation = <T = any>(
-    mutationFn: () => Promise<T>,
-    options: OperationOptions = {}
-) => {
-    return useSupabaseOperation(mutationFn, {
-        retryOnError: false,
-        showErrorToast: true,
-        ...options
-    });
-};
-
-// Global cache management
-export const clearOperationCache = (pattern?: string) => {
-    if (pattern) {
-        const keysToDelete = Array.from(operationCache.keys()).filter(key =>
-            key.includes(pattern)
-        );
-        keysToDelete.forEach(key => operationCache.delete(key));
-    } else {
-        operationCache.clear();
-    }
 };

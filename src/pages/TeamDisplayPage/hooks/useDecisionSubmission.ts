@@ -1,6 +1,6 @@
 // src/pages/TeamDisplayPage/hooks/useDecisionSubmission.ts - Decision submission + validation
 import { useCallback } from 'react';
-import { useSupabaseMutation } from '../../../hooks/useSupabaseOperation';
+import { useSupabaseMutation } from '../../../hooks/supabase';
 import { db } from '../../../utils/supabase';
 import { GamePhaseNode } from '../../../types';
 

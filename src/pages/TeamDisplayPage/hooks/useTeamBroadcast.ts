@@ -1,7 +1,7 @@
 // src/pages/TeamDisplayPage/hooks/useTeamBroadcast.ts - Broadcast listening logic
 import { useState, useEffect, useMemo } from 'react';
 import { useBroadcastManager } from '../../../utils/broadcastManager';
-import { useSupabaseQuery } from '../../../hooks/useSupabaseOperation';
+import { useSupabaseQuery } from '../../../hooks/supabase';
 import { db } from '../../../utils/supabase';
 import { readyOrNotGame_2_0_DD } from '../../../data/gameStructure';
 import {

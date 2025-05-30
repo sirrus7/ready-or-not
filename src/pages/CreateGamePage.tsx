@@ -3,7 +3,7 @@ import React, {useState, useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useAuth} from '../context/AuthContext';
 import {db} from '../utils/supabase';
-import {useSupabaseMutation} from '../hooks/useSupabaseOperation'
+import {useSupabaseMutation} from '../hooks/supabase'
 import {NewGameData} from '../types';
 
 import Step1GameDetails from '../components/Host/CreateGame/Step1';

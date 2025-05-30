@@ -12,7 +12,7 @@ import {
     HostBroadcastPayload,
 } from '../types';
 import {db, useSupabaseConnection} from '../utils/supabase';
-import {useSupabaseQuery, useSupabaseMutation} from '../hooks/useSupabaseOperation'
+import {useSupabaseQuery, useSupabaseMutation} from '../hooks/supabase'
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {AlertTriangle, CheckCircle, Hourglass, Smartphone} from 'lucide-react';
 import { useBroadcastManager } from '../utils/broadcastManager';

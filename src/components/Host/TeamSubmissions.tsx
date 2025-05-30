@@ -4,7 +4,7 @@ import {useAppContext} from '../../context/AppContext';
 import {TeamDecision} from '../../types';
 import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, Wifi, WifiOff, AlertTriangle} from 'lucide-react';
 import {useRealtimeSubscription, useSupabaseConnection} from '../../utils/supabase';
-import {useSupabaseMutation} from '../../hooks/useSupabaseOperation'
+import {useSupabaseMutation} from '../../hooks/supabase'
 import Modal from '../UI/Modal';
 
 const TeamSubmissions: React.FC = () => {

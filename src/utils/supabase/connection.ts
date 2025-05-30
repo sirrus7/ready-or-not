@@ -1,7 +1,7 @@
 // src/utils/supabase/connection.ts - Enhanced Connection Management
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './client';
-import { db } from './database';
+import { db } from './services';
 
 export interface ConnectionStatus {
     status: 'connecting' | 'connected' | 'disconnected' | 'error';
