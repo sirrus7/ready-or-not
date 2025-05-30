@@ -1,4 +1,4 @@
-// src/components/Host/HostGameControls.tsx - Refactored with BroadcastManager
+// src/components/Host/HostGameControls.tsx - Minor cleanup for simplified video system
 import React, { useState, useEffect } from 'react';
 import {
     Users,
@@ -12,7 +12,7 @@ import { useAppContext } from '../../context/AppContext';
 import Modal from '../UI/Modal';
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
-import { useBroadcastManager, VideoState } from '../../utils/broadcastManager';
+import { useBroadcastManager } from '../../utils/broadcastManager';
 
 const HostGameControls: React.FC = () => {
     const {
@@ -34,16 +34,7 @@ const HostGameControls: React.FC = () => {
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
     const [isPresentationDisplayOpen, setIsPresentationDisplayOpen] = useState(false);
 
-    // Video state for display status only
-    const [videoState, setVideoState] = useState<VideoState>({
-        playing: false,
-        currentTime: 0,
-        duration: 0,
-        volume: 1,
-        lastUpdate: 0
-    });
-
-    // Use broadcast manager
+    // Use broadcast manager for presentation communication
     const broadcastManager = useBroadcastManager(state.currentSessionId, 'host');
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
@@ -54,15 +45,7 @@ const HostGameControls: React.FC = () => {
         }
     };
 
-    // Check if current slide is a video
-    const isVideoSlide = currentSlideData && (
-        currentSlideData.type === 'video' ||
-        (currentSlideData.type === 'interactive_invest' && currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i)) ||
-        ((currentSlideData.type === 'consequence_reveal' || currentSlideData.type === 'payoff_reveal') &&
-            currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
-    );
-
-    // Set up broadcast manager listeners
+    // Set up broadcast manager listeners for presentation status
     useEffect(() => {
         if (!broadcastManager) return;
 
@@ -70,20 +53,6 @@ const HostGameControls: React.FC = () => {
         const unsubscribeConnection = broadcastManager.onConnectionChange((status) => {
             const isPresentation = status.connectionType === 'presentation';
             setIsPresentationDisplayOpen(status.isConnected && isPresentation);
-        });
-
-        // Handle video state updates from presentation
-        const unsubscribeVideoState = broadcastManager.subscribe('VIDEO_STATE_UPDATE', (message) => {
-            if (message.videoState) {
-                setVideoState(message.videoState);
-            }
-        });
-
-        // Handle pong messages (which include video state)
-        const unsubscribePong = broadcastManager.subscribe('PONG', (message) => {
-            if (message.videoState) {
-                setVideoState(message.videoState);
-            }
         });
 
         // Handle presentation ready
@@ -106,8 +75,6 @@ const HostGameControls: React.FC = () => {
 
         return () => {
             unsubscribeConnection();
-            unsubscribeVideoState();
-            unsubscribePong();
             unsubscribeReady();
             unsubscribeStateRequest();
         };
@@ -143,11 +110,9 @@ const HostGameControls: React.FC = () => {
         }
     };
 
-    // Video control handlers
-    const handleVideoControlCommand = (command: string, value?: number) => {
-        if (!broadcastManager) return;
-        broadcastManager.sendVideoControl(command, value, true);
-    };
+    // NOTE: Video control commands are no longer needed here!
+    // The SlideRenderer + useVideoSync hook handles all video control automatically
+    // when the host clicks on videos in DisplayView
 
     const openJoinInfoModal = () => setIsJoinCompanyModalOpen(true);
     const closeJoinCompanyModal = () => setIsJoinCompanyModalOpen(false);
