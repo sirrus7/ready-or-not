@@ -6,7 +6,7 @@ import {db} from '../utils/supabase';
 import {useSupabaseMutation} from '../hooks/useSupabaseOperation'
 import {NewGameData} from '../types';
 
-import Step1GameDetails from '../components/Host/CreateGame/Step1_GameDetails';
+import Step1GameDetails from '../components/Host/CreateGame/Step1';
 import Step2TeamSetup from '../components/Host/CreateGame/Step2_TeamSetup.tsx';
 import Step3RoomSetup from '../components/Host/CreateGame/Step3_RoomSetup.tsx';
 import Step4PrintHandouts from '../components/Host/CreateGame/Step4_PrintHandouts.tsx';
