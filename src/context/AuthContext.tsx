@@ -1,6 +1,7 @@
+// src/context/AuthContext.tsx - UPDATED
 import React, {createContext, useContext, useEffect, useState} from 'react';
 import {User} from '@supabase/supabase-js';
-import {supabase} from '../lib/supabase';
+import { auth } from '../utils/supabase';
 
 interface AuthContextType {
     user: User | null;
@@ -27,16 +28,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
     useEffect(() => {
         console.log("AuthContext: useEffect for getSession and onAuthStateChange running");
 
-        // Get initial session with a longer timeout for student display scenarios
+        // Get initial session
         const initializeAuth = async () => {
             try {
-                const {data: {session}, error} = await supabase.auth.getSession();
-                console.log("AuthContext: Initial session data:", session, "Error:", error);
-
-                if (error) {
-                    console.error("AuthContext: Error getting session:", error);
-                }
-
+                const session = await auth.getSession();
+                console.log("AuthContext: Initial session data:", session);
                 setUser(session?.user ?? null);
                 setLoading(false);
             } catch (err) {
@@ -49,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         initializeAuth();
 
         // Listen for auth changes
-        const {data: {subscription}} = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = auth.onAuthStateChange((event, session) => {
             console.log("AuthContext: onAuthStateChange event:", event, "session:", session);
             setUser(session?.user ?? null);
 
@@ -69,26 +65,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
     }, []);
 
     const signIn = async (email: string, password: string) => {
-        const {error} = await supabase.auth.signInWithPassword({email, password});
-        if (error) throw error;
+        await auth.signIn(email, password);
     };
 
     const signUp = async (email: string, password: string) => {
-        const {error} = await supabase.auth.signUp({email, password});
-        if (error) throw error;
+        await auth.signUp(email, password);
     };
 
     const signOut = async () => {
         console.log("AuthContext: signOut called");
         setLoading(true);
-        const {error} = await supabase.auth.signOut();
-
-        if (error) {
-            console.error("AuthContext: Error during signOut:", error);
-            setLoading(false);
-            throw error;
-        }
-        console.log("AuthContext: supabase.auth.signOut() completed successfully.");
+        await auth.signOut();
+        console.log("AuthContext: signOut completed successfully.");
     };
 
     return (
