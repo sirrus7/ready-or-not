@@ -42,7 +42,6 @@ interface UseDecisionLogicReturn {
 
 export const useDecisionLogic = ({
                                      currentPhase,
-                                     investmentOptions,
                                      challengeOptions,
                                      investUpToBudget,
                                      onInvestmentSelectionChange

@@ -1,13 +1,14 @@
-// src/components/Game/DecisionPanel/index.tsx - Main orchestration component
+// src/components/Game/DecisionPanel/index.tsx - Fixed main orchestration component
 import React from 'react';
 import { InvestmentOption, ChallengeOption, GamePhaseNode } from '../../../types';
 import { Hourglass } from 'lucide-react';
 import { useDecisionLogic } from './hooks/useDecisionLogic';
-import { useDecisionSubmission } from './hooks/useDecisionSubmission.ts';
+import { useDecisionSubmission } from './hooks/useDecisionSubmission';
 import DecisionHeader from './components/DecisionHeader';
 import DecisionContent from './components/DecisionContent';
 import DecisionFooter from './components/DecisionFooter';
 import ErrorDisplay from './components/ErrorDisplay';
+import ConfirmationModal from './components/ConfirmationModal';
 
 interface DecisionPanelProps {
     sessionId: string | null;
@@ -101,7 +102,12 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
             />
 
             {/* Confirmation modal */}
-            {submission.confirmationModal}
+            <ConfirmationModal
+                isOpen={submission.showConfirmationModal}
+                onClose={() => submission.setShowConfirmationModal(false)}
+                onConfirm={submission.confirmSubmit}
+                currentPhase={currentPhase}
+            />
         </div>
     );
 };
