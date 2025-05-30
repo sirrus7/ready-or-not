@@ -1,21 +1,23 @@
-// src/components/Game/TeamLogin.tsx
-import React, {useState, useEffect} from 'react';
-import {supabase} from '../../lib/supabase';
-import {Team} from '../../types';
-import {LogIn, Users, Hourglass, AlertTriangle} from 'lucide-react';
+// src/components/Game/TeamLogin.tsx - UPDATED
+import React, { useState, useEffect } from 'react';
+import { db, formatSupabaseError, useSupabaseConnection } from '../../utils/supabase';
+import { Team } from '../../types';
+import { LogIn, Users, Hourglass, AlertTriangle } from 'lucide-react';
 
 interface TeamLoginProps {
     sessionId: string;
     onLoginSuccess: (teamId: string, teamName: string) => void;
 }
 
-const TeamLogin: React.FC<TeamLoginProps> = ({sessionId, onLoginSuccess}) => {
+const TeamLogin: React.FC<TeamLoginProps> = ({ sessionId, onLoginSuccess }) => {
     const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const [passcode, setPasscode] = useState<string>('');
     const [error, setError] = useState<string>('');
     const [isLoadingTeams, setIsLoadingTeams] = useState<boolean>(true);
     const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+
+    const connection = useSupabaseConnection();
 
     useEffect(() => {
         const fetchTeams = async () => {
@@ -24,37 +26,34 @@ const TeamLogin: React.FC<TeamLoginProps> = ({sessionId, onLoginSuccess}) => {
                 setIsLoadingTeams(false);
                 return;
             }
+
             setIsLoadingTeams(true);
             setError('');
-            try {
-                // This direct select for team names and IDs should be allowed by your general RLS policy for anon
-                // (e.g., CREATE POLICY "Anon can read teams for a session" ON public.teams FOR SELECT TO anon USING (true);)
-                const {data, error: fetchError} = await supabase
-                    .from('teams')
-                    .select('id, name')
-                    .eq('session_id', sessionId);
 
-                if (fetchError) {
-                    console.error("[TeamLogin] Error fetching teams:", fetchError);
-                    setError('Failed to load teams for this session. Ensure the session ID is correct or try again.');
-                } else if (data) {
-                    setAvailableTeams(data as Team[]);
-                    if (data.length > 0) {
-                        setSelectedTeamId(data[0].id);
-                    } else {
-                        setError('No teams are currently set up for this game session or the session ID is incorrect. Please wait for the facilitator or check the ID.');
-                    }
+            try {
+                const teams = await db.teams.getBySession(sessionId);
+                setAvailableTeams(teams as Team[]);
+
+                if (teams.length > 0) {
+                    setSelectedTeamId(teams[0].id);
+                } else {
+                    setError('No teams are currently set up for this game session or the session ID is incorrect. Please wait for the facilitator or check the ID.');
                 }
-            } catch (catchedError) {
-                console.error("[TeamLogin] CATCHED Error fetching teams:", catchedError);
-                setError('An unexpected error occurred while loading teams.');
+            } catch (err) {
+                console.error("[TeamLogin] Error fetching teams:", err);
+                setError(`Failed to load teams: ${formatSupabaseError(err)}`);
             } finally {
                 setIsLoadingTeams(false);
             }
         };
 
-        fetchTeams();
-    }, [sessionId]);
+        if (connection.isConnected) {
+            fetchTeams();
+        } else if (connection.status === 'error') {
+            setError(`Connection error: ${connection.error}`);
+            setIsLoadingTeams(false);
+        }
+    }, [sessionId, connection.isConnected, connection.status, connection.error]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -62,42 +61,52 @@ const TeamLogin: React.FC<TeamLoginProps> = ({sessionId, onLoginSuccess}) => {
             setError('Please select a team.');
             return;
         }
-        if (!passcode.trim()) { // Added trim()
+        if (!passcode.trim()) {
             setError('Please enter the team passcode.');
             return;
         }
+
         setIsLoggingIn(true);
         setError('');
 
         try {
-            const { data: verifiedTeamData, error: rpcError } = await supabase
-                .rpc('verify_team_login', {
-                    p_team_id: selectedTeamId,
-                    p_session_id: sessionId,
-                    p_passcode: passcode.trim()
-                });
+            const verifiedTeam = await db.teams.verifyLogin(
+                selectedTeamId,
+                sessionId,
+                passcode.trim()
+            );
 
-            if (rpcError) {
-                console.error("[TeamLogin] RPC Error verifying team login:", rpcError);
-                setError('Login failed. Please check your details and try again.');
-                setIsLoggingIn(false); // Ensure loading state is reset on error
-                return;
-            }
-
-            // RPC returns an array of rows. If successful, it should contain one row.
-            if (verifiedTeamData && verifiedTeamData.length > 0) {
-                const team = verifiedTeamData[0]; // RPC returns objects matching the function's RETURNS TABLE definition
-                onLoginSuccess(team.id, team.name);
+            if (verifiedTeam) {
+                onLoginSuccess(verifiedTeam.id, verifiedTeam.name);
             } else {
                 setError('Incorrect passcode or invalid team for this session.');
             }
         } catch (err) {
-            console.error("[TeamLogin] Catch block during login:", err);
-            setError('An unexpected error occurred during login. Please try again.');
+            console.error("[TeamLogin] Login error:", err);
+            setError(`Login failed: ${formatSupabaseError(err)}`);
         } finally {
             setIsLoggingIn(false);
         }
     };
+
+    // Show connection error prominently
+    if (connection.status === 'error' && !connection.isConnected) {
+        return (
+            <div className="min-h-screen bg-gray-800 text-white flex items-center justify-center p-4">
+                <div className="text-center">
+                    <AlertTriangle size={48} className="mx-auto mb-4 text-red-400"/>
+                    <h2 className="text-xl font-bold mb-2">Connection Problem</h2>
+                    <p className="mb-4">{connection.error}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    >
+                        Retry Connection
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-800 text-white flex flex-col items-center justify-center p-4">
@@ -175,11 +184,13 @@ const TeamLogin: React.FC<TeamLoginProps> = ({sessionId, onLoginSuccess}) => {
                         </button>
                     </form>
                 )}
-                {!isLoadingTeams && availableTeams.length === 0 && !error && ( // Show if done loading, no teams, and no other error
+
+                {!isLoadingTeams && availableTeams.length === 0 && !error && (
                     <p className="text-center text-yellow-400 text-sm my-4">
                         No teams found for this session ID. Please ensure the Session ID in your URL is correct and that the facilitator has started the game.
                     </p>
                 )}
+
                 <p className="text-xs text-gray-500 mt-6 text-center">Session ID: {sessionId}</p>
             </div>
         </div>
