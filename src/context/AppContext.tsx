@@ -14,7 +14,7 @@ import {
     HostBroadcastPayload
 } from '../types';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
-import {supabase} from '../lib/supabase';
+import {supabase} from '../utils/supabase';
 import {useAuth} from './AuthContext';
 import {useSessionManager} from '../hooks/useSessionManager';
 import {useGameController} from '../hooks/useGameController';
