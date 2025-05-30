@@ -1,14 +1,82 @@
-// src/components/Host/HostPanel.tsx
+// src/components/Host/HostPanel.tsx - Updated with Decision Phase Controls
 import React from 'react';
 import GameMap from './GameMap.tsx';
 import HostGameControls from './HostGameControls.tsx';
 import TeamSubmissions from './TeamSubmissions.tsx';
 import {useAppContext} from '../../context/AppContext';
-import {Layers, Info, AlertTriangle} from 'lucide-react';
+import {Layers, Info, AlertTriangle, Play, Pause, Clock} from 'lucide-react';
 
 interface HostPanelProps {
     // No props needed as it consumes from AppContext
 }
+
+const DecisionPhaseControls: React.FC = () => {
+    const {
+        currentPhaseNode,
+        isDecisionPhaseActive,
+        activateDecisionPhase,
+        deactivateDecisionPhase
+    } = useAppContext();
+
+    const isInteractivePhase = currentPhaseNode?.is_interactive_player_phase || false;
+
+    if (!isInteractivePhase) {
+        return null;
+    }
+
+    return (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Clock size={18} className="text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">
+                        Decision Phase: {currentPhaseNode?.label}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    {isDecisionPhaseActive ? (
+                        <button
+                            onClick={deactivateDecisionPhase}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors"
+                        >
+                            <Pause size={14} />
+                            Stop Decisions
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => activateDecisionPhase(180)} // 3 minutes
+                                className="flex items-center gap-1 px-2 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors"
+                            >
+                                <Play size={14} />
+                                3min
+                            </button>
+                            <button
+                                onClick={() => activateDecisionPhase(300)} // 5 minutes
+                                className="flex items-center gap-1 px-2 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors"
+                            >
+                                <Play size={14} />
+                                5min
+                            </button>
+                            <button
+                                onClick={() => activateDecisionPhase(600)} // 10 minutes
+                                className="flex items-center gap-1 px-2 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors"
+                            >
+                                <Play size={14} />
+                                10min
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+            {isDecisionPhaseActive && (
+                <div className="mt-2 text-xs text-blue-700">
+                    Students can now make decisions on their devices
+                </div>
+            )}
+        </div>
+    );
+};
 
 const HostPanel: React.FC<HostPanelProps> = () => {
     const {state, currentPhaseNode} = useAppContext();
@@ -41,7 +109,7 @@ const HostPanel: React.FC<HostPanelProps> = () => {
             <div className="bg-gray-100 p-6 rounded-lg shadow text-center text-gray-600 h-full flex flex-col items-center justify-center">
                 <Info size={32} className="mx-auto mb-3 text-blue-500"/>
                 <p className="font-semibold">No Active Game Session Loaded</p>
-                <p className="text-sm">Please start a new game or select an existing one from your dashboard.</p>
+                <p className="text-sm">Please wait for the session to initialize or start/select a game from the dashboard.</p>
                 {currentSessionId === 'new' && !isLoading &&
                     <p className="text-xs text-gray-500 mt-2">Finalizing new game setup...</p>}
             </div>
@@ -67,6 +135,11 @@ const HostPanel: React.FC<HostPanelProps> = () => {
 
             {/* Main Content Area */}
             <div className="flex-1 min-h-0 flex flex-col">
+                {/* Decision Phase Controls - Only shown when needed */}
+                <div className="flex-shrink-0 p-3">
+                    <DecisionPhaseControls />
+                </div>
+
                 {/* Game Journey Map - Takes up available space */}
                 <div className="flex-1 min-h-0 p-3">
                     <GameMap/>

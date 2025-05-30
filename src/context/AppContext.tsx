@@ -1,4 +1,4 @@
-// src/context/AppContext.tsx - Video State Management Removed
+// src/context/AppContext.tsx - Updated with BroadcastManager Integration
 import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {
@@ -10,7 +10,8 @@ import {
     Slide,
     Team,
     TeamDecision,
-    TeamRoundData
+    TeamRoundData,
+    HostBroadcastPayload
 } from '../types';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {supabase} from '../lib/supabase';
@@ -18,6 +19,7 @@ import {useAuth} from './AuthContext';
 import {useSessionManager} from '../hooks/useSessionManager';
 import {useGameController} from '../hooks/useGameController';
 import {useTeamDataManager} from '../hooks/useTeamDataManager';
+import {useBroadcastManager} from '../utils/broadcastManager';
 
 interface AppContextProps {
     // Core state
@@ -54,6 +56,16 @@ interface AppContextProps {
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     resetGameProgress: () => void;
     isLoadingProcessingDecisions: boolean;
+
+    // Decision phase controls
+    activateDecisionPhase: (durationSeconds?: number) => void;
+    deactivateDecisionPhase: () => void;
+    isDecisionPhaseActive: boolean;
+
+    // Decision phase controls
+    activateDecisionPhase: (durationSeconds?: number) => void;
+    deactivateDecisionPhase: () => void;
+    isDecisionPhaseActive: boolean;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -72,6 +84,8 @@ interface AppProviderProps {
 export const AppProvider: React.FC<AppProviderProps> = ({children, passedSessionId}) => {
     const [isLoadingProcessing, setIsLoadingProcessing] = useState(false);
     const [processingError, setProcessingError] = useState<string | null>(null);
+    const [isDecisionPhaseActive, setIsDecisionPhaseActive] = useState(false);
+    const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined);
 
     const {user, loading: authLoading} = useAuth();
     const navigate = useNavigate();
@@ -85,6 +99,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         updateSessionInDb,
         clearSessionError
     } = useSessionManager(passedSessionId, user, authLoading, gameStructureInstance);
+
+    // Broadcast manager for teacher communications
+    const broadcastManager = useBroadcastManager(currentDbSession?.id || null, 'host');
 
     // Team data management
     const {
@@ -104,13 +121,82 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         return gameStructureInstance?.allPhases || [];
     }, [gameStructureInstance]);
 
-    // Game controller - NO VIDEO STATE MANAGEMENT
+    // Game controller
     const gameController = useGameController(
         currentDbSession,
         gameStructureInstance,
         updateSessionInDb,
         (phaseId) => processChoicePhaseDecisionsInternal(phaseId)
     );
+
+    // Decision phase management
+    const activateDecisionPhase = useCallback((durationSeconds: number = 300) => {
+        console.log('[AppContext] Activating decision phase with duration:', durationSeconds);
+        setIsDecisionPhaseActive(true);
+        const endTime = Date.now() + (durationSeconds * 1000);
+        setDecisionPhaseTimerEndTime(endTime);
+    }, []);
+
+    const deactivateDecisionPhase = useCallback(() => {
+        console.log('[AppContext] Deactivating decision phase');
+        setIsDecisionPhaseActive(false);
+        setDecisionPhaseTimerEndTime(undefined);
+    }, []);
+
+    // Broadcast teacher state changes to student devices
+    useEffect(() => {
+        if (!broadcastManager || !gameController.currentPhaseNode || !gameController.currentSlideData) {
+            return;
+        }
+
+        const currentPhase = gameController.currentPhaseNode;
+        const currentSlide = gameController.currentSlideData;
+
+        // Create teacher broadcast payload
+        const teacherPayload: HostBroadcastPayload = {
+            currentSlideId: currentSlide.id,
+            currentPhaseId: currentPhase.id,
+            currentPhaseType: currentPhase.phase_type,
+            currentRoundNumber: currentPhase.round_number,
+            isPlayingVideo: false, // This will be managed by video components
+            isDecisionPhaseActive: isDecisionPhaseActive,
+            decisionOptionsKey: currentPhase.interactive_data_key || currentPhase.id,
+            decisionPhaseTimerEndTime: decisionPhaseTimerEndTime,
+        };
+
+        console.log('[AppContext] Broadcasting teacher state update:', teacherPayload);
+        broadcastManager.sendTeacherStateUpdate(teacherPayload);
+
+    }, [
+        broadcastManager,
+        gameController.currentPhaseNode,
+        gameController.currentSlideData,
+        isDecisionPhaseActive,
+        decisionPhaseTimerEndTime
+    ]);
+
+    // Auto-activate decision phases for interactive slides
+    useEffect(() => {
+        const currentPhase = gameController.currentPhaseNode;
+        const currentSlide = gameController.currentSlideData;
+
+        if (!currentPhase || !currentSlide) return;
+
+        // Check if this is an interactive slide that should activate decisions
+        const isInteractiveSlide = currentSlide.type === 'interactive_invest' ||
+            currentSlide.type === 'interactive_choice' ||
+            currentSlide.type === 'interactive_double_down_prompt' ||
+            currentSlide.type === 'interactive_double_down_select';
+
+        if (isInteractiveSlide && currentPhase.is_interactive_player_phase && !isDecisionPhaseActive) {
+            const timerDuration = currentSlide.timer_duration_seconds || 300; // Default 5 minutes
+            console.log('[AppContext] Auto-activating decision phase for interactive slide');
+            activateDecisionPhase(timerDuration);
+        } else if (!isInteractiveSlide && isDecisionPhaseActive) {
+            console.log('[AppContext] Auto-deactivating decision phase for non-interactive slide');
+            deactivateDecisionPhase();
+        }
+    }, [gameController.currentPhaseNode, gameController.currentSlideData, isDecisionPhaseActive, activateDecisionPhase, deactivateDecisionPhase]);
 
     // KPI Effects Processing
     const applyKpiEffects = useCallback((currentKpisInput: TeamRoundData, effects: KpiEffect[]): TeamRoundData => {
@@ -465,7 +551,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         }
     }, [currentDbSession?.id, resetTeamDecisionInDb]);
 
-    // Combined app state - REMOVED VIDEO STATE REFERENCES
+    // Combined app state
     const combinedAppState: AppState = useMemo(() => ({
         currentSessionId: currentDbSession?.id || null,
         gameStructure: gameStructureInstance,
@@ -519,10 +605,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({children, passedSession
         calculateAndFinalizeRoundKPIs: calculateAndFinalizeRoundKPIsInternal,
         resetGameProgress: resetGameProgressInternal,
         isLoadingProcessingDecisions: isLoadingProcessing,
+        activateDecisionPhase,
+        deactivateDecisionPhase,
+        isDecisionPhaseActive,
     }), [combinedAppState, gameController, allPhasesInOrder, nextSlideWithProcessing, isLoadingSession,
         sessionError, clearSessionError, teams, teamDecisions, teamRoundData, isLoadingTeams,
         fetchWrapperTeams, resetWrapperTeamDecision, processInvestmentPayoffsInternal,
-        calculateAndFinalizeRoundKPIsInternal, resetGameProgressInternal, isLoadingProcessing]);
+        calculateAndFinalizeRoundKPIsInternal, resetGameProgressInternal, isLoadingProcessing,
+        activateDecisionPhase, deactivateDecisionPhase, isDecisionPhaseActive]);
 
     // Loading state
     if (contextValue.state.isLoading && (!passedSessionId || passedSessionId === 'new' ||
