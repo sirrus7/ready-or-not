@@ -1,5 +1,5 @@
-// src/components/Host/HostGameControls.tsx - Navigation Moved Under Content
-import React, { useState, useEffect, useRef } from 'react';
+// src/components/Host/HostGameControls.tsx - Refactored with BroadcastManager
+import React, { useState, useEffect } from 'react';
 import {
     Users,
     QrCode,
@@ -12,6 +12,7 @@ import { useAppContext } from '../../context/AppContext';
 import Modal from '../UI/Modal';
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
+import { useBroadcastManager, VideoState } from '../../utils/broadcastManager';
 
 const HostGameControls: React.FC = () => {
     const {
@@ -34,14 +35,16 @@ const HostGameControls: React.FC = () => {
     const [isPresentationDisplayOpen, setIsPresentationDisplayOpen] = useState(false);
 
     // Video state for display status only
-    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-    const [videoCurrentTime, setVideoCurrentTime] = useState(0);
-    const [videoDuration, setVideoDuration] = useState(0);
-    const [videoVolume, setVideoVolume] = useState(1);
+    const [videoState, setVideoState] = useState<VideoState>({
+        playing: false,
+        currentTime: 0,
+        duration: 0,
+        volume: 1,
+        lastUpdate: 0
+    });
 
-    const channelRef = useRef<BroadcastChannel | null>(null);
-    const pingIntervalRef = useRef<NodeJS.Timeout>();
-    const lastPongRef = useRef<number>(0);
+    // Use broadcast manager
+    const broadcastManager = useBroadcastManager(state.currentSessionId, 'host');
 
     const handleNotesToggle = () => setShowNotes(!showNotes);
 
@@ -59,109 +62,64 @@ const HostGameControls: React.FC = () => {
             currentSlideData.source_url?.match(/\.(mp4|webm|ogg)$/i))
     );
 
-    // Initialize BroadcastChannel when session is available
+    // Set up broadcast manager listeners
     useEffect(() => {
-        if (!state.currentSessionId) return;
+        if (!broadcastManager) return;
 
-        const channelName = `game-session-${state.currentSessionId}`;
-        const channel = new BroadcastChannel(channelName);
-        channelRef.current = channel;
+        // Monitor connection to presentation display
+        const unsubscribeConnection = broadcastManager.onConnectionChange((status) => {
+            const isPresentation = status.connectionType === 'presentation';
+            setIsPresentationDisplayOpen(status.isConnected && isPresentation);
+        });
 
-        // Listen for messages from presentation display
-        const handleMessage = (event: MessageEvent) => {
-            switch (event.data.type) {
-                case 'PONG':
-                    if (event.data.sessionId === state.currentSessionId) {
-                        lastPongRef.current = Date.now();
-                        setIsPresentationDisplayOpen(true);
-
-                        // Update video state from presentation display
-                        if (event.data.videoState) {
-                            setIsVideoPlaying(event.data.videoState.playing);
-                            setVideoCurrentTime(event.data.videoState.currentTime);
-                            setVideoDuration(event.data.videoState.duration);
-                            setVideoVolume(event.data.videoState.volume);
-                        }
-                    }
-                    break;
-
-                case 'VIDEO_STATE_UPDATE':
-                    if (event.data.sessionId === state.currentSessionId && event.data.videoState) {
-                        setIsVideoPlaying(event.data.videoState.playing);
-                        setVideoCurrentTime(event.data.videoState.currentTime);
-                        setVideoDuration(event.data.videoState.duration);
-                        setVideoVolume(event.data.videoState.volume);
-                    }
-                    break;
-
-                case 'PRESENTATION_READY':
-                    if (event.data.sessionId === state.currentSessionId) {
-                        setIsPresentationDisplayOpen(true);
-                        console.log('[HostGameControls] Presentation display connected');
-
-                        // Send current slide when presentation connects
-                        if (currentSlideData) {
-                            channel.postMessage({
-                                type: 'SLIDE_UPDATE',
-                                slide: currentSlideData,
-                                sessionId: state.currentSessionId,
-                                timestamp: Date.now()
-                            });
-                        }
-                    }
-                    break;
-
-                case 'REQUEST_CURRENT_STATE':
-                    if (event.data.sessionId === state.currentSessionId && currentSlideData) {
-                        channel.postMessage({
-                            type: 'SLIDE_UPDATE',
-                            slide: currentSlideData,
-                            sessionId: state.currentSessionId,
-                            timestamp: Date.now()
-                        });
-                    }
-                    break;
+        // Handle video state updates from presentation
+        const unsubscribeVideoState = broadcastManager.subscribe('VIDEO_STATE_UPDATE', (message) => {
+            if (message.videoState) {
+                setVideoState(message.videoState);
             }
-        };
+        });
 
-        channel.addEventListener('message', handleMessage);
-
-        // Set up ping to monitor presentation display connection
-        pingIntervalRef.current = setInterval(() => {
-            channel.postMessage({
-                type: 'PING',
-                sessionId: state.currentSessionId,
-                timestamp: Date.now()
-            });
-
-            // Check if we haven't received a pong in the last 5 seconds
-            if (Date.now() - lastPongRef.current > 5000) {
-                setIsPresentationDisplayOpen(false);
+        // Handle pong messages (which include video state)
+        const unsubscribePong = broadcastManager.subscribe('PONG', (message) => {
+            if (message.videoState) {
+                setVideoState(message.videoState);
             }
-        }, 2000);
+        });
+
+        // Handle presentation ready
+        const unsubscribeReady = broadcastManager.subscribe('PRESENTATION_READY', (message) => {
+            setIsPresentationDisplayOpen(true);
+            console.log('[HostGameControls] Presentation display connected');
+
+            // Send current slide when presentation connects
+            if (currentSlideData) {
+                broadcastManager.sendSlideUpdate(currentSlideData);
+            }
+        });
+
+        // Handle current state requests
+        const unsubscribeStateRequest = broadcastManager.subscribe('REQUEST_CURRENT_STATE', () => {
+            if (currentSlideData) {
+                broadcastManager.sendSlideUpdate(currentSlideData);
+            }
+        });
 
         return () => {
-            if (pingIntervalRef.current) {
-                clearInterval(pingIntervalRef.current);
-            }
-            channel.removeEventListener('message', handleMessage);
-            channel.close();
-            channelRef.current = null;
+            unsubscribeConnection();
+            unsubscribeVideoState();
+            unsubscribePong();
+            unsubscribeReady();
+            unsubscribeStateRequest();
         };
-    }, [state.currentSessionId, currentSlideData]);
+    }, [broadcastManager, currentSlideData]);
 
-    // Send slide update when current slide changes
+    // Send slide updates when current slide changes
     useEffect(() => {
-        if (channelRef.current && currentSlideData && state.currentSessionId) {
+        if (broadcastManager && currentSlideData) {
             console.log('[HostGameControls] Sending slide update:', currentSlideData.id);
-            channelRef.current.postMessage({
-                type: 'SLIDE_UPDATE',
-                slide: currentSlideData,
-                sessionId: state.currentSessionId,
-                timestamp: Date.now()
-            });
+            broadcastManager.sendSlideUpdate(currentSlideData);
         }
-    }, [currentSlideData, state.currentSessionId]);
+    }, [broadcastManager, currentSlideData]);
 
     const handleOpenDisplay = () => {
         if (!state.currentSessionId) {
@@ -176,13 +134,8 @@ const HostGameControls: React.FC = () => {
             console.log('[HostGameControls] Opened presentation display in new tab');
             // Give the new tab time to initialize before sending state
             setTimeout(() => {
-                if (channelRef.current && currentSlideData) {
-                    channelRef.current.postMessage({
-                        type: 'SLIDE_UPDATE',
-                        slide: currentSlideData,
-                        sessionId: state.currentSessionId,
-                        timestamp: Date.now()
-                    });
+                if (broadcastManager && currentSlideData) {
+                    broadcastManager.sendSlideUpdate(currentSlideData);
                 }
             }, 1000);
         } else {
@@ -190,18 +143,10 @@ const HostGameControls: React.FC = () => {
         }
     };
 
-    // Video control handlers - removed since video controls are now native
+    // Video control handlers
     const handleVideoControlCommand = (command: string, value?: number) => {
-        if (!channelRef.current || !state.currentSessionId) return;
-
-        channelRef.current.postMessage({
-            type: 'VIDEO_CONTROL',
-            sessionId: state.currentSessionId,
-            action: command,
-            value: value,
-            timestamp: Date.now(),
-            expectAck: true
-        });
+        if (!broadcastManager) return;
+        broadcastManager.sendVideoControl(command, value, true);
     };
 
     const openJoinInfoModal = () => setIsJoinCompanyModalOpen(true);
@@ -232,17 +177,9 @@ const HostGameControls: React.FC = () => {
     const confirmExitGame = () => {
         setisExitConfirmModalOpen(false);
 
-        // Notify presentation display that session is ending
-        if (channelRef.current && state.currentSessionId) {
-            channelRef.current.postMessage({
-                type: 'SESSION_ENDED',
-                sessionId: state.currentSessionId,
-                timestamp: Date.now()
-            });
-        }
-
-        if (pingIntervalRef.current) {
-            clearInterval(pingIntervalRef.current);
+        // Notify presentation display that session is ending via broadcast manager
+        if (broadcastManager) {
+            broadcastManager.broadcast('SESSION_ENDED', {});
         }
 
         navigate('/dashboard');
@@ -339,7 +276,6 @@ const HostGameControls: React.FC = () => {
                 )}
             </div>
 
-            {/* All existing modals remain the same... */}
             {/* Teacher Alert Modal */}
             {state.currentHostAlert && (
                 <Modal
