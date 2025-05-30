@@ -1,4 +1,4 @@
-// src/pages/TeamDisplayPage/index.tsx - Main orchestration component (100-150 lines)
+// src/pages/TeamDisplayPage/index.tsx - Updated with logout functionality
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { AlertTriangle, Smartphone } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useSupabaseConnection } from '../../utils/supabase';
 import { useTeamBroadcast } from './hooks/useTeamBroadcast';
 import { useDecisionSubmission } from './hooks/useDecisionSubmission';
 import TeamLogin from '../../components/Game/TeamLogin';
+import TeamLogout from '../../components/Game/TeamLogout';
 import TeamStatusDisplay from './components/TeamStatusDisplay';
 import DecisionModeContainer from './components/DecisionModeContainer';
 import ConnectionStatus from './components/ConnectionStatus';
@@ -41,6 +42,13 @@ const TeamDisplayPage: React.FC = () => {
         localStorage.setItem(`ron_teamName_${sessionId}`, teamName);
         setLoggedInTeamId(teamId);
         setLoggedInTeamName(teamName);
+    };
+
+    // Handle logout
+    const handleLogout = () => {
+        setLoggedInTeamId(null);
+        setLoggedInTeamName(null);
+        // localStorage is cleared by the TeamLogout component
     };
 
     // Show connection error prominently
@@ -81,6 +89,13 @@ const TeamDisplayPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col touch-manipulation">
+            {/* Team Logout Button */}
+            <TeamLogout
+                teamName={loggedInTeamName}
+                sessionId={sessionId}
+                onLogout={handleLogout}
+            />
+
             {/* Team Status (KPIs) - Fixed header */}
             <TeamStatusDisplay
                 teamName={loggedInTeamName}
