@@ -1,22 +1,35 @@
-// src/utils/supabase/index.ts - Main exports
-// Clean, organized exports by service
+// src/utils/supabase/index.ts - Complete Supabase Integration
+// Clean, organized exports with enhanced functionality
 
 // Core client
 export { supabase } from './client';
 
-// Database operations (organized by domain)
-export { db, formatSupabaseError, withRetry } from './database';
+// Enhanced database operations
+export {
+    db,
+    formatSupabaseError,
+    withRetry,
+    callRPC
+} from './database';
+
+// Enhanced connection monitoring
+export {
+    useSupabaseConnection,
+    useSupabaseMetrics,
+    type ConnectionStatus,
+    type ConnectionMetrics
+} from './connection';
 
 // Realtime subscriptions
-export { createChannel, useRealtimeSubscription } from './realtime';
+export {
+    createChannel,
+    useRealtimeSubscription
+} from './realtime';
 
-// Connection monitoring
-export { useSupabaseConnection, type ConnectionStatus } from './connection';
-
-// Auth operations (for future expansion)
+// Auth operations
 export { auth } from './auth';
 
-// Legacy compatibility exports (can remove after migration)
+// Legacy compatibility (deprecated - will be removed in future version)
 export const addConnectionListener = () => {
     console.warn('[Supabase] addConnectionListener deprecated. Use useSupabaseConnection hook.');
     return () => {};
@@ -26,5 +39,3 @@ export const getConnectionStatus = () => {
     console.warn('[Supabase] getConnectionStatus deprecated. Use useSupabaseConnection hook.');
     return { status: 'connected', isConnected: true, lastConnectionTime: Date.now() };
 };
-
-export const createMonitoredChannel = createChannel; // Alias
