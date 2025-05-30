@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
 import LeaderboardChartDisplay from './LeaderboardChartDisplay';
-import { isVideo, useVideoSync } from "../../utils/videoUtils";
+import { isVideo, useVideoSync } from "../../utils/video";
 
 interface SlideRendererProps {
     slide: Slide | null;

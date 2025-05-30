@@ -3,7 +3,7 @@ import React from 'react';
 import SlideRenderer from './SlideRenderer';
 import { Slide } from '../../types';
 import { Hourglass, Monitor, Video } from 'lucide-react';
-import { isVideo } from "../../utils/videoUtils";
+import { isVideo } from "../../utils/video";
 
 interface DisplayViewProps {
     slide: Slide | null;
