@@ -118,7 +118,29 @@ export const db = {
                 if (error) throw error;
                 return data;
             });
-        }
+        },
+
+        async getByTeacher(teacherId: string) {
+            return withRetry(async () => {
+                const { data, error } = await supabase
+                    .from('sessions')
+                    .select('*')
+                    .eq('teacher_id', teacherId)
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                return data || [];
+            });
+        },
+
+        async delete(sessionId: string) {
+            return withRetry(async () => {
+                const { error } = await supabase
+                    .from('sessions')
+                    .delete()
+                    .eq('id', sessionId);
+                if (error) throw error;
+            });
+        },
     },
 
     // Team decisions domain
@@ -156,6 +178,18 @@ export const db = {
                     });
                 if (error) throw error;
                 return data && data.length > 0 ? data[0] : null;
+            });
+        },
+
+        async create(decisionData: any) {
+            return withRetry(async () => {
+                const { data, error } = await supabase
+                    .from('team_decisions')
+                    .insert(decisionData)
+                    .select()
+                    .single();
+                if (error) throw error;
+                return data;
             });
         }
     },
