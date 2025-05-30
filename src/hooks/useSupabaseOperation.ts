@@ -1,5 +1,5 @@
 // src/hooks/useSupabaseOperation.ts - Enhanced Error Handling for Supabase Operations
-import { useState, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { formatSupabaseError } from '../utils/supabase';
 
 export interface OperationState<T = any> {
@@ -281,12 +281,12 @@ export const useSupabaseQuery = <T = any>(
     });
 
     // Auto-execute when dependencies change
-    React.useEffect(() => {
+    useEffect(() => {
         operation.execute();
     }, dependencies);
 
     // Cleanup on unmount
-    React.useEffect(() => {
+    useEffect(() => {
         return operation.cleanup;
     }, []);
 
