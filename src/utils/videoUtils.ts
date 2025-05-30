@@ -1,4 +1,4 @@
-// src/utils/videoUtils.ts - Simplified Unified Video System
+// src/utils/videoUtils.ts - Fixed Unified Video System
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useBroadcastManager } from './broadcastManager';
 
@@ -24,6 +24,7 @@ export interface UseVideoSyncConfig {
     allowHostAudio?: boolean;
     enableNativeControls?: boolean;
     onHostVideoClick?: (willPlay: boolean) => void;
+    videoUrl?: string; // Add video URL to detect changes
 }
 
 // Simple video detection
@@ -52,7 +53,8 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
         mode,
         allowHostAudio = false,
         enableNativeControls = false,
-        onHostVideoClick
+        onHostVideoClick,
+        videoUrl
     } = config;
 
     // State and refs
@@ -61,6 +63,9 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
     const [isConnectedToPresentation, setIsConnectedToPresentation] = useState(false);
     const lastCommandTimeRef = useRef<number>(0);
     const ignoreEventsRef = useRef<boolean>(false);
+    const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const lastVideoUrlRef = useRef<string | undefined>(undefined);
+    const hasAutoPlayedRef = useRef<boolean>(false);
 
     // Broadcast manager
     const broadcastManager = useBroadcastManager(
@@ -91,7 +96,7 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
         };
     }, []);
 
-    // Execute video command
+    // Execute video command with proper event handling
     const executeCommand = useCallback(async (
         action: 'play' | 'pause' | 'seek',
         value?: number
@@ -105,11 +110,15 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
         try {
             switch (action) {
                 case 'play':
-                    if (value !== undefined) video.currentTime = value;
+                    if (value !== undefined && Math.abs(video.currentTime - value) > 0.5) {
+                        video.currentTime = value;
+                    }
                     await video.play();
                     return true;
                 case 'pause':
-                    if (value !== undefined) video.currentTime = value;
+                    if (value !== undefined && Math.abs(video.currentTime - value) > 0.5) {
+                        video.currentTime = value;
+                    }
                     video.pause();
                     return true;
                 case 'seek':
@@ -126,21 +135,47 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
         }
     }, []);
 
+    // Auto-play logic for new videos
+    const handleAutoPlay = useCallback(async () => {
+        if (hasAutoPlayedRef.current || !videoRef.current) return;
+
+        const video = videoRef.current;
+        if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+            hasAutoPlayedRef.current = true;
+
+            try {
+                if (mode === 'host' && isConnectedToPresentation) {
+                    // In dual mode, send play command to both
+                    broadcastManager?.sendVideoControl('play', 0);
+                } else {
+                    // Host only mode or master mode
+                    await video.play();
+                }
+            } catch (error) {
+                console.warn('[VideoSync] Auto-play failed:', error);
+            }
+        }
+    }, [mode, isConnectedToPresentation, broadcastManager]);
+
     // Control functions
     const play = useCallback(async (time?: number): Promise<boolean> => {
+        const currentTime = time ?? videoState.currentTime;
+
         if (mode === 'host' && isConnectedToPresentation && broadcastManager) {
-            broadcastManager.sendVideoControl('play', time || videoState.currentTime);
+            broadcastManager.sendVideoControl('play', currentTime);
             return true;
         }
-        return executeCommand('play', time);
+        return executeCommand('play', currentTime);
     }, [mode, isConnectedToPresentation, broadcastManager, videoState.currentTime, executeCommand]);
 
     const pause = useCallback(async (time?: number): Promise<boolean> => {
+        const currentTime = time ?? videoState.currentTime;
+
         if (mode === 'host' && isConnectedToPresentation && broadcastManager) {
-            broadcastManager.sendVideoControl('pause', time || videoState.currentTime);
+            broadcastManager.sendVideoControl('pause', currentTime);
             return true;
         }
-        return executeCommand('pause', time);
+        return executeCommand('pause', currentTime);
     }, [mode, isConnectedToPresentation, broadcastManager, videoState.currentTime, executeCommand]);
 
     const seek = useCallback(async (time: number): Promise<boolean> => {
@@ -152,12 +187,71 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
     }, [mode, isConnectedToPresentation, broadcastManager, executeCommand]);
 
     // Handle video clicks
-    const handleVideoClick = useCallback(() => {
+    const handleVideoClick = useCallback(async () => {
         if (mode === 'host' && onHostVideoClick && !enableNativeControls) {
             const willPlay = !videoState.playing;
             onHostVideoClick(willPlay);
+
+            // Execute the action
+            if (willPlay) {
+                await play();
+            } else {
+                await pause();
+            }
         }
-    }, [mode, onHostVideoClick, enableNativeControls, videoState.playing]);
+    }, [mode, onHostVideoClick, enableNativeControls, videoState.playing, play, pause]);
+
+    // Sync correction logic
+    const correctSync = useCallback((remoteState: VideoState) => {
+        const video = videoRef.current;
+        if (!video || ignoreEventsRef.current) return;
+
+        const timeDiff = Math.abs(video.currentTime - remoteState.currentTime);
+        const playStateDiff = (!video.paused) !== remoteState.playing;
+
+        // Only sync if difference is significant (> 1 second) or play state differs
+        if (timeDiff > 1.0 || playStateDiff) {
+            console.log('[VideoSync] Correcting sync - time diff:', timeDiff, 'play diff:', playStateDiff);
+
+            ignoreEventsRef.current = true;
+
+            // Correct time if needed
+            if (timeDiff > 1.0) {
+                video.currentTime = remoteState.currentTime;
+            }
+
+            // Correct play state
+            if (playStateDiff) {
+                if (remoteState.playing && video.paused) {
+                    video.play().catch(console.error);
+                } else if (!remoteState.playing && !video.paused) {
+                    video.pause();
+                }
+            }
+
+            setTimeout(() => {
+                ignoreEventsRef.current = false;
+            }, 500);
+
+            updateVideoState(remoteState);
+        }
+    }, [updateVideoState]);
+
+    // Reset state when video URL changes
+    useEffect(() => {
+        if (videoUrl !== lastVideoUrlRef.current) {
+            console.log('[VideoSync] Video URL changed, resetting state');
+            lastVideoUrlRef.current = videoUrl;
+            hasAutoPlayedRef.current = false;
+            updateVideoState(createInitialVideoState());
+
+            // Clear any pending sync operations
+            if (syncTimeoutRef.current) {
+                clearTimeout(syncTimeoutRef.current);
+                syncTimeoutRef.current = null;
+            }
+        }
+    }, [videoUrl, updateVideoState]);
 
     // Setup video event listeners
     useEffect(() => {
@@ -166,6 +260,7 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
 
         const handlePlay = () => {
             if (ignoreEventsRef.current) return;
+            console.log('[VideoSync] Video play event');
             updateVideoState({ playing: true });
             if (mode === 'master' && broadcastManager) {
                 const state = getCurrentState();
@@ -175,6 +270,7 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
 
         const handlePause = () => {
             if (ignoreEventsRef.current) return;
+            console.log('[VideoSync] Video pause event');
             updateVideoState({ playing: false });
             if (mode === 'master' && broadcastManager) {
                 const state = getCurrentState();
@@ -197,15 +293,21 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
         };
 
         const handleLoadedMetadata = () => {
+            console.log('[VideoSync] Video metadata loaded');
             updateVideoState({
                 duration: video.duration || 0,
                 currentTime: video.currentTime,
                 volume: video.volume
             });
-            if (mode === 'master' && broadcastManager) {
-                const state = getCurrentState();
-                if (state) broadcastManager.sendVideoState(state);
-            }
+
+            // Trigger auto-play check
+            setTimeout(handleAutoPlay, 100);
+        };
+
+        const handleCanPlay = () => {
+            console.log('[VideoSync] Video can play');
+            // Additional auto-play opportunity
+            setTimeout(handleAutoPlay, 50);
         };
 
         // Add listeners
@@ -213,14 +315,16 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
         video.addEventListener('pause', handlePause);
         video.addEventListener('timeupdate', handleTimeUpdate);
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
+        video.addEventListener('canplay', handleCanPlay);
 
         return () => {
             video.removeEventListener('play', handlePlay);
             video.removeEventListener('pause', handlePause);
             video.removeEventListener('timeupdate', handleTimeUpdate);
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('canplay', handleCanPlay);
         };
-    }, [mode, broadcastManager, updateVideoState, getCurrentState, videoState.lastUpdate]);
+    }, [mode, broadcastManager, updateVideoState, getCurrentState, videoState.lastUpdate, handleAutoPlay]);
 
     // Setup broadcast listeners
     useEffect(() => {
@@ -229,13 +333,16 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
         const subscriptions: Array<() => void> = [];
 
         if (mode === 'master') {
-            // Listen for video commands
+            // Listen for video commands from host
             subscriptions.push(
                 broadcastManager.subscribe('VIDEO_CONTROL', async (message) => {
                     const { action, value } = message;
+                    console.log('[VideoSync] Master received command:', action, value);
                     await executeCommand(action as any, value);
                 })
             );
+
+            // Announce presentation ready
             broadcastManager.announcePresentation();
         }
 
@@ -243,48 +350,56 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
             // Listen for presentation connection
             subscriptions.push(
                 broadcastManager.subscribe('PRESENTATION_READY', () => {
+                    console.log('[VideoSync] Presentation display connected');
                     setIsConnectedToPresentation(true);
-                    const state = getCurrentState();
-                    if (state) {
-                        setTimeout(() => broadcastManager.sendInitialVideoState(state), 300);
+
+                    // Send initial state to presentation
+                    const currentState = getCurrentState();
+                    if (currentState) {
+                        // Pause both videos when presentation connects
+                        if (currentState.playing) {
+                            executeCommand('pause', currentState.currentTime);
+                        }
+
+                        setTimeout(() => {
+                            broadcastManager.sendInitialVideoState({
+                                ...currentState,
+                                playing: false // Force both to pause initially
+                            });
+                        }, 300);
                     }
                 })
             );
 
-            // Monitor connection
+            // Monitor connection status
             subscriptions.push(
                 broadcastManager.onConnectionChange((status) => {
-                    setIsConnectedToPresentation(
-                        status.isConnected && status.connectionType === 'presentation'
-                    );
+                    const wasConnected = isConnectedToPresentation;
+                    const nowConnected = status.isConnected && status.connectionType === 'presentation';
+
+                    setIsConnectedToPresentation(nowConnected);
+
+                    // Handle disconnection - restore host audio
+                    if (wasConnected && !nowConnected) {
+                        console.log('[VideoSync] Presentation disconnected, restoring host audio');
+                        const video = videoRef.current;
+                        if (video && allowHostAudio) {
+                            video.muted = false;
+                        }
+                    }
                 })
             );
 
-            // Listen for video state updates
+            // Listen for video state updates from presentation
             subscriptions.push(
                 broadcastManager.subscribe('VIDEO_STATE_UPDATE', (message) => {
-                    if (message.videoState && mode === 'host') {
+                    if (message.videoState) {
                         const remoteState = message.videoState;
                         const timeSinceCommand = Date.now() - lastCommandTimeRef.current;
 
-                        // Sync if we haven't sent a command recently
-                        if (timeSinceCommand > 1000 && videoRef.current) {
-                            const video = videoRef.current;
-                            const timeDiff = Math.abs(video.currentTime - remoteState.currentTime);
-
-                            // Sync time if needed
-                            if (timeDiff > 0.5) {
-                                video.currentTime = remoteState.currentTime;
-                            }
-
-                            // Sync play state
-                            if (remoteState.playing && video.paused) {
-                                video.play().catch(console.error);
-                            } else if (!remoteState.playing && !video.paused) {
-                                video.pause();
-                            }
-
-                            updateVideoState(remoteState);
+                        // Only sync if we haven't sent a command recently
+                        if (timeSinceCommand > 1000) {
+                            correctSync(remoteState);
                         }
                     }
                 })
@@ -294,9 +409,9 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
         return () => {
             subscriptions.forEach(unsubscribe => unsubscribe());
         };
-    }, [broadcastManager, mode, executeCommand, getCurrentState, updateVideoState]);
+    }, [broadcastManager, mode, executeCommand, getCurrentState, isConnectedToPresentation, correctSync, allowHostAudio]);
 
-    // Generate video props
+    // Generate video props with proper audio handling
     const getVideoProps = useCallback(() => {
         const shouldHaveAudio = mode === 'master' ||
             (mode === 'host' && allowHostAudio && !isConnectedToPresentation);
@@ -305,7 +420,7 @@ export const useVideoSync = (config: UseVideoSyncConfig) => {
             ref: videoRef,
             playsInline: true,
             controls: enableNativeControls,
-            autoPlay: false,
+            autoPlay: false, // We handle auto-play manually
             muted: !shouldHaveAudio,
             preload: 'auto',
             onClick: mode === 'host' && !enableNativeControls ? handleVideoClick : undefined,

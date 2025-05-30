@@ -1,8 +1,8 @@
-// src/components/Display/DisplayView.tsx - Refactored with Simplified Video System
+// src/components/Display/DisplayView.tsx - Fixed with Enhanced Video System
 import React from 'react';
 import SlideRenderer from './SlideRenderer';
 import { Slide } from '../../types';
-import { Hourglass, Monitor } from 'lucide-react';
+import { Hourglass, Monitor, Video } from 'lucide-react';
 import { isVideo } from "../../utils/videoUtils";
 
 interface DisplayViewProps {
@@ -21,9 +21,11 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
     // Check if current slide has a video
     const isVideoSlide = isVideo(slide?.source_url);
 
-    // Handle host video click - send command to presentation if connected
+    // Handle host video click - now properly integrated
     const handleHostVideoClick = (willPlay: boolean) => {
         console.log(`[DisplayView] Host video click - will play: ${willPlay}`);
+        // The actual video control is now handled by useVideoSync hook
+        // This is just for logging/feedback purposes
     };
 
     if (!slide) {
@@ -47,11 +49,20 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
                         <Monitor size={14} />
                         <span>Host Preview Mode</span>
                         {isVideoSlide && (
-                            <div className="ml-2 text-xs opacity-75">
-                                Video: Click to control
+                            <div className="ml-2 text-xs opacity-75 flex items-center gap-1">
+                                <Video size={12} />
+                                Click to control
                             </div>
                         )}
                     </div>
+                    <div className="mt-1 text-xs opacity-75">
+                        Slide: {slide.id} | Type: {slide.type}
+                    </div>
+                    {sessionId && (
+                        <div className="text-xs opacity-75">
+                            Session: {sessionId.substring(0, 8)}...
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -62,6 +73,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
                 videoMode="host"
                 onHostVideoClick={handleHostVideoClick}
                 allowHostAudio={true} // Host can have audio when presentation not connected
+                enableNativeControls={false} // Use custom click handling
             />
         </div>
     );

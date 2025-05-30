@@ -1,9 +1,9 @@
-// src/pages/PresentationPage.tsx - Refactored with Simplified Video System
+// src/pages/PresentationPage.tsx - Fixed with Enhanced Connection and Video Handling
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Slide } from '../types';
 import SlideRenderer from '../components/Display/SlideRenderer';
-import { Hourglass, Monitor, RefreshCw } from 'lucide-react';
+import { Hourglass, Monitor, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { useBroadcastManager } from '../utils/broadcastManager';
 
 const PresentationPage: React.FC = () => {
@@ -12,63 +12,97 @@ const PresentationPage: React.FC = () => {
     const [isConnectedToHost, setIsConnectedToHost] = useState(false);
     const [statusMessage, setStatusMessage] = useState('Connecting to session...');
     const [connectionError, setConnectionError] = useState(false);
+    const [connectionAttempts, setConnectionAttempts] = useState(0);
 
     // Broadcast manager for host communication only
     const broadcastManager = useBroadcastManager(sessionId || null, 'presentation');
 
     // Set up broadcast manager listeners for slide updates
     useEffect(() => {
-        if (!broadcastManager) return;
+        if (!broadcastManager || !sessionId) return;
 
-        console.log(`[PresentationPage] Setting up broadcast listeners`);
+        console.log(`[PresentationPage] Setting up broadcast listeners for session ${sessionId}`);
 
         // Handle slide updates from host
         const unsubscribeSlideUpdate = broadcastManager.subscribe('SLIDE_UPDATE', (message) => {
+            console.log('[PresentationPage] Received slide update:', message.slide?.id);
             setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
             setCurrentSlide(message.slide);
             setConnectionError(false);
-            console.log('[PresentationPage] Slide updated:', message.slide?.id);
+            setConnectionAttempts(0);
         });
 
         // Handle current state requests from host
         const unsubscribeStateRequest = broadcastManager.subscribe('REQUEST_CURRENT_STATE', () => {
+            console.log('[PresentationPage] Host requesting current state');
             broadcastManager.broadcast('STATE_RESPONSE', {
-                slide: currentSlide
+                slide: currentSlide,
+                connectionType: 'presentation'
             });
         });
 
         // Handle session ended
         const unsubscribeSessionEnded = broadcastManager.subscribe('SESSION_ENDED', () => {
+            console.log('[PresentationPage] Session ended by host');
             setCurrentSlide(null);
             setIsConnectedToHost(false);
-            setStatusMessage('Session has ended');
+            setStatusMessage('Session has ended by facilitator');
+            setConnectionError(false);
         });
 
-        // Connection monitoring
+        // Enhanced connection monitoring
         const unsubscribeConnection = broadcastManager.onConnectionChange((status) => {
             const isHost = status.connectionType === 'host';
-            setIsConnectedToHost(status.isConnected && isHost);
-            setConnectionError(!status.isConnected);
+            const nowConnected = status.isConnected && isHost;
+            const wasConnected = isConnectedToHost;
+
+            console.log('[PresentationPage] Connection status changed:', status);
+
+            setIsConnectedToHost(nowConnected);
 
             if (!status.isConnected) {
-                setStatusMessage('Lost connection to host. Please check the host dashboard.');
+                setConnectionError(true);
+                if (wasConnected) {
+                    setStatusMessage('Lost connection to host. Attempting to reconnect...');
+                } else {
+                    setStatusMessage('Unable to connect to host. Please ensure the host dashboard is open.');
+                }
+            } else if (nowConnected && !wasConnected) {
+                setConnectionError(false);
+                setStatusMessage('Connected to host. Waiting for content...');
+                setConnectionAttempts(0);
             }
         });
 
         // Announce that presentation display is ready
+        console.log('[PresentationPage] Announcing presentation ready');
         broadcastManager.announcePresentation();
 
         // Request current state from host
-        broadcastManager.requestCurrentState();
+        setTimeout(() => {
+            broadcastManager.requestCurrentState();
+        }, 500);
 
-        // Set up connection timeout
+        // Set up connection timeout with retry logic
         const connectionTimeout = setTimeout(() => {
             if (!isConnectedToHost) {
-                setStatusMessage('Connection timeout. Please ensure the host dashboard is open.');
-                setConnectionError(true);
+                const attempts = connectionAttempts + 1;
+                setConnectionAttempts(attempts);
+
+                if (attempts < 3) {
+                    setStatusMessage(`Connection attempt ${attempts}/3. Retrying...`);
+                    // Retry connection
+                    setTimeout(() => {
+                        broadcastManager.announcePresentation();
+                        broadcastManager.requestCurrentState();
+                    }, 1000);
+                } else {
+                    setStatusMessage('Connection timeout. Please ensure the host dashboard is open and try refreshing this page.');
+                    setConnectionError(true);
+                }
             }
-        }, 5000);
+        }, 3000 + (connectionAttempts * 2000)); // Progressive timeout
 
         return () => {
             clearTimeout(connectionTimeout);
@@ -77,44 +111,100 @@ const PresentationPage: React.FC = () => {
             unsubscribeSessionEnded();
             unsubscribeConnection();
         };
-    }, [broadcastManager, isConnectedToHost, currentSlide]);
+    }, [broadcastManager, sessionId, isConnectedToHost, currentSlide, connectionAttempts]);
+
+    // Periodic connection health check
+    useEffect(() => {
+        if (!broadcastManager || !isConnectedToHost) return;
+
+        const healthCheck = setInterval(() => {
+            broadcastManager.broadcast('PRESENTATION_HEARTBEAT', {
+                connectionType: 'presentation',
+                timestamp: Date.now()
+            });
+        }, 10000); // Every 10 seconds
+
+        return () => clearInterval(healthCheck);
+    }, [broadcastManager, isConnectedToHost]);
+
+    // Handle page visibility changes
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && broadcastManager && !isConnectedToHost) {
+                console.log('[PresentationPage] Page became visible, attempting reconnection');
+                broadcastManager.announcePresentation();
+                broadcastManager.requestCurrentState();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [broadcastManager, isConnectedToHost]);
 
     // Loading/Connection State
     if (!isConnectedToHost || !currentSlide) {
         return (
             <div className="h-screen w-screen bg-gray-900 flex items-center justify-center relative">
-                <div className="text-center text-white p-8">
+                <div className="text-center text-white p-8 max-w-md">
                     {connectionError ? (
                         <>
                             <Monitor size={48} className="mx-auto mb-4 text-red-400"/>
                             <h1 className="text-2xl font-bold mb-2 text-red-300">Connection Issue</h1>
                             <p className="text-lg text-gray-300 mb-4">{statusMessage}</p>
-                            <button
-                                onClick={() => window.location.reload()}
-                                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg mx-auto transition-colors"
-                            >
-                                <RefreshCw size={16} />
-                                Reload Page
-                            </button>
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={() => {
+                                        setConnectionError(false);
+                                        setConnectionAttempts(0);
+                                        setStatusMessage('Reconnecting...');
+                                        if (broadcastManager) {
+                                            broadcastManager.announcePresentation();
+                                            broadcastManager.requestCurrentState();
+                                        }
+                                    }}
+                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg mx-auto transition-colors"
+                                >
+                                    <RefreshCw size={16} />
+                                    Retry Connection
+                                </button>
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg mx-auto transition-colors"
+                                >
+                                    <RefreshCw size={16} />
+                                    Reload Page
+                                </button>
+                            </div>
                         </>
                     ) : (
                         <>
                             <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse"/>
                             <h1 className="text-2xl font-bold mb-2">Presentation Display</h1>
-                            <p className="text-lg text-gray-300">{statusMessage}</p>
+                            <p className="text-lg text-gray-300 mb-2">{statusMessage}</p>
                             {sessionId && (
                                 <p className="text-sm text-gray-500 mt-4">
                                     Session ID: {sessionId}
                                 </p>
                             )}
-                            <div className="mt-8 text-sm text-gray-400">
-                                <p className="flex items-center justify-center">
-                                    <Monitor size={16} className="mr-2"/>
-                                    Waiting for host to start content display
+                            <div className="mt-6 text-sm text-gray-400">
+                                <div className="flex items-center justify-center gap-2 mb-2">
+                                    {isConnectedToHost ? (
+                                        <Wifi size={16} className="text-green-400"/>
+                                    ) : (
+                                        <WifiOff size={16} className="text-red-400"/>
+                                    )}
+                                    <span>
+                                        {isConnectedToHost ? 'Connected to host' : 'Waiting for host connection'}
+                                    </span>
+                                </div>
+                                <p className="text-xs">
+                                    Make sure the host dashboard is open and active
                                 </p>
-                                <p className="mt-2 text-xs">
-                                    Make sure the host dashboard is open in another tab
-                                </p>
+                                {connectionAttempts > 0 && (
+                                    <p className="text-xs mt-1 text-yellow-400">
+                                        Attempt {connectionAttempts}/3
+                                    </p>
+                                )}
                             </div>
                         </>
                     )}
@@ -132,12 +222,33 @@ const PresentationPage: React.FC = () => {
                 videoMode="master" // Master mode: controls video and broadcasts state
             />
 
+            {/* Connection status indicator */}
+            <div className="absolute top-4 right-4 z-20">
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    isConnectedToHost
+                        ? 'bg-green-900/80 text-green-300 border border-green-700'
+                        : 'bg-red-900/80 text-red-300 border border-red-700'
+                }`}>
+                    <div className="flex items-center gap-2">
+                        {isConnectedToHost ? (
+                            <Wifi size={12} className="text-green-400"/>
+                        ) : (
+                            <WifiOff size={12} className="text-red-400"/>
+                        )}
+                        <span>
+                            {isConnectedToHost ? 'Live' : 'Disconnected'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
             {/* Development debug info only */}
             {process.env.NODE_ENV === 'development' && currentSlide && (
                 <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs z-20">
                     <div>Slide: {currentSlide.id}</div>
                     <div>Mode: Master (Presentation Display)</div>
                     <div>Connected: {isConnectedToHost ? 'Yes' : 'No'}</div>
+                    <div>Session: {sessionId?.substring(0, 8)}...</div>
                 </div>
             )}
         </div>

@@ -1,5 +1,5 @@
-// src/components/Display/SlideRenderer.tsx - Refactored with Simplified Video System
-import React, { useState } from 'react';
+// src/components/Display/SlideRenderer.tsx - Fixed with Enhanced Video System
+import React, { useState, useEffect } from 'react';
 import { Slide } from '../../types';
 import { Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw } from 'lucide-react';
 import LeaderboardChartDisplay from './LeaderboardChartDisplay';
@@ -27,6 +27,16 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                      }) => {
     const [videoError, setVideoError] = useState(false);
     const [showPlayIcon, setShowPlayIcon] = useState(false);
+    const [lastSlideId, setLastSlideId] = useState<number | null>(null);
+
+    // Detect slide changes and reset video error state
+    useEffect(() => {
+        if (slide?.id !== lastSlideId) {
+            setLastSlideId(slide?.id || null);
+            setVideoError(false);
+            setShowPlayIcon(false);
+        }
+    }, [slide?.id, lastSlideId]);
 
     // Unified video management
     const { videoState, getVideoProps } = useVideoSync({
@@ -34,6 +44,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         mode: videoMode,
         allowHostAudio,
         enableNativeControls,
+        videoUrl: slide?.source_url, // Pass video URL to detect changes
         onHostVideoClick: (willPlay) => {
             // Show visual feedback
             setShowPlayIcon(true);
@@ -96,18 +107,24 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 src={slide.source_url}
                 {...getVideoProps()}
                 onError={() => setVideoError(true)}
+                onLoadStart={() => {
+                    console.log('[SlideRenderer] Video load started for slide:', slide.id);
+                }}
+                onCanPlay={() => {
+                    console.log('[SlideRenderer] Video can play for slide:', slide.id);
+                }}
             >
                 Your browser does not support the video tag.
             </video>
         );
 
-        // Add click overlay for host mode
+        // Add click overlay and play icon for host mode
         if (videoMode === 'host' && !enableNativeControls && onHostVideoClick) {
             return (
-                <div className="relative">
+                <div className="relative h-full w-full flex items-center justify-center">
                     {videoElement}
                     {showPlayIcon && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                             <div className="bg-black/60 rounded-full p-4 backdrop-blur-sm animate-in fade-in duration-200">
                                 {videoState.playing ? (
                                     <Pause size={48} className="text-white" />
@@ -117,11 +134,31 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             </div>
                         </div>
                     )}
+                    {/* Debug info for development */}
+                    {process.env.NODE_ENV === 'development' && (
+                        <div className="absolute top-4 right-4 bg-black/60 text-white text-xs p-2 rounded">
+                            <div>Mode: {videoMode}</div>
+                            <div>Playing: {videoState.playing ? 'Yes' : 'No'}</div>
+                            <div>Time: {Math.round(videoState.currentTime)}s</div>
+                        </div>
+                    )}
                 </div>
             );
         }
 
-        return videoElement;
+        return (
+            <div className="h-full w-full flex items-center justify-center">
+                {videoElement}
+                {/* Debug info for development */}
+                {process.env.NODE_ENV === 'development' && (
+                    <div className="absolute top-4 right-4 bg-black/60 text-white text-xs p-2 rounded">
+                        <div>Mode: {videoMode}</div>
+                        <div>Playing: {videoState.playing ? 'Yes' : 'No'}</div>
+                        <div>Time: {Math.round(videoState.currentTime)}s</div>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const renderContent = () => {
@@ -131,11 +168,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     return <div className="text-red-500 p-4 text-center">Image source missing for slide ID: {slide.id}.</div>;
                 }
                 return (
-                    <img
-                        src={slide.source_url}
-                        alt={slide.title || 'Slide Image'}
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                    />
+                    <div className="h-full w-full flex items-center justify-center p-4">
+                        <img
+                            src={slide.source_url}
+                            alt={slide.title || 'Slide Image'}
+                            className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                        />
+                    </div>
                 );
 
             case 'leaderboard_chart':
@@ -157,7 +196,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     };
 
     return (
-        <div className={`h-full w-full flex flex-col items-center justify-center text-white p-4 md:p-6 overflow-hidden ${slide?.background_css || 'bg-gray-900'}`}>
+        <div className={`h-full w-full flex flex-col items-center justify-center text-white overflow-hidden ${slide?.background_css || 'bg-gray-900'}`}>
             {renderContent()}
         </div>
     );
