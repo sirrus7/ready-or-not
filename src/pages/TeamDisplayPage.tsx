@@ -1,4 +1,4 @@
-// src/pages/TeamDisplayPage.tsx - Refactored with BroadcastManager
+// src/pages/TeamDisplayPage.tsx - Refactored with New Supabase Structure
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import TeamLogin from '../components/Game/TeamLogin';
@@ -12,7 +12,7 @@ import {
     HostBroadcastPayload,
     TeamRoundData
 } from '../types';
-import {addConnectionListener, supabase} from '../lib/supabase';
+import {db, formatSupabaseError, useSupabaseConnection} from '../utils/supabase';
 import {readyOrNotGame_2_0_DD} from '../data/gameStructure';
 import {AlertTriangle, CheckCircle, Hourglass, Smartphone} from 'lucide-react';
 import { useBroadcastManager } from '../utils/broadcastManager';
@@ -47,7 +47,7 @@ const TeamDisplayPage: React.FC = () => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const isTablet = /iPad|Android.*(?:(?!Mobile)|(?=.*Tablet))|KFAPWI/i.test(navigator.userAgent);
 
-    const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<string>('disconnected');
+    const connection = useSupabaseConnection();
 
     // Set initial viewport for mobile
     useEffect(() => {
@@ -79,36 +79,6 @@ const TeamDisplayPage: React.FC = () => {
         decisionPhaseTimerEndTimeRef.current = decisionPhaseTimerEndTime;
     }, [decisionPhaseTimerEndTime]);
 
-    // Supabase connection monitoring (keep existing logic)
-    useEffect(() => {
-        let connectionCleanup: (() => void) | null = null;
-
-        try {
-            connectionCleanup = addConnectionListener((status) => {
-                console.log(`[TeamDisplayPage] Supabase connection status: ${status}`);
-                setSupabaseConnectionStatus(status);
-
-                if (status === 'error') {
-                    setTimeout(() => {
-                        if (supabaseConnectionStatus === 'error') {
-                            setPageError("Connection to game server lost. Please refresh the page.");
-                        }
-                    }, 5000);
-                } else if (status === 'connected') {
-                    setPageError(null);
-                }
-            });
-        } catch (err) {
-            console.warn('[TeamDisplayPage] Connection listener setup failed:', err);
-        }
-
-        return () => {
-            if (connectionCleanup) {
-                connectionCleanup();
-            }
-        };
-    }, []);
-
     const fetchInitialTeamData = useCallback(async (teamId: string, activePhase: GamePhaseNode | null) => {
         if (!sessionId || !activePhase || !teamId) {
             setCurrentTeamKpis(null);
@@ -120,39 +90,25 @@ const TeamDisplayPage: React.FC = () => {
         setIsLoadingData(true);
 
         try {
-            // Fetch current KPIs using RPC
+            // Fetch current KPIs using new database structure
             if (activePhase.round_number > 0) {
-                const {data: kpiData, error: kpiError} = await supabase
-                    .rpc('get_team_kpis_for_student', {
-                        target_session_id: sessionId,
-                        target_team_id: teamId,
-                        target_round_number: activePhase.round_number
-                    });
-
-                if (kpiError) {
-                    console.error("Error fetching KPIs via RPC:", kpiError);
-                    throw kpiError;
-                }
-                setCurrentTeamKpis(kpiData && kpiData.length > 0 ? kpiData[0] as TeamRoundData : null);
+                const kpiData = await db.kpis.getForTeamRound(
+                    sessionId,
+                    teamId,
+                    activePhase.round_number
+                );
+                setCurrentTeamKpis(kpiData as TeamRoundData);
             } else {
                 setCurrentTeamKpis(null);
             }
 
-            // Check for existing submission for this phase using RPC
+            // Check for existing submission for this phase
             if (activePhase.is_interactive_player_phase) {
-                const {data: existingDecisionData, error: decisionError} = await supabase
-                    .rpc('get_student_team_decision_for_phase', {
-                        target_session_id: sessionId,
-                        target_team_id: teamId,
-                        target_phase_id: activePhase.id
-                    });
-
-                if (decisionError) {
-                    console.error("Error fetching existing decision via RPC:", decisionError);
-                    throw decisionError;
-                }
-
-                const existingDecision = existingDecisionData && existingDecisionData.length > 0 ? existingDecisionData[0] : null;
+                const existingDecision = await db.decisions.getForPhase(
+                    sessionId,
+                    teamId,
+                    activePhase.id
+                );
 
                 if (existingDecision?.submitted_at) {
                     setSubmissionStatus('success');
@@ -175,8 +131,8 @@ const TeamDisplayPage: React.FC = () => {
                 setPageError(null);
             }
         } catch (err) {
-            console.error("[TeamDisplayPage] Error fetching initial team data (RPC):", err);
-            setPageError("Failed to load your team's data. Please check your connection or contact the facilitator.");
+            console.error("[TeamDisplayPage] Error fetching initial team data:", err);
+            setPageError(`Failed to load your team's data: ${formatSupabaseError(err)}`);
         } finally {
             setIsLoadingData(false);
         }
@@ -307,11 +263,10 @@ const TeamDisplayPage: React.FC = () => {
                     selected_challenge_option_id: defaultOption.id,
                     submitted_at: new Date().toISOString(),
                 };
-                supabase.from('team_decisions').insert(decisionData)
-                    .then(({error}) => {
-                        if (error) {
-                            throw error;
-                        }
+
+                // Use new database structure for insertion
+                db.decisions.create(decisionData)
+                    .then(() => {
                         setSubmissionStatus('success');
                         setSubmissionMessage(`Time's up! Default choice "${defaultOption.text.substring(0, 20)}..." submitted.`);
                         setIsStudentDecisionTime(false);
@@ -321,7 +276,7 @@ const TeamDisplayPage: React.FC = () => {
                     .catch(err => {
                         console.error("[TeamDisplayPage] Auto-submit error:", err);
                         setSubmissionStatus('error');
-                        setSubmissionMessage("Failed to auto-submit default choice. Please inform your facilitator.");
+                        setSubmissionMessage(`Failed to auto-submit: ${formatSupabaseError(err)}`);
                     });
             }
         }
@@ -375,35 +330,17 @@ const TeamDisplayPage: React.FC = () => {
             submitted_at: new Date().toISOString(),
         };
 
-        console.log('[TeamDisplayPage] === SUBMITTING TO SUPABASE ===');
+        console.log('[TeamDisplayPage] === SUBMITTING TO DATABASE ===');
         console.log('[TeamDisplayPage] Full payload:', JSON.stringify(submissionPayload, null, 2));
 
         try {
             console.log('[TeamDisplayPage] Attempting insert...');
 
-            const {data, error, status, statusText} = await supabase
-                .from('team_decisions')
-                .insert(submissionPayload);
-
-            console.log('[TeamDisplayPage] Supabase response:', {
-                data,
-                error,
-                status,
-                statusText
-            });
-
-            if (error) {
-                console.error('[TeamDisplayPage] Supabase error details:', {
-                    message: error.message,
-                    details: error.details,
-                    hint: error.hint,
-                    code: error.code
-                });
-                throw error;
-            }
+            // Using new database structure - need to add create method to decisions
+            const result = await db.decisions.create(submissionPayload);
 
             console.log('[TeamDisplayPage] === SUBMISSION SUCCESSFUL ===');
-            console.log('[TeamDisplayPage] Response data:', data);
+            console.log('[TeamDisplayPage] Response data:', result);
 
             setSubmissionStatus('success');
             submissionStatusRef.current = 'success';
@@ -425,14 +362,8 @@ const TeamDisplayPage: React.FC = () => {
             setSubmissionStatus('error');
             submissionStatusRef.current = 'error';
 
-            let errorMessage = "Failed to submit decisions.";
-            if (err instanceof Error) {
-                errorMessage = `Error: ${err.message}`;
-            } else if (typeof err === 'object' && err !== null) {
-                errorMessage = `Error: ${JSON.stringify(err)}`;
-            }
-
-            setSubmissionMessage(errorMessage);
+            const errorMessage = formatSupabaseError(err);
+            setSubmissionMessage(`Failed to submit decisions: ${errorMessage}`);
         }
     };
 
@@ -459,6 +390,23 @@ const TeamDisplayPage: React.FC = () => {
         }
         return [];
     }, [currentActivePhase, gameStructure, loggedInTeamId]);
+
+    // Show connection error prominently
+    if (connection.status === 'error' && !connection.isConnected) {
+        return (
+            <div className="min-h-screen bg-red-900 text-white flex flex-col items-center justify-center p-4">
+                <AlertTriangle size={48} className="mb-4 text-yellow-300"/>
+                <h1 className="text-2xl font-bold mb-2 text-center">Connection Problem</h1>
+                <p className="text-center mb-4 px-4">{connection.error}</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="px-6 py-3 bg-yellow-400 text-red-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors"
+                >
+                    Try Reloading Page
+                </button>
+            </div>
+        );
+    }
 
     if (pageError) {
         return (

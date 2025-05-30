@@ -1,4 +1,4 @@
-// src/pages/DashboardPage.tsx
+// src/pages/DashboardPage.tsx - Updated with New Supabase Structure
 import React, {useEffect, useState, useCallback} from 'react';
 import {Link, useNavigate} from 'react-router-dom';
 import {
@@ -12,7 +12,7 @@ import {
     XCircle
 } from 'lucide-react';
 import {useAuth} from '../context/AuthContext';
-import {supabase} from '../lib/supabase';
+import {db, formatSupabaseError} from '../utils/supabase';
 import {GameSession} from '../types';
 import Modal from '../components/UI/Modal';
 
@@ -129,13 +129,8 @@ const DashboardPage: React.FC = () => {
         setIsLoadingGames(true);
         setNotification(null); // Clear previous notifications on new fetch
         try {
-            const {data, error} = await supabase
-                .from('sessions')
-                .select('*')
-                .eq('teacher_id', user.id)
-                .order('created_at', {ascending: false});
-
-            if (error) throw error;
+            // Using new database structure
+            const data = await db.sessions.getByTeacher(user.id);
 
             if (data) {
                 setCurrentGames(data.filter(session => !session.is_complete));
@@ -145,8 +140,8 @@ const DashboardPage: React.FC = () => {
                 setCompletedGames([]);
             }
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : "Could not load your game sessions.";
-            setNotification({type: 'error', message: errorMessage});
+            console.error("DashboardPage: Error fetching games:", err);
+            setNotification({type: 'error', message: formatSupabaseError(err)});
         } finally {
             setIsLoadingGames(false);
         }
@@ -183,15 +178,8 @@ const DashboardPage: React.FC = () => {
         setNotification(null);
 
         try {
-            const {error: deleteSessionError} = await supabase
-                .from('sessions')
-                .delete()
-                .eq('id', gameToDelete.id)
-                .eq('teacher_id', user.id);
-
-            if (deleteSessionError) {
-                throw deleteSessionError;
-            }
+            // Using new database structure
+            await db.sessions.delete(gameToDelete.id);
 
             setCurrentGames(prev => prev.filter(game => game.id !== gameToDelete.id));
             setNotification({type: 'success', message: `Game "${gameToDelete.name}" deleted successfully.`});
@@ -199,8 +187,8 @@ const DashboardPage: React.FC = () => {
             setTimeout(() => setNotification(null), 4000);
 
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : "Could not delete the game session.";
-            setNotification({type: 'error', message: errorMessage});
+            console.error("DashboardPage: Error deleting game session:", err);
+            setNotification({type: 'error', message: formatSupabaseError(err)});
         } finally {
             setIsDeleting(false);
             setIsDeleteModalOpen(false);
@@ -216,7 +204,7 @@ const DashboardPage: React.FC = () => {
         } catch (error) {
             setNotification({
                 type: 'error',
-                message: `Logout failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+                message: formatSupabaseError(error)
             });
         }
     };
