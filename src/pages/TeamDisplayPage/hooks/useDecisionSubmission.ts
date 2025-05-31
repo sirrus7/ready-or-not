@@ -10,7 +10,7 @@ interface UseDecisionSubmissionProps {
     currentPhase: GamePhaseNode | null;
 }
 
-interface UseDecisionSubmissionReturn {
+export interface UseDecisionSubmissionReturn {
     submitDecision: (decisionData: any) => Promise<void>;
     isSubmitting: boolean;
     submissionError: string | null;
