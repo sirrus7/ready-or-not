@@ -1,9 +1,9 @@
-// src/pages/PresentationPage.tsx - Fixed with Enhanced Connection and Video Handling
-import React, { useEffect, useState } from 'react';
+// src/pages/PresentationPage.tsx - Enhanced with better connection and video handling
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Slide } from '../types';
 import SlideRenderer from '../components/Display/SlideRenderer';
-import { Hourglass, Monitor, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Hourglass, Monitor, RefreshCw, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import { useBroadcastManager } from '../utils/broadcastManager';
 
 const PresentationPage: React.FC = () => {
@@ -13,9 +13,19 @@ const PresentationPage: React.FC = () => {
     const [statusMessage, setStatusMessage] = useState('Connecting to session...');
     const [connectionError, setConnectionError] = useState(false);
     const [connectionAttempts, setConnectionAttempts] = useState(0);
+    const isInitializedRef = useRef(false);
+    const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Broadcast manager for host communication only
     const broadcastManager = useBroadcastManager(sessionId || null, 'presentation');
+
+    // Clear any existing timeouts
+    const clearConnectionTimeout = () => {
+        if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+        }
+    };
 
     // Set up broadcast manager listeners for slide updates
     useEffect(() => {
@@ -31,6 +41,7 @@ const PresentationPage: React.FC = () => {
             setCurrentSlide(message.slide);
             setConnectionError(false);
             setConnectionAttempts(0);
+            clearConnectionTimeout();
         });
 
         // Handle current state requests from host
@@ -49,6 +60,7 @@ const PresentationPage: React.FC = () => {
             setIsConnectedToHost(false);
             setStatusMessage('Session has ended by facilitator');
             setConnectionError(false);
+            clearConnectionTimeout();
         });
 
         // Enhanced connection monitoring
@@ -72,46 +84,65 @@ const PresentationPage: React.FC = () => {
                 setConnectionError(false);
                 setStatusMessage('Connected to host. Waiting for content...');
                 setConnectionAttempts(0);
+                clearConnectionTimeout();
+
+                // Request current state when connection is established
+                setTimeout(() => {
+                    broadcastManager.requestCurrentState();
+                }, 200);
             }
         });
 
-        // Announce that presentation display is ready
-        console.log('[PresentationPage] Announcing presentation ready');
-        broadcastManager.announcePresentation();
+        // Initialize connection
+        if (!isInitializedRef.current) {
+            isInitializedRef.current = true;
 
-        // Request current state from host
-        setTimeout(() => {
-            broadcastManager.requestCurrentState();
-        }, 500);
+            // Announce that presentation display is ready
+            console.log('[PresentationPage] Announcing presentation ready');
+            setTimeout(() => {
+                broadcastManager.announcePresentation();
+            }, 200);
 
-        // Set up connection timeout with retry logic
-        const connectionTimeout = setTimeout(() => {
-            if (!isConnectedToHost) {
-                const attempts = connectionAttempts + 1;
-                setConnectionAttempts(attempts);
+            // Request current state from host
+            setTimeout(() => {
+                broadcastManager.requestCurrentState();
+            }, 700);
 
-                if (attempts < 3) {
-                    setStatusMessage(`Connection attempt ${attempts}/3. Retrying...`);
-                    // Retry connection
-                    setTimeout(() => {
-                        broadcastManager.announcePresentation();
-                        broadcastManager.requestCurrentState();
-                    }, 1000);
-                } else {
-                    setStatusMessage('Connection timeout. Please ensure the host dashboard is open and try refreshing this page.');
-                    setConnectionError(true);
-                }
-            }
-        }, 3000 + (connectionAttempts * 2000)); // Progressive timeout
+            // Set up connection timeout with retry logic
+            const attemptConnection = (attempt: number) => {
+                connectionTimeoutRef.current = setTimeout(() => {
+                    if (!isConnectedToHost) {
+                        setConnectionAttempts(attempt);
+
+                        if (attempt < 4) {
+                            setStatusMessage(`Connection attempt ${attempt}/4. Retrying...`);
+
+                            // Retry connection
+                            setTimeout(() => {
+                                console.log(`[PresentationPage] Retry attempt ${attempt}`);
+                                broadcastManager.announcePresentation();
+                                broadcastManager.requestCurrentState();
+                                attemptConnection(attempt + 1);
+                            }, 2000);
+                        } else {
+                            setStatusMessage('Connection timeout. Please ensure the host dashboard is open and try refreshing this page.');
+                            setConnectionError(true);
+                        }
+                    }
+                }, 3000 + (attempt * 1000)); // Progressive timeout
+            };
+
+            attemptConnection(1);
+        }
 
         return () => {
-            clearTimeout(connectionTimeout);
+            clearConnectionTimeout();
             unsubscribeSlideUpdate();
             unsubscribeStateRequest();
             unsubscribeSessionEnded();
             unsubscribeConnection();
         };
-    }, [broadcastManager, sessionId, isConnectedToHost, currentSlide, connectionAttempts]);
+    }, [broadcastManager, sessionId, isConnectedToHost, currentSlide]);
 
     // Periodic connection health check
     useEffect(() => {
@@ -132,6 +163,9 @@ const PresentationPage: React.FC = () => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && broadcastManager && !isConnectedToHost) {
                 console.log('[PresentationPage] Page became visible, attempting reconnection');
+                setConnectionAttempts(0);
+                setConnectionError(false);
+                setStatusMessage('Reconnecting...');
                 broadcastManager.announcePresentation();
                 broadcastManager.requestCurrentState();
             }
@@ -140,6 +174,19 @@ const PresentationPage: React.FC = () => {
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [broadcastManager, isConnectedToHost]);
+
+    // Manual retry function
+    const handleRetry = () => {
+        setConnectionError(false);
+        setConnectionAttempts(0);
+        setStatusMessage('Reconnecting...');
+        clearConnectionTimeout();
+
+        if (broadcastManager) {
+            broadcastManager.announcePresentation();
+            broadcastManager.requestCurrentState();
+        }
+    };
 
     // Loading/Connection State
     if (!isConnectedToHost || !currentSlide) {
@@ -153,15 +200,7 @@ const PresentationPage: React.FC = () => {
                             <p className="text-lg text-gray-300 mb-4">{statusMessage}</p>
                             <div className="flex flex-col gap-3">
                                 <button
-                                    onClick={() => {
-                                        setConnectionError(false);
-                                        setConnectionAttempts(0);
-                                        setStatusMessage('Reconnecting...');
-                                        if (broadcastManager) {
-                                            broadcastManager.announcePresentation();
-                                            broadcastManager.requestCurrentState();
-                                        }
-                                    }}
+                                    onClick={handleRetry}
                                     className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg mx-auto transition-colors"
                                 >
                                     <RefreshCw size={16} />
@@ -175,6 +214,9 @@ const PresentationPage: React.FC = () => {
                                     Reload Page
                                 </button>
                             </div>
+                            <p className="text-xs text-gray-400 mt-4">
+                                Make sure the host dashboard is open and active
+                            </p>
                         </>
                     ) : (
                         <>
@@ -202,7 +244,7 @@ const PresentationPage: React.FC = () => {
                                 </p>
                                 {connectionAttempts > 0 && (
                                     <p className="text-xs mt-1 text-yellow-400">
-                                        Attempt {connectionAttempts}/3
+                                        Attempt {connectionAttempts}/4
                                     </p>
                                 )}
                             </div>

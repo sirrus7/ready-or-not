@@ -1,4 +1,4 @@
-// src/utils/broadcastManager.ts - Enhanced with video coordination
+// src/utils/broadcastManager.ts - Enhanced with improved connection handling
 export interface VideoState {
     playing: boolean;
     currentTime: number;
@@ -11,6 +11,7 @@ export interface ConnectionStatus {
     isConnected: boolean;
     lastPing: number;
     connectionType: 'host' | 'presentation' | 'display' | 'unknown';
+    latency?: number;
 }
 
 export interface BroadcastMessage {
@@ -34,6 +35,7 @@ export class SessionBroadcastManager {
     };
     private connectionListeners: Array<(status: ConnectionStatus) => void> = [];
     private lastPongTime = 0;
+    private isDestroyed = false;
     private mode: 'host' | 'presentation' | 'display';
 
     constructor(
@@ -51,12 +53,16 @@ export class SessionBroadcastManager {
 
     private setupMessageHandling() {
         this.channel.addEventListener('message', (event: MessageEvent) => {
+            if (this.isDestroyed) return;
+
             const message = event.data as BroadcastMessage;
 
             // Ignore messages from other sessions
             if (message.sessionId !== this.sessionId) {
                 return;
             }
+
+            console.log(`[BroadcastManager] [${this.mode}] Received message:`, message.type, message);
 
             // Handle connection messages internally
             this.handleConnectionMessages(message);
@@ -78,25 +84,30 @@ export class SessionBroadcastManager {
 
         switch (message.type) {
             case 'PING':
-                // Respond to ping with pong
+                // Respond to ping with pong, include current video state if requested
+                console.log(`[BroadcastManager] [${this.mode}] Responding to ping from ${message.connectionType || 'unknown'}`);
                 this.broadcast('PONG', {
                     connectionType: this.mode,
+                    latency: now - message.timestamp,
                     videoState: message.requestVideoState ? this.getVideoStateFromDOM() : undefined
                 });
                 break;
 
             case 'PONG':
+                const latency = now - message.timestamp;
+                console.log(`[BroadcastManager] [${this.mode}] Received pong from ${message.connectionType}, latency: ${latency}ms`);
                 this.lastPongTime = now;
                 this.updateConnectionStatus({
                     isConnected: true,
                     lastPing: now,
-                    connectionType: message.connectionType || 'unknown'
+                    connectionType: message.connectionType || 'unknown',
+                    latency
                 });
                 break;
 
             case 'PRESENTATION_READY':
                 if (this.mode !== 'presentation') {
-                    console.log('[BroadcastManager] Presentation display is ready');
+                    console.log(`[BroadcastManager] [${this.mode}] Presentation display is ready`);
                     this.updateConnectionStatus({
                         isConnected: true,
                         lastPing: now,
@@ -106,7 +117,7 @@ export class SessionBroadcastManager {
                 break;
 
             case 'SESSION_ENDED':
-                console.log('[BroadcastManager] Session ended');
+                console.log(`[BroadcastManager] [${this.mode}] Session ended`);
                 this.updateConnectionStatus({
                     isConnected: false,
                     lastPing: 0,
@@ -136,33 +147,51 @@ export class SessionBroadcastManager {
         // Notify listeners if status changed
         if (oldStatus.isConnected !== this.connectionStatus.isConnected ||
             oldStatus.connectionType !== this.connectionStatus.connectionType) {
-            console.log(`[BroadcastManager] Connection status changed:`, this.connectionStatus);
-            this.connectionListeners.forEach(listener => listener(this.connectionStatus));
+            console.log(`[BroadcastManager] [${this.mode}] Connection status changed:`, this.connectionStatus);
+            this.connectionListeners.forEach(listener => {
+                try {
+                    listener(this.connectionStatus);
+                } catch (error) {
+                    console.error('[BroadcastManager] Error in connection listener:', error);
+                }
+            });
         }
     }
 
     private startConnectionMonitoring() {
         // Send periodic pings
         this.pingInterval = setInterval(() => {
+            if (this.isDestroyed) return;
+
+            console.log(`[BroadcastManager] [${this.mode}] Sending ping`);
             this.broadcast('PING', {
                 connectionType: this.mode,
                 requestVideoState: this.mode === 'host' // Host requests video state in pings
             });
-        }, 2000);
+        }, 3000); // Increased interval for stability
 
         // Check connection status
         this.connectionCheckInterval = setInterval(() => {
+            if (this.isDestroyed) return;
+
             const timeSinceLastPong = Date.now() - this.lastPongTime;
             const wasConnected = this.connectionStatus.isConnected;
 
-            if (timeSinceLastPong > 5000 && wasConnected) {
-                console.log(`[BroadcastManager] Connection timeout (${timeSinceLastPong}ms since last pong)`);
+            if (timeSinceLastPong > 8000 && wasConnected) {
+                console.log(`[BroadcastManager] [${this.mode}] Connection timeout (${timeSinceLastPong}ms since last pong)`);
                 this.updateConnectionStatus({
                     isConnected: false,
                     connectionType: 'unknown'
                 });
             }
-        }, 1000);
+        }, 2000);
+
+        // Initial connection attempt for presentation mode
+        if (this.mode === 'presentation') {
+            setTimeout(() => {
+                this.announcePresentation();
+            }, 500);
+        }
     }
 
     // Public API
@@ -172,7 +201,7 @@ export class SessionBroadcastManager {
         }
         this.handlers.get(eventType)!.push(handler);
 
-        console.log(`[BroadcastManager] Subscribed to ${eventType} (${this.handlers.get(eventType)!.length} handlers)`);
+        console.log(`[BroadcastManager] [${this.mode}] Subscribed to ${eventType} (${this.handlers.get(eventType)!.length} handlers)`);
 
         // Return unsubscribe function
         return () => {
@@ -181,13 +210,15 @@ export class SessionBroadcastManager {
                 const index = handlers.indexOf(handler);
                 if (index > -1) {
                     handlers.splice(index, 1);
-                    console.log(`[BroadcastManager] Unsubscribed from ${eventType}`);
+                    console.log(`[BroadcastManager] [${this.mode}] Unsubscribed from ${eventType}`);
                 }
             }
         };
     }
 
     broadcast(eventType: string, data: Partial<BroadcastMessage> = {}): void {
+        if (this.isDestroyed) return;
+
         const message: BroadcastMessage = {
             type: eventType,
             sessionId: this.sessionId,
@@ -195,7 +226,7 @@ export class SessionBroadcastManager {
             ...data
         };
 
-        console.log(`[BroadcastManager] Broadcasting ${eventType}:`, message);
+        console.log(`[BroadcastManager] [${this.mode}] Broadcasting ${eventType}:`, message);
         this.channel.postMessage(message);
     }
 
@@ -219,8 +250,8 @@ export class SessionBroadcastManager {
     }
 
     // Enhanced video control helpers
-    sendVideoControl(action: string, value?: number, expectAck: boolean = false): void {
-        console.log(`[BroadcastManager] Sending video control: ${action}`, value);
+    sendVideoControl(action: string, value?: number): void {
+        console.log(`[BroadcastManager] [${this.mode}] Sending video control: ${action}`, value);
 
         // Handle special coordinated actions
         if (action === 'COORDINATED_AUTOPLAY') {
@@ -233,7 +264,6 @@ export class SessionBroadcastManager {
         this.broadcast('VIDEO_CONTROL', {
             action,
             value,
-            expectAck,
             timestamp: Date.now()
         });
     }
@@ -241,7 +271,7 @@ export class SessionBroadcastManager {
     sendVideoState(videoState: VideoState): void {
         // Throttle video state updates to prevent spam
         const now = Date.now();
-        if (now - videoState.lastUpdate < 200) return; // Max 5 updates per second
+        if (now - videoState.lastUpdate < 300) return; // Max 3 updates per second
 
         this.broadcast('VIDEO_STATE_UPDATE', {
             videoState: {
@@ -252,7 +282,7 @@ export class SessionBroadcastManager {
     }
 
     sendSlideUpdate(slide: any): void {
-        console.log(`[BroadcastManager] Sending slide update:`, slide?.id);
+        console.log(`[BroadcastManager] [${this.mode}] Sending slide update:`, slide?.id);
         this.broadcast('SLIDE_UPDATE', {
             slide,
             timestamp: Date.now()
@@ -261,7 +291,7 @@ export class SessionBroadcastManager {
 
     // Presentation-specific methods
     announcePresentation(): void {
-        console.log(`[BroadcastManager] Announcing presentation ready`);
+        console.log(`[BroadcastManager] [${this.mode}] Announcing presentation ready`);
         this.broadcast('PRESENTATION_READY', {
             connectionType: 'presentation',
             timestamp: Date.now()
@@ -269,14 +299,14 @@ export class SessionBroadcastManager {
     }
 
     requestCurrentState(): void {
-        console.log(`[BroadcastManager] Requesting current state`);
+        console.log(`[BroadcastManager] [${this.mode}] Requesting current state`);
         this.broadcast('REQUEST_CURRENT_STATE', {
             timestamp: Date.now()
         });
     }
 
     sendInitialVideoState(videoState: VideoState): void {
-        console.log(`[BroadcastManager] Sending initial video state:`, videoState);
+        console.log(`[BroadcastManager] [${this.mode}] Sending initial video state:`, videoState);
         this.broadcast('INITIAL_VIDEO_STATE', {
             videoState,
             timestamp: Date.now()
@@ -293,7 +323,8 @@ export class SessionBroadcastManager {
 
     // Cleanup
     destroy(): void {
-        console.log(`[BroadcastManager] Destroying manager for session ${this.sessionId}`);
+        console.log(`[BroadcastManager] [${this.mode}] Destroying manager for session ${this.sessionId}`);
+        this.isDestroyed = true;
 
         if (this.pingInterval) {
             clearInterval(this.pingInterval);
