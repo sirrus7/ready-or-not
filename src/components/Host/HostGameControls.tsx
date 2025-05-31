@@ -1,5 +1,5 @@
-// src/components/Host/HostGameControls.tsx - Fixed with Enhanced Presentation Display Logic
-import React, { useState, useEffect } from 'react';
+// src/components/Host/HostGameControls.tsx - Enhanced presentation display connection
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Users,
     QrCode,
@@ -35,6 +35,10 @@ const HostGameControls: React.FC = () => {
     const [isExitConfirmModalOpen, setisExitConfirmModalOpen] = useState(false);
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
     const [isPresentationDisplayOpen, setIsPresentationDisplayOpen] = useState(false);
+    const [presentationStatus, setPresentationStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+
+    const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const presentationTabRef = useRef<Window | null>(null);
 
     // Use broadcast manager for presentation communication
     const broadcastManager = useBroadcastManager(state.currentSessionId, 'host');
@@ -44,6 +48,14 @@ const HostGameControls: React.FC = () => {
     const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         if (currentSlideData) {
             updateHostNotesForCurrentSlide(e.target.value);
+        }
+    };
+
+    // Clear connection timeout
+    const clearConnectionTimeout = () => {
+        if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
         }
     };
 
@@ -59,10 +71,27 @@ const HostGameControls: React.FC = () => {
             const wasConnected = isPresentationDisplayOpen;
             const nowConnected = status.isConnected && isPresentation;
 
+            console.log(`[HostGameControls] Connection change - was: ${wasConnected}, now: ${nowConnected}, type: ${status.connectionType}`);
+
             setIsPresentationDisplayOpen(nowConnected);
+
+            if (nowConnected) {
+                setPresentationStatus('connected');
+                clearConnectionTimeout();
+            } else if (wasConnected) {
+                setPresentationStatus('disconnected');
+            }
 
             if (!wasConnected && nowConnected) {
                 console.log('[HostGameControls] Presentation display connected');
+
+                // Send current slide when presentation connects
+                if (currentSlideData) {
+                    console.log('[HostGameControls] Sending current slide to presentation:', currentSlideData.id);
+                    setTimeout(() => {
+                        broadcastManager.sendSlideUpdate(currentSlideData);
+                    }, 300);
+                }
             } else if (wasConnected && !nowConnected) {
                 console.log('[HostGameControls] Presentation display disconnected');
             }
@@ -72,13 +101,15 @@ const HostGameControls: React.FC = () => {
         const unsubscribeReady = broadcastManager.subscribe('PRESENTATION_READY', () => {
             console.log('[HostGameControls] Presentation ready received');
             setIsPresentationDisplayOpen(true);
+            setPresentationStatus('connected');
+            clearConnectionTimeout();
 
             // Send current slide when presentation connects
             if (currentSlideData) {
                 console.log('[HostGameControls] Sending current slide to presentation:', currentSlideData.id);
                 setTimeout(() => {
                     broadcastManager.sendSlideUpdate(currentSlideData);
-                }, 100);
+                }, 200);
             }
         });
 
@@ -90,11 +121,21 @@ const HostGameControls: React.FC = () => {
             }
         });
 
+        // Handle presentation heartbeat
+        const unsubscribeHeartbeat = broadcastManager.subscribe('PRESENTATION_HEARTBEAT', () => {
+            console.log('[HostGameControls] Received presentation heartbeat');
+            setIsPresentationDisplayOpen(true);
+            setPresentationStatus('connected');
+            clearConnectionTimeout();
+        });
+
         return () => {
             console.log('[HostGameControls] Cleaning up broadcast listeners');
+            clearConnectionTimeout();
             unsubscribeConnection();
             unsubscribeReady();
             unsubscribeStateRequest();
+            unsubscribeHeartbeat();
         };
     }, [broadcastManager, currentSlideData, isPresentationDisplayOpen]);
 
@@ -105,9 +146,26 @@ const HostGameControls: React.FC = () => {
             // Small delay to ensure presentation is ready
             setTimeout(() => {
                 broadcastManager.sendSlideUpdate(currentSlideData);
-            }, 50);
+            }, 100);
         }
     }, [broadcastManager, currentSlideData, isPresentationDisplayOpen]);
+
+    // Monitor presentation tab status
+    useEffect(() => {
+        if (presentationTabRef.current && !presentationTabRef.current.closed) {
+            const checkInterval = setInterval(() => {
+                if (presentationTabRef.current?.closed) {
+                    console.log('[HostGameControls] Presentation tab was closed');
+                    setIsPresentationDisplayOpen(false);
+                    setPresentationStatus('disconnected');
+                    presentationTabRef.current = null;
+                    clearInterval(checkInterval);
+                }
+            }, 1000);
+
+            return () => clearInterval(checkInterval);
+        }
+    }, []);
 
     const handleOpenDisplay = () => {
         if (!state.currentSessionId) {
@@ -122,6 +180,17 @@ const HostGameControls: React.FC = () => {
 
         if (newTab) {
             console.log('[HostGameControls] Presentation display opened in new tab');
+            presentationTabRef.current = newTab;
+            setPresentationStatus('connecting');
+
+            // Set up connection timeout
+            clearConnectionTimeout();
+            connectionTimeoutRef.current = setTimeout(() => {
+                if (!isPresentationDisplayOpen) {
+                    console.log('[HostGameControls] Presentation connection timeout');
+                    setPresentationStatus('disconnected');
+                }
+            }, 8000);
 
             // Give the new tab time to initialize and connect
             setTimeout(() => {
@@ -129,9 +198,10 @@ const HostGameControls: React.FC = () => {
                     console.log('[HostGameControls] Sending initial slide after delay:', currentSlideData.id);
                     broadcastManager.sendSlideUpdate(currentSlideData);
                 }
-            }, 1500); // Increased delay for reliable connection
+            }, 2000);
         } else {
             alert("Failed to open presentation display. Please ensure pop-ups are allowed for this site.");
+            setPresentationStatus('disconnected');
         }
     };
 
@@ -169,6 +239,11 @@ const HostGameControls: React.FC = () => {
             broadcastManager.broadcast('SESSION_ENDED', {});
         }
 
+        // Close presentation tab if open
+        if (presentationTabRef.current && !presentationTabRef.current.closed) {
+            presentationTabRef.current.close();
+        }
+
         navigate('/dashboard');
     };
 
@@ -197,27 +272,61 @@ const HostGameControls: React.FC = () => {
         }
     }, [isJoinCompanyModalOpen, studentJoinUrl, state.currentSessionId]);
 
+    // Get status styling based on presentation status
+    const getStatusStyling = () => {
+        switch (presentationStatus) {
+            case 'connected':
+                return {
+                    bgClass: 'bg-green-50 border-green-200',
+                    textClass: 'text-green-700',
+                    iconClass: 'text-green-500',
+                    dotClass: 'bg-green-500 animate-pulse',
+                    statusText: 'Presentation Display Active'
+                };
+            case 'connecting':
+                return {
+                    bgClass: 'bg-yellow-50 border-yellow-200',
+                    textClass: 'text-yellow-700',
+                    iconClass: 'text-yellow-500',
+                    dotClass: 'bg-yellow-500 animate-pulse',
+                    statusText: 'Connecting to Display...'
+                };
+            default:
+                return {
+                    bgClass: 'bg-blue-600',
+                    textClass: 'text-white',
+                    iconClass: 'text-white',
+                    dotClass: '',
+                    statusText: 'Launch Student Display'
+                };
+        }
+    };
+
+    const styling = getStatusStyling();
+
     return (
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
             <div className="p-3 md:p-4">
                 {/* Presentation Display Status/Button */}
                 <div className="mb-3 pb-3 border-b border-gray-200">
                     {isPresentationDisplayOpen ? (
-                        <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-center gap-2 text-green-700">
-                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                <Monitor size={16}/>
-                                <span className="text-sm font-medium">Presentation Display Active</span>
+                        <div className={`flex items-center justify-between p-2 ${styling.bgClass} border rounded-lg`}>
+                            <div className={`flex items-center gap-2 ${styling.textClass}`}>
+                                {styling.dotClass && (
+                                    <div className={`w-2 h-2 ${styling.dotClass} rounded-full`}></div>
+                                )}
+                                <Monitor size={16} className={styling.iconClass}/>
+                                <span className="text-sm font-medium">{styling.statusText}</span>
                             </div>
                             <span className="text-xs text-green-600">Synced with student display</span>
                         </div>
                     ) : (
                         <button
                             onClick={handleOpenDisplay}
-                            className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md text-sm"
+                            className={`w-full flex items-center justify-center gap-2 py-2 px-4 ${styling.bgClass} ${styling.textClass} font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md text-sm`}
                         >
-                            <ExternalLink size={16}/>
-                            <span>Launch Student Display</span>
+                            <ExternalLink size={16} className={styling.iconClass}/>
+                            <span>{styling.statusText}</span>
                         </button>
                     )}
                 </div>

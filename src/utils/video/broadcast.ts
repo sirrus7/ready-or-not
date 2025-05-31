@@ -1,4 +1,4 @@
-// src/utils/video/broadcast.ts - Enhanced broadcast integration
+// src/utils/video/broadcast.ts - Enhanced broadcast integration with better state handling
 import { useEffect } from 'react';
 import { VideoSyncMode } from './types';
 import { getVideoState } from './helpers';
@@ -41,7 +41,11 @@ export const useVideoBroadcast = ({
                 broadcastManager.subscribe('VIDEO_CONTROL', async (message) => {
                     const { action, value } = message;
                     console.log('[VideoBroadcast] Master received command:', action, value);
-                    await onExecuteCommand(action as any, value);
+
+                    // Execute command with small delay to ensure sync
+                    setTimeout(async () => {
+                        await onExecuteCommand(action as any, value);
+                    }, 50);
                 })
             );
 
@@ -49,22 +53,33 @@ export const useVideoBroadcast = ({
             subscriptions.push(
                 broadcastManager.subscribe('COORDINATED_AUTOPLAY', async () => {
                     console.log('[VideoBroadcast] Master received coordinated auto-play');
-                    await onExecuteCommand('play', 0);
+                    setTimeout(async () => {
+                        await onExecuteCommand('play', 0);
+                    }, 100);
                 })
             );
 
-            // Announce presentation ready
+            // Send ready signal when connected
             console.log('[VideoBroadcast] Master announcing presentation ready');
-            broadcastManager.announcePresentation();
+            setTimeout(() => {
+                broadcastManager.announcePresentation();
+            }, 100);
         }
 
         if (mode === 'host') {
             // Host - Handle presentation connection and sync
+            let connectionCheckTimeout: NodeJS.Timeout | null = null;
+
             subscriptions.push(
                 broadcastManager.subscribe('PRESENTATION_READY', () => {
                     console.log('[VideoBroadcast] Host: Presentation display connected');
                     const wasConnected = isConnectedToPresentation;
                     onConnectionChange(true);
+
+                    // Clear any existing timeout
+                    if (connectionCheckTimeout) {
+                        clearTimeout(connectionCheckTimeout);
+                    }
 
                     // Send initial state to presentation when it connects
                     const currentState = getVideoState(videoRef.current);
@@ -77,13 +92,15 @@ export const useVideoBroadcast = ({
                             onExecuteCommand('pause', currentState.currentTime);
                         }
 
-                        // Send initial state with forced pause
+                        // Send initial state with forced pause after delay
                         setTimeout(() => {
-                            broadcastManager.sendInitialVideoState({
-                                ...currentState,
-                                playing: false // Force both to pause initially
-                            });
-                        }, 300);
+                            if (broadcastManager) {
+                                broadcastManager.sendInitialVideoState({
+                                    ...currentState,
+                                    playing: false // Force both to pause initially
+                                });
+                            }
+                        }, 500);
                     }
                 })
             );
@@ -93,6 +110,8 @@ export const useVideoBroadcast = ({
                 broadcastManager.onConnectionChange((status) => {
                     const wasConnected = isConnectedToPresentation;
                     const nowConnected = status.isConnected && status.connectionType === 'presentation';
+
+                    console.log(`[VideoBroadcast] Host: Connection status - was: ${wasConnected}, now: ${nowConnected}, type: ${status.connectionType}`);
 
                     onConnectionChange(nowConnected);
 
@@ -124,7 +143,7 @@ export const useVideoBroadcast = ({
                         const timeSinceCommand = Date.now() - lastCommandTimeRef.current;
 
                         // Only sync if we haven't sent a command recently
-                        if (timeSinceCommand > 1500) { // Increased threshold for less aggressive sync
+                        if (timeSinceCommand > 2000) { // Increased threshold for stability
                             console.log('[VideoBroadcast] Host: Syncing with presentation state');
                             onSyncCorrection(remoteState);
                         } else {
@@ -143,6 +162,21 @@ export const useVideoBroadcast = ({
                     }
                 })
             );
+
+            // Set up connection timeout detection
+            connectionCheckTimeout = setTimeout(() => {
+                if (!isConnectedToPresentation) {
+                    console.log('[VideoBroadcast] Host: Connection timeout - no presentation detected');
+                    onConnectionChange(false);
+                }
+            }, 5000);
+
+            // Clean up timeout on unmount
+            subscriptions.push(() => {
+                if (connectionCheckTimeout) {
+                    clearTimeout(connectionCheckTimeout);
+                }
+            });
         }
 
         return () => {
