@@ -44,7 +44,18 @@ export const useVideoSync = (config: VideoSyncConfig): VideoSyncReturn => {
     // Video commands
     const { executeCommand, handleAutoPlay, lastCommandTimeRef, ignoreEventsRef } = useVideoCommands({
         videoRef,
-        onStateChange: () => updateVideoState({})
+        onStateChange: () => {
+            // Actually read the current video state and update
+            const video = videoRef.current;
+            if (video) {
+                updateVideoState({
+                    playing: !video.paused,
+                    currentTime: video.currentTime,
+                    duration: video.duration || 0,
+                    volume: video.volume
+                });
+            }
+        }
     });
 
     // Enhanced auto-play wrapper with better coordination
@@ -192,18 +203,26 @@ export const useVideoSync = (config: VideoSyncConfig): VideoSyncReturn => {
 
     // Handle video clicks for host mode
     const handleVideoClick = useCallback(async () => {
-        if (mode === 'host' && onHostVideoClick && !enableNativeControls) {
+        if (mode === 'host' && !enableNativeControls) {
             const willPlay = !videoState.playing;
             console.log(`[useVideoSync] Host video clicked, will play: ${willPlay}`);
-            onHostVideoClick(willPlay);
 
-            if (willPlay) {
-                await play();
-            } else {
-                await pause();
+            // Show visual feedback if callback provided (optional)
+            if (onHostVideoClick) {
+                onHostVideoClick(willPlay);
+            }
+
+            try {
+                if (willPlay) {
+                    await play();
+                } else {
+                    await pause();
+                }
+            } catch (error) {
+                console.error(`[useVideoSync] Click command failed:`, error);
             }
         }
-    }, [mode, onHostVideoClick, enableNativeControls, videoState.playing, play, pause]);
+    }, [mode, enableNativeControls, videoState.playing, play, pause, onHostVideoClick]);
 
     // Reset state when video URL changes
     useEffect(() => {

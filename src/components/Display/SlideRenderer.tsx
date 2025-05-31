@@ -48,8 +48,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         onHostVideoClick: (willPlay) => {
             // Show visual feedback
             setShowPlayIcon(true);
-            setTimeout(() => setShowPlayIcon(false), 1000);
-
+            setTimeout(() => setShowPlayIcon(false), 2000);
             // Call parent handler
             onHostVideoClick?.(willPlay);
         }
