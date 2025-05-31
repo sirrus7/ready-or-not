@@ -1,4 +1,4 @@
-// src/components/Host/CreateGame/Step1/components/GameDetailsForm.tsx - Form inputs component
+// src/components/Host/CreateGame/Step1/components/GameDetailsForm.tsx - Fixed players input
 import React from 'react';
 import { NewGameData } from '../../../../../types';
 
@@ -20,6 +20,38 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
         "College Freshman", "College Sophomore", "College Junior", "College Senior",
         "Professional Development", "Other"
     ];
+
+    // Handle players input change with direct field update
+    const handlePlayersInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+
+        // Update the field directly first to maintain input responsiveness
+        const numericValue = value === '' ? 0 : parseInt(value, 10);
+        if (!isNaN(numericValue) && numericValue >= 0) {
+            onFieldChange('num_players', numericValue);
+        } else if (value === '') {
+            onFieldChange('num_players', 0);
+        }
+
+        // Then trigger the recommendation logic
+        onPlayersChange(value);
+    };
+
+    // Handle teams input change with direct field update
+    const handleTeamsInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+
+        // Update the field directly first
+        const numericValue = value === '' ? 0 : parseInt(value, 10);
+        if (!isNaN(numericValue) && numericValue >= 0) {
+            onFieldChange('num_teams', numericValue);
+        } else if (value === '') {
+            onFieldChange('num_teams', 0);
+        }
+
+        // Then trigger the teams logic
+        onTeamsChange(value);
+    };
 
     return (
         <>
@@ -97,7 +129,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                         id="num_players_input"
                         name="num_players_str"
                         value={gameData.num_players > 0 ? gameData.num_players.toString() : ''}
-                        onChange={(e) => onPlayersChange(e.target.value)}
+                        onChange={handlePlayersInputChange}
                         min="0"
                         placeholder="e.g., 15"
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -112,7 +144,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                         id="num_teams_input"
                         name="num_teams_str"
                         value={gameData.num_teams > 0 ? gameData.num_teams.toString() : ''}
-                        onChange={(e) => onTeamsChange(e.target.value)}
+                        onChange={handleTeamsInputChange}
                         min="0"
                         placeholder="e.g., 3"
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
