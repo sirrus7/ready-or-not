@@ -28,12 +28,12 @@ export interface GameControllerOutput {
  * It orchestrates navigation by interacting with the PhaseManager.
  */
 export const useGameController = (
-    dbSession: GameSession | null,
+    initialDbSession: GameSession | null,
     gameStructure: GameStructure | null,
-    // updateSessionInDb: (updates: Partial<Pick<GameSession, 'current_phase_id' | 'current_slide_id_in_phase' | 'is_playing' | 'teacher_notes' | 'is_complete'>>) => Promise<void>,
-    // Removed direct updateSessionInDb, PhaseManager will handle it via GameSessionManager
     processChoicePhaseDecisionsFunction: (phaseId: string, associatedSlide: Slide | null) => Promise<void>
 ): GameControllerOutput => {
+    const [dbSession, setDbSession] = useState<GameSession | null>(initialDbSession);
+
     // UI-specific states that remain in the hook
     const [hostNotesState, setHostNotesState] = useState<Record<string, string>>({});
     const [currentHostAlertState, setCurrentHostAlertState] = useState<{
@@ -47,6 +47,14 @@ export const useGameController = (
 
     const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted";
     const ALL_SUBMIT_ALERT_MESSAGE = "Please verify all teams are happy with their submission. Then click Next to proceed.";
+
+    // Update internal session state when prop changes
+    useEffect(() => {
+        console.log("[useGameController] External session updated:", initialDbSession?.id,
+            "Current phase:", initialDbSession?.current_phase_id,
+            "Current slide:", initialDbSession?.current_slide_id_in_phase);
+        setDbSession(initialDbSession);
+    }, [initialDbSession]);
 
     // Instantiate PhaseManager using a memoized value or ref
     const phaseManager = useMemo(() => {
@@ -140,12 +148,14 @@ export const useGameController = (
 
         // Now, advance the slide using PhaseManager
         try {
-            await phaseManager.nextSlide(
+            console.log("[useGameController] Calling phaseManager.nextSlide");
+            const updatedSession = await phaseManager.nextSlide(
                 dbSession.id,
                 dbSession.current_phase_id,
                 dbSession.current_slide_id_in_phase
             );
-            // After successful navigation, clear the all teams submitted alert if it was active
+            console.log("[useGameController] PhaseManager returned updated session:", updatedSession);
+            setDbSession(updatedSession);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
             setCurrentHostAlertState(null); // Clear any general host alerts
         } catch (error) {
@@ -169,11 +179,14 @@ export const useGameController = (
             return;
         }
         try {
-            await phaseManager.previousSlide(
+            console.log("[useGameController] Calling phaseManager.previousSlide");
+            const updatedSession = await phaseManager.previousSlide(
                 dbSession.id,
                 dbSession.current_phase_id,
                 dbSession.current_slide_id_in_phase
             );
+            console.log("[useGameController] PhaseManager returned updated session:", updatedSession);
+            setDbSession(updatedSession);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false); // Reset this if we go back
             setCurrentHostAlertState(null); // Clear any general host alerts
         } catch (error) {
@@ -191,7 +204,10 @@ export const useGameController = (
             return;
         }
         try {
-            await phaseManager.selectPhase(dbSession.id, phaseId);
+            console.log("[useGameController] Calling phaseManager.selectPhase");
+            const updatedSession = await phaseManager.selectPhase(dbSession.id, phaseId);
+            console.log("[useGameController] PhaseManager returned updated session:", updatedSession);
+            setDbSession(updatedSession);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false); // Reset if jumping
             setCurrentHostAlertState(null); // Clear any general host alerts
         } catch (error) {
@@ -212,7 +228,8 @@ export const useGameController = (
             // Directly update via GameSessionManager
             const sessionManager = GameSessionManager.getInstance();
             try {
-                await sessionManager.updateTeacherNotes(dbSession.id, newTeacherNotes);
+                const updatedSession = await sessionManager.updateTeacherNotes(dbSession.id, newTeacherNotes);
+                setDbSession(updatedSession);
             } catch (error) {
                 console.error("[useGameController] Error updating teacher notes:", error);
             }
@@ -242,8 +259,8 @@ export const useGameController = (
     }, []);
 
     return {
-        currentPhaseId: dbSession?.current_phase_id || null, // Directly from dbSession
-        currentSlideIdInPhase: dbSession?.current_slide_id_in_phase || null, // Directly from dbSession
+        currentPhaseId: dbSession?.current_phase_id || null, // Now from internal state
+        currentSlideIdInPhase: dbSession?.current_slide_id_in_phase || null, // Now from internal state
         currentPhaseNode,
         currentSlideData,
         teacherNotes: hostNotesState,
@@ -256,6 +273,6 @@ export const useGameController = (
         previousSlide,
         updateHostNotesForCurrentSlide,
         clearHostAlert,
-        setCurrentHostAlertState: setCurrentHostAlertStateManually // Provide a setter for other components to trigger alerts
+        setCurrentHostAlertState: setCurrentHostAlertStateManually
     };
 };
