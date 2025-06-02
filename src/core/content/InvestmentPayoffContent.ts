@@ -1,6 +1,6 @@
 // src/core/content/InvestmentPayoffContent.ts - Consolidated Investment Payoff Definitions
 
-import { InvestmentPayoff } from '@shared/types/common.ts';
+import { InvestmentPayoff } from '@shared/types/game';
 
 export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
     // --- Inlined from src/data/gameStructure/round1/payoffs.ts ---

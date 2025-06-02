@@ -1,6 +1,6 @@
 // src/core/content/ChallengeOptions.ts - Consolidated Challenge Options
 
-import { ChallengeOption } from '@shared/types/common.ts';
+import {ChallengeOption} from '@shared/types/game';
 
 export const allChallengeOptionsData: Record<string, ChallengeOption[]> = {
     // --- Inlined from src/data/gameStructure/round1/challenges.ts ---

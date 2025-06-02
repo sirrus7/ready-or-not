@@ -1,6 +1,6 @@
 // src/core/content/SlideContent.ts
 
-import {Slide} from '@shared/types/common.ts';
+import {Slide} from '@shared/types/game';
 
 export const allGameSlides: Slide[] = [
     // --- Inlined from src/data/gameStructure/welcome.ts (welcomeSlides) ---

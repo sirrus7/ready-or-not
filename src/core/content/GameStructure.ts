@@ -1,6 +1,6 @@
 // src/core/content/GameStructure.ts - Defines game structure, imports content
 
-import { GameStructure, GamePhaseNode } from '@shared/types/common.ts';
+import { GameStructure, GamePhaseNode } from '@shared/types/game';
 import { allGameSlides } from './SlideContent';
 import { allInvestmentOptionsData } from './InvestmentOptions';
 import { allChallengeOptionsData } from './ChallengeOptions';

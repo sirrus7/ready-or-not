@@ -1,9 +1,10 @@
 // src/core/game/InvestmentEngine.ts - Implement InvestmentEngine class with investment logic
 
-import { KpiEffect, TeamRoundData, GameSession, Team, TeamDecision } from '@shared/types/common.ts';
-import { allInvestmentPayoffsData } from '@core/content/InvestmentPayoffContent'; // Import consolidated investment payoffs
-import { db } from '@shared/services/supabase';
-import { KpiCalculations } from './ScoringEngine'; // Assuming KpiCalculations is now here
+import {TeamRoundData, GameSession, Team, TeamDecision} from '@shared/types/database';
+import {KpiEffect} from '@shared/types/game';
+import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent'; // Import consolidated investment payoffs
+import {db} from '@shared/services/supabase';
+import {KpiCalculations} from './ScoringEngine'; // Assuming KpiCalculations is now here
 
 // TODO: Implement InvestmentEngine class with investment payoff application logic.
 // This file should define methods to:

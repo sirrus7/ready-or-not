@@ -1,6 +1,7 @@
 // src/hooks/useGameController.ts - Game navigation & slide management
 import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
-import {GameSession, GameStructure, GamePhaseNode, Slide} from '@shared/types/common.ts';
+import {GameStructure, GamePhaseNode, Slide} from '@shared/types/game';
+import {GameSession} from '@shared/types/database';
 
 export interface GameControllerOutput {
     currentPhaseId: string | null;

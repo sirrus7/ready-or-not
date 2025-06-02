@@ -1,11 +1,11 @@
 // src/components/Host/CreateGame/Step1/index.tsx - Main orchestration component (100 lines)
-import React, { useState, useEffect } from 'react';
-import { NewGameData } from '@shared/types/common.ts';
-import { ArrowRight, AlertCircle } from 'lucide-react';
+import React, {useState, useEffect} from 'react';
+import {NewGameData} from '@shared/types/ui';
+import {ArrowRight, AlertCircle} from 'lucide-react';
 import GameDetailsForm from './GameDetailsForm';
 import TeamRecommendationDisplay from './TeamRecommendation';
-import { useTeamRecommendations } from '@views/host/hooks/useTeamRecommendations';
-import { validateGameDetails } from '@shared/utils/gameValidation.ts';
+import {useTeamRecommendations} from '@views/host/hooks/useTeamRecommendations';
+import {validateGameDetails} from '@shared/utils/gameValidation.ts';
 
 interface Step1Props {
     gameData: NewGameData;
@@ -13,7 +13,7 @@ interface Step1Props {
     onNext: (dataFromStep: Partial<NewGameData>) => void;
 }
 
-const GameDetailsStep: React.FC<Step1Props> = ({ gameData, onDataChange, onNext }) => {
+const GameDetailsStep: React.FC<Step1Props> = ({gameData, onDataChange, onNext}) => {
     const [localGameData, setLocalGameData] = useState<NewGameData>(gameData);
     const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +21,7 @@ const GameDetailsStep: React.FC<Step1Props> = ({ gameData, onDataChange, onNext 
     const teamRecommendations = useTeamRecommendations({
         numPlayers: localGameData.num_players,
         onTeamCountChange: (newTeamCount: number) => {
-            setLocalGameData(prev => ({ ...prev, num_teams: newTeamCount }));
+            setLocalGameData(prev => ({...prev, num_teams: newTeamCount}));
             onDataChange('num_teams', newTeamCount);
         }
     });
@@ -33,7 +33,7 @@ const GameDetailsStep: React.FC<Step1Props> = ({ gameData, onDataChange, onNext 
 
     // Handle form field changes
     const handleFieldChange = (field: keyof NewGameData, value: any) => {
-        setLocalGameData(prev => ({ ...prev, [field]: value }));
+        setLocalGameData(prev => ({...prev, [field]: value}));
         onDataChange(field, value);
 
         // Clear error when user makes changes

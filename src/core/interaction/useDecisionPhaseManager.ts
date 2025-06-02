@@ -1,6 +1,6 @@
 // src/hooks/useDecisionPhaseManager.ts
 import { useState, useCallback, useEffect } from 'react';
-import { GamePhaseNode, Slide } from '@shared/types/common.ts';
+import { GamePhaseNode, Slide } from '@shared/types/game';
 
 interface DecisionPhaseState {
     isActive: boolean;

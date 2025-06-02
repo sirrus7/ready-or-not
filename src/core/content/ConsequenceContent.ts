@@ -1,6 +1,6 @@
 // src/core/content/ConsequenceContent.ts - Consolidated Consequence Definitions
 
-import { Consequence } from '@shared/types/common.ts';
+import { Consequence } from '@shared/types/game';
 
 export const allConsequencesData: Record<string, Consequence[]> = {
     // --- Inlined from src/data/gameStructure/round1/consequences.ts ---
