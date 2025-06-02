@@ -2,8 +2,8 @@
 import {useEffect, useCallback} from 'react';
 import {VideoSyncMode, VideoState} from '@shared/types/video';
 import {getVideoState} from './helpers';
-import {VideoSyncManager} from '@core/sync/VideoSyncManager'; // New import for the centralized video sync manager
-import {ConnectionMonitor, BroadcastConnectionStatus} from '@core/sync/ConnectionMonitor'; // New import for the broadcast connection monitor
+import {VideoSyncManager} from '@core/sync/VideoSyncManager'; // Correct import for the centralized video sync manager
+import {ConnectionMonitor, BroadcastConnectionStatus} from '@core/sync/ConnectionMonitor'; // Correct import for the broadcast connection monitor
 
 /**
  * Configuration for the `useVideoBroadcast` hook.
@@ -45,6 +45,8 @@ export const useVideoBroadcast = ({
     useEffect(() => {
         // Ensure both managers are initialized before setting up listeners.
         if (!videoSyncManager || !connectionMonitor) return;
+
+        console.log('[VideoBroadcast] Setting up broadcast listeners');
 
         const subscriptions: Array<() => void> = [];
 
@@ -209,7 +211,7 @@ export const useVideoBroadcast = ({
      * This is a special command to trigger synchronized video playback.
      */
     const sendCoordinatedAutoPlay = useCallback(() => {
-        if (mode === 'host' && videoSyncManager && connectionMonitor?.getStatus().isConnected) { // Only send if host and connected.
+        if (mode === 'host' && videoSyncManager && connectionMonitor?.getStatus().isConnected && connectionMonitor.getStatus().connectionType === 'presentation') { // Only send if host and connected.
             console.log('[VideoBroadcast] Host: Sending coordinated auto-play');
             videoSyncManager.sendVideoControl('COORDINATED_AUTOPLAY');
         }
