@@ -1,10 +1,10 @@
-// src/pages/DashboardPage/hooks/useDashboardActions.ts - Action handlers
-import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@app/providers/AuthProvider';
-import { useSupabaseMutation } from '@shared/hooks/supabase';
-import { db } from '@shared/services/supabase';
-import { GameSession } from '@shared/types/common';
+// src/views/host/hooks/useDashboardActions.ts - Action handlers
+import {useState, useCallback} from 'react';
+import {useNavigate} from 'react-router-dom';
+import {useAuth} from '@app/providers/AuthProvider';
+import {useSupabaseMutation} from '@shared/hooks/supabase';
+import {GameSession} from '@shared/types';
+import {useGameSessionManagement} from '@shared/hooks/useGameSessionManagement';
 
 interface NotificationState {
     type: 'error' | 'success';
@@ -29,21 +29,23 @@ export const useDashboardActions = (
     games: GameSession[],
     refetchGames: () => Promise<GameSession[] | null>
 ): UseDashboardActionsReturn => {
-    const { signOut } = useAuth();
+    const {signOut} = useAuth();
     const navigate = useNavigate();
+    const {deleteSession} = useGameSessionManagement(); // Use the new hook
 
     const [notification, setNotification] = useState<NotificationState | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [gameToDelete, setGameToDelete] = useState<{ id: string; name: string } | null>(null);
 
-    // Delete game mutation
+    // Delete game mutation - now uses the deleteSession from useGameSessionManagement
     const {
-        execute: deleteGame,
+        execute: deleteGameMutation, // Renamed to avoid confusion with deleteSession from hook
         isLoading: isDeleting,
         error: deleteError
     } = useSupabaseMutation(
         async (gameId: string) => {
-            return db.sessions.delete(gameId);
+            // Call the deleteSession method from the management hook
+            return deleteSession(gameId);
         },
         {
             onSuccess: (_, gameId) => {
@@ -59,7 +61,7 @@ export const useDashboardActions = (
             },
             onError: (error) => {
                 console.error("DashboardActions: Error deleting game:", error);
-                setNotification({ type: 'error', message: error });
+                setNotification({type: 'error', message: error});
             }
         }
     );
@@ -76,7 +78,7 @@ export const useDashboardActions = (
     }, [games, navigate]);
 
     const handleOpenDeleteModal = useCallback((sessionId: string, gameName: string) => {
-        setGameToDelete({ id: sessionId, name: gameName });
+        setGameToDelete({id: sessionId, name: gameName});
         setNotification(null);
         setIsDeleteModalOpen(true);
     }, []);
@@ -84,15 +86,15 @@ export const useDashboardActions = (
     const handleConfirmDelete = useCallback(async () => {
         if (!gameToDelete) return;
 
-        await deleteGame(gameToDelete.id);
+        await deleteGameMutation(gameToDelete.id); // Call the mutation
         setIsDeleteModalOpen(false);
         setGameToDelete(null);
-    }, [gameToDelete, deleteGame]);
+    }, [gameToDelete, deleteGameMutation]);
 
     const handleLogout = useCallback(async () => {
         try {
             await signOut();
-            navigate('/login', { replace: true });
+            navigate('/login', {replace: true});
         } catch (error) {
             setNotification({
                 type: 'error',
