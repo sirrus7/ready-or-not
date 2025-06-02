@@ -4,8 +4,8 @@ import {useParams} from 'react-router-dom';
 import {Slide} from '@shared/types/game'; // Using game.ts for Slide
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff} from 'lucide-react';
-import {VideoSyncManager} from '@core/sync/VideoSyncManager'; // New import for the centralized video sync manager
-import {ConnectionMonitor, BroadcastConnectionStatus} from '@core/sync/ConnectionMonitor'; // New import for the broadcast channel connection monitor
+import {VideoSyncManager} from '@core/sync/VideoSyncManager'; // Correct import for the centralized video sync manager
+import {ConnectionMonitor, BroadcastConnectionStatus} from '@core/sync/ConnectionMonitor'; // Correct import for the broadcast channel connection monitor
 
 const PresentationApp: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>(); // Get session ID from URL parameters.

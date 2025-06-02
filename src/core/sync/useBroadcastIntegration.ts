@@ -2,7 +2,7 @@
 import {useEffect} from 'react';
 import {GamePhaseNode, Slide} from '@shared/types/game';
 import {HostBroadcastPayload} from '@shared/types/sync';
-import {VideoSyncManager} from './VideoSyncManager';
+import {VideoSyncManager} from './VideoSyncManager'; // Correct import for the centralized video sync manager
 
 /**
  * Props for the `useBroadcastIntegration` hook.
