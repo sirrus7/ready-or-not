@@ -1,7 +1,8 @@
-// src/hooks/useGameController.ts - Game navigation & slide management
+// src/core/game/useGameController.ts - Game navigation & slide management
 import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
-import {GameStructure, GamePhaseNode, Slide} from '@shared/types/game';
-import {GameSession} from '@shared/types/database';
+import {GameSession, GameStructure, GamePhaseNode, Slide} from '@shared/types';
+import {PhaseManager} from './PhaseManager';
+import {GameSessionManager} from './GameSessionManager';
 
 export interface GameControllerOutput {
     currentPhaseId: string | null;
@@ -21,14 +22,19 @@ export interface GameControllerOutput {
     setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
 }
 
+/**
+ * useGameController is a React hook that manages the active game session's
+ * current phase, slide, and host-specific UI states like notes and alerts.
+ * It orchestrates navigation by interacting with the PhaseManager.
+ */
 export const useGameController = (
     dbSession: GameSession | null,
     gameStructure: GameStructure | null,
-    updateSessionInDb: (updates: Partial<Pick<GameSession, 'current_phase_id' | 'current_slide_id_in_phase' | 'is_playing' | 'teacher_notes' | 'is_complete'>>) => Promise<void>,
+    // updateSessionInDb: (updates: Partial<Pick<GameSession, 'current_phase_id' | 'current_slide_id_in_phase' | 'is_playing' | 'teacher_notes' | 'is_complete'>>) => Promise<void>,
+    // Removed direct updateSessionInDb, PhaseManager will handle it via GameSessionManager
     processChoicePhaseDecisionsFunction: (phaseId: string, associatedSlide: Slide | null) => Promise<void>
 ): GameControllerOutput => {
-    const [currentPhaseIdState, setCurrentPhaseIdState] = useState<string | null>(null);
-    const [currentSlideIdInPhaseState, setCurrentSlideIdInPhaseState] = useState<number | null>(0);
+    // UI-specific states that remain in the hook
     const [hostNotesState, setHostNotesState] = useState<Record<string, string>>({});
     const [currentHostAlertState, setCurrentHostAlertState] = useState<{
         title: string;
@@ -42,167 +48,202 @@ export const useGameController = (
     const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted";
     const ALL_SUBMIT_ALERT_MESSAGE = "Please verify all teams are happy with their submission. Then click Next to proceed.";
 
-    const allPhasesInOrder = useMemo((): GamePhaseNode[] => {
-        if (!gameStructure?.allPhases) return [];
-        return gameStructure.allPhases;
+    // Instantiate PhaseManager using a memoized value or ref
+    const phaseManager = useMemo(() => {
+        if (!gameStructure) return null; // PhaseManager needs gameStructure
+        const sessionManager = GameSessionManager.getInstance();
+        return new PhaseManager(gameStructure, sessionManager);
     }, [gameStructure]);
 
+    // Derived states from dbSession and PhaseManager
+    const allPhasesInOrder = useMemo((): GamePhaseNode[] => {
+        return phaseManager?.getAllPhasesInOrder() || [];
+    }, [phaseManager]);
+
     const currentPhaseNode = useMemo(() => {
-        if (!currentPhaseIdState) return null;
-        return allPhasesInOrder.find(p => p.id === currentPhaseIdState) || null;
-    }, [allPhasesInOrder, currentPhaseIdState]);
+        if (!dbSession?.current_phase_id || !phaseManager) return null;
+        return phaseManager.getPhaseById(dbSession.current_phase_id) || null;
+    }, [dbSession?.current_phase_id, phaseManager]);
 
     const currentSlideData = useMemo(() => {
-        if (!currentPhaseNode || currentSlideIdInPhaseState === null || !gameStructure?.slides) return null;
-        if (currentPhaseNode.slide_ids.length === 0) return null;
-        if (currentSlideIdInPhaseState < 0 || currentSlideIdInPhaseState >= currentPhaseNode.slide_ids.length) {
-            return null;
-        }
-        const slideId = currentPhaseNode.slide_ids[currentSlideIdInPhaseState];
-        return gameStructure.slides.find(s => s.id === slideId) || null;
-    }, [currentPhaseNode, currentSlideIdInPhaseState, gameStructure?.slides]);
+        if (!currentPhaseNode || dbSession?.current_slide_id_in_phase === null || !phaseManager) return null;
+        const slideId = currentPhaseNode.slide_ids[dbSession.current_slide_id_in_phase];
+        return phaseManager.getSlideById(slideId) || null;
+    }, [currentPhaseNode, dbSession?.current_slide_id_in_phase, phaseManager]);
 
+    // Initialize host notes from dbSession
     useEffect(() => {
         if (dbSession) {
-            setCurrentPhaseIdState(dbSession.current_phase_id);
-            setCurrentSlideIdInPhaseState(dbSession.current_slide_id_in_phase ?? 0);
             setHostNotesState(dbSession.teacher_notes || {});
         } else {
-            const firstPhaseId = gameStructure?.welcome_phases?.[0]?.id || allPhasesInOrder[0]?.id || null;
-            setCurrentPhaseIdState(firstPhaseId);
-            setCurrentSlideIdInPhaseState(0);
+            // Reset for new/unloaded sessions
             setHostNotesState({});
             setCurrentHostAlertState(null);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
         }
-    }, [dbSession, gameStructure, allPhasesInOrder]);
+    }, [dbSession]);
 
+    // Handle initial alert or slide changes
     useEffect(() => {
         const isNewActualSlide = currentSlideData?.id !== previousSlideIdRef.current;
 
         if (currentSlideData) {
             slideLoadTimestamp.current = Date.now();
-            console.log(`[GameController] Processing slide ${currentSlideData.id}, isNew: ${isNewActualSlide}, type: ${currentSlideData.type}`);
+            console.log(`[useGameController] Processing slide ${currentSlideData.id}, isNew: ${isNewActualSlide}, type: ${currentSlideData.type}`);
 
             if (isNewActualSlide && currentHostAlertState) {
-                setCurrentHostAlertState(null);
+                // Clear any existing alert when slide changes, unless it's the specific all-submitted alert
+                if (currentHostAlertState.title !== ALL_SUBMIT_ALERT_TITLE) {
+                    setCurrentHostAlertState(null);
+                }
             }
         }
         previousSlideIdRef.current = currentSlideData?.id;
     }, [currentSlideData, currentHostAlertState]);
 
-    const advanceToNextSlideInternal = useCallback(async () => {
-        if (!currentPhaseNode || currentSlideIdInPhaseState === null || !dbSession || !gameStructure || !allPhasesInOrder.length) return;
 
-        const isLastSlideInPhase = currentSlideIdInPhaseState >= currentPhaseNode.slide_ids.length - 1;
-        let nextPhaseId = currentPhaseIdState;
-        let nextSlideIndexInPhase = currentSlideIdInPhaseState + 1;
-
-        if (isLastSlideInPhase) {
-            if (currentPhaseNode.is_interactive_player_phase && currentPhaseNode.phase_type === 'choice') {
-                await processChoicePhaseDecisionsFunction(currentPhaseNode.id, currentSlideData);
-            }
-
-            const currentOverallPhaseIndex = allPhasesInOrder.findIndex(p => p.id === currentPhaseIdState);
-            if (currentOverallPhaseIndex < allPhasesInOrder.length - 1) {
-                const nextPhaseNodeCandidate = allPhasesInOrder[currentOverallPhaseIndex + 1];
-                nextPhaseId = nextPhaseNodeCandidate.id;
-                nextSlideIndexInPhase = 0;
-            } else {
-                await updateSessionInDb({is_complete: true});
-                return;
-            }
-        }
-
-        await updateSessionInDb({
-            current_phase_id: nextPhaseId,
-            current_slide_id_in_phase: nextSlideIndexInPhase,
-        });
-
-        setCurrentPhaseIdState(nextPhaseId);
-        setCurrentSlideIdInPhaseState(nextSlideIndexInPhase);
-
-    }, [currentPhaseNode, currentSlideIdInPhaseState, dbSession, gameStructure, allPhasesInOrder, updateSessionInDb, processChoicePhaseDecisionsFunction, currentPhaseIdState, currentSlideData]);
-
+    // Effect to show "All Teams Submitted" alert
     useEffect(() => {
         if (allTeamsSubmittedCurrentInteractivePhaseState) {
             setCurrentHostAlertState({title: ALL_SUBMIT_ALERT_TITLE, message: ALL_SUBMIT_ALERT_MESSAGE});
+        } else {
+            // If teams are no longer all submitted, and this alert is showing, clear it.
+            // This might happen if decisions are reset.
+            if (currentHostAlertState?.title === ALL_SUBMIT_ALERT_TITLE) {
+                setCurrentHostAlertState(null);
+            }
         }
-    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData, setCurrentHostAlertState, ALL_SUBMIT_ALERT_TITLE, ALL_SUBMIT_ALERT_MESSAGE]);
+    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentHostAlertState, ALL_SUBMIT_ALERT_TITLE, ALL_SUBMIT_ALERT_MESSAGE]);
 
+
+    // Navigation actions (now using PhaseManager)
     const nextSlide = useCallback(async () => {
-        if (currentHostAlertState) {
+        if (!dbSession?.id || !currentPhaseNode || dbSession.current_slide_id_in_phase === null || !phaseManager) {
+            console.warn("[useGameController] Cannot advance: Missing session ID, current phase, slide index, or PhaseManager.");
             return;
         }
 
-        if (currentSlideData?.host_alert) {
+        if (currentHostAlertState && currentHostAlertState.title === currentSlideData?.host_alert?.title && currentHostAlertState.message === currentSlideData?.host_alert?.message) {
+            // If the current slide has a blocking host alert, activate it and don't advance yet.
+            // The clearHostAlert function will handle the actual advancement.
             setCurrentHostAlertState(currentSlideData.host_alert);
             return;
         }
 
-        await advanceToNextSlideInternal();
-    }, [currentHostAlertState, currentSlideData, advanceToNextSlideInternal, setCurrentHostAlertState]);
+        // Before advancing, if it's the last slide of a choice phase, process decisions.
+        const isLastSlideOfChoicePhase = currentPhaseNode.phase_type === 'choice' &&
+            dbSession.current_slide_id_in_phase === currentPhaseNode.slide_ids.length - 1;
 
-    const clearHostAlert = useCallback(async () => {
-        setCurrentHostAlertState(null);
-        await advanceToNextSlideInternal();
-    }, [advanceToNextSlideInternal]);
-
-    const selectPhase = useCallback(async (phaseId: string) => {
-        const targetPhase = allPhasesInOrder.find(p => p.id === phaseId);
-        if (targetPhase && dbSession && gameStructure?.slides) {
-            await updateSessionInDb({
-                current_phase_id: phaseId,
-                current_slide_id_in_phase: 0,
-                teacher_notes: hostNotesState
-            });
-            if (currentHostAlertState) setCurrentHostAlertState(null);
-            setCurrentPhaseIdState(phaseId);
-            setCurrentSlideIdInPhaseState(0);
+        if (isLastSlideOfChoicePhase) {
+            await processChoicePhaseDecisionsFunction(currentPhaseNode.id, currentSlideData);
         }
-    }, [allPhasesInOrder, dbSession, updateSessionInDb, hostNotesState, gameStructure?.slides, currentHostAlertState]);
+
+        // Now, advance the slide using PhaseManager
+        try {
+            await phaseManager.nextSlide(
+                dbSession.id,
+                dbSession.current_phase_id,
+                dbSession.current_slide_id_in_phase
+            );
+            // After successful navigation, clear the all teams submitted alert if it was active
+            setAllTeamsSubmittedCurrentInteractivePhaseState(false);
+            setCurrentHostAlertState(null); // Clear any general host alerts
+        } catch (error) {
+            console.error("[useGameController] Error advancing slide:", error);
+            setCurrentHostAlertState({
+                title: "Navigation Error",
+                message: error instanceof Error ? error.message : "Failed to advance slide."
+            });
+        }
+    }, [dbSession, currentPhaseNode, currentSlideData, phaseManager, processChoicePhaseDecisionsFunction, currentHostAlertState]);
+
 
     const previousSlide = useCallback(async () => {
-        if (currentHostAlertState) return;
-
-        if (currentPhaseNode && currentSlideIdInPhaseState !== null && dbSession && gameStructure?.slides) {
-            let newPhaseId = currentPhaseIdState;
-            let newSlideIndex = currentSlideIdInPhaseState;
-
-            if (currentSlideIdInPhaseState > 0) {
-                newSlideIndex = currentSlideIdInPhaseState - 1;
-            } else {
-                const currentPhaseIndex = allPhasesInOrder.findIndex(p => p.id === currentPhaseIdState);
-                if (currentPhaseIndex > 0) {
-                    const prevPhaseNode = allPhasesInOrder[currentPhaseIndex - 1];
-                    newPhaseId = prevPhaseNode.id;
-                    newSlideIndex = prevPhaseNode.slide_ids.length - 1;
-                } else {
-                    return;
-                }
-            }
-            await updateSessionInDb({
-                current_phase_id: newPhaseId,
-                current_slide_id_in_phase: newSlideIndex,
-            });
-            if (currentHostAlertState) setCurrentHostAlertState(null);
-            setCurrentPhaseIdState(newPhaseId);
-            setCurrentSlideIdInPhaseState(newSlideIndex);
+        if (!dbSession?.id || !phaseManager) {
+            console.warn("[useGameController] Cannot go back: Missing session ID or PhaseManager.");
+            return;
         }
-    }, [currentHostAlertState, currentPhaseNode, currentSlideIdInPhaseState, dbSession, allPhasesInOrder, updateSessionInDb, currentPhaseIdState, gameStructure?.slides]);
+        if (currentHostAlertState) {
+            // If an alert is showing, clicking back should just clear the alert, not navigate.
+            setCurrentHostAlertState(null);
+            return;
+        }
+        try {
+            await phaseManager.previousSlide(
+                dbSession.id,
+                dbSession.current_phase_id,
+                dbSession.current_slide_id_in_phase
+            );
+            setAllTeamsSubmittedCurrentInteractivePhaseState(false); // Reset this if we go back
+            setCurrentHostAlertState(null); // Clear any general host alerts
+        } catch (error) {
+            console.error("[useGameController] Error going back a slide:", error);
+            setCurrentHostAlertState({
+                title: "Navigation Error",
+                message: error instanceof Error ? error.message : "Failed to go back a slide."
+            });
+        }
+    }, [dbSession, phaseManager, currentHostAlertState]);
 
-    const updateTeacherNotesForCurrentSlide = useCallback(async (notes: string) => {
-        if (currentSlideData && dbSession) {
+    const selectPhase = useCallback(async (phaseId: string) => {
+        if (!dbSession?.id || !phaseManager) {
+            console.warn("[useGameController] Cannot select phase: Missing session ID or PhaseManager.");
+            return;
+        }
+        try {
+            await phaseManager.selectPhase(dbSession.id, phaseId);
+            setAllTeamsSubmittedCurrentInteractivePhaseState(false); // Reset if jumping
+            setCurrentHostAlertState(null); // Clear any general host alerts
+        } catch (error) {
+            console.error("[useGameController] Error selecting phase:", error);
+            setCurrentHostAlertState({
+                title: "Navigation Error",
+                message: error instanceof Error ? error.message : "Failed to select phase."
+            });
+        }
+    }, [dbSession, phaseManager]);
+
+    // Host notes management
+    const updateHostNotesForCurrentSlide = useCallback(async (notes: string) => {
+        if (currentSlideData && dbSession?.id) {
             const slideKey = String(currentSlideData.id);
             const newTeacherNotes = {...hostNotesState, [slideKey]: notes};
             setHostNotesState(newTeacherNotes);
-            await updateSessionInDb({teacher_notes: newTeacherNotes});
+            // Directly update via GameSessionManager
+            const sessionManager = GameSessionManager.getInstance();
+            try {
+                await sessionManager.updateTeacherNotes(dbSession.id, newTeacherNotes);
+            } catch (error) {
+                console.error("[useGameController] Error updating teacher notes:", error);
+            }
         }
-    }, [currentSlideData, dbSession, hostNotesState, updateSessionInDb]);
+    }, [currentSlideData, dbSession, hostNotesState]);
+
+    // Host alert management
+    const clearHostAlert = useCallback(async () => {
+        // If the alert is the one tied to current slide's host_alert,
+        // clearing it means we should then advance the slide.
+        if (currentHostAlertState?.title === currentSlideData?.host_alert?.title &&
+            currentHostAlertState?.message === currentSlideData?.host_alert?.message) {
+            setCurrentHostAlertState(null);
+            await nextSlide(); // Advance only if this specific alert caused it
+        } else if (currentHostAlertState?.title === ALL_SUBMIT_ALERT_TITLE) {
+            // If it's the "all teams submitted" alert, clearing means we're ready to advance.
+            setCurrentHostAlertState(null);
+            await nextSlide();
+        } else {
+            // For other alerts (e.g., navigation errors, manual alerts), just dismiss.
+            setCurrentHostAlertState(null);
+        }
+    }, [currentHostAlertState, currentSlideData, nextSlide, ALL_SUBMIT_ALERT_TITLE]);
+
+    const setCurrentHostAlertStateManually = useCallback((alert: { title: string; message: string } | null) => {
+        setCurrentHostAlertState(alert);
+    }, []);
 
     return {
-        currentPhaseId: currentPhaseIdState,
-        currentSlideIdInPhase: currentSlideIdInPhaseState,
+        currentPhaseId: dbSession?.current_phase_id || null, // Directly from dbSession
+        currentSlideIdInPhase: dbSession?.current_slide_id_in_phase || null, // Directly from dbSession
         currentPhaseNode,
         currentSlideData,
         teacherNotes: hostNotesState,
@@ -213,8 +254,8 @@ export const useGameController = (
         selectPhase,
         nextSlide,
         previousSlide,
-        updateHostNotesForCurrentSlide: updateTeacherNotesForCurrentSlide,
-        clearHostAlert: clearHostAlert,
-        setCurrentHostAlertState: setCurrentHostAlertState
+        updateHostNotesForCurrentSlide,
+        clearHostAlert,
+        setCurrentHostAlertState: setCurrentHostAlertStateManually // Provide a setter for other components to trigger alerts
     };
 };
