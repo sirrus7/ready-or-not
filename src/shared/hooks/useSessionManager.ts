@@ -136,7 +136,7 @@ export const useSessionManager = (
             const updatedData = await sessionManager.updateSession(session.id, updates);
             console.log("useSessionManager: Session updated in DB successfully. New data:", updatedData);
             setSession(updatedData);
-            setError(null); // Clear error on successful update
+            setError(null);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error';
             console.error("useSessionManager: Error updating session:", err);
