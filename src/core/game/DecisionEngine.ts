@@ -5,14 +5,16 @@ import {
     Team,
     TeamDecision,
     TeamRoundData,
+} from '@shared/types/database';
+import {
     GameStructure,
     GamePhaseNode,
     KpiEffect,
-    Slide // Added Slide type
-} from '@shared/types/common.ts';
-import { db } from '@shared/services/supabase';
-import { KpiCalculations } from './ScoringEngine';
-import { allConsequencesData } from '@core/content/ConsequenceContent';
+    Slide
+} from '@shared/types/game';
+import {db} from '@shared/services/supabase';
+import {KpiCalculations} from './ScoringEngine';
+import {allConsequencesData} from '@core/content/ConsequenceContent';
 
 // TODO: Implement DecisionEngine class with decision processing logic.
 // This file should define methods to:

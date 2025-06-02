@@ -1,7 +1,8 @@
 // src/hooks/useBroadcastIntegration.ts
-import { useEffect } from 'react';
-import { useBroadcastManager } from './BroadcastChannel';
-import { GamePhaseNode, Slide, HostBroadcastPayload } from '@shared/types/common.ts';
+import {useEffect} from 'react';
+import {useBroadcastManager} from './BroadcastChannel';
+import {GamePhaseNode, Slide} from '@shared/types/game';
+import {HostBroadcastPayload} from '@shared/types/sync';
 
 interface UseBroadcastIntegrationProps {
     sessionId: string | null;

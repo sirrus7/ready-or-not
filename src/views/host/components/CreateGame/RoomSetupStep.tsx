@@ -1,6 +1,6 @@
 // src/components/Host/CreateGameWizard/Step3_RoomSetup.tsx
 import React from 'react';
-import {NewGameData} from '@shared/types/common.ts';
+import {NewGameData} from '@shared/types/ui';
 import {ArrowLeft, ArrowRight, MonitorPlay, Download, Info, Tv2, LayoutGrid} from 'lucide-react';
 
 interface Step4Props {

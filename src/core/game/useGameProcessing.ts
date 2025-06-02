@@ -4,14 +4,16 @@ import {useNavigate} from 'react-router-dom';
 import {db} from '@shared/services/supabase';
 import {useSupabaseMutation} from '@shared/hooks/supabase';
 import {
+    GameStructure,
+    GamePhaseNode,
+    KpiEffect
+} from '@shared/types/game';
+import {
     Team,
     TeamDecision,
     TeamRoundData,
-    GameStructure,
     GameSession,
-    GamePhaseNode,
-    KpiEffect
-} from '@shared/types/common.ts';
+} from '@shared/types/database';
 import {KpiCalculations} from './ScoringEngine';
 
 interface UseGameProcessingProps {

@@ -1,6 +1,6 @@
 // src/components/Host/CreateGameWizard/Step5_Finalize.tsx
 import React from 'react';
-import {NewGameData} from '@shared/types/common.ts';
+import {NewGameData} from '@shared/types/ui';
 import {ArrowLeft, Rocket, AlertTriangle, UsersIcon} from 'lucide-react';
 
 interface Step5Props {

@@ -1,6 +1,6 @@
 // src/components/Host/CreateGame/Step1/components/GameDetailsForm.tsx - Fixed players input
 import React from 'react';
-import { NewGameData } from '@shared/types/common.ts';
+import {NewGameData} from '@shared/types/ui';
 
 interface GameDetailsFormProps {
     gameData: NewGameData;

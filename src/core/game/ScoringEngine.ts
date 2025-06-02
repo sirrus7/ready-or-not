@@ -1,5 +1,6 @@
 // src/utils/kpiCalculations.ts
-import { TeamRoundData, KpiEffect, PermanentKpiAdjustment, KpiKey } from '@shared/types/common.ts';
+import {TeamRoundData, PermanentKpiAdjustment} from '@shared/types/database';
+import {KpiEffect, KpiKey} from '@shared/types/game';
 
 // Base starting values for the game
 const BASE_VALUES = {
@@ -106,7 +107,7 @@ export class KpiCalculations {
             adj.team_id === teamId && adj.applies_to_round_start === roundNumber
         );
 
-        let { start_capacity, start_orders, start_cost, start_asp } = roundData;
+        let {start_capacity, start_orders, start_cost, start_asp} = roundData;
 
         teamAdjustments.forEach(adj => {
             const baseValue = this.getBaseValueForKpi(adj.kpi_key, {

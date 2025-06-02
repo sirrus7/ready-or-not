@@ -1,4 +1,6 @@
-// src/utils/video/types.ts - Core video types and interfaces
+// src/shared/types/video.ts - Video synchronization types
+// Note: This file already exists but is included here for completeness
+
 export interface VideoState {
     playing: boolean;
     currentTime: number;

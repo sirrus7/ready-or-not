@@ -1,24 +1,26 @@
 // src/app/providers/GameProvider.tsx
-import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, {createContext, useCallback, useContext, useEffect, useMemo} from 'react';
+import {useNavigate} from 'react-router-dom';
 import {
-    AppState,
     GamePhaseNode,
     GameStructure,
     Slide,
+} from '@shared/types/game';
+import {
     Team,
     TeamDecision,
     TeamRoundData,
-} from '@shared/types/common.ts';
-import { readyOrNotGame_2_0_DD } from '@core/content/GameStructure.ts';
-import { useSupabaseMutation } from '@shared/hooks/supabase';
-import { useAuth } from './AuthProvider.tsx';
-import { useSessionManager } from '@shared/hooks/useSessionManager.ts';
-import { useGameController } from '@core/game/useGameController.ts';
-import { useTeamDataManager } from '@shared/hooks/useTeamDataManager.ts';
-import { useDecisionPhaseManager } from '@core/interaction/useDecisionPhaseManager.ts';
-import { useGameProcessing } from '@core/game/useGameProcessing.ts';
-import { useBroadcastIntegration } from '@core/sync/useBroadcastIntegration.ts';
+} from '@shared/types/database';
+import {AppState} from '@shared/types/state';
+import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure.ts';
+import {useSupabaseMutation} from '@shared/hooks/supabase';
+import {useAuth} from './AuthProvider.tsx';
+import {useSessionManager} from '@shared/hooks/useSessionManager.ts';
+import {useGameController} from '@core/game/useGameController.ts';
+import {useTeamDataManager} from '@shared/hooks/useTeamDataManager.ts';
+import {useDecisionPhaseManager} from '@core/interaction/useDecisionPhaseManager.ts';
+import {useGameProcessing} from '@core/game/useGameProcessing.ts';
+import {useBroadcastIntegration} from '@core/sync/useBroadcastIntegration.ts';
 
 interface GameProps { // Renamed from AppContextProps
     // Core state
@@ -75,8 +77,8 @@ interface GameProviderProps { // Renamed from AppProviderProps
     passedSessionId?: string | null;
 }
 
-export const GameProvider: React.FC<GameProviderProps> = ({ children, passedSessionId }) => { // Renamed component
-    const { user, loading: authLoading } = useAuth();
+export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessionId}) => { // Renamed component
+    const {user, loading: authLoading} = useAuth();
     const navigate = useNavigate();
     const gameStructureInstance = useMemo(() => readyOrNotGame_2_0_DD as GameStructure, []);
 
@@ -196,7 +198,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children, passedSess
     }, [currentDbSession?.id, fetchTeamsFromHook]);
 
     const resetWrapperTeamDecision = useCallback(async (teamId: string, phaseId: string) => {
-        await resetTeamDecisionExecute({ teamId, phaseId });
+        await resetTeamDecisionExecute({teamId, phaseId});
     }, [resetTeamDecisionExecute]);
 
     // Combined app state
@@ -295,7 +297,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children, passedSess
                     <button
                         onClick={() => {
                             clearSessionError();
-                            navigate('/dashboard', { replace: true });
+                            navigate('/dashboard', {replace: true});
                         }}
                         className="bg-blue-600 text-white font-medium py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                     >

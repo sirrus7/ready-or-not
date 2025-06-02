@@ -1,6 +1,6 @@
 // src/core/content/InvestmentOptions.ts - Consolidated Investment Options
 
-import { InvestmentOption } from '@shared/types/common.ts';
+import { InvestmentOption } from '@shared/types/game';
 
 export const allInvestmentOptionsData: Record<string, InvestmentOption[]> = {
     // --- Inlined from src/data/gameStructure/round1/investments.ts ---
