@@ -1,35 +1,43 @@
-// src/components/Host/Controls/ExitGameModal.tsx
-import React, {useRef} from 'react';
+// src/views/host/components/GameControls/ExitModal.tsx
+import React from 'react';
 import {useNavigate} from 'react-router-dom';
 import Modal from '@shared/components/UI/Modal';
 import {useGameContext} from '@app/providers/GameProvider';
-import {useBroadcastManager} from '@core/sync/BroadcastChannel';
+import {VideoSyncManager} from '@core/sync/VideoSyncManager'; // New import for VideoSyncManager
 
 interface ExitGameModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
+/**
+ * `ExitGameModal` is a confirmation modal for the host to exit the current game session.
+ * When confirmed, it broadcasts a `SESSION_ENDED` message to all connected displays
+ * and navigates the host back to the dashboard.
+ */
 const ExitGameModal: React.FC<ExitGameModalProps> = ({isOpen, onClose}) => {
+    // Consume `state` from `GameContext` to get the current session ID.
     const {state} = useGameContext();
-    const navigate = useNavigate();
-    const broadcastManager = useBroadcastManager(state.currentSessionId, 'host');
-    const presentationTabRef = useRef<Window | null>(null);
+    const navigate = useNavigate(); // Hook for navigation.
 
+    // Get the singleton instance of `VideoSyncManager` for the current session.
+    // This is used to send broadcast messages.
+    const videoSyncManager = state.currentSessionId ? VideoSyncManager.getInstance(state.currentSessionId) : null;
+
+    /**
+     * Handles the confirmation of exiting the game.
+     * It sends a `SESSION_ENDED` broadcast and then navigates to the dashboard.
+     */
     const confirmExitGame = () => {
-        onClose();
+        onClose(); // Close the modal.
 
-        // Notify presentation display that session is ending via broadcast manager
-        if (broadcastManager) {
+        // Notify presentation display that session is ending via broadcast manager.
+        if (videoSyncManager) {
             console.log('[ExitGameModal] Broadcasting session end');
-            broadcastManager.broadcast('SESSION_ENDED', {});
+            videoSyncManager.sendSessionEnded(); // Send the session ended message.
         }
 
-        // Close presentation tab if open
-        if (presentationTabRef.current && !presentationTabRef.current.closed) {
-            presentationTabRef.current.close();
-        }
-
+        // Navigate the host back to the dashboard.
         navigate('/dashboard');
     };
 

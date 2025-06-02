@@ -1,27 +1,34 @@
-// src/utils/video/broadcast.ts - Enhanced broadcast integration with better state handling
-import { useEffect } from 'react';
-import { VideoSyncMode } from '@shared/types/video';
-import { getVideoState } from './helpers';
-import { SessionBroadcastManager } from '@core/sync/BroadcastChannel.ts';
+// src/shared/utils/video/broadcast.ts
+import {useEffect, useCallback} from 'react';
+import {VideoSyncMode, VideoState} from '@shared/types/video';
+import {getVideoState} from './helpers';
+import {VideoSyncManager} from '@core/sync/VideoSyncManager'; // New import for the centralized video sync manager
+import {ConnectionMonitor, BroadcastConnectionStatus} from '@core/sync/ConnectionMonitor'; // New import for the broadcast connection monitor
 
+/**
+ * Configuration for the `useVideoBroadcast` hook.
+ */
 interface UseVideoBroadcastConfig {
-    broadcastManager: SessionBroadcastManager | null;
-    mode: VideoSyncMode;
-    videoRef: React.RefObject<HTMLVideoElement>;
-    isConnectedToPresentation: boolean;
-    lastCommandTimeRef: React.MutableRefObject<number>;
-    allowHostAudio: boolean;
-    onExecuteCommand: (action: 'play' | 'pause' | 'seek', value?: number) => Promise<boolean>;
-    onConnectionChange: (connected: boolean) => void;
-    onSyncCorrection: (remoteState: any) => void;
-    onInitialSync: (remoteState: any, shouldPauseBoth?: boolean) => void;
+    sessionId: string | null; // The ID of the current game session.
+    mode: VideoSyncMode; // The operational mode of the video player (master, host, independent).
+    videoRef: React.RefObject<HTMLVideoElement>; // Ref to the video element.
+    lastCommandTimeRef: React.MutableRefObject<number>; // Ref to track the last time a command was sent.
+    allowHostAudio: boolean; // Whether the host's video should have audio when a presentation is not connected.
+    onExecuteCommand: (action: 'play' | 'pause' | 'seek', value?: number) => Promise<boolean>; // Callback to execute video commands.
+    onConnectionChange: (connected: boolean) => void; // Callback for when connection status to presentation changes.
+    onSyncCorrection: (remoteState: VideoState) => void; // Callback for applying video sync corrections.
+    onInitialSync: (remoteState: VideoState, shouldPauseBoth?: boolean) => void; // Callback for handling initial video sync.
 }
 
+/**
+ * `useVideoBroadcast` is a React hook that handles the communication layer for video synchronization.
+ * It subscribes to and broadcasts video-related messages using `VideoSyncManager` and monitors
+ * connection status using `ConnectionMonitor`. This hook is typically used by `useVideoSync`.
+ */
 export const useVideoBroadcast = ({
-                                      broadcastManager,
+                                      sessionId,
                                       mode,
                                       videoRef,
-                                      isConnectedToPresentation,
                                       lastCommandTimeRef,
                                       allowHostAudio,
                                       onExecuteCommand,
@@ -29,121 +36,120 @@ export const useVideoBroadcast = ({
                                       onSyncCorrection,
                                       onInitialSync
                                   }: UseVideoBroadcastConfig) => {
-    // Setup broadcast listeners
+    // Get singleton instances of the `VideoSyncManager` and `ConnectionMonitor` for the current session.
+    // The `mode` for `ConnectionMonitor` is set based on the `VideoSyncMode` (master -> 'presentation', host -> 'host').
+    const videoSyncManager = sessionId ? VideoSyncManager.getInstance(sessionId) : null;
+    const connectionMonitor = sessionId ? ConnectionMonitor.getInstance(sessionId, mode === 'master' ? 'presentation' : 'host') : null;
+
+    // Effect hook to set up broadcast listeners and manage connection.
     useEffect(() => {
-        if (!broadcastManager) return;
+        // Ensure both managers are initialized before setting up listeners.
+        if (!videoSyncManager || !connectionMonitor) return;
 
         const subscriptions: Array<() => void> = [];
 
+        // Logic specific to the 'master' (presentation display) mode.
         if (mode === 'master') {
-            // Master (Presentation Display) - Listen for commands from host
+            // Master listens for `VIDEO_CONTROL` commands from the host.
             subscriptions.push(
-                broadcastManager.subscribe('VIDEO_CONTROL', async (message) => {
-                    const { action, value } = message;
+                videoSyncManager.subscribe('VIDEO_CONTROL', async (message) => {
+                    const {action, value} = message;
                     console.log('[VideoBroadcast] Master received command:', action, value);
-
-                    // Execute command with small delay to ensure sync
+                    // Execute the command with a small delay to ensure smoother synchronization.
                     setTimeout(async () => {
                         await onExecuteCommand(action as any, value);
                     }, 50);
                 })
             );
 
-            // Listen for coordinated auto-play commands
+            // Master listens for `COORDINATED_AUTOPLAY` commands to start video playback.
             subscriptions.push(
-                broadcastManager.subscribe('COORDINATED_AUTOPLAY', async () => {
+                videoSyncManager.subscribe('COORDINATED_AUTOPLAY', async () => {
                     console.log('[VideoBroadcast] Master received coordinated auto-play');
                     setTimeout(async () => {
-                        await onExecuteCommand('play', 0);
+                        await onExecuteCommand('play', 0); // Start playing from the beginning.
                     }, 100);
                 })
             );
 
-            // Send ready signal when connected
+            // The master display announces its readiness shortly after initialization.
             console.log('[VideoBroadcast] Master announcing presentation ready');
             setTimeout(() => {
-                broadcastManager.announcePresentation();
+                videoSyncManager.announcePresentationReady();
             }, 100);
         }
 
+        // Logic specific to the 'host' mode.
         if (mode === 'host') {
-            // Host - Handle presentation connection and sync
-            let connectionCheckTimeout: NodeJS.Timeout | null = null;
+            let connectionCheckTimeout: NodeJS.Timeout | null = null; // Local timeout for initial host connection check.
+            let currentIsConnectedToPresentation = false; // Internal flag to track presentation connection status.
 
+            // Host monitors connection status changes reported by the `ConnectionMonitor`.
             subscriptions.push(
-                broadcastManager.subscribe('PRESENTATION_READY', () => {
-                    console.log('[VideoBroadcast] Host: Presentation display connected');
-                    const wasConnected = isConnectedToPresentation;
-                    onConnectionChange(true);
+                connectionMonitor.addStatusListener((status: BroadcastConnectionStatus) => {
+                    const nowConnected = status.isConnected && status.connectionType === 'presentation'; // Check if connected to a presentation display.
 
-                    // Clear any existing timeout
-                    if (connectionCheckTimeout) {
+                    console.log(`[VideoBroadcast] Host: Connection status from monitor - was: ${currentIsConnectedToPresentation}, now: ${nowConnected}, type: ${status.connectionType}`);
+
+                    onConnectionChange(nowConnected); // Update the parent component's connection state.
+                    currentIsConnectedToPresentation = nowConnected; // Update internal tracking.
+
+                    // Clear any initial connection timeout if a presentation is now connected.
+                    if (nowConnected && connectionCheckTimeout) {
                         clearTimeout(connectionCheckTimeout);
+                        connectionCheckTimeout = null;
                     }
 
-                    // Send initial state to presentation when it connects
-                    const currentState = getVideoState(videoRef.current);
-                    if (currentState && !wasConnected) {
-                        console.log('[VideoBroadcast] Host: Sending initial state to presentation');
+                    // Manage host video audio based on presentation connection.
+                    const video = videoRef.current;
+                    if (video) {
+                        if (nowConnected) {
+                            // If just connected to a presentation, mute the host's video if it wasn't already.
+                            if (!video.muted) {
+                                video.muted = true;
+                                console.log('[VideoBroadcast] Host: Presentation connected, muting host audio');
 
-                        // REQUIREMENT: When presentation opens, pause both videos
-                        if (currentState.playing) {
-                            console.log('[VideoBroadcast] Host: Pausing host video for presentation sync');
-                            onExecuteCommand('pause', currentState.currentTime);
-                        }
-
-                        // Send initial state with forced pause after delay
-                        setTimeout(() => {
-                            if (broadcastManager) {
-                                broadcastManager.sendInitialVideoState({
-                                    ...currentState,
-                                    playing: false // Force both to pause initially
-                                });
+                                // Send the host's current video state to the newly connected presentation.
+                                const currentState = getVideoState(video);
+                                if (currentState) {
+                                    console.log('[VideoBroadcast] Host: Sending initial state to presentation');
+                                    // REQUIREMENT: When presentation opens, both videos should pause.
+                                    if (currentState.playing) {
+                                        console.log('[VideoBroadcast] Host: Pausing host video for presentation sync');
+                                        onExecuteCommand('pause', currentState.currentTime); // Pause host's video.
+                                    }
+                                    // Send the initial state, forcing a pause on the presentation after a delay.
+                                    setTimeout(() => {
+                                        if (videoSyncManager) {
+                                            videoSyncManager.sendInitialVideoState({
+                                                ...currentState,
+                                                playing: false // Force both to pause initially.
+                                            });
+                                        }
+                                    }, 500);
+                                }
                             }
-                        }, 500);
-                    }
-                })
-            );
-
-            // Monitor connection status changes
-            subscriptions.push(
-                broadcastManager.onConnectionChange((status) => {
-                    const wasConnected = isConnectedToPresentation;
-                    const nowConnected = status.isConnected && status.connectionType === 'presentation';
-
-                    console.log(`[VideoBroadcast] Host: Connection status - was: ${wasConnected}, now: ${nowConnected}, type: ${status.connectionType}`);
-
-                    onConnectionChange(nowConnected);
-
-                    // Handle disconnection - restore host audio
-                    if (wasConnected && !nowConnected) {
-                        console.log('[VideoBroadcast] Host: Presentation disconnected, restoring host audio');
-                        const video = videoRef.current;
-                        if (video && allowHostAudio) {
-                            video.muted = false;
-                        }
-                    }
-
-                    // Handle new connection - mute host audio
-                    if (!wasConnected && nowConnected) {
-                        console.log('[VideoBroadcast] Host: Presentation connected, muting host audio');
-                        const video = videoRef.current;
-                        if (video) {
-                            video.muted = true;
+                        } else {
+                            // If disconnected from a presentation, restore host audio if `allowHostAudio` is true.
+                            if (video.muted && allowHostAudio) {
+                                video.muted = false;
+                                console.log('[VideoBroadcast] Host: Presentation disconnected, restoring host audio');
+                            }
                         }
                     }
                 })
             );
 
-            // Listen for video state updates from presentation (for sync)
+            // Host listens for video state updates from the presentation for sync correction.
             subscriptions.push(
-                broadcastManager.subscribe('VIDEO_STATE_UPDATE', (message) => {
+                videoSyncManager.subscribe('VIDEO_STATE_UPDATE', (message) => {
                     if (message.videoState) {
                         const remoteState = message.videoState;
                         const timeSinceCommand = Date.now() - lastCommandTimeRef.current;
 
-                        // Only sync if we haven't sent a command recently
-                        if (timeSinceCommand > 2000) { // Increased threshold for stability
+                        // Only apply sync correction if no command has been sent recently by the host
+                        // to avoid fighting with manual controls or intentional desyncs.
+                        if (timeSinceCommand > 2000) { // Increased threshold for stability.
                             console.log('[VideoBroadcast] Host: Syncing with presentation state');
                             onSyncCorrection(remoteState);
                         } else {
@@ -153,25 +159,26 @@ export const useVideoBroadcast = ({
                 })
             );
 
-            // Listen for initial video state from presentation
+            // Host listens for initial video state from the presentation.
             subscriptions.push(
-                broadcastManager.subscribe('INITIAL_VIDEO_STATE', (message) => {
+                videoSyncManager.subscribe('INITIAL_VIDEO_STATE', (message) => {
                     if (message.videoState) {
                         console.log('[VideoBroadcast] Host: Received initial state from presentation');
-                        onInitialSync(message.videoState, true); // Always pause both initially
+                        onInitialSync(message.videoState, true); // Always pause both initially.
                     }
                 })
             );
 
-            // Set up connection timeout detection
+            // Set up an initial connection timeout detection for the host.
+            // This is a one-time check when the host loads to see if a presentation is already open.
             connectionCheckTimeout = setTimeout(() => {
-                if (!isConnectedToPresentation) {
-                    console.log('[VideoBroadcast] Host: Connection timeout - no presentation detected');
-                    onConnectionChange(false);
+                if (!currentIsConnectedToPresentation) { // If still not connected after timeout.
+                    console.log('[VideoBroadcast] Host: Initial connection timeout - no presentation detected');
+                    onConnectionChange(false); // Update connection state.
                 }
-            }, 5000);
+            }, 5000); // Wait 5 seconds for initial connection.
 
-            // Clean up timeout on unmount
+            // Cleanup for the timeout on unmount.
             subscriptions.push(() => {
                 if (connectionCheckTimeout) {
                     clearTimeout(connectionCheckTimeout);
@@ -179,29 +186,34 @@ export const useVideoBroadcast = ({
             });
         }
 
+        // Return a cleanup function that unsubscribes all listeners when the component unmounts.
         return () => {
             subscriptions.forEach(unsubscribe => unsubscribe());
         };
     }, [
-        broadcastManager,
-        mode,
-        videoRef,
-        isConnectedToPresentation,
-        lastCommandTimeRef,
-        allowHostAudio,
-        onExecuteCommand,
-        onConnectionChange,
-        onSyncCorrection,
-        onInitialSync
+        sessionId, // Dependency: Session ID (for manager instances).
+        videoSyncManager, // Dependency: VideoSyncManager instance.
+        connectionMonitor, // Dependency: ConnectionMonitor instance.
+        mode, // Dependency: Player mode.
+        videoRef, // Dependency: Video element ref.
+        lastCommandTimeRef, // Dependency: Last command time ref.
+        allowHostAudio, // Dependency: Audio permission.
+        onExecuteCommand, // Dependency: Command execution callback.
+        onConnectionChange, // Dependency: Connection change callback.
+        onSyncCorrection, // Dependency: Sync correction callback.
+        onInitialSync // Dependency: Initial sync callback.
     ]);
 
-    // Send coordinated auto-play command when presentation is ready
-    const sendCoordinatedAutoPlay = (broadcastManager: SessionBroadcastManager) => {
-        if (mode === 'host' && isConnectedToPresentation) {
+    /**
+     * Sends a `COORDINATED_AUTOPLAY` command to the presentation display.
+     * This is a special command to trigger synchronized video playback.
+     */
+    const sendCoordinatedAutoPlay = useCallback(() => {
+        if (mode === 'host' && videoSyncManager && connectionMonitor?.getStatus().isConnected) { // Only send if host and connected.
             console.log('[VideoBroadcast] Host: Sending coordinated auto-play');
-            broadcastManager.sendVideoControl('COORDINATED_AUTOPLAY');
+            videoSyncManager.sendVideoControl('COORDINATED_AUTOPLAY');
         }
-    };
+    }, [mode, videoSyncManager, connectionMonitor]);
 
     return {
         sendCoordinatedAutoPlay
