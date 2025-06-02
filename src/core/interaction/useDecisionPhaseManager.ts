@@ -1,11 +1,7 @@
-// src/hooks/useDecisionPhaseManager.ts
-import { useState, useCallback, useEffect } from 'react';
-import { GamePhaseNode, Slide } from '@shared/types/game';
-
-interface DecisionPhaseState {
-    isActive: boolean;
-    timerEndTime: number | undefined;
-}
+// src/core/interaction/useDecisionPhaseManager.ts
+import {useState, useCallback, useEffect} from 'react';
+import {GamePhaseNode, Slide} from '@shared/types';
+import {InteractionManager} from './InteractionManager';
 
 interface UseDecisionPhaseManagerReturn {
     isDecisionPhaseActive: boolean;
@@ -14,55 +10,76 @@ interface UseDecisionPhaseManagerReturn {
     deactivateDecisionPhase: () => void;
 }
 
+/**
+ * useDecisionPhaseManager is a React hook that provides the current state
+ * of the interactive decision phase (active/inactive, timer).
+ * It is the React-friendly interface to the InteractionManager singleton.
+ */
 export const useDecisionPhaseManager = (
     currentPhaseNode: GamePhaseNode | null,
     currentSlideData: Slide | null
 ): UseDecisionPhaseManagerReturn => {
-    const [state, setState] = useState<DecisionPhaseState>({
-        isActive: false,
-        timerEndTime: undefined
-    });
+    // Get the singleton instance of InteractionManager
+    const interactionManager = InteractionManager.getInstance();
 
-    const activateDecisionPhase = useCallback((durationSeconds: number = 300) => {
-        console.log('[useDecisionPhaseManager] Activating decision phase with duration:', durationSeconds);
-        const endTime = Date.now() + (durationSeconds * 1000);
-        setState({
-            isActive: true,
-            timerEndTime: endTime
-        });
-    }, []);
+    // State is now managed by the hook, updated via subscriptions to InteractionManager
+    const [isDecisionPhaseActive, setIsDecisionPhaseActive] = useState<boolean>(interactionManager.getIsActive());
+    const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(interactionManager.getTimerEndTime());
 
-    const deactivateDecisionPhase = useCallback(() => {
-        console.log('[useDecisionPhaseManager] Deactivating decision phase');
-        setState({
-            isActive: false,
-            timerEndTime: undefined
-        });
-    }, []);
+    // Effect to subscribe to InteractionManager's state changes
+    useEffect(() => {
+        const listener = (isActive: boolean, timerEndTime: number | undefined) => {
+            setIsDecisionPhaseActive(isActive);
+            setDecisionPhaseTimerEndTime(timerEndTime);
+        };
 
-    // Auto-activate decision phases for interactive slides
+        const unsubscribe = interactionManager.subscribe(listener);
+
+        // Cleanup on unmount
+        return () => {
+            unsubscribe();
+        };
+    }, [interactionManager]); // Re-subscribe only if interactionManager instance changes (which it won't as it's a singleton)
+
+    // Effect to automatically start/stop decision phases based on current game state
     useEffect(() => {
         if (!currentPhaseNode || !currentSlideData) return;
 
-        // Check if this is an interactive slide that should activate decisions
+        // Determine if the current slide/phase combination means decisions should be active
         const isInteractiveSlide = currentSlideData.type === 'interactive_invest' ||
             currentSlideData.type === 'interactive_choice' ||
             currentSlideData.type === 'interactive_double_down_prompt' ||
             currentSlideData.type === 'interactive_double_down_select';
 
-        if (isInteractiveSlide && currentPhaseNode.is_interactive_player_phase && !state.isActive) {
+        const shouldBeActive = isInteractiveSlide && currentPhaseNode.is_interactive_player_phase;
+
+        if (shouldBeActive && !isDecisionPhaseActive) {
+            // Auto-activate if it should be active but isn't already
             const timerDuration = currentSlideData.timer_duration_seconds || 300; // Default 5 minutes
             console.log('[useDecisionPhaseManager] Auto-activating decision phase for interactive slide');
-            activateDecisionPhase(timerDuration);
-        } else if (!isInteractiveSlide && state.isActive) {
+            interactionManager.startDecisionPhase(timerDuration);
+        } else if (!shouldBeActive && isDecisionPhaseActive) {
+            // Auto-deactivate if it should no longer be active but currently is
             console.log('[useDecisionPhaseManager] Auto-deactivating decision phase for non-interactive slide');
-            deactivateDecisionPhase();
+            interactionManager.stopDecisionPhase();
         }
-    }, [currentPhaseNode, currentSlideData, state.isActive, activateDecisionPhase, deactivateDecisionPhase]);
+        // No need to stop if already active for interactive slide (timer is self-managed by InteractionManager)
+        // No need to start if already inactive for non-interactive slide (already stopped)
+
+    }, [currentPhaseNode, currentSlideData, isDecisionPhaseActive, interactionManager]);
+
+    // Expose methods to directly control the decision phase (e.g., from host UI)
+    const activateDecisionPhase = useCallback((durationSeconds: number = 300) => {
+        interactionManager.startDecisionPhase(durationSeconds);
+    }, [interactionManager]);
+
+    const deactivateDecisionPhase = useCallback(() => {
+        interactionManager.stopDecisionPhase();
+    }, [interactionManager]);
 
     return {
-        isDecisionPhaseActive: state.isActive,
-        decisionPhaseTimerEndTime: state.timerEndTime,
+        isDecisionPhaseActive,
+        decisionPhaseTimerEndTime,
         activateDecisionPhase,
         deactivateDecisionPhase
     };
