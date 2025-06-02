@@ -1,39 +1,34 @@
-// src/core/game/DecisionEngine.ts - Implement DecisionEngine class with decision processing, integrating logic from useGameProcessing.ts and consequence logic
+// src/core/game/DecisionEngine.ts
 
 import {
     GameSession,
     Team,
     TeamDecision,
     TeamRoundData,
-} from '@shared/types/database';
-import {
     GameStructure,
     GamePhaseNode,
     KpiEffect,
     Slide
-} from '@shared/types/game';
+} from '@shared/types';
 import {db} from '@shared/services/supabase';
 import {KpiCalculations} from './ScoringEngine';
-import {allConsequencesData} from '@core/content/ConsequenceContent';
-
-// TODO: Implement DecisionEngine class with decision processing logic.
-// This file should define methods to:
-// 1. Process choice phase decisions, applying consequences to team KPIs.
-// 2. Potentially handle double-down logic (dice roll outcomes).
-// 3. Integrate logic from src/core/game/useGameProcessing.ts, especially `processChoicePhaseDecisionsInternal`.
 
 interface DecisionEngineProps {
     currentDbSession: GameSession | null;
     gameStructure: GameStructure | null;
     teams: Team[];
     teamDecisions: Record<string, Record<string, TeamDecision>>;
-    teamRoundData: Record<string, Record<number, TeamRoundData>>;
-    allPhasesInOrder: GamePhaseNode[];
-    updateSessionInDb: (updates: any) => Promise<void>;
+    teamRoundData: Record<string, Record<number, TeamRoundData>>; // Passed by reference for internal mutation
+    allPhasesInOrder: GamePhaseNode[]; // Needed to find current phase
+    // Callbacks to update external state (used by useGameProcessing)
     fetchTeamRoundDataFromHook: (sessionId: string) => Promise<void>;
     setTeamRoundDataDirectly: (updater: (prev: Record<string, Record<number, TeamRoundData>>) => Record<string, Record<number, TeamRoundData>>) => void;
 }
 
+/**
+ * The DecisionEngine processes decisions made during 'choice' and 'double-down-prompt' phases,
+ * applying their consequences to team KPIs and storing permanent adjustments.
+ */
 export class DecisionEngine {
     private currentDbSession: GameSession | null;
     private gameStructure: GameStructure | null;
@@ -41,7 +36,6 @@ export class DecisionEngine {
     private teamDecisions: Record<string, Record<string, TeamDecision>>;
     private teamRoundData: Record<string, Record<number, TeamRoundData>>;
     private allPhasesInOrder: GamePhaseNode[];
-    private updateSessionInDb: (updates: any) => Promise<void>;
     private fetchTeamRoundDataFromHook: (sessionId: string) => Promise<void>;
     private setTeamRoundDataDirectly: (updater: (prev: Record<string, Record<number, TeamRoundData>>) => Record<string, Record<number, TeamRoundData>>) => void;
 
@@ -52,22 +46,30 @@ export class DecisionEngine {
         this.teamDecisions = props.teamDecisions;
         this.teamRoundData = props.teamRoundData;
         this.allPhasesInOrder = props.allPhasesInOrder;
-        this.updateSessionInDb = props.updateSessionInDb;
         this.fetchTeamRoundDataFromHook = props.fetchTeamRoundDataFromHook;
         this.setTeamRoundDataDirectly = props.setTeamRoundDataDirectly;
     }
 
-    // Existing helper logic for ensuring team round data (copied from useGameProcessing)
+    /**
+     * Ensures that the TeamRoundData for a given team and round exists in the local state
+     * (and DB if necessary), creating it with initial values if it doesn't.
+     * @param teamId The ID of the team.
+     * @param roundNumber The round number.
+     * @param sessionId The ID of the current session.
+     * @returns The TeamRoundData object for the specified team and round.
+     * @private
+     */
     private async ensureTeamRoundData(
         teamId: string,
         roundNumber: 1 | 2 | 3,
         sessionId: string
     ): Promise<TeamRoundData> {
-        if (!sessionId || sessionId === 'new') throw new Error("Invalid sessionId");
+        if (!sessionId || sessionId === 'new') throw new Error("Invalid sessionId for KPI data.");
 
         const existingKpis = this.teamRoundData[teamId]?.[roundNumber];
         if (existingKpis) return existingKpis;
 
+        // Try to fetch from database if not in local state
         try {
             const existingData = await db.kpis.getForTeamRound(sessionId, teamId, roundNumber);
             if (existingData) {
@@ -78,9 +80,10 @@ export class DecisionEngine {
                 return existingData as TeamRoundData;
             }
         } catch (error) {
-            console.log('[DecisionEngine] No existing round data found, creating new');
+            console.log(`[DecisionEngine] No existing round data found for team ${teamId} round ${roundNumber}, creating new.`);
         }
 
+        // If not found, create new round data
         const newRoundData = await KpiCalculations.createNewRoundData(
             sessionId,
             teamId,
@@ -88,6 +91,7 @@ export class DecisionEngine {
             this.teamRoundData[teamId]
         );
 
+        // Apply permanent adjustments accumulated from previous rounds/decisions
         const adjustments = await db.adjustments.getBySession(sessionId);
         const adjustedData = KpiCalculations.applyPermanentAdjustments(newRoundData, adjustments, teamId, roundNumber);
 
@@ -100,7 +104,14 @@ export class DecisionEngine {
         return insertedData as TeamRoundData;
     }
 
-    // Existing helper logic for storing permanent adjustments (copied from useGameProcessing)
+    /**
+     * Stores permanent KPI adjustments in the database, to be applied in future rounds.
+     * @param teamId The ID of the team.
+     * @param sessionId The ID of the current session.
+     * @param effects The KPI effects, which may include permanent effects.
+     * @param phaseSourceLabel A label indicating the source of the adjustment (e.g., "CH1 - Option A").
+     * @private
+     */
     private async storePermanentAdjustments(
         teamId: string,
         sessionId: string,
@@ -121,16 +132,22 @@ export class DecisionEngine {
 
 
     /**
-     * Processes decisions made during a 'choice' phase and applies consequences.
-     * This logic is moved from `useGameProcessing.ts`.
+     * Processes decisions made during a 'choice' phase and applies consequences to team KPIs.
+     * This method is called when advancing past a 'choice' phase's last slide.
+     * @param phaseId The ID of the choice phase to process.
+     * @param associatedSlide The slide associated with this phase (optional, for debugging/logging).
+     * @returns A promise that resolves when all decisions for the phase have been processed.
+     * @throws Error if any step of the processing fails.
      */
     public async processChoicePhaseDecisions(phaseId: string, associatedSlide: Slide | null): Promise<void> {
         const currentPhase = this.allPhasesInOrder.find(p => p.id === phaseId);
         if (!this.currentDbSession?.id || !this.gameStructure || !currentPhase ||
-            !this.teams.length || currentPhase.phase_type !== 'choice') {
-            console.warn(`[DecisionEngine] Skipping choice phase processing due to invalid state for phase ${phaseId}.`);
+            !this.teams.length || (currentPhase.phase_type !== 'choice' && currentPhase.phase_type !== 'double-down-prompt')) {
+            console.warn(`[DecisionEngine] Skipping choice phase processing due to invalid state or phase type for phase ${phaseId}.`);
             return;
         }
+
+        console.log(`[DecisionEngine] Processing decisions for interactive phase: ${phaseId} (Slide ID: ${associatedSlide?.id})`);
 
         try {
             for (const team of this.teams) {
@@ -143,36 +160,45 @@ export class DecisionEngine {
                 const selectedOptionId = decision?.selected_challenge_option_id ||
                     options.find(opt => opt.is_default_choice)?.id;
 
+                if (!selectedOptionId) {
+                    console.warn(`[DecisionEngine] Team ${team.name} (${team.id}) had no selected option for phase ${phaseId}. Using default if available.`);
+                }
+
+                // Apply consequence effects
                 if (selectedOptionId) {
-                    const consequenceKey = `${phaseId}-conseq`;
-                    // --- IMPORTANT: Reference allConsequencesData here ---
-                    const consequence = allConsequencesData[consequenceKey]
-                        ?.find(c => c.challenge_option_id === selectedOptionId);
-                    if (consequence) effectsToApply.push(...consequence.effects);
+                    const consequenceKey = `${phaseId}-conseq`; // Example: ch1-conseq, ch2-conseq
+                    // The 'double-down-prompt' phase doesn't have a direct consequence, its impact is via the 'double-down-payoff'
+                    if (currentPhase.phase_type === 'choice') {
+                        const consequence = this.gameStructure.all_consequences[consequenceKey]
+                            ?.find(c => c.challenge_option_id === selectedOptionId);
+                        if (consequence) {
+                            effectsToApply.push(...consequence.effects);
+                            console.log(`[DecisionEngine] Team ${team.name}: Applying consequences for choice '${selectedOptionId}'.`);
+                        } else {
+                            console.warn(`[DecisionEngine] Team ${team.name}: No consequence found for phase ${phaseId} option ${selectedOptionId}.`);
+                        }
+                    }
                 }
 
                 if (effectsToApply.length > 0) {
                     const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, effectsToApply);
                     await this.storePermanentAdjustments(team.id, this.currentDbSession.id, effectsToApply,
-                        `${currentPhase.label} - ${selectedOptionId}`);
+                        `${currentPhase.label} - ${selectedOptionId || 'No Option'}`);
 
                     await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
+                    console.log(`[DecisionEngine] Team ${team.name}: KPIs updated for phase ${phaseId}.`);
                 }
             }
 
+            // After processing all teams, refetch the latest KPI data to update the UI
             await this.fetchTeamRoundDataFromHook(this.currentDbSession.id);
-            console.log(`[DecisionEngine] Successfully processed choice phase ${phaseId} decisions.`);
+            console.log(`[DecisionEngine] Successfully processed choice phase ${phaseId} decisions for all teams.`);
         } catch (err) {
-            console.error('[DecisionEngine] Error processing choice decisions:', err);
-            throw err;
+            console.error(`[DecisionEngine] Error processing choice decisions for phase ${phaseId}:`, err);
+            throw err; // Re-throw to be caught by the caller (e.g., useGameProcessing)
         }
     }
 
     // TODO: Implement other methods like processDoubleDown() here, if applicable
-    // TODO: Potentially integrate `calculateAndFinalizeRoundKPIs` from `useGameProcessing.ts` into this class.
+    // (This would involve a dice roll and applying its multiplier, likely calling InvestmentEngine after the roll)
 }
-
-// NOTE: The `useGameProcessing` hook at `src/core/game/useGameProcessing.ts` will need to be updated
-// to instantiate and use this `DecisionEngine` class instead of containing the logic itself.
-// After implementing this class, you should remove the `processChoicePhaseDecisionsInternal`
-// function from `useGameProcessing.ts` and modify `useGameProcessing` to use a `new DecisionEngine(...)` instance.

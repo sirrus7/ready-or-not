@@ -2,16 +2,14 @@
 import React, {createContext, useCallback, useContext, useEffect, useMemo} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {
+    AppState,
     GamePhaseNode,
     GameStructure,
     Slide,
-} from '@shared/types/game';
-import {
     Team,
     TeamDecision,
     TeamRoundData,
-} from '@shared/types/database';
-import {AppState} from '@shared/types/state';
+} from '@shared/types';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure.ts';
 import {useSupabaseMutation} from '@shared/hooks/supabase';
 import {useAuth} from './AuthProvider.tsx';
@@ -22,7 +20,7 @@ import {useDecisionPhaseManager} from '@core/interaction/useDecisionPhaseManager
 import {useGameProcessing} from '@core/game/useGameProcessing.ts';
 import {useBroadcastIntegration} from '@core/sync/useBroadcastIntegration.ts';
 
-interface GameProps { // Renamed from AppContextProps
+interface GameProps {
     // Core state
     state: AppState;
     currentPhaseNode: GamePhaseNode | null;
@@ -113,7 +111,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
     const gameController = useGameController(
         currentDbSession,
         gameStructureInstance,
-        updateSessionInDb,
         (phaseId, associatedSlide) => gameProcessing.processChoicePhaseDecisions(phaseId, associatedSlide) // Added associatedSlide param
     );
 
@@ -214,9 +211,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         teamDecisions: teamDecisions,
         teamRoundData: teamRoundData,
         isPlayerWindowOpen: false, // Moved to local component state
+        // Refined isLoading logic: only loading if session/auth/teams are truly in progress
         isLoading: isLoadingSession || authLoading || isLoadingTeams ||
-            gameProcessing.isLoadingProcessingDecisions || isResettingDecision ||
-            !gameController.currentPhaseNode,
+            gameProcessing.isLoadingProcessingDecisions || isResettingDecision,
         error: sessionError || decisionResetError,
         currentHostAlert: gameController.currentHostAlert,
     }), [
@@ -269,26 +266,25 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         deactivateDecisionPhase, isDecisionPhaseActive
     ]);
 
-    // Loading state
-    if (contextValue.state.isLoading && (!passedSessionId || passedSessionId === 'new' ||
-        !currentDbSession?.id || !gameController.currentPhaseNode)) {
+    // Only show the GameProvider's loading screen if a session ID is actually passed to it
+    // (i.e., we are on a route meant to load a specific session or create a new one),
+    // AND there's active loading for that session.
+    if (passedSessionId !== undefined && passedSessionId !== null &&
+        (isLoadingSession || authLoading || (passedSessionId === 'new' && !currentDbSession?.id && !contextValue.state.error))) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-100">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
                 <p className="ml-4 text-lg font-semibold text-gray-700">
                     {authLoading ? "Authenticating..." :
                         (passedSessionId === 'new' && !contextValue.state.error) ? "Creating New Session..." :
-                            !gameController.currentPhaseNode ? "Loading Game Controller..." :
-                                "Initializing Simulator..."}
+                            "Initializing Simulator..."}
                 </p>
             </div>
         );
     }
 
-    // Error state
-    if (contextValue.state.error && (passedSessionId === 'new' ||
-        (contextValue.state.currentSessionId && !gameController.currentPhaseNode &&
-            contextValue.state.currentSessionId !== 'new'))) {
+    // If there's an error and we were trying to load a session (not just a dashboard without ID)
+    if (contextValue.state.error && passedSessionId) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-4 text-center">
                 <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
@@ -308,6 +304,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         );
     }
 
+    // For routes like /dashboard where passedSessionId is undefined/null,
+    // or when loading is complete, render children.
     return (
         <GameContext.Provider value={contextValue}> {/* Using GameContext */}
             {children}
