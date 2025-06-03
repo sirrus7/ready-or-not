@@ -1,4 +1,4 @@
-// src/shared/components/Video/SlideRenderer.tsx - Updated with host video controls
+// src/shared/components/Video/SlideRenderer.tsx - Updated with host video controls and fullscreen support
 import React, {useState, useEffect} from 'react';
 import {Slide} from '@shared/types/game';
 import {Tv2, AlertCircle, ListChecks, RefreshCw} from 'lucide-react';
@@ -18,10 +18,21 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          isHost
                                                      }) => {
     const [videoError, setVideoError] = useState(false);
+    const [isInFullscreen, setIsInFullscreen] = useState(false);
 
     // Use appropriate video hook based on role
     const hostVideo = isHost ? useHostVideo(sessionId) : null;
     const presentationVideo = !isHost ? usePresentationVideo(sessionId) : null;
+
+    // Monitor fullscreen changes to adjust video sizing
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsInFullscreen(!!document.fullscreenElement);
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
 
     // Reset error state when slide changes
     useEffect(() => {
@@ -104,6 +115,14 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     onCanPlay={() => {
                         console.log('[SlideRenderer] Video can play for slide:', slide.id);
                     }}
+                    style={{
+                        ...videoProps.style,
+                        // In fullscreen, fill the entire screen; otherwise maintain aspect ratio
+                        objectFit: isInFullscreen ? 'cover' : 'contain',
+                        // Ensure video takes full dimensions in fullscreen
+                        width: isInFullscreen ? '100vw' : videoProps.style.maxWidth,
+                        height: isInFullscreen ? '100vh' : videoProps.style.maxHeight
+                    }}
                 >
                     Your browser does not support the video tag.
                 </video>
@@ -127,6 +146,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             (hostVideo?.isConnectedToPresentation ? 'Yes' : 'No') :
                             (presentationVideo?.isConnectedToHost ? 'Yes' : 'No')
                         }</div>
+                        <div>Fullscreen: {isInFullscreen ? 'Yes' : 'No'}</div>
+                        <div>Video Fit: {isInFullscreen ? 'Cover' : 'Contain'}</div>
                     </div>
                 )}
             </div>

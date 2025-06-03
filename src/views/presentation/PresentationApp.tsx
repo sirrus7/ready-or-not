@@ -1,14 +1,15 @@
-// src/views/presentation/PresentationApp.tsx - Simplified master-slave pattern
+// src/views/presentation/PresentationApp.tsx - Simplified master-slave pattern with fullscreen support
 import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {Slide} from '@shared/types/game';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
-import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff} from 'lucide-react';
+import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from 'lucide-react';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 /**
  * Simplified presentation app that operates in pure slave mode
  * Receives slides from host and displays them - no complex connection logic
+ * Now includes fullscreen functionality for better presentation experience
  */
 const PresentationApp: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
@@ -16,9 +17,35 @@ const PresentationApp: React.FC = () => {
     const [isConnectedToHost, setIsConnectedToHost] = useState(false);
     const [statusMessage, setStatusMessage] = useState('Initializing display...');
     const [connectionError, setConnectionError] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     const broadcastManager = sessionId ?
         SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
+
+    // Fullscreen functionality
+    const toggleFullscreen = async () => {
+        try {
+            if (!document.fullscreenElement) {
+                await document.documentElement.requestFullscreen();
+                setIsFullscreen(true);
+            } else {
+                await document.exitFullscreen();
+                setIsFullscreen(false);
+            }
+        } catch (error) {
+            console.error('[PresentationApp] Fullscreen toggle failed:', error);
+        }
+    };
+
+    // Listen for fullscreen changes (in case user exits with ESC)
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
 
     // Listen for slide updates from host
     useEffect(() => {
@@ -154,8 +181,28 @@ const PresentationApp: React.FC = () => {
                 isHost={false}
             />
 
-            {/* Connection status indicator */}
-            <div className="absolute top-4 right-4 z-20">
+            {/* Connection status indicator and fullscreen toggle */}
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+                {/* Fullscreen toggle button */}
+                <button
+                    onClick={toggleFullscreen}
+                    className="px-3 py-1 rounded-full text-xs font-medium bg-gray-900/80 text-gray-300 border border-gray-700 hover:bg-gray-800/80 hover:text-white transition-colors flex items-center gap-1"
+                    title={isFullscreen ? 'Exit Fullscreen (ESC)' : 'Enter Fullscreen'}
+                >
+                    {isFullscreen ? (
+                        <>
+                            <Minimize size={12}/>
+                            <span>Exit</span>
+                        </>
+                    ) : (
+                        <>
+                            <Maximize size={12}/>
+                            <span>Maximize</span>
+                        </>
+                    )}
+                </button>
+
+                {/* Connection status */}
                 <div className={`px-3 py-1 rounded-full text-xs font-medium ${
                     isConnectedToHost
                         ? 'bg-green-900/80 text-green-300 border border-green-700'
@@ -181,6 +228,7 @@ const PresentationApp: React.FC = () => {
                     <div>Slide: {currentSlide.id}</div>
                     <div>Mode: Presentation (Slave)</div>
                     <div>Connected: {isConnectedToHost ? 'Yes' : 'No'}</div>
+                    <div>Fullscreen: {isFullscreen ? 'Yes' : 'No'}</div>
                     <div>Session: {sessionId?.substring(0, 8)}...</div>
                 </div>
             )}

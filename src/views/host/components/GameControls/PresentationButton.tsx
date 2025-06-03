@@ -69,7 +69,7 @@ const PresentationButton: React.FC = () => {
         console.log('[PresentationButton] Opening presentation display:', url);
 
         // Open new window for presentation
-        const newTab = window.open(url, '_blank', 'width=1920,height=1080');
+        const newTab = window.open(url, '_blank');
 
         if (newTab) {
             presentationTabRef.current = newTab;
