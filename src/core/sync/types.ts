@@ -5,7 +5,7 @@ export interface HostCommand {
     type: 'HOST_COMMAND';
     sessionId: string;
     id: string;
-    action: 'play' | 'pause' | 'seek';
+    action: 'play' | 'pause' | 'seek' | 'reset';
     time?: number;
     timestamp: number;
 }

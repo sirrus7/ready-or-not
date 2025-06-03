@@ -21,6 +21,7 @@ interface VideoElementProps {
 interface UsePresentationVideoReturn {
     videoRef: React.RefObject<HTMLVideoElement>;
     isConnectedToHost: boolean;
+    reset: () => void; // Add reset function
     getVideoProps: (onVideoEnd?: () => void) => VideoElementProps; // Enhanced to accept callback
 }
 
@@ -121,6 +122,21 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
                     console.log(`[usePresentationVideo] Executed seek command to time: ${command.time}`);
                     break;
 
+                case 'reset':
+                    video.pause();
+                    video.currentTime = 0;
+                    hasEndedRef.current = false;
+                    console.log(`[usePresentationVideo] Executed reset command - video reset to beginning, currentTime: ${video.currentTime}`);
+
+                    // Double-check the reset worked after a small delay
+                    setTimeout(() => {
+                        if (video.currentTime !== 0) {
+                            console.warn('[usePresentationVideo] Reset command failed, forcing again');
+                            video.currentTime = 0;
+                        }
+                    }, 50);
+                    break;
+
                 default:
                     console.warn('[usePresentationVideo] Unknown command action:', command.action);
             }
@@ -137,6 +153,26 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
 
         return unsubscribeCommands;
     }, [broadcastManager, executeCommand]);
+
+    const reset = useCallback(() => {
+        const video = videoRef.current;
+        if (video) {
+            // Force pause first
+            video.pause();
+            // Force currentTime to 0
+            video.currentTime = 0;
+            hasEndedRef.current = false;
+            console.log('[usePresentationVideo] Video reset to beginning - currentTime:', video.currentTime);
+
+            // Double-check the reset worked after a small delay
+            setTimeout(() => {
+                if (video.currentTime !== 0) {
+                    console.warn('[usePresentationVideo] Reset failed, forcing again');
+                    video.currentTime = 0;
+                }
+            }, 50);
+        }
+    }, []);
 
     // Enhanced getVideoProps with onEnded callback support
     const getVideoProps = useCallback((onVideoEnd?: () => void): VideoElementProps => {
@@ -186,6 +222,7 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
     return {
         videoRef,
         isConnectedToHost,
+        reset,
         getVideoProps
     };
 };

@@ -23,6 +23,8 @@ interface UseHostVideoReturn {
     play: (time?: number) => Promise<void>;
     pause: (time?: number) => Promise<void>;
     seek: (time: number) => Promise<void>;
+    reset: () => void; // Add reset function
+    sendReset: () => void; // Add broadcast reset function
     isConnectedToPresentation: boolean;
     getVideoProps: (onVideoEnd?: () => void) => VideoElementProps; // Enhanced to accept callback
 }
@@ -167,6 +169,42 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         console.log(`[useHostVideo] Seek command executed (time: ${time}, synced: ${isConnectedToPresentation})`);
     }, [broadcastManager, isConnectedToPresentation, executeLocalCommand]);
 
+    const reset = useCallback(() => {
+        const video = videoRef.current;
+        if (video) {
+            // Force pause first
+            video.pause();
+            // Force currentTime to 0
+            video.currentTime = 0;
+            hasEndedRef.current = false;
+            console.log('[useHostVideo] Video reset to beginning - currentTime:', video.currentTime);
+
+            // Trigger timeupdate event to update UI
+            video.dispatchEvent(new Event('timeupdate'));
+
+            // Double-check the reset worked after a small delay
+            setTimeout(() => {
+                if (video.currentTime !== 0) {
+                    console.warn('[useHostVideo] Reset failed, forcing again');
+                    video.currentTime = 0;
+                    video.dispatchEvent(new Event('timeupdate'));
+                }
+            }, 50);
+        }
+    }, []);
+
+    const sendReset = useCallback(() => {
+        // Reset local video first
+        reset();
+
+        // Send reset command to presentation if connected
+        if (broadcastManager && isConnectedToPresentation) {
+            broadcastManager.sendCommand('reset', 0);
+        }
+
+        console.log(`[useHostVideo] Reset command sent (synced: ${isConnectedToPresentation})`);
+    }, [broadcastManager, isConnectedToPresentation, reset]);
+
     // Enhanced getVideoProps with onEnded callback support
     const getVideoProps = useCallback((onVideoEnd?: () => void): VideoElementProps => {
         return {
@@ -198,6 +236,8 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         play,
         pause,
         seek,
+        reset,
+        sendReset,
         isConnectedToPresentation,
         getVideoProps
     };

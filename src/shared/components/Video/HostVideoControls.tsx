@@ -46,6 +46,13 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
             updateVideoState();
         };
 
+        const handleLoadedData = () => {
+            // Force UI update when new video data loads
+            setCurrentTime(video.currentTime);
+            setIsPlaying(!video.paused);
+            console.log('[HostVideoControls] Video loaded, currentTime:', video.currentTime);
+        };
+
         const handleTimeUpdate = () => {
             if (!isDragging) {
                 setCurrentTime(video.currentTime);
@@ -61,6 +68,7 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
 
         // Add event listeners
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
+        video.addEventListener('loadeddata', handleLoadedData);
         video.addEventListener('timeupdate', handleTimeUpdate);
         video.addEventListener('play', handlePlay);
         video.addEventListener('pause', handlePause);
@@ -78,6 +86,7 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
 
         return () => {
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('loadeddata', handleLoadedData);
             video.removeEventListener('timeupdate', handleTimeUpdate);
             video.removeEventListener('play', handlePlay);
             video.removeEventListener('pause', handlePause);

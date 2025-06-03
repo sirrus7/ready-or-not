@@ -171,7 +171,7 @@ export class SimpleBroadcastManager {
 
     // HOST METHODS
 
-    sendCommand(action: 'play' | 'pause' | 'seek', time?: number): void {
+    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset', time?: number): void {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const command: HostCommand = {
@@ -202,7 +202,8 @@ export class SimpleBroadcastManager {
     }
 
     onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
-        if (this.isDestroyed) return () => {};
+        if (this.isDestroyed) return () => {
+        };
 
         this.statusCallbacks.add(callback);
         // Immediately call with current status
@@ -216,7 +217,8 @@ export class SimpleBroadcastManager {
     // PRESENTATION METHODS
 
     onHostCommand(callback: (command: HostCommand) => void): () => void {
-        if (this.isDestroyed) return () => {};
+        if (this.isDestroyed) return () => {
+        };
 
         this.commandHandlers.add(callback);
         return () => {
@@ -225,7 +227,8 @@ export class SimpleBroadcastManager {
     }
 
     onSlideUpdate(callback: (slide: Slide) => void): () => void {
-        if (this.isDestroyed) return () => {};
+        if (this.isDestroyed) return () => {
+        };
 
         this.slideHandlers.add(callback);
         return () => {
