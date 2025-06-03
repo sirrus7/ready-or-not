@@ -1,4 +1,5 @@
-// src/shared/utils/video/index.ts - Main video utilities export
-export { useVideoSync } from './useVideoSync';
-export { isVideo } from './helpers';
-export type { VideoState, VideoSyncMode, VideoSyncConfig, VideoProps } from '@shared/types/video';
+// src/shared/utils/video/index.ts - Simplified video utilities exports
+
+export {useHostVideo} from './useHostVideo';
+export {usePresentationVideo} from './usePresentationVideo';
+export {isVideo, getVideoInfo, isVideoReady, formatTime} from './helpers';

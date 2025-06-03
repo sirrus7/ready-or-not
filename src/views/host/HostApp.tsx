@@ -1,28 +1,51 @@
-// src/views/host/HostApp.tsx
+// src/views/host/HostApp.tsx - Enhanced with video auto-advance integration
 import React from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
 import {AlertCircle, Info, ChevronLeft, ChevronRight} from 'lucide-react';
-import DisplayView from '@views/presentation/components/DisplayView';
-import PresentationDisplayButton from '@views/host/components/GameControls/PresentationButton'; // Corrected import path
+import SlideRenderer from '@shared/components/Video/SlideRenderer';
+import PresentationButton from '@views/host/components/GameControls/PresentationButton';
 
 /**
- * `HostApp` is the main component for the facilitator's game control interface.
- * It displays the game map, current content preview, and controls for managing the session.
+ * HostApp is the main component for the facilitator's game control interface.
+ * Enhanced with video auto-advance functionality
  */
 const HostApp: React.FC = () => {
-    // Consume game context for current game state and navigation actions.
     const {
         state,
         currentSlideData,
         currentPhaseNode,
         previousSlide,
         nextSlide,
+        setCurrentHostAlertState,
     } = useGameContext();
 
     const {currentSessionId, gameStructure} = state;
 
-    // Display a loading/error message if the game session is not fully loaded.
+    // Handle video end with proper host alert logic
+    const handleVideoEnd = () => {
+        if (!currentSlideData || !currentPhaseNode) {
+            console.warn('[HostApp] Cannot handle video end - missing slide or phase data');
+            return;
+        }
+
+        console.log('[HostApp] Video ended for slide:', currentSlideData.id);
+
+        // Check if slide has a host alert that should be shown
+        if (currentSlideData.host_alert) {
+            console.log('[HostApp] Video ended with host alert - showing alert:', currentSlideData.host_alert.title);
+            // Show the host alert instead of auto-advancing
+            setCurrentHostAlertState({
+                title: currentSlideData.host_alert.title,
+                message: currentSlideData.host_alert.message
+            });
+        } else {
+            console.log('[HostApp] Video ended without host alert - auto-advancing to next slide');
+            // Auto-advance to next slide
+            nextSlide();
+        }
+    };
+
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
         return (
             <div
@@ -37,12 +60,10 @@ const HostApp: React.FC = () => {
         );
     }
 
-    // Determine if the current slide is the very first one in the entire game (to disable 'Previous').
+    // Determine navigation boundaries
     const isFirstSlideOverall = currentPhaseNode?.id === gameStructure?.welcome_phases?.[0]?.id && state.currentSlideIdInPhase === 0;
-    // Get IDs of all game-ending phases.
     const gameEndPhaseIds = gameStructure?.game_end_phases?.map(p => p.id) || [];
 
-    // Determine if the current slide is the very last one in the entire game (to disable 'Next').
     let isLastSlideOverall = false;
     if (currentPhaseNode && gameStructure) {
         if (gameEndPhaseIds.includes(currentPhaseNode.id)) {
@@ -72,19 +93,18 @@ const HostApp: React.FC = () => {
 
                 {/* Main Content Grid */}
                 <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 min-h-0">
-                    {/* Left Panel: Teacher Control Panel (Game Map, Team Monitor, Game Controls) */}
+                    {/* Left Panel: Teacher Control Panel */}
                     <div
                         className="lg:col-span-1 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-120px)]">
                         <GamePanel/>
                     </div>
 
-                    {/* Right Panel: Content Preview Area with Navigation Below */}
+                    {/* Right Panel: Content Preview Area */}
                     <div
                         className="lg:col-span-2 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-120px)]">
-                        {/* Content Area (DisplayView) */}
-                        <div className="flex-grow bg-gray-50 overflow-hidden relative" data-component="display-view">
+                        {/* Content Area with SlideRenderer */}
+                        <div className="flex-grow bg-gray-50 overflow-hidden relative">
                             {!currentSlideData ? (
-                                // Placeholder if no slide data is available.
                                 <div className="h-full flex items-center justify-center text-gray-400">
                                     <div className="text-center">
                                         <Info size={48} className="mx-auto mb-3 opacity-50"/>
@@ -94,26 +114,31 @@ const HostApp: React.FC = () => {
                                 </div>
                             ) : (
                                 <>
-                                    {/* `DisplayView` renders the current slide content (video, image, etc.). */}
+                                    {/* Enhanced SlideRenderer with auto-advance callback */}
                                     <div className="h-full">
-                                        <DisplayView slide={currentSlideData}/>
+                                        <SlideRenderer
+                                            slide={currentSlideData}
+                                            sessionId={currentSessionId}
+                                            isHost={true}
+                                            onVideoEnd={handleVideoEnd}
+                                        />
                                     </div>
 
-                                    {/* `PresentationDisplayButton` for launching and monitoring the external display. */}
+                                    {/* Presentation Button */}
                                     <div className="absolute top-3 right-3 z-50 w-48">
-                                        <PresentationDisplayButton/>
+                                        <PresentationButton/>
                                     </div>
                                 </>
                             )}
                         </div>
 
-                        {/* Navigation Controls Below Content Preview */}
+                        {/* Navigation Controls */}
                         <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
                             <div className="flex items-center justify-center gap-6">
                                 {/* Previous Slide Button */}
                                 <button
                                     onClick={previousSlide}
-                                    disabled={isFirstSlideOverall} // Disable if on the very first slide.
+                                    disabled={isFirstSlideOverall}
                                     className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg hover:bg-blue-700 transition-colors"
                                     title="Previous Slide"
                                 >
@@ -133,7 +158,7 @@ const HostApp: React.FC = () => {
                                 {/* Next Slide Button */}
                                 <button
                                     onClick={nextSlide}
-                                    disabled={isLastSlideOverall} // Disable if on the very last slide.
+                                    disabled={isLastSlideOverall}
                                     className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg hover:bg-blue-700 transition-colors"
                                     title="Next Slide"
                                 >
