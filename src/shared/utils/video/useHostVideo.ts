@@ -179,14 +179,14 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         };
     }, [isConnectedToPresentation, handleVideoClick]);
 
-    // Cleanup on unmount
+    // Cleanup on unmount - but don't destroy the manager as it's shared
     useEffect(() => {
         return () => {
-            if (broadcastManager) {
-                broadcastManager.destroy();
-            }
+            // Don't destroy the broadcast manager here - it's a singleton
+            // and may be used by other components
+            console.log('[useHostVideo] Component unmounting, but keeping broadcast manager alive');
         };
-    }, [broadcastManager]);
+    }, []);
 
     return {
         videoRef,

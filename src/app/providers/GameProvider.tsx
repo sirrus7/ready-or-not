@@ -137,17 +137,19 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
 
     // Simple broadcast integration for slide updates
     useEffect(() => {
-        if (!currentDbSession?.id || !gameController.currentSlideData) return;
+        if (!currentDbSession?.id || !gameController.currentSlideData) {
+            console.log('[GameProvider] No session or slide data, skipping broadcast');
+            return;
+        }
 
         const broadcastManager = SimpleBroadcastManager.getInstance(currentDbSession.id, 'host');
 
         // Send slide update immediately when slide changes
+        console.log('[GameProvider] Sending slide update to presentation:', gameController.currentSlideData);
         broadcastManager.sendSlideUpdate(gameController.currentSlideData);
 
-        console.log('[GameProvider] Sent slide update to presentation:', gameController.currentSlideData.id);
-
-        // Cleanup is handled by SimpleBroadcastManager
-    }, [currentDbSession?.id, gameController.currentSlideData]);
+        // Cleanup is handled by SimpleBroadcastManager singleton
+    }, [currentDbSession?.id, gameController.currentSlideData?.id, gameController.currentSlideData?.title]);
 
     // Enhanced team decision reset
     const {

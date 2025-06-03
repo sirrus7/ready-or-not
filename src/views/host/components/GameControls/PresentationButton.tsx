@@ -38,10 +38,10 @@ const PresentationButton: React.FC = () => {
     // Send slide updates when current slide changes
     useEffect(() => {
         if (broadcastManager && currentSlideData && connectionStatus === 'connected') {
-            console.log('[PresentationButton] Sending slide update:', currentSlideData.id);
+            console.log('[PresentationButton] Sending slide update:', currentSlideData.id, currentSlideData.title);
             broadcastManager.sendSlideUpdate(currentSlideData);
         }
-    }, [broadcastManager, currentSlideData, connectionStatus]);
+    }, [broadcastManager, currentSlideData?.id, connectionStatus]);
 
     // Monitor presentation tab state
     useEffect(() => {

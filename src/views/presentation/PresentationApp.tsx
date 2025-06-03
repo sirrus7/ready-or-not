@@ -27,14 +27,17 @@ const PresentationApp: React.FC = () => {
         console.log('[PresentationApp] Setting up slide listener');
 
         const unsubscribeSlides = broadcastManager.onSlideUpdate((slide: Slide) => {
-            console.log('[PresentationApp] Received slide update:', slide.id);
+            console.log('[PresentationApp] Received slide update:', slide.id, slide.title);
             setCurrentSlide(slide);
             setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
             setConnectionError(false);
         });
 
-        return unsubscribeSlides;
+        return () => {
+            console.log('[PresentationApp] Cleaning up slide listener');
+            unsubscribeSlides();
+        };
     }, [broadcastManager]);
 
     // Simple connection timeout check

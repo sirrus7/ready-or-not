@@ -24,6 +24,9 @@ export class SimpleBroadcastManager {
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
     private slideHandlers: Set<(slide: Slide) => void> = new Set();
 
+    // Track if this instance has been destroyed
+    private isDestroyed: boolean = false;
+
     private constructor(sessionId: string, mode: 'host' | 'presentation') {
         this.sessionId = sessionId;
         this.mode = mode;
@@ -37,6 +40,13 @@ export class SimpleBroadcastManager {
 
     static getInstance(sessionId: string, mode: 'host' | 'presentation'): SimpleBroadcastManager {
         const key = `${sessionId}-${mode}`;
+
+        // Check if existing instance is destroyed and clean it up
+        const existing = SimpleBroadcastManager.instances.get(key);
+        if (existing && existing.isDestroyed) {
+            SimpleBroadcastManager.instances.delete(key);
+        }
+
         if (!SimpleBroadcastManager.instances.has(key)) {
             SimpleBroadcastManager.instances.set(key, new SimpleBroadcastManager(sessionId, mode));
         }
@@ -45,6 +55,8 @@ export class SimpleBroadcastManager {
 
     private setupMessageHandling(): void {
         this.channel.onmessage = (event) => {
+            if (this.isDestroyed) return;
+
             const message = event.data;
 
             // Only process messages for this session
@@ -66,6 +78,7 @@ export class SimpleBroadcastManager {
 
                 case 'SLIDE_UPDATE':
                     if (this.mode === 'presentation') {
+                        console.log('[SimpleBroadcastManager] Received slide update for presentation:', message.slide.id);
                         this.slideHandlers.forEach(handler => handler(message.slide));
                     }
                     break;
@@ -102,6 +115,8 @@ export class SimpleBroadcastManager {
         if (this.mode === 'host') {
             // Host sends ping every 5 seconds
             this.pingInterval = setInterval(() => {
+                if (this.isDestroyed) return;
+
                 this.sendMessage({
                     type: 'PING',
                     sessionId: this.sessionId,
@@ -114,33 +129,50 @@ export class SimpleBroadcastManager {
                 }
             }, 5000);
         } else {
-            // Presentation announces ready immediately
+            // Presentation announces ready after a short delay
             setTimeout(() => {
-                this.sendStatus('ready');
+                if (!this.isDestroyed) {
+                    this.sendStatus('ready');
+                }
             }, 100);
         }
     }
 
     private sendMessage(message: any): void {
+        if (this.isDestroyed) {
+            console.warn('[SimpleBroadcastManager] Attempted to send message on destroyed instance');
+            return;
+        }
+
         try {
             this.channel.postMessage(message);
         } catch (error) {
-            console.error('[SimpleBroadcastManager] Failed to send message:', error);
+            if (!this.isDestroyed) {
+                console.error('[SimpleBroadcastManager] Failed to send message:', error);
+            }
         }
     }
 
     private updateConnectionStatus(status: ConnectionStatus): void {
+        if (this.isDestroyed) return;
+
         if (this.connectionStatus !== status) {
             this.connectionStatus = status;
             console.log(`[SimpleBroadcastManager] Connection status changed to: ${status}`);
-            this.statusCallbacks.forEach(callback => callback(status));
+            this.statusCallbacks.forEach(callback => {
+                try {
+                    callback(status);
+                } catch (error) {
+                    console.error('[SimpleBroadcastManager] Error in status callback:', error);
+                }
+            });
         }
     }
 
     // HOST METHODS
 
     sendCommand(action: 'play' | 'pause' | 'seek', time?: number): void {
-        if (this.mode !== 'host') return;
+        if (this.mode !== 'host' || this.isDestroyed) return;
 
         const command: HostCommand = {
             type: 'HOST_COMMAND',
@@ -156,7 +188,7 @@ export class SimpleBroadcastManager {
     }
 
     sendSlideUpdate(slide: Slide): void {
-        if (this.mode !== 'host') return;
+        if (this.mode !== 'host' || this.isDestroyed) return;
 
         const update: SlideUpdate = {
             type: 'SLIDE_UPDATE',
@@ -166,10 +198,12 @@ export class SimpleBroadcastManager {
         };
 
         this.sendMessage(update);
-        console.log(`[SimpleBroadcastManager] Sent slide update:`, slide.id);
+        console.log(`[SimpleBroadcastManager] HOST sent slide update:`, slide.id, slide.title || 'No title');
     }
 
     onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
+        if (this.isDestroyed) return () => {};
+
         this.statusCallbacks.add(callback);
         // Immediately call with current status
         callback(this.connectionStatus);
@@ -182,6 +216,8 @@ export class SimpleBroadcastManager {
     // PRESENTATION METHODS
 
     onHostCommand(callback: (command: HostCommand) => void): () => void {
+        if (this.isDestroyed) return () => {};
+
         this.commandHandlers.add(callback);
         return () => {
             this.commandHandlers.delete(callback);
@@ -189,6 +225,8 @@ export class SimpleBroadcastManager {
     }
 
     onSlideUpdate(callback: (slide: Slide) => void): () => void {
+        if (this.isDestroyed) return () => {};
+
         this.slideHandlers.add(callback);
         return () => {
             this.slideHandlers.delete(callback);
@@ -196,7 +234,7 @@ export class SimpleBroadcastManager {
     }
 
     sendStatus(status: 'ready' | 'pong'): void {
-        if (this.mode !== 'presentation') return;
+        if (this.mode !== 'presentation' || this.isDestroyed) return;
 
         const statusMessage: PresentationStatus = {
             type: 'PRESENTATION_STATUS',
@@ -215,19 +253,31 @@ export class SimpleBroadcastManager {
     }
 
     destroy(): void {
+        if (this.isDestroyed) return;
+
+        console.log(`[SimpleBroadcastManager] Destroying instance for session ${this.sessionId}`);
+
+        this.isDestroyed = true;
+
         if (this.pingInterval) {
             clearInterval(this.pingInterval);
             this.pingInterval = null;
         }
 
-        this.channel.close();
+        // Close the channel
+        try {
+            this.channel.close();
+        } catch (error) {
+            console.warn('[SimpleBroadcastManager] Error closing channel:', error);
+        }
+
+        // Clear all handlers
         this.statusCallbacks.clear();
         this.commandHandlers.clear();
         this.slideHandlers.clear();
 
+        // Remove from instances map
         const key = `${this.sessionId}-${this.mode}`;
         SimpleBroadcastManager.instances.delete(key);
-
-        console.log(`[SimpleBroadcastManager] Destroyed instance for session ${this.sessionId}`);
     }
 }
