@@ -1,65 +1,38 @@
-// src/components/Display/SlideRenderer.tsx - Fixed with Enhanced Video System
+// src/shared/components/Video/SlideRenderer.tsx - Simplified with master-slave pattern
 import React, {useState, useEffect} from 'react';
 import {Slide} from '@shared/types/game';
-import {Tv2, AlertCircle, ListChecks, Play, Pause, RefreshCw} from 'lucide-react';
+import {Tv2, AlertCircle, ListChecks, RefreshCw} from 'lucide-react';
 import LeaderboardChartDisplay from '@shared/components/UI/LeaderboardChart';
-import {isVideo, useVideoSync} from "@shared/utils/video";
+import {isVideo, useHostVideo, usePresentationVideo} from '@shared/utils/video';
 
 interface SlideRendererProps {
     slide: Slide | null;
     sessionId?: string | null;
-    // Video sync mode
-    videoMode?: 'master' | 'host' | 'independent';
-    // Host mode props
-    onHostVideoClick?: (willPlay: boolean) => void;
-    // Display options
-    allowHostAudio?: boolean;
-    enableNativeControls?: boolean;
+    isHost: boolean; // Simple flag to determine which video hook to use
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          slide,
                                                          sessionId = null,
-                                                         videoMode = 'independent',
-                                                         onHostVideoClick,
-                                                         allowHostAudio = false,
-                                                         enableNativeControls = false
+                                                         isHost
                                                      }) => {
     const [videoError, setVideoError] = useState(false);
-    const [showPlayIcon, setShowPlayIcon] = useState(false);
-    const [lastSlideId, setLastSlideId] = useState<number | null>(null);
 
-    // Detect slide changes and reset video error state
+    // Use appropriate video hook based on role
+    const hostVideo = isHost ? useHostVideo(sessionId) : null;
+    const presentationVideo = !isHost ? usePresentationVideo(sessionId) : null;
+
+    // Reset error state when slide changes
     useEffect(() => {
-        if (slide?.id !== lastSlideId) {
-            setLastSlideId(slide?.id || null);
-            setVideoError(false);
-            setShowPlayIcon(false);
-        }
-    }, [slide?.id, lastSlideId]);
-
-    // Unified video management
-    const {videoState, getVideoProps} = useVideoSync({
-        sessionId,
-        mode: videoMode,
-        allowHostAudio,
-        enableNativeControls,
-        videoUrl: slide?.source_url, // Pass video URL to detect changes
-        onHostVideoClick: (willPlay) => {
-            // Show visual feedback
-            setShowPlayIcon(true);
-            setTimeout(() => setShowPlayIcon(false), 2000);
-            // Call parent handler
-            onHostVideoClick?.(willPlay);
-        }
-    });
+        setVideoError(false);
+    }, [slide?.id]);
 
     if (!slide) {
         return (
             <div className="h-full flex flex-col items-center justify-center bg-gray-800 text-white p-8">
                 <Tv2 size={48} className="mb-4 text-blue-400 opacity-50"/>
                 <p className="text-xl">Display is Ready</p>
-                <p className="text-sm text-gray-400">Waiting for facilitator to start content...</p>
+                <p className="text-sm text-gray-400">Waiting for content...</p>
             </div>
         );
     }
@@ -90,8 +63,12 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 <div
                     className="text-center max-w-2xl mx-auto p-6 sm:p-8 bg-slate-800/90 rounded-xl shadow-2xl backdrop-blur-md border border-slate-700">
                     <ListChecks size={32} className="text-blue-400 mx-auto mb-4 animate-pulse"/>
-                    <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">{slide.main_text || slide.title || "Interactive Content"}</h2>
-                    <p className="text-md sm:text-lg text-gray-300 mb-4">{slide.sub_text || "Refer to your team device for interactions."}</p>
+                    <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-sky-300">
+                        {slide.main_text || slide.title || "Interactive Content"}
+                    </h2>
+                    <p className="text-md sm:text-lg text-gray-300 mb-4">
+                        {slide.sub_text || "Refer to your team device for interactions."}
+                    </p>
                     {slide.timer_duration_seconds && (
                         <div
                             className="mt-5 text-xl sm:text-2xl font-mono text-yellow-300 bg-black/40 px-4 py-2 rounded-lg inline-block shadow-md">
@@ -102,62 +79,42 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             );
         }
 
-        // Video element with unified props
-        const videoElement = (
-            <video
-                key={`video_${slide.id}_${slide.source_url}`} // Stable key for re-renders
-                src={slide.source_url}
-                {...getVideoProps()}
-                onError={() => setVideoError(true)}
-                onLoadStart={() => {
-                    console.log('[SlideRenderer] Video load started for slide:', slide.id);
-                }}
-                onCanPlay={() => {
-                    console.log('[SlideRenderer] Video can play for slide:', slide.id);
-                }}
-            >
-                Your browser does not support the video tag.
-            </video>
-        );
+        // Render video element with appropriate props
+        const videoProps = isHost ? hostVideo?.getVideoProps() : presentationVideo?.getVideoProps();
 
-        // Add click overlay and play icon for host mode
-        if (videoMode === 'host' && !enableNativeControls && onHostVideoClick) {
+        if (!videoProps) {
             return (
-                <div className="relative h-full w-full flex items-center justify-center">
-                    {videoElement}
-                    {showPlayIcon && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                            <div
-                                className="bg-black/60 rounded-full p-4 backdrop-blur-sm animate-in fade-in duration-200">
-                                {videoState.playing ? (
-                                    <Pause size={48} className="text-white"/>
-                                ) : (
-                                    <Play size={48} className="text-white ml-1"/>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                    {/* Debug info for development */}
-                    {process.env.NODE_ENV === 'development' && (
-                        <div className="absolute top-4 right-4 bg-black/60 text-white text-xs p-2 rounded">
-                            <div>Mode: {videoMode}</div>
-                            <div>Playing: {videoState.playing ? 'Yes' : 'No'}</div>
-                            <div>Time: {Math.round(videoState.currentTime)}s</div>
-                        </div>
-                    )}
+                <div className="flex items-center justify-center h-full text-white">
+                    <p>Loading video player...</p>
                 </div>
             );
         }
 
         return (
             <div className="h-full w-full flex items-center justify-center">
-                {videoElement}
-                {/* Debug info for development */}
+                <video
+                    key={`video_${slide.id}_${slide.source_url}`}
+                    src={slide.source_url}
+                    {...videoProps}
+                    onError={() => setVideoError(true)}
+                    onLoadStart={() => {
+                        console.log('[SlideRenderer] Video load started for slide:', slide.id);
+                    }}
+                    onCanPlay={() => {
+                        console.log('[SlideRenderer] Video can play for slide:', slide.id);
+                    }}
+                >
+                    Your browser does not support the video tag.
+                </video>
+
+                {/* Connection status for development */}
                 {process.env.NODE_ENV === 'development' && (
                     <div className="absolute top-4 right-4 bg-black/60 text-white text-xs p-2 rounded">
-                        <div>Mode: {videoMode}</div>
-                        <div>Playing: {videoState.playing ? 'Yes' : 'No'}</div>
-                        <div>Time: {Math.round(videoState.currentTime)}s</div>
+                        <div>Mode: {isHost ? 'Host' : 'Presentation'}</div>
+                        <div>Connected: {isHost ?
+                            (hostVideo?.isConnectedToPresentation ? 'Yes' : 'No') :
+                            (presentationVideo?.isConnectedToHost ? 'Yes' : 'No')
+                        }</div>
                     </div>
                 )}
             </div>
@@ -168,8 +125,11 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         switch (slide.type) {
             case 'image':
                 if (!slide.source_url) {
-                    return <div className="text-red-500 p-4 text-center">Image source missing for slide
-                        ID: {slide.id}.</div>;
+                    return (
+                        <div className="text-red-500 p-4 text-center">
+                            Image source missing for slide ID: {slide.id}.
+                        </div>
+                    );
                 }
                 return (
                     <div className="h-full w-full flex items-center justify-center p-4">
@@ -183,8 +143,11 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             case 'leaderboard_chart':
                 if (!slide.interactive_data_key) {
-                    return <div className="p-8 text-center text-xl text-red-500">Leaderboard configuration error for
-                        slide ID: {slide.id}.</div>;
+                    return (
+                        <div className="p-8 text-center text-xl text-red-500">
+                            Leaderboard configuration error for slide ID: {slide.id}.
+                        </div>
+                    );
                 }
                 return (
                     <LeaderboardChartDisplay

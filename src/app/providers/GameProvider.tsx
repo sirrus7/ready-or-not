@@ -1,4 +1,4 @@
-// src/app/providers/GameProvider.tsx
+// src/app/providers/GameProvider.tsx - Updated to remove complex broadcast integration
 import React, {createContext, useCallback, useContext, useEffect, useMemo} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {
@@ -18,7 +18,7 @@ import {useGameController} from '@core/game/useGameController.ts';
 import {useTeamDataManager} from '@shared/hooks/useTeamDataManager.ts';
 import {useDecisionPhaseManager} from '@core/interaction/useDecisionPhaseManager.ts';
 import {useGameProcessing} from '@core/game/useGameProcessing.ts';
-import {useBroadcastIntegration} from '@core/sync/useBroadcastIntegration.ts';
+import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 interface GameProps {
     // Core state
@@ -62,20 +62,20 @@ interface GameProps {
     isDecisionPhaseActive: boolean;
 }
 
-const GameContext = createContext<GameProps | undefined>(undefined); // Renamed context
+const GameContext = createContext<GameProps | undefined>(undefined);
 
-export const useGameContext = () => { // Exporting the hook as useAppContext for backward compatibility, but it refers to GameContext
-    const context = useContext(GameContext); // Using GameContext
-    if (!context) throw new Error('useAppContext must be used within an AppProvider'); // Keep error message for now
+export const useGameContext = () => {
+    const context = useContext(GameContext);
+    if (!context) throw new Error('useGameContext must be used within a GameProvider');
     return context;
 };
 
-interface GameProviderProps { // Renamed from AppProviderProps
+interface GameProviderProps {
     children: React.ReactNode;
     passedSessionId?: string | null;
 }
 
-export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessionId}) => { // Renamed component
+export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessionId}) => {
     const {user, loading: authLoading} = useAuth();
     const navigate = useNavigate();
     const gameStructureInstance = useMemo(() => readyOrNotGame_2_0_DD as GameStructure, []);
@@ -111,7 +111,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
     const gameController = useGameController(
         currentDbSession,
         gameStructureInstance,
-        (phaseId, associatedSlide) => gameProcessing.processChoicePhaseDecisions(phaseId, associatedSlide) // Added associatedSlide param
+        (phaseId, associatedSlide) => gameProcessing.processChoicePhaseDecisions(phaseId, associatedSlide)
     );
 
     // Decision phase management
@@ -135,14 +135,19 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         setTeamRoundDataDirectly
     });
 
-    // Broadcast integration for student devices
-    useBroadcastIntegration({
-        sessionId: currentDbSession?.id || null,
-        currentPhaseNode: gameController.currentPhaseNode,
-        currentSlideData: gameController.currentSlideData,
-        isDecisionPhaseActive,
-        decisionPhaseTimerEndTime
-    });
+    // Simple broadcast integration for slide updates
+    useEffect(() => {
+        if (!currentDbSession?.id || !gameController.currentSlideData) return;
+
+        const broadcastManager = SimpleBroadcastManager.getInstance(currentDbSession.id, 'host');
+
+        // Send slide update immediately when slide changes
+        broadcastManager.sendSlideUpdate(gameController.currentSlideData);
+
+        console.log('[GameProvider] Sent slide update to presentation:', gameController.currentSlideData.id);
+
+        // Cleanup is handled by SimpleBroadcastManager
+    }, [currentDbSession?.id, gameController.currentSlideData]);
 
     // Enhanced team decision reset
     const {
@@ -206,12 +211,11 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         currentSlideIdInPhase: currentDbSession?.current_slide_id_in_phase ??
             (gameController.currentPhaseNode === gameStructureInstance?.welcome_phases[0] ? 0 : null),
         hostNotes: gameController.teacherNotes,
-        isPlaying: false, // Removed - no longer managed here
+        isPlaying: false,
         teams: teams,
         teamDecisions: teamDecisions,
         teamRoundData: teamRoundData,
-        isPlayerWindowOpen: false, // Moved to local component state
-        // Refined isLoading logic: only loading if session/auth/teams are truly in progress
+        isPlayerWindowOpen: false,
         isLoading: isLoadingSession || authLoading || isLoadingTeams ||
             gameProcessing.isLoadingProcessingDecisions || isResettingDecision,
         error: sessionError || decisionResetError,
@@ -232,7 +236,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
     }, [currentDbSession?.id, isLoadingSession, authLoading, fetchWrapperTeams,
         fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook]);
 
-    const contextValue: GameProps = useMemo(() => ({ // Using GameProps
+    const contextValue: GameProps = useMemo(() => ({
         state: combinedAppState,
         currentPhaseNode: gameController.currentPhaseNode,
         currentSlideData: gameController.currentSlideData,
@@ -266,9 +270,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         deactivateDecisionPhase, isDecisionPhaseActive
     ]);
 
-    // Only show the GameProvider's loading screen if a session ID is actually passed to it
-    // (i.e., we are on a route meant to load a specific session or create a new one),
-    // AND there's active loading for that session.
+    // Loading screen
     if (passedSessionId !== undefined && passedSessionId !== null &&
         (isLoadingSession || authLoading || (passedSessionId === 'new' && !currentDbSession?.id && !contextValue.state.error))) {
         return (
@@ -283,7 +285,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         );
     }
 
-    // If there's an error and we were trying to load a session (not just a dashboard without ID)
+    // Error screen
     if (contextValue.state.error && passedSessionId) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-4 text-center">
@@ -304,10 +306,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         );
     }
 
-    // For routes like /dashboard where passedSessionId is undefined/null,
-    // or when loading is complete, render children.
     return (
-        <GameContext.Provider value={contextValue}> {/* Using GameContext */}
+        <GameContext.Provider value={contextValue}>
             {children}
         </GameContext.Provider>
     );

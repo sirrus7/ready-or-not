@@ -1,221 +1,95 @@
-// src/views/presentation/PresentationApp.tsx
-import React, {useEffect, useState, useRef, useCallback} from 'react';
+// src/views/presentation/PresentationApp.tsx - Simplified master-slave pattern
+import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
-import {Slide} from '@shared/types/game'; // Using game.ts for Slide
+import {Slide} from '@shared/types/game';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff} from 'lucide-react';
-import {VideoSyncManager} from '@core/sync/VideoSyncManager'; // Correct import for the centralized video sync manager
-import {ConnectionMonitor, BroadcastConnectionStatus} from '@core/sync/ConnectionMonitor'; // Correct import for the broadcast channel connection monitor
+import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
+/**
+ * Simplified presentation app that operates in pure slave mode
+ * Receives slides from host and displays them - no complex connection logic
+ */
 const PresentationApp: React.FC = () => {
-    const {sessionId} = useParams<{ sessionId: string }>(); // Get session ID from URL parameters.
-    const [currentSlide, setCurrentSlide] = useState<Slide | null>(null); // Current slide data to display.
-    const [isConnectedToHost, setIsConnectedToHost] = useState(false); // Connection status to the host.
-    const [statusMessage, setStatusMessage] = useState('Initializing display...'); // User-facing status message.
-    const [connectionError, setConnectionError] = useState(false); // Flag for connection errors.
-    const [connectionAttempts, setConnectionAttempts] = useState(0); // Counter for connection retry attempts.
-    const isInitializedRef = useRef(false); // Ref to ensure initialization logic runs only once.
-    const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Ref for connection timeout timer.
+    const {sessionId} = useParams<{ sessionId: string }>();
+    const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
+    const [isConnectedToHost, setIsConnectedToHost] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('Initializing display...');
+    const [connectionError, setConnectionError] = useState(false);
 
-    // Get singleton instances of `VideoSyncManager` and `ConnectionMonitor` for this session and role.
-    const videoSyncManager = sessionId ? VideoSyncManager.getInstance(sessionId) : null;
-    const connectionMonitor = sessionId ? ConnectionMonitor.getInstance(sessionId, 'presentation') : null;
+    const broadcastManager = sessionId ?
+        SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
 
-    /**
-     * Clears any active connection timeout timer.
-     */
-    const clearConnectionTimeout = useCallback(() => {
-        if (connectionTimeoutRef.current) {
-            clearTimeout(connectionTimeoutRef.current);
-            connectionTimeoutRef.current = null;
-        }
-    }, []);
-
-    // Effect hook to set up broadcast manager listeners for slide updates and connection status.
+    // Listen for slide updates from host
     useEffect(() => {
-        // Ensure managers are initialized and sessionId is available before setting up listeners.
-        if (!videoSyncManager || !connectionMonitor || !sessionId) return;
+        if (!broadcastManager) return;
 
-        console.log(`[PresentationApp] Setting up broadcast listeners for session ${sessionId}`);
+        console.log('[PresentationApp] Setting up slide listener');
 
-        // --- VideoSyncManager Subscriptions ---
-        // Handles `SLIDE_UPDATE` messages from the host to change the displayed slide.
-        const unsubscribeSlideUpdate = videoSyncManager.subscribe('SLIDE_UPDATE', (message) => {
-            console.log('[PresentationApp] Received slide update:', message.slide?.id);
-            setIsConnectedToHost(true); // Confirm connection if slide update is received.
+        const unsubscribeSlides = broadcastManager.onSlideUpdate((slide: Slide) => {
+            console.log('[PresentationApp] Received slide update:', slide.id);
+            setCurrentSlide(slide);
+            setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
-            setCurrentSlide(message.slide); // Update the slide to display.
-            setConnectionError(false); // Clear any connection errors.
-            setConnectionAttempts(0); // Reset connection attempts.
-            clearConnectionTimeout(); // Clear any pending connection timeout.
+            setConnectionError(false);
         });
 
-        // Handles `REQUEST_CURRENT_STATE` messages from the host.
-        // This is typically sent when a host tab first opens or when it explicitly requests status.
-        const unsubscribeStateRequest = videoSyncManager.subscribe('REQUEST_CURRENT_STATE', () => {
-            console.log('[PresentationApp] Host requesting current state');
-            // Respond with the current slide and announce readiness.
-            if (currentSlide) {
-                videoSyncManager.sendSlideUpdate(currentSlide);
-            }
-            videoSyncManager.announcePresentationReady();
-        });
+        return unsubscribeSlides;
+    }, [broadcastManager]);
 
-        // Handles `SESSION_ENDED` messages from the host.
-        // This signals that the game session has been terminated by the facilitator.
-        const unsubscribeSessionEnded = videoSyncManager.subscribe('SESSION_ENDED', () => {
-            console.log('[PresentationApp] Session ended by host');
-            setCurrentSlide(null); // Clear the displayed slide.
-            setIsConnectedToHost(false); // Mark as disconnected.
-            setStatusMessage('Session has ended by facilitator');
-            setConnectionError(false); // Clear any errors.
-            clearConnectionTimeout(); // Clear any timeouts.
-            // Explicitly destroy managers for this session when it ends.
-            connectionMonitor.destroy();
-            videoSyncManager.destroy();
-        });
-
-        // --- ConnectionMonitor Subscriptions ---
-        // Monitors the broadcast channel connection status to the host.
-        const unsubscribeConnection = connectionMonitor.addStatusListener((status: BroadcastConnectionStatus) => {
-            const isHost = status.connectionType === 'host';
-            const nowConnected = status.isConnected && isHost; // True if connected to a host instance.
-            const wasConnected = isConnectedToHost; // Track previous state for messaging.
-
-            console.log('[PresentationApp] Connection status changed:', status);
-
-            setIsConnectedToHost(nowConnected); // Update local connection state.
-
-            if (!status.isConnected) { // If overall broadcast connection is down.
-                setConnectionError(true);
-                if (wasConnected) { // If it was connected before, now lost.
-                    setStatusMessage('Lost connection to host. Attempting to reconnect...');
-                } else { // If never connected initially.
-                    setStatusMessage('Unable to connect to host. Please ensure the host dashboard is open.');
-                }
-            } else if (nowConnected && !wasConnected) { // If just established connection to host.
-                setConnectionError(false);
-                setStatusMessage('Connected to host. Waiting for content...');
-                setConnectionAttempts(0); // Reset retry attempts.
-                clearConnectionTimeout(); // Clear any pending timeouts.
-
-                // Request current state from host upon successful connection.
-                setTimeout(() => {
-                    videoSyncManager.requestCurrentState();
-                }, 200);
-            }
-        });
-
-        // --- Initial Connection Sequence ---
-        // This logic runs once when the component mounts or the session ID changes.
-        if (!isInitializedRef.current) {
-            isInitializedRef.current = true;
-
-            // Announce that this presentation display is ready to receive content.
-            // This helps the host detect this display.
-            console.log('[PresentationApp] Announcing presentation ready');
-            setTimeout(() => {
-                videoSyncManager.announcePresentationReady();
-            }, 200);
-
-            // Request current state from host in case the host already has content displayed.
-            setTimeout(() => {
-                videoSyncManager.requestCurrentState();
-            }, 700);
-
-            // Set up a connection timeout with retry logic.
-            const attemptConnection = (attempt: number) => {
-                clearConnectionTimeout(); // Clear previous timeout before setting a new one.
-                connectionTimeoutRef.current = setTimeout(() => {
-                    if (!isConnectedToHost) { // Only proceed if still not connected.
-                        setConnectionAttempts(attempt); // Update attempt count for UI feedback.
-
-                        if (attempt < 4) { // Retry up to 3 times after initial (total 4 attempts).
-                            setStatusMessage(`Connection attempt ${attempt}/4. Retrying...`);
-                            console.log(`[PresentationApp] Retry attempt ${attempt}`);
-                            // Re-announce and re-request state to trigger another connection attempt.
-                            videoSyncManager.announcePresentationReady();
-                            videoSyncManager.requestCurrentState();
-                            attemptConnection(attempt + 1); // Schedule the next attempt.
-                        } else {
-                            setStatusMessage('Connection timeout. Please ensure the host dashboard is open and try refreshing this page.');
-                            setConnectionError(true); // Indicate a persistent connection error.
-                        }
-                    }
-                }, 3000 + (attempt * 1000)); // Progressive timeout delay (3s, 4s, 5s, 6s).
-            };
-
-            attemptConnection(1); // Start the first connection attempt.
-        }
-
-        // --- Cleanup on Unmount ---
-        return () => {
-            clearConnectionTimeout(); // Clear any pending timeouts.
-            // Unsubscribe all listeners to prevent memory leaks.
-            unsubscribeSlideUpdate();
-            unsubscribeStateRequest();
-            unsubscribeSessionEnded();
-            unsubscribeConnection();
-        };
-    }, [videoSyncManager, connectionMonitor, sessionId, isConnectedToHost, currentSlide, clearConnectionTimeout]);
-
-    // --- Periodic Connection Health Check (Heartbeat) ---
-    // This effect sends a periodic signal to the host to confirm this display is still active.
+    // Simple connection timeout check
     useEffect(() => {
-        if (!videoSyncManager || !isConnectedToHost) return; // Only send heartbeat if connected.
+        if (!sessionId || !broadcastManager) return;
 
-        const healthCheck = setInterval(() => {
-            videoSyncManager.sendPresentationHeartbeat();
-        }, 10000); // Send heartbeat every 10 seconds.
+        // Simple timeout to show connection error if no slides received
+        const connectionTimeout = setTimeout(() => {
+            if (!isConnectedToHost) {
+                setConnectionError(true);
+                setStatusMessage('Unable to connect to host. Please ensure the host dashboard is open.');
+            }
+        }, 10000); // 10 second timeout
 
-        return () => clearInterval(healthCheck); // Cleanup interval on unmount.
-    }, [videoSyncManager, isConnectedToHost]);
+        return () => clearTimeout(connectionTimeout);
+    }, [sessionId, broadcastManager, isConnectedToHost]);
 
-    // --- Handle Page Visibility Changes ---
-    // This ensures that if the tab is hidden and then becomes visible, it tries to re-sync.
+    // Send ping responses automatically (handled by SimpleBroadcastManager)
+    useEffect(() => {
+        if (broadcastManager) {
+            // SimpleBroadcastManager automatically handles ping/pong
+            console.log('[PresentationApp] Presentation initialized and ready');
+        }
+    }, [broadcastManager]);
+
+    // Handle page visibility changes
     useEffect(() => {
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && videoSyncManager && connectionMonitor && !isConnectedToHost) {
-                console.log('[PresentationApp] Page became visible, attempting reconnection');
-                setConnectionAttempts(0); // Reset attempts.
-                setConnectionError(false); // Clear error.
-                setStatusMessage('Reconnecting...');
-                // Force a health check and re-announce/request state.
-                connectionMonitor.forceHealthCheck();
-                videoSyncManager.announcePresentationReady();
-                videoSyncManager.requestCurrentState();
+            if (document.visibilityState === 'visible' && broadcastManager && !isConnectedToHost) {
+                console.log('[PresentationApp] Page became visible, announcing ready');
+                broadcastManager.sendStatus('ready');
             }
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [videoSyncManager, connectionMonitor, isConnectedToHost]);
+    }, [broadcastManager, isConnectedToHost]);
 
-    /**
-     * Manual retry function for user clicks (e.g., on an error message).
-     * It resets the connection state and initiates a new connection attempt.
-     */
-    const handleRetry = useCallback(() => {
-        setConnectionError(false); // Clear error state.
-        setConnectionAttempts(0); // Reset attempts.
+    // Manual retry function
+    const handleRetry = () => {
+        setConnectionError(false);
         setStatusMessage('Reconnecting...');
-        clearConnectionTimeout(); // Clear any old timeouts.
 
-        if (videoSyncManager && connectionMonitor) {
-            // Re-announce readiness, request state, and force a health check.
-            videoSyncManager.announcePresentationReady();
-            videoSyncManager.requestCurrentState();
-            connectionMonitor.forceHealthCheck();
+        if (broadcastManager) {
+            broadcastManager.sendStatus('ready');
         }
-    }, [videoSyncManager, connectionMonitor, clearConnectionTimeout]);
+    };
 
-    // --- Render Loading/Connection State UI ---
-    if (!isConnectedToHost || !currentSlide) {
+    // Show loading/error state if not connected or no slide
+    if (!isConnectedToHost || (!currentSlide && !connectionError)) {
         return (
             <div className="h-screen w-screen bg-gray-900 flex items-center justify-center relative">
                 <div className="text-center text-white p-8 max-w-md">
                     {connectionError ? (
-                        // Display for persistent connection errors.
+                        // Connection error display
                         <>
                             <Monitor size={48} className="mx-auto mb-4 text-red-400"/>
                             <h1 className="text-2xl font-bold mb-2 text-red-300">Connection Issue</h1>
@@ -241,7 +115,7 @@ const PresentationApp: React.FC = () => {
                             </p>
                         </>
                     ) : (
-                        // Display for initial loading/connecting state.
+                        // Initial loading state
                         <>
                             <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse"/>
                             <h1 className="text-2xl font-bold mb-2">Presentation Display</h1>
@@ -253,23 +127,12 @@ const PresentationApp: React.FC = () => {
                             )}
                             <div className="mt-6 text-sm text-gray-400">
                                 <div className="flex items-center justify-center gap-2 mb-2">
-                                    {isConnectedToHost ? (
-                                        <Wifi size={16} className="text-green-400"/>
-                                    ) : (
-                                        <WifiOff size={16} className="text-red-400"/>
-                                    )}
-                                    <span>
-                                        {isConnectedToHost ? 'Connected to host' : 'Waiting for host connection'}
-                                    </span>
+                                    <WifiOff size={16} className="text-red-400"/>
+                                    <span>Waiting for host connection</span>
                                 </div>
                                 <p className="text-xs">
                                     Make sure the host dashboard is open and active
                                 </p>
-                                {connectionAttempts > 0 && (
-                                    <p className="text-xs mt-1 text-yellow-400">
-                                        Attempt {connectionAttempts}/4
-                                    </p>
-                                )}
                             </div>
                         </>
                     )}
@@ -278,19 +141,17 @@ const PresentationApp: React.FC = () => {
         );
     }
 
-    // --- Render Active Presentation Display ---
+    // Render active presentation display
     return (
         <div className="h-screen w-screen overflow-hidden bg-black relative">
-            {/* SlideRenderer displays the actual content (video, image, chart).
-                It operates in "master" video mode, meaning it controls the video
-                and broadcasts its state to other clients. */}
+            {/* SlideRenderer in presentation mode */}
             <SlideRenderer
                 slide={currentSlide}
                 sessionId={sessionId}
-                videoMode="master"
+                isHost={false}
             />
 
-            {/* Connection status indicator in the top right corner. */}
+            {/* Connection status indicator */}
             <div className="absolute top-4 right-4 z-20">
                 <div className={`px-3 py-1 rounded-full text-xs font-medium ${
                     isConnectedToHost
@@ -310,12 +171,12 @@ const PresentationApp: React.FC = () => {
                 </div>
             </div>
 
-            {/* Development debug information (only visible in development mode). */}
+            {/* Development debug info */}
             {process.env.NODE_ENV === 'development' && currentSlide && (
                 <div
                     className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs z-20">
                     <div>Slide: {currentSlide.id}</div>
-                    <div>Mode: Master (Presentation Display)</div>
+                    <div>Mode: Presentation (Slave)</div>
                     <div>Connected: {isConnectedToHost ? 'Yes' : 'No'}</div>
                     <div>Session: {sessionId?.substring(0, 8)}...</div>
                 </div>
