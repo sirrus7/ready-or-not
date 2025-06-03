@@ -1,4 +1,4 @@
-// src/shared/utils/video/useHostVideo.ts
+// src/shared/utils/video/useHostVideo.ts - Updated with proper controls
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
 
@@ -9,7 +9,6 @@ interface VideoElementProps {
     autoPlay: boolean;
     muted: boolean;
     preload: string;
-    onClick?: () => void;
     className?: string;
     style: {
         maxWidth: string;
@@ -30,11 +29,11 @@ interface UseHostVideoReturn {
 /**
  * Host video control hook that manages local video playback and commands to presentation
  * Audio Management: muted when presentation connected, audio when alone
+ * Updated to remove click-to-play and provide proper control functions
  */
 export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isConnectedToPresentation, setIsConnectedToPresentation] = useState(false);
-    const [isPlaying, setIsPlaying] = useState(false);
     const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'host') : null;
 
     // Connection status monitoring
@@ -65,34 +64,23 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         return unsubscribe;
     }, [broadcastManager, isConnectedToPresentation]);
 
-    // Video event handlers for local state tracking
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        const handlePlay = () => setIsPlaying(true);
-        const handlePause = () => setIsPlaying(false);
-
-        video.addEventListener('play', handlePlay);
-        video.addEventListener('pause', handlePause);
-
-        return () => {
-            video.removeEventListener('play', handlePlay);
-            video.removeEventListener('pause', handlePause);
-        };
-    }, []);
-
     const executeLocalCommand = useCallback(async (action: 'play' | 'pause' | 'seek', time?: number): Promise<void> => {
         const video = videoRef.current;
-        if (!video) return;
+        if (!video) {
+            console.warn('[useHostVideo] No video element for command:', action);
+            return;
+        }
 
         try {
             switch (action) {
                 case 'play':
                     if (time !== undefined && Math.abs(video.currentTime - time) > 0.5) {
                         video.currentTime = time;
+                        // Small delay to ensure seek completes before play
+                        await new Promise(resolve => setTimeout(resolve, 50));
                     }
                     await video.play();
+                    console.log(`[useHostVideo] Local play executed at time: ${time || video.currentTime}`);
                     break;
 
                 case 'pause':
@@ -100,11 +88,13 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
                         video.currentTime = time;
                     }
                     video.pause();
+                    console.log(`[useHostVideo] Local pause executed at time: ${time || video.currentTime}`);
                     break;
 
                 case 'seek':
                     if (time !== undefined) {
                         video.currentTime = time;
+                        console.log(`[useHostVideo] Local seek executed to time: ${time}`);
                     }
                     break;
             }
@@ -116,7 +106,7 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     const play = useCallback(async (time?: number): Promise<void> => {
         const currentTime = time ?? videoRef.current?.currentTime ?? 0;
 
-        // Execute locally immediately for responsive UI
+        // Execute locally first for immediate feedback
         await executeLocalCommand('play', currentTime);
 
         // Send command to presentation if connected
@@ -124,13 +114,13 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             broadcastManager.sendCommand('play', currentTime);
         }
 
-        console.log(`[useHostVideo] Play command executed (time: ${currentTime})`);
+        console.log(`[useHostVideo] Play command executed (time: ${currentTime}, synced: ${isConnectedToPresentation})`);
     }, [broadcastManager, isConnectedToPresentation, executeLocalCommand]);
 
     const pause = useCallback(async (time?: number): Promise<void> => {
         const currentTime = time ?? videoRef.current?.currentTime ?? 0;
 
-        // Execute locally immediately for responsive UI
+        // Execute locally first for immediate feedback
         await executeLocalCommand('pause', currentTime);
 
         // Send command to presentation if connected
@@ -138,11 +128,11 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             broadcastManager.sendCommand('pause', currentTime);
         }
 
-        console.log(`[useHostVideo] Pause command executed (time: ${currentTime})`);
+        console.log(`[useHostVideo] Pause command executed (time: ${currentTime}, synced: ${isConnectedToPresentation})`);
     }, [broadcastManager, isConnectedToPresentation, executeLocalCommand]);
 
     const seek = useCallback(async (time: number): Promise<void> => {
-        // Execute locally immediately for responsive UI
+        // Execute locally first for immediate feedback
         await executeLocalCommand('seek', time);
 
         // Send command to presentation if connected
@@ -150,43 +140,26 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             broadcastManager.sendCommand('seek', time);
         }
 
-        console.log(`[useHostVideo] Seek command executed (time: ${time})`);
+        console.log(`[useHostVideo] Seek command executed (time: ${time}, synced: ${isConnectedToPresentation})`);
     }, [broadcastManager, isConnectedToPresentation, executeLocalCommand]);
-
-    const handleVideoClick = useCallback(async () => {
-        if (isPlaying) {
-            await pause();
-        } else {
-            await play();
-        }
-    }, [isPlaying, play, pause]);
 
     const getVideoProps = useCallback((): VideoElementProps => {
         return {
             ref: videoRef,
             playsInline: true,
-            controls: false, // Host uses custom controls
-            autoPlay: false, // Manual control
+            controls: false, // No native controls - we provide custom ones
+            autoPlay: false,
             muted: isConnectedToPresentation, // Dynamic audio management
             preload: 'auto' as const,
-            onClick: handleVideoClick,
-            className: 'cursor-pointer',
+            // Remove onClick handler - controls handle all interaction now
+            className: 'pointer-events-none', // Prevent direct video interaction
             style: {
                 maxWidth: '100%',
                 maxHeight: '100%',
                 objectFit: 'contain'
             }
         };
-    }, [isConnectedToPresentation, handleVideoClick]);
-
-    // Cleanup on unmount - but don't destroy the manager as it's shared
-    useEffect(() => {
-        return () => {
-            // Don't destroy the broadcast manager here - it's a singleton
-            // and may be used by other components
-            console.log('[useHostVideo] Component unmounting, but keeping broadcast manager alive');
-        };
-    }, []);
+    }, [isConnectedToPresentation]);
 
     return {
         videoRef,

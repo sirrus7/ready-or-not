@@ -1,9 +1,10 @@
-// src/shared/components/Video/SlideRenderer.tsx - Simplified with master-slave pattern
+// src/shared/components/Video/SlideRenderer.tsx - Updated with host video controls
 import React, {useState, useEffect} from 'react';
 import {Slide} from '@shared/types/game';
 import {Tv2, AlertCircle, ListChecks, RefreshCw} from 'lucide-react';
 import LeaderboardChartDisplay from '@shared/components/UI/LeaderboardChart';
 import {isVideo, useHostVideo, usePresentationVideo} from '@shared/utils/video';
+import HostVideoControls from '@shared/components/Video/HostVideoControls';
 
 interface SlideRendererProps {
     slide: Slide | null;
@@ -91,7 +92,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         }
 
         return (
-            <div className="h-full w-full flex items-center justify-center">
+            <div className="h-full w-full flex items-center justify-center relative">
                 <video
                     key={`video_${slide.id}_${slide.source_url}`}
                     src={slide.source_url}
@@ -106,6 +107,17 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 >
                     Your browser does not support the video tag.
                 </video>
+
+                {/* Host Video Controls Overlay */}
+                {isHost && hostVideo && (
+                    <HostVideoControls
+                        videoRef={hostVideo.videoRef}
+                        onPlay={hostVideo.play}
+                        onPause={hostVideo.pause}
+                        onSeek={hostVideo.seek}
+                        isConnectedToPresentation={hostVideo.isConnectedToPresentation}
+                    />
+                )}
 
                 {/* Connection status for development */}
                 {process.env.NODE_ENV === 'development' && (

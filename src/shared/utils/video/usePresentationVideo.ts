@@ -1,6 +1,6 @@
-// src/shared/utils/video/usePresentationVideo.ts
+// src/shared/utils/video/usePresentationVideo.ts - Updated with enhanced sync handling
 import {useRef, useCallback, useState, useEffect} from 'react';
-import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
+import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import {HostCommand} from '@core/sync/types';
 
 interface VideoElementProps {
@@ -27,6 +27,7 @@ interface UsePresentationVideoReturn {
  * Presentation video hook that receives and executes commands from host
  * Pure slave mode - never initiates commands, only receives and executes
  * Always keeps audio enabled (muted: false)
+ * Enhanced with better sync handling for pause-first seeking
  */
 export const usePresentationVideo = (sessionId: string | null): UsePresentationVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -48,7 +49,7 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
         return () => clearTimeout(connectionTimeout);
     }, [broadcastManager, isConnectedToHost]);
 
-    // Command execution
+    // Command execution with enhanced sync handling
     const executeCommand = useCallback(async (command: HostCommand): Promise<void> => {
         const video = videoRef.current;
         if (!video) {
@@ -64,20 +65,29 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
                 case 'play':
                     if (command.time !== undefined && Math.abs(video.currentTime - command.time) > 0.5) {
                         video.currentTime = command.time;
+                        // Small delay to ensure seek completes before play
+                        await new Promise(resolve => setTimeout(resolve, 50));
                     }
                     await video.play();
                     console.log(`[usePresentationVideo] Executed play command at time: ${command.time}`);
                     break;
 
                 case 'pause':
+                    // Always pause first, then seek if needed
+                    video.pause();
                     if (command.time !== undefined && Math.abs(video.currentTime - command.time) > 0.5) {
                         video.currentTime = command.time;
                     }
-                    video.pause();
                     console.log(`[usePresentationVideo] Executed pause command at time: ${command.time}`);
                     break;
 
                 case 'seek':
+                    // Ensure video is paused before seeking for better sync
+                    if (!video.paused) {
+                        video.pause();
+                        // Small delay to ensure pause is processed
+                        await new Promise(resolve => setTimeout(resolve, 25));
+                    }
                     if (command.time !== undefined) {
                         video.currentTime = command.time;
                     }
