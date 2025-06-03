@@ -91,24 +91,24 @@ export const useGameController = (
         }
     }, [dbSession]);
 
-    // Handle initial alert or slide changes
+    // Handle slide changes - clear non-persistent alerts
     useEffect(() => {
         const isNewActualSlide = currentSlideData?.id !== previousSlideIdRef.current;
 
-        if (currentSlideData) {
+        if (currentSlideData && isNewActualSlide) {
             slideLoadTimestamp.current = Date.now();
             console.log(`[useGameController] Processing slide ${currentSlideData.id}, isNew: ${isNewActualSlide}, type: ${currentSlideData.type}`);
 
-            if (isNewActualSlide && currentHostAlertState) {
+            if (currentHostAlertState) {
                 // Clear any existing alert when slide changes, unless it's the specific all-submitted alert
                 if (currentHostAlertState.title !== ALL_SUBMIT_ALERT_TITLE) {
+                    console.log('[useGameController] Clearing non-persistent alert due to slide change');
                     setCurrentHostAlertState(null);
                 }
             }
         }
         previousSlideIdRef.current = currentSlideData?.id;
-    }, [currentSlideData, currentHostAlertState]);
-
+    }, [currentSlideData, currentHostAlertState, ALL_SUBMIT_ALERT_TITLE]);
 
     // Effect to show "All Teams Submitted" alert
     useEffect(() => {
@@ -123,18 +123,10 @@ export const useGameController = (
         }
     }, [allTeamsSubmittedCurrentInteractivePhaseState, currentHostAlertState, ALL_SUBMIT_ALERT_TITLE, ALL_SUBMIT_ALERT_MESSAGE]);
 
-
-    // Navigation actions (now using PhaseManager)
+    // Navigation actions (cleaned up host alert logic)
     const nextSlide = useCallback(async () => {
         if (!dbSession?.id || !currentPhaseNode || dbSession.current_slide_id_in_phase === null || !phaseManager) {
             console.warn("[useGameController] Cannot advance: Missing session ID, current phase, slide index, or PhaseManager.");
-            return;
-        }
-
-        if (currentHostAlertState && currentHostAlertState.title === currentSlideData?.host_alert?.title && currentHostAlertState.message === currentSlideData?.host_alert?.message) {
-            // If the current slide has a blocking host alert, activate it and don't advance yet.
-            // The clearHostAlert function will handle the actual advancement.
-            setCurrentHostAlertState(currentSlideData.host_alert);
             return;
         }
 
@@ -157,7 +149,7 @@ export const useGameController = (
             console.log("[useGameController] PhaseManager returned updated session:", updatedSession);
             setDbSession(updatedSession);
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
-            setCurrentHostAlertState(null); // Clear any general host alerts
+            // Note: Don't auto-clear host alerts here - let them be managed by HostApp and alert handlers
         } catch (error) {
             console.error("[useGameController] Error advancing slide:", error);
             setCurrentHostAlertState({
@@ -165,8 +157,7 @@ export const useGameController = (
                 message: error instanceof Error ? error.message : "Failed to advance slide."
             });
         }
-    }, [dbSession, currentPhaseNode, currentSlideData, phaseManager, processChoicePhaseDecisionsFunction, currentHostAlertState]);
-
+    }, [dbSession, currentPhaseNode, currentSlideData, phaseManager, processChoicePhaseDecisionsFunction]);
 
     const previousSlide = useCallback(async () => {
         if (!dbSession?.id || !phaseManager) {
@@ -238,23 +229,21 @@ export const useGameController = (
 
     // Host alert management
     const clearHostAlert = useCallback(async () => {
-        // If the alert is the one tied to current slide's host_alert,
-        // clearing it means we should then advance the slide.
-        if (currentHostAlertState?.title === currentSlideData?.host_alert?.title &&
-            currentHostAlertState?.message === currentSlideData?.host_alert?.message) {
-            setCurrentHostAlertState(null);
-            await nextSlide(); // Advance only if this specific alert caused it
-        } else if (currentHostAlertState?.title === ALL_SUBMIT_ALERT_TITLE) {
-            // If it's the "all teams submitted" alert, clearing means we're ready to advance.
+        if (!currentHostAlertState) return;
+
+        // If it's the "all teams submitted" alert, clearing means we're ready to advance.
+        if (currentHostAlertState.title === ALL_SUBMIT_ALERT_TITLE) {
             setCurrentHostAlertState(null);
             await nextSlide();
         } else {
-            // For other alerts (e.g., navigation errors, manual alerts), just dismiss.
+            // For other alerts (including slide host alerts), clearing should advance the slide
             setCurrentHostAlertState(null);
+            await nextSlide();
         }
-    }, [currentHostAlertState, currentSlideData, nextSlide, ALL_SUBMIT_ALERT_TITLE]);
+    }, [currentHostAlertState, nextSlide, ALL_SUBMIT_ALERT_TITLE]);
 
     const setCurrentHostAlertStateManually = useCallback((alert: { title: string; message: string } | null) => {
+        console.log('[useGameController] Setting host alert manually:', alert?.title);
         setCurrentHostAlertState(alert);
     }, []);
 

@@ -17,11 +17,12 @@ const HostApp: React.FC = () => {
         currentPhaseNode,
         previousSlide,
         nextSlide,
+        setCurrentHostAlertState,
     } = useGameContext();
 
     const {currentSessionId, gameStructure} = state;
 
-    // Handle video end with auto-advance logic
+    // Handle video end with proper host alert logic
     const handleVideoEnd = () => {
         if (!currentSlideData || !currentPhaseNode) {
             console.warn('[HostApp] Cannot handle video end - missing slide or phase data');
@@ -30,12 +31,14 @@ const HostApp: React.FC = () => {
 
         console.log('[HostApp] Video ended for slide:', currentSlideData.id);
 
-        // Check if slide has a host alert
+        // Check if slide has a host alert that should be shown
         if (currentSlideData.host_alert) {
-            console.log('[HostApp] Video ended with host alert - will show alert instead of auto-advancing');
-            // The nextSlide function in useGameController will handle showing the alert
-            // and prevent auto-advance until the host dismisses it
-            nextSlide();
+            console.log('[HostApp] Video ended with host alert - showing alert:', currentSlideData.host_alert.title);
+            // Show the host alert instead of auto-advancing
+            setCurrentHostAlertState({
+                title: currentSlideData.host_alert.title,
+                message: currentSlideData.host_alert.message
+            });
         } else {
             console.log('[HostApp] Video ended without host alert - auto-advancing to next slide');
             // Auto-advance to next slide
