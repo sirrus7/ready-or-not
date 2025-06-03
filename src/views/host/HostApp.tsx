@@ -1,4 +1,4 @@
-// src/views/host/HostApp.tsx - Updated to use simplified SlideRenderer
+// src/views/host/HostApp.tsx - Enhanced with video auto-advance integration
 import React from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
@@ -8,7 +8,7 @@ import PresentationButton from '@views/host/components/GameControls/Presentation
 
 /**
  * HostApp is the main component for the facilitator's game control interface.
- * Updated to use simplified SlideRenderer with isHost prop
+ * Enhanced with video auto-advance functionality
  */
 const HostApp: React.FC = () => {
     const {
@@ -20,6 +20,28 @@ const HostApp: React.FC = () => {
     } = useGameContext();
 
     const {currentSessionId, gameStructure} = state;
+
+    // Handle video end with auto-advance logic
+    const handleVideoEnd = () => {
+        if (!currentSlideData || !currentPhaseNode) {
+            console.warn('[HostApp] Cannot handle video end - missing slide or phase data');
+            return;
+        }
+
+        console.log('[HostApp] Video ended for slide:', currentSlideData.id);
+
+        // Check if slide has a host alert
+        if (currentSlideData.host_alert) {
+            console.log('[HostApp] Video ended with host alert - will show alert instead of auto-advancing');
+            // The nextSlide function in useGameController will handle showing the alert
+            // and prevent auto-advance until the host dismisses it
+            nextSlide();
+        } else {
+            console.log('[HostApp] Video ended without host alert - auto-advancing to next slide');
+            // Auto-advance to next slide
+            nextSlide();
+        }
+    };
 
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
         return (
@@ -89,12 +111,13 @@ const HostApp: React.FC = () => {
                                 </div>
                             ) : (
                                 <>
-                                    {/* Simplified SlideRenderer with isHost prop */}
+                                    {/* Enhanced SlideRenderer with auto-advance callback */}
                                     <div className="h-full">
                                         <SlideRenderer
                                             slide={currentSlideData}
                                             sessionId={currentSessionId}
                                             isHost={true}
+                                            onVideoEnd={handleVideoEnd}
                                         />
                                     </div>
 

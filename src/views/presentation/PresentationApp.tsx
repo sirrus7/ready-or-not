@@ -1,4 +1,4 @@
-// src/views/presentation/PresentationApp.tsx - Simplified master-slave pattern with fullscreen support
+// src/views/presentation/PresentationApp.tsx - Enhanced with video auto-advance integration
 import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {Slide} from '@shared/types/game';
@@ -7,7 +7,7 @@ import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from '
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 /**
- * Simplified presentation app that operates in pure slave mode
+ * Enhanced presentation app that operates in pure slave mode with video auto-advance
  * Receives slides from host and displays them - no complex connection logic
  * Now includes fullscreen functionality for better presentation experience
  */
@@ -21,6 +21,16 @@ const PresentationApp: React.FC = () => {
 
     const broadcastManager = sessionId ?
         SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
+
+    // Handle video end - for presentation, we just log it
+    // The host will handle the actual auto-advance logic
+    const handleVideoEnd = () => {
+        if (!currentSlide) return;
+
+        console.log('[PresentationApp] Video ended for slide:', currentSlide.id);
+        // Presentation doesn't auto-advance - it waits for host commands
+        // The host will handle the auto-advance logic and send new slide updates
+    };
 
     // Fullscreen functionality
     const toggleFullscreen = async () => {
@@ -174,11 +184,12 @@ const PresentationApp: React.FC = () => {
     // Render active presentation display
     return (
         <div className="h-screen w-screen overflow-hidden bg-black relative">
-            {/* SlideRenderer in presentation mode */}
+            {/* SlideRenderer with video end callback */}
             <SlideRenderer
                 slide={currentSlide}
                 sessionId={sessionId}
                 isHost={false}
+                onVideoEnd={handleVideoEnd}
             />
 
             {/* Connection status indicator and fullscreen toggle */}
@@ -230,6 +241,7 @@ const PresentationApp: React.FC = () => {
                     <div>Connected: {isConnectedToHost ? 'Yes' : 'No'}</div>
                     <div>Fullscreen: {isFullscreen ? 'Yes' : 'No'}</div>
                     <div>Session: {sessionId?.substring(0, 8)}...</div>
+                    <div>Auto-advance: Enabled</div>
                 </div>
             )}
         </div>

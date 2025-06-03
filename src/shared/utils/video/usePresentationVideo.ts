@@ -1,4 +1,4 @@
-// src/shared/utils/video/usePresentationVideo.ts - Updated with enhanced sync handling
+// src/shared/utils/video/usePresentationVideo.ts - Enhanced with auto-advance functionality
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import {HostCommand} from '@core/sync/types';
@@ -15,16 +15,17 @@ interface VideoElementProps {
         maxHeight: string;
         objectFit: string;
     };
+    onEnded?: () => void; // Add onEnded callback
 }
 
 interface UsePresentationVideoReturn {
     videoRef: React.RefObject<HTMLVideoElement>;
     isConnectedToHost: boolean;
-    getVideoProps: () => VideoElementProps;
+    getVideoProps: (onVideoEnd?: () => void) => VideoElementProps; // Enhanced to accept callback
 }
 
 /**
- * Presentation video hook that receives and executes commands from host
+ * Enhanced presentation video hook with auto-advance functionality
  * Pure slave mode - never initiates commands, only receives and executes
  * Always keeps audio enabled (muted: false)
  * Enhanced with better sync handling for pause-first seeking
@@ -33,6 +34,7 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isConnectedToHost, setIsConnectedToHost] = useState(false);
     const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
+    const hasEndedRef = useRef(false); // Track if video has ended to prevent multiple triggers
 
     // Connection status monitoring
     useEffect(() => {
@@ -48,6 +50,31 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
 
         return () => clearTimeout(connectionTimeout);
     }, [broadcastManager, isConnectedToHost]);
+
+    // Reset ended flag when video starts playing
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const handlePlay = () => {
+            hasEndedRef.current = false;
+        };
+
+        const handleSeeked = () => {
+            // Reset ended flag if user seeks backwards from end
+            if (video.currentTime < video.duration - 1) {
+                hasEndedRef.current = false;
+            }
+        };
+
+        video.addEventListener('play', handlePlay);
+        video.addEventListener('seeked', handleSeeked);
+
+        return () => {
+            video.removeEventListener('play', handlePlay);
+            video.removeEventListener('seeked', handleSeeked);
+        };
+    }, []);
 
     // Command execution with enhanced sync handling
     const executeCommand = useCallback(async (command: HostCommand): Promise<void> => {
@@ -111,8 +138,8 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
         return unsubscribeCommands;
     }, [broadcastManager, executeCommand]);
 
-    // Video element properties - always have audio enabled
-    const getVideoProps = useCallback((): VideoElementProps => {
+    // Enhanced getVideoProps with onEnded callback support
+    const getVideoProps = useCallback((onVideoEnd?: () => void): VideoElementProps => {
         return {
             ref: videoRef,
             playsInline: true,
@@ -124,7 +151,15 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
                 maxWidth: '100%',
                 maxHeight: '100%',
                 objectFit: 'contain'
-            }
+            },
+            onEnded: onVideoEnd ? () => {
+                // Prevent multiple triggers of the same video end
+                if (!hasEndedRef.current) {
+                    hasEndedRef.current = true;
+                    console.log('[usePresentationVideo] Video ended, triggering callback');
+                    onVideoEnd();
+                }
+            } : undefined
         };
     }, []);
 

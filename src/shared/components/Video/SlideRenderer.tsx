@@ -1,4 +1,4 @@
-// src/shared/components/Video/SlideRenderer.tsx - Updated with host video controls and fullscreen support
+// src/shared/components/Video/SlideRenderer.tsx - Updated with auto-advance functionality
 import React, {useState, useEffect} from 'react';
 import {Slide} from '@shared/types/game';
 import {Tv2, AlertCircle, ListChecks, RefreshCw} from 'lucide-react';
@@ -9,13 +9,15 @@ import HostVideoControls from '@shared/components/Video/HostVideoControls';
 interface SlideRendererProps {
     slide: Slide | null;
     sessionId?: string | null;
-    isHost: boolean; // Simple flag to determine which video hook to use
+    isHost: boolean;
+    onVideoEnd?: () => void; // New prop for video end callback
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          slide,
                                                          sessionId = null,
-                                                         isHost
+                                                         isHost,
+                                                         onVideoEnd
                                                      }) => {
     const [videoError, setVideoError] = useState(false);
     const [isInFullscreen, setIsInFullscreen] = useState(false);
@@ -91,8 +93,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             );
         }
 
-        // Render video element with appropriate props
-        const videoProps = isHost ? hostVideo?.getVideoProps() : presentationVideo?.getVideoProps();
+        // Get video props with auto-advance callback
+        const videoProps = isHost ?
+            hostVideo?.getVideoProps(onVideoEnd) :
+            presentationVideo?.getVideoProps(onVideoEnd);
 
         if (!videoProps) {
             return (
@@ -148,6 +152,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                         }</div>
                         <div>Fullscreen: {isInFullscreen ? 'Yes' : 'No'}</div>
                         <div>Video Fit: {isInFullscreen ? 'Cover' : 'Contain'}</div>
+                        <div>Auto-advance: {onVideoEnd ? 'Enabled' : 'Disabled'}</div>
                     </div>
                 )}
             </div>
@@ -190,7 +195,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 );
 
             default:
-                // Handle all video types (video, interactive_*, etc.)
+                // Handle all video types with auto-advance
                 const hasVideoFile = isVideo(slide.source_url);
                 return renderVideoContent(slide, hasVideoFile);
         }

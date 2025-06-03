@@ -1,4 +1,4 @@
-// src/shared/utils/video/useHostVideo.ts - Updated with proper controls
+// src/shared/utils/video/useHostVideo.ts - Enhanced with auto-advance functionality
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
 
@@ -15,6 +15,7 @@ interface VideoElementProps {
         maxHeight: string;
         objectFit: string;
     };
+    onEnded?: () => void; // Add onEnded callback
 }
 
 interface UseHostVideoReturn {
@@ -23,11 +24,11 @@ interface UseHostVideoReturn {
     pause: (time?: number) => Promise<void>;
     seek: (time: number) => Promise<void>;
     isConnectedToPresentation: boolean;
-    getVideoProps: () => VideoElementProps;
+    getVideoProps: (onVideoEnd?: () => void) => VideoElementProps; // Enhanced to accept callback
 }
 
 /**
- * Host video control hook that manages local video playback and commands to presentation
+ * Enhanced host video control hook with auto-advance functionality
  * Audio Management: muted when presentation connected, audio when alone
  * Updated to remove click-to-play and provide proper control functions
  */
@@ -35,6 +36,7 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isConnectedToPresentation, setIsConnectedToPresentation] = useState(false);
     const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'host') : null;
+    const hasEndedRef = useRef(false); // Track if video has ended to prevent multiple triggers
 
     // Connection status monitoring
     useEffect(() => {
@@ -50,11 +52,9 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             const video = videoRef.current;
             if (video) {
                 if (nowConnected && !wasConnected) {
-                    // Presentation just connected - mute host
                     video.muted = true;
                     console.log('[useHostVideo] Presentation connected, muting host audio');
                 } else if (!nowConnected && wasConnected) {
-                    // Presentation disconnected - enable host audio
                     video.muted = false;
                     console.log('[useHostVideo] Presentation disconnected, enabling host audio');
                 }
@@ -63,6 +63,31 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
 
         return unsubscribe;
     }, [broadcastManager, isConnectedToPresentation]);
+
+    // Reset ended flag when video starts playing
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const handlePlay = () => {
+            hasEndedRef.current = false;
+        };
+
+        const handleSeeked = () => {
+            // Reset ended flag if user seeks backwards from end
+            if (video.currentTime < video.duration - 1) {
+                hasEndedRef.current = false;
+            }
+        };
+
+        video.addEventListener('play', handlePlay);
+        video.addEventListener('seeked', handleSeeked);
+
+        return () => {
+            video.removeEventListener('play', handlePlay);
+            video.removeEventListener('seeked', handleSeeked);
+        };
+    }, []);
 
     const executeLocalCommand = useCallback(async (action: 'play' | 'pause' | 'seek', time?: number): Promise<void> => {
         const video = videoRef.current;
@@ -76,7 +101,6 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
                 case 'play':
                     if (time !== undefined && Math.abs(video.currentTime - time) > 0.5) {
                         video.currentTime = time;
-                        // Small delay to ensure seek completes before play
                         await new Promise(resolve => setTimeout(resolve, 50));
                     }
                     await video.play();
@@ -143,7 +167,8 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         console.log(`[useHostVideo] Seek command executed (time: ${time}, synced: ${isConnectedToPresentation})`);
     }, [broadcastManager, isConnectedToPresentation, executeLocalCommand]);
 
-    const getVideoProps = useCallback((): VideoElementProps => {
+    // Enhanced getVideoProps with onEnded callback support
+    const getVideoProps = useCallback((onVideoEnd?: () => void): VideoElementProps => {
         return {
             ref: videoRef,
             playsInline: true,
@@ -151,13 +176,20 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             autoPlay: false,
             muted: isConnectedToPresentation, // Dynamic audio management
             preload: 'auto' as const,
-            // Remove onClick handler - controls handle all interaction now
             className: 'pointer-events-none', // Prevent direct video interaction
             style: {
                 maxWidth: '100%',
                 maxHeight: '100%',
                 objectFit: 'contain'
-            }
+            },
+            onEnded: onVideoEnd ? () => {
+                // Prevent multiple triggers of the same video end
+                if (!hasEndedRef.current) {
+                    hasEndedRef.current = true;
+                    console.log('[useHostVideo] Video ended, triggering callback');
+                    onVideoEnd();
+                }
+            } : undefined
         };
     }, [isConnectedToPresentation]);
 
