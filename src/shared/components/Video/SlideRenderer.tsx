@@ -1,10 +1,36 @@
-// src/shared/components/Video/SlideRenderer.tsx - FINAL SIMPLIFIED FIX
-import React, {useState, useEffect} from 'react';
+// src/shared/components/Video/SlideRenderer.tsx - Complete with smart auto-play
+import React, {useState, useEffect, useRef} from 'react';
 import {Slide} from '@shared/types/game';
 import {Tv2, AlertCircle, ListChecks, RefreshCw} from 'lucide-react';
 import LeaderboardChartDisplay from '@shared/components/UI/LeaderboardChart';
 import {isVideo, useHostVideo, usePresentationVideo} from '@shared/utils/video';
 import HostVideoControls from '@shared/components/Video/HostVideoControls';
+
+/*
+ * SlideRenderer Requirements & Design Notes:
+ *
+ * This component must handle three critical video behaviors simultaneously:
+ *
+ * 1. AUTO-PLAY: When a new video slide is displayed (host only), automatically start
+ *    playback after a short delay (500ms if presentation connected, 200ms if local only).
+ *    This ensures videos start without manual intervention.
+ *
+ * 2. AUTO-ADVANCE: When a video ends, automatically advance to the next slide UNLESS
+ *    the slide has a host_alert property. This is handled by the onVideoEnd callback
+ *    passed from HostApp.
+ *
+ * 3. HOST ALERTS: When a video ends AND the slide has a host_alert property, display
+ *    an alert modal instead of auto-advancing. The HostApp.handleVideoEnd function
+ *    contains the logic to decide between auto-advance vs. alert display.
+ *
+ * Key Implementation Details:
+ * - Uses refs to store callbacks and slide data to avoid stale closures
+ * - Auto-play timeout is stored in a ref to prevent clearing on re-renders
+ * - onVideoEnd callback is always called - HostApp decides the behavior
+ * - Dependencies are carefully managed to prevent race conditions
+ *
+ * Critical: All three behaviors must work together - fixing one cannot break others.
+ */
 
 interface SlideRendererProps {
     slide: Slide | null;
@@ -21,6 +47,16 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                      }) => {
     const [videoError, setVideoError] = useState(false);
     const [isInFullscreen, setIsInFullscreen] = useState(false);
+    const previousSlideIdRef = useRef<number | undefined>(undefined);
+    const autoPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const onVideoEndRef = useRef<(() => void) | undefined>(onVideoEnd);
+    const slideDataRef = useRef(slide); // Store current slide data
+
+    // Update refs when props change
+    useEffect(() => {
+        onVideoEndRef.current = onVideoEnd;
+        slideDataRef.current = slide;
+    }, [onVideoEnd, slide]);
 
     // Use appropriate video hook based on role
     const hostVideo = isHost ? useHostVideo(sessionId) : null;
@@ -40,6 +76,49 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     useEffect(() => {
         setVideoError(false);
     }, [slide?.id]);
+
+    // Simple auto-play using ref to avoid dependency issues
+    useEffect(() => {
+        // Clear any existing timeout first
+        if (autoPlayTimeoutRef.current) {
+            clearTimeout(autoPlayTimeoutRef.current);
+            autoPlayTimeoutRef.current = null;
+        }
+
+        if (!isHost || !slide || !isVideo(slide?.source_url)) {
+            return;
+        }
+
+        const isNewSlide = slide.id !== previousSlideIdRef.current;
+        previousSlideIdRef.current = slide.id;
+
+        if (!isNewSlide) {
+            return;
+        }
+
+        console.log('[SlideRenderer] New video slide detected, setting up auto-play:', slide.id);
+
+        // Use a ref-stored timeout to avoid dependency issues
+        autoPlayTimeoutRef.current = setTimeout(async () => {
+            if (hostVideo) {
+                try {
+                    console.log('[SlideRenderer] Auto-playing video for slide:', slide.id);
+                    await hostVideo.play(0);
+                    console.log('[SlideRenderer] Auto-play successful');
+                } catch (error) {
+                    console.error('[SlideRenderer] Auto-play failed:', error);
+                }
+            }
+            autoPlayTimeoutRef.current = null;
+        }, hostVideo?.isConnectedToPresentation ? 500 : 200);
+
+        return () => {
+            if (autoPlayTimeoutRef.current) {
+                clearTimeout(autoPlayTimeoutRef.current);
+                autoPlayTimeoutRef.current = null;
+            }
+        };
+    }, [slide?.id, isHost]); // Remove hostVideo from dependencies to prevent timeout clearing
 
     if (!slide) {
         return (
@@ -93,10 +172,26 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             );
         }
 
-        // Get video props with auto-advance callback
+        // Get video props with stable callback reference
         const videoProps = isHost ?
-            hostVideo?.getVideoProps(onVideoEnd) :
-            presentationVideo?.getVideoProps(onVideoEnd);
+            hostVideo?.getVideoProps(() => {
+                console.log('[SlideRenderer] Video ended for slide:', slideDataRef.current?.id);
+                console.log('[SlideRenderer] Slide has host_alert:', !!slideDataRef.current?.host_alert);
+                console.log('[SlideRenderer] onVideoEnd callback exists:', !!onVideoEndRef.current);
+
+                if (onVideoEndRef.current) {
+                    console.log('[SlideRenderer] Calling HostApp handleVideoEnd');
+                    onVideoEndRef.current();
+                } else {
+                    console.warn('[SlideRenderer] No onVideoEnd callback available');
+                }
+            }) :
+            presentationVideo?.getVideoProps(() => {
+                console.log('[SlideRenderer] Video ended (presentation)');
+                if (onVideoEndRef.current) {
+                    onVideoEndRef.current();
+                }
+            });
 
         if (!videoProps) {
             return (
@@ -106,10 +201,16 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             );
         }
 
+        console.log('[SlideRenderer] Video props for slide:', slide.id, {
+            hasOnVideoEnd: !!onVideoEnd,
+            hasVideoProps: !!videoProps,
+            hasOnEnded: !!videoProps.onEnded
+        });
+
         return (
             <div className="h-full w-full flex items-center justify-center relative">
                 <video
-                    key={`video-${slide.id}`} // Simple key based on slide ID only
+                    key={`video-${slide.id}`}
                     src={slide.source_url}
                     {...videoProps}
                     onError={() => setVideoError(true)}
@@ -149,7 +250,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             (presentationVideo?.isConnectedToHost ? 'Yes' : 'No')
                         }</div>
                         <div>Fullscreen: {isInFullscreen ? 'Yes' : 'No'}</div>
-                        <div>Video Fit: {isInFullscreen ? 'Cover' : 'Contain'}</div>
                         <div>Auto-advance: {onVideoEnd ? 'Enabled' : 'Disabled'}</div>
                     </div>
                 )}

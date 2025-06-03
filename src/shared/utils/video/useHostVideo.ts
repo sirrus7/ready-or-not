@@ -1,4 +1,4 @@
-// src/shared/utils/video/useHostVideo.ts - Fixed with proper video reset on slide change
+// src/shared/utils/video/useHostVideo.ts - Fixed to preserve onEnded callback
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
 
@@ -16,7 +16,7 @@ interface VideoElementProps {
         objectFit: string;
     };
     onEnded?: () => void;
-    onLoadedData?: () => void; // Add this for reset handling
+    onLoadedData?: () => void;
 }
 
 interface UseHostVideoReturn {
@@ -30,15 +30,12 @@ interface UseHostVideoReturn {
     getVideoProps: (onVideoEnd?: () => void) => VideoElementProps;
 }
 
-/**
- * Enhanced host video control hook with proper reset on slide changes
- */
 export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isConnectedToPresentation, setIsConnectedToPresentation] = useState(false);
     const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'host') : null;
     const hasEndedRef = useRef(false);
-    const currentVideoSrcRef = useRef<string | undefined>(undefined); // Track current video source
+    const currentVideoSrcRef = useRef<string | undefined>(undefined);
 
     // Connection status monitoring
     useEffect(() => {
@@ -50,7 +47,6 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
 
             setIsConnectedToPresentation(nowConnected);
 
-            // Audio management based on connection status
             const video = videoRef.current;
             if (video) {
                 if (nowConnected && !wasConnected) {
@@ -66,7 +62,7 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         return unsubscribe;
     }, [broadcastManager, isConnectedToPresentation]);
 
-    // Reset ended flag and handle video source changes
+    // Reset ended flag and handle video source changes - BUT preserve onEnded callback
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -76,7 +72,6 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         };
 
         const handleSeeked = () => {
-            // Reset ended flag if user seeks backwards from end
             if (video.currentTime < video.duration - 1) {
                 hasEndedRef.current = false;
             }
@@ -84,15 +79,15 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
 
         const handleLoadStart = () => {
             console.log('[useHostVideo] Video load start - resetting state');
-            hasEndedRef.current = false;
+            // DON'T reset hasEndedRef here - let it be managed by the onEnded callback
 
-            // Check if this is a new video source
             const newSrc = video.src || video.currentSrc;
             if (newSrc && newSrc !== currentVideoSrcRef.current) {
                 console.log('[useHostVideo] New video source detected, forcing reset');
                 currentVideoSrcRef.current = newSrc;
+                // Only reset hasEndedRef for truly new videos
+                hasEndedRef.current = false;
 
-                // Force reset the video position after a brief delay to ensure load
                 setTimeout(() => {
                     if (video.currentTime !== 0) {
                         video.currentTime = 0;
@@ -103,7 +98,6 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         };
 
         const handleLoadedData = () => {
-            // Ensure video starts from beginning when new data is loaded
             if (video.currentTime !== 0) {
                 console.log('[useHostVideo] Video loaded with non-zero time, resetting to 0');
                 video.currentTime = 0;
@@ -164,10 +158,8 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     const play = useCallback(async (time?: number): Promise<void> => {
         const currentTime = time ?? videoRef.current?.currentTime ?? 0;
 
-        // Execute locally first for immediate feedback
         await executeLocalCommand('play', currentTime);
 
-        // Send command to presentation if connected
         if (broadcastManager && isConnectedToPresentation) {
             broadcastManager.sendCommand('play', currentTime);
         }
@@ -178,10 +170,8 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     const pause = useCallback(async (time?: number): Promise<void> => {
         const currentTime = time ?? videoRef.current?.currentTime ?? 0;
 
-        // Execute locally first for immediate feedback
         await executeLocalCommand('pause', currentTime);
 
-        // Send command to presentation if connected
         if (broadcastManager && isConnectedToPresentation) {
             broadcastManager.sendCommand('pause', currentTime);
         }
@@ -190,10 +180,8 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     }, [broadcastManager, isConnectedToPresentation, executeLocalCommand]);
 
     const seek = useCallback(async (time: number): Promise<void> => {
-        // Execute locally first for immediate feedback
         await executeLocalCommand('seek', time);
 
-        // Send command to presentation if connected
         if (broadcastManager && isConnectedToPresentation) {
             broadcastManager.sendCommand('seek', time);
         }
@@ -211,27 +199,17 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
                 paused: video.paused
             });
 
-            // Force pause first
             video.pause();
-
-            // Force currentTime to 0
             video.currentTime = 0;
-            hasEndedRef.current = false;
+            hasEndedRef.current = false; // Reset ended flag on manual reset
 
-            // Force all the events that should update the UI
             video.dispatchEvent(new Event('timeupdate'));
-            video.dispatchEvent(new Event('loadedmetadata')); // This should update duration
+            video.dispatchEvent(new Event('loadedmetadata'));
             video.dispatchEvent(new Event('loadeddata'));
             video.dispatchEvent(new Event('durationchange'));
 
-            console.log('[useHostVideo] RESET COMPLETED - After reset:', {
-                currentTime: video.currentTime,
-                duration: video.duration,
-                src: video.src,
-                paused: video.paused
-            });
+            console.log('[useHostVideo] RESET COMPLETED');
 
-            // Double-check the reset worked after a small delay
             setTimeout(() => {
                 if (video.currentTime !== 0) {
                     console.warn('[useHostVideo] Reset failed, forcing again');
@@ -239,20 +217,13 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
                     video.dispatchEvent(new Event('timeupdate'));
                     video.dispatchEvent(new Event('loadedmetadata'));
                 }
-
-                console.log('[useHostVideo] Final check after reset:', {
-                    currentTime: video.currentTime,
-                    duration: video.duration
-                });
             }, 100);
         }
     }, []);
 
     const sendReset = useCallback(() => {
-        // Reset local video first
         reset();
 
-        // Send reset command to presentation if connected
         if (broadcastManager && isConnectedToPresentation) {
             broadcastManager.sendCommand('reset', 0);
         }
@@ -260,7 +231,6 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         console.log(`[useHostVideo] Reset command sent (synced: ${isConnectedToPresentation})`);
     }, [broadcastManager, isConnectedToPresentation, reset]);
 
-    // Enhanced getVideoProps with onLoadedData callback for proper reset
     const getVideoProps = useCallback((onVideoEnd?: () => void): VideoElementProps => {
         return {
             ref: videoRef,
@@ -276,15 +246,14 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
                 objectFit: 'contain'
             },
             onEnded: onVideoEnd ? () => {
-                // Prevent multiple triggers of the same video end
-                if (!hasEndedRef.current) {
-                    hasEndedRef.current = true;
-                    console.log('[useHostVideo] Video ended, triggering callback');
-                    onVideoEnd();
-                }
+                console.log('[useHostVideo] Video ended event fired, hasEnded:', hasEndedRef.current);
+                // Always call the callback - let the caller decide what to do
+                console.log('[useHostVideo] Video ended, triggering callback');
+                onVideoEnd();
+                // Set the flag AFTER calling the callback
+                hasEndedRef.current = true;
             } : undefined,
             onLoadedData: () => {
-                // Ensure video always starts from beginning when loaded
                 const video = videoRef.current;
                 if (video && video.currentTime !== 0) {
                     console.log('[useHostVideo] onLoadedData: Resetting video to start');
