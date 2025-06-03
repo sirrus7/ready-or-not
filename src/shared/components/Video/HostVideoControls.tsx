@@ -1,4 +1,4 @@
-// src/shared/components/Video/HostVideoControls.tsx
+// src/shared/components/Video/HostVideoControls.tsx - FINAL CLEAN FIX
 import React, {useState, useEffect, useRef} from 'react';
 import {Play, Pause, RotateCcw, Volume2, VolumeX} from 'lucide-react';
 import {formatTime} from '@shared/utils/video/helpers';
@@ -27,36 +27,47 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
     const seekBarRef = useRef<HTMLDivElement>(null);
     const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Update video state from video element
+    // CORE FIX: Reset all state when video element changes
     useEffect(() => {
         const video = videoRef.current;
-        if (!video) return;
 
-        const updateVideoState = () => {
-            if (!isDragging) {
-                setCurrentTime(video.currentTime);
-            }
-            setDuration(video.duration || 0);
-            setIsPlaying(!video.paused);
-            setVolume(video.volume);
-            setIsMuted(video.muted);
-        };
+        // If no video, reset everything
+        if (!video) {
+            setCurrentTime(0);
+            setDuration(0);
+            setIsPlaying(false);
+            setVolume(1);
+            setIsMuted(false);
+            return;
+        }
 
-        const handleLoadedMetadata = () => {
-            updateVideoState();
-        };
+        console.log('[HostVideoControls] New video element detected, resetting state');
 
-        const handleLoadedData = () => {
-            // Force UI update when new video data loads
-            setCurrentTime(video.currentTime);
-            setIsPlaying(!video.paused);
-            console.log('[HostVideoControls] Video loaded, currentTime:', video.currentTime);
-        };
+        // IMMEDIATELY reset state to match the new video
+        setCurrentTime(video.currentTime || 0);
+        setDuration(video.duration || 0);
+        setIsPlaying(!video.paused);
+        setVolume(video.volume || 1);
+        setIsMuted(video.muted || false);
 
+        // Set up all event listeners
         const handleTimeUpdate = () => {
             if (!isDragging) {
                 setCurrentTime(video.currentTime);
             }
+        };
+
+        const handleLoadedMetadata = () => {
+            console.log('[HostVideoControls] Metadata loaded - duration:', video.duration);
+            setDuration(video.duration || 0);
+            setCurrentTime(video.currentTime || 0);
+        };
+
+        const handleLoadedData = () => {
+            console.log('[HostVideoControls] Data loaded - syncing state');
+            setCurrentTime(video.currentTime || 0);
+            setDuration(video.duration || 0);
+            setIsPlaying(!video.paused);
         };
 
         const handlePlay = () => setIsPlaying(true);
@@ -66,37 +77,50 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
             setIsMuted(video.muted);
         };
 
-        // Add event listeners
+        const handleSeeked = () => {
+            if (!isDragging) {
+                setCurrentTime(video.currentTime);
+            }
+        };
+
+        const handleDurationChange = () => {
+            setDuration(video.duration || 0);
+        };
+
+        // Add all listeners
+        video.addEventListener('timeupdate', handleTimeUpdate);
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
         video.addEventListener('loadeddata', handleLoadedData);
-        video.addEventListener('timeupdate', handleTimeUpdate);
         video.addEventListener('play', handlePlay);
         video.addEventListener('pause', handlePause);
         video.addEventListener('volumechange', handleVolumeChange);
+        video.addEventListener('seeked', handleSeeked);
+        video.addEventListener('durationchange', handleDurationChange);
 
-        // Initial state update
-        updateVideoState();
-
-        // Regular updates when playing
+        // Start polling for updates
         updateIntervalRef.current = setInterval(() => {
-            if (!video.paused && !isDragging) {
+            if (!isDragging) {
                 setCurrentTime(video.currentTime);
+                setIsPlaying(!video.paused);
             }
         }, 100);
 
         return () => {
+            // Clean up listeners
+            video.removeEventListener('timeupdate', handleTimeUpdate);
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
             video.removeEventListener('loadeddata', handleLoadedData);
-            video.removeEventListener('timeupdate', handleTimeUpdate);
             video.removeEventListener('play', handlePlay);
             video.removeEventListener('pause', handlePause);
             video.removeEventListener('volumechange', handleVolumeChange);
+            video.removeEventListener('seeked', handleSeeked);
+            video.removeEventListener('durationchange', handleDurationChange);
 
             if (updateIntervalRef.current) {
                 clearInterval(updateIntervalRef.current);
             }
         };
-    }, [isDragging, videoRef]);
+    }, [videoRef.current, isDragging]); // Depend on the actual video element
 
     // Handle play/pause toggle
     const handlePlayPause = async () => {
@@ -107,19 +131,13 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
         }
     };
 
-    // Handle seeking with pause-first approach for better sync
+    // Handle seeking
     const handleSeek = async (newTime: number) => {
         console.log('[HostVideoControls] Seeking to:', newTime);
-
-        // First pause both displays
         await onPause(newTime);
-
-        // Then seek
         await onSeek(newTime);
-
-        // Update local state immediately for responsive UI
         setCurrentTime(newTime);
-        setIsPlaying(false); // Force user to click play for perfect sync
+        setIsPlaying(false);
     };
 
     // Seek bar interaction
@@ -134,7 +152,7 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
         handleSeek(newTime);
     };
 
-    // Drag handling for seek bar
+    // Drag handling
     const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
         setIsDragging(true);
         handleSeekBarClick(event);
@@ -153,7 +171,6 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
 
     const handleMouseUp = async () => {
         if (!isDragging) return;
-
         setIsDragging(false);
         await handleSeek(currentTime);
     };
@@ -188,7 +205,7 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
         }
     };
 
-    // Quick skip controls
+    // Skip controls
     const handleSkipBackward = () => {
         const newTime = Math.max(0, currentTime - 10);
         handleSeek(newTime);
@@ -306,11 +323,13 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
                     </div>
                 </div>
 
-                {/* Seek Instructions */}
-                {isDragging && (
-                    <div
-                        className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs text-white bg-black/60 px-2 py-1 rounded">
-                        Release to seek to {formatTime(currentTime)}
+                {/* Debug info for development */}
+                {process.env.NODE_ENV === 'development' && (
+                    <div className="absolute -top-16 right-0 text-xs text-white bg-black/60 px-2 py-1 rounded">
+                        <div>UI Time: {formatTime(currentTime)}</div>
+                        <div>Video Time: {videoRef.current ? formatTime(videoRef.current.currentTime) : 'N/A'}</div>
+                        <div>Playing: {isPlaying ? 'Yes' : 'No'}</div>
+                        <div>Video Playing: {videoRef.current ? (!videoRef.current.paused ? 'Yes' : 'No') : 'N/A'}</div>
                     </div>
                 )}
             </div>

@@ -1,4 +1,4 @@
-// src/shared/components/Video/SlideRenderer.tsx - Updated with auto-advance functionality
+// src/shared/components/Video/SlideRenderer.tsx - FINAL SIMPLIFIED FIX
 import React, {useState, useEffect} from 'react';
 import {Slide} from '@shared/types/game';
 import {Tv2, AlertCircle, ListChecks, RefreshCw} from 'lucide-react';
@@ -10,7 +10,7 @@ interface SlideRendererProps {
     slide: Slide | null;
     sessionId?: string | null;
     isHost: boolean;
-    onVideoEnd?: () => void; // New prop for video end callback
+    onVideoEnd?: () => void;
 }
 
 const SlideRenderer: React.FC<SlideRendererProps> = ({
@@ -109,7 +109,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         return (
             <div className="h-full w-full flex items-center justify-center relative">
                 <video
-                    key={`video_${slide.id}_${slide.source_url}`}
+                    key={`video-${slide.id}`} // Simple key based on slide ID only
                     src={slide.source_url}
                     {...videoProps}
                     onError={() => setVideoError(true)}
@@ -121,9 +121,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                     }}
                     style={{
                         ...videoProps.style,
-                        // In fullscreen, fill the entire screen; otherwise maintain aspect ratio
                         objectFit: isInFullscreen ? 'cover' : 'contain',
-                        // Ensure video takes full dimensions in fullscreen
                         width: isInFullscreen ? '100vw' : videoProps.style.maxWidth,
                         height: isInFullscreen ? '100vh' : videoProps.style.maxHeight
                     }}

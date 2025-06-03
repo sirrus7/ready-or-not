@@ -1,4 +1,4 @@
-// src/shared/utils/video/usePresentationVideo.ts - Enhanced with auto-advance functionality
+// src/shared/utils/video/usePresentationVideo.ts - Fixed with proper video reset on slide change
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import {HostCommand} from '@core/sync/types';
@@ -15,27 +15,26 @@ interface VideoElementProps {
         maxHeight: string;
         objectFit: string;
     };
-    onEnded?: () => void; // Add onEnded callback
+    onEnded?: () => void;
+    onLoadedData?: () => void; // Add this for reset handling
 }
 
 interface UsePresentationVideoReturn {
     videoRef: React.RefObject<HTMLVideoElement>;
     isConnectedToHost: boolean;
-    reset: () => void; // Add reset function
-    getVideoProps: (onVideoEnd?: () => void) => VideoElementProps; // Enhanced to accept callback
+    reset: () => void;
+    getVideoProps: (onVideoEnd?: () => void) => VideoElementProps;
 }
 
 /**
- * Enhanced presentation video hook with auto-advance functionality
- * Pure slave mode - never initiates commands, only receives and executes
- * Always keeps audio enabled (muted: false)
- * Enhanced with better sync handling for pause-first seeking
+ * Enhanced presentation video hook with proper reset on slide changes
  */
 export const usePresentationVideo = (sessionId: string | null): UsePresentationVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isConnectedToHost, setIsConnectedToHost] = useState(false);
     const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
-    const hasEndedRef = useRef(false); // Track if video has ended to prevent multiple triggers
+    const hasEndedRef = useRef(false);
+    const currentVideoSrcRef = useRef<string | undefined>(undefined); // Track current video source
 
     // Connection status monitoring
     useEffect(() => {
@@ -52,7 +51,7 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
         return () => clearTimeout(connectionTimeout);
     }, [broadcastManager, isConnectedToHost]);
 
-    // Reset ended flag when video starts playing
+    // Reset ended flag and handle video source changes
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -68,12 +67,44 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
             }
         };
 
+        const handleLoadStart = () => {
+            console.log('[usePresentationVideo] Video load start - resetting state');
+            hasEndedRef.current = false;
+
+            // Check if this is a new video source
+            const newSrc = video.src || video.currentSrc;
+            if (newSrc && newSrc !== currentVideoSrcRef.current) {
+                console.log('[usePresentationVideo] New video source detected, forcing reset');
+                currentVideoSrcRef.current = newSrc;
+
+                // Force reset the video position after a brief delay to ensure load
+                setTimeout(() => {
+                    if (video.currentTime !== 0) {
+                        video.currentTime = 0;
+                        console.log('[usePresentationVideo] Reset currentTime to 0 for new video');
+                    }
+                }, 100);
+            }
+        };
+
+        const handleLoadedData = () => {
+            // Ensure video starts from beginning when new data is loaded
+            if (video.currentTime !== 0) {
+                console.log('[usePresentationVideo] Video loaded with non-zero time, resetting to 0');
+                video.currentTime = 0;
+            }
+        };
+
         video.addEventListener('play', handlePlay);
         video.addEventListener('seeked', handleSeeked);
+        video.addEventListener('loadstart', handleLoadStart);
+        video.addEventListener('loadeddata', handleLoadedData);
 
         return () => {
             video.removeEventListener('play', handlePlay);
             video.removeEventListener('seeked', handleSeeked);
+            video.removeEventListener('loadstart', handleLoadStart);
+            video.removeEventListener('loadeddata', handleLoadedData);
         };
     }, []);
 
@@ -174,13 +205,13 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
         }
     }, []);
 
-    // Enhanced getVideoProps with onEnded callback support
+    // Enhanced getVideoProps with onLoadedData callback for proper reset
     const getVideoProps = useCallback((onVideoEnd?: () => void): VideoElementProps => {
         return {
             ref: videoRef,
             playsInline: true,
-            controls: false, // No user controls on presentation
-            autoPlay: false, // Controlled by host commands
+            controls: false,
+            autoPlay: false,
             muted: false, // Always have audio enabled for room playback
             preload: 'auto' as const,
             style: {
@@ -195,7 +226,15 @@ export const usePresentationVideo = (sessionId: string | null): UsePresentationV
                     console.log('[usePresentationVideo] Video ended, triggering callback');
                     onVideoEnd();
                 }
-            } : undefined
+            } : undefined,
+            onLoadedData: () => {
+                // Ensure video always starts from beginning when loaded
+                const video = videoRef.current;
+                if (video && video.currentTime !== 0) {
+                    console.log('[usePresentationVideo] onLoadedData: Resetting video to start');
+                    video.currentTime = 0;
+                }
+            }
         };
     }, []);
 
