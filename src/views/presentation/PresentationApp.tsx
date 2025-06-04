@@ -1,15 +1,13 @@
-// src/views/presentation/PresentationApp.tsx - Enhanced with video auto-advance integration
+// src/views/presentation/PresentationApp.tsx - Enhanced with user interaction requirement
 import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {Slide} from '@shared/types/game';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
-import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from 'lucide-react';
+import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize, Play} from 'lucide-react';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 /**
- * Enhanced presentation app that operates in pure slave mode with video auto-advance
- * Receives slides from host and displays them - no complex connection logic
- * Now includes fullscreen functionality for better presentation experience
+ * Enhanced presentation app with user interaction requirement for video playback
  */
 const PresentationApp: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
@@ -19,18 +17,41 @@ const PresentationApp: React.FC = () => {
     const [connectionError, setConnectionError] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
+    // New state for user interaction
+    const [hasUserInteraction, setHasUserInteraction] = useState(false);
+    const [showInteractionOverlay, setShowInteractionOverlay] = useState(false);
+
     const broadcastManager = sessionId ?
         SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
 
     // Handle video end - for presentation, we just log it
-    // The host will handle the actual auto-advance logic
     const handleVideoEnd = () => {
         if (!currentSlide) return;
-
         console.log('[PresentationApp] Video ended for slide:', currentSlide.id);
-        // Presentation doesn't auto-advance - it waits for host commands
-        // The host will handle the auto-advance logic and send new slide updates
     };
+
+    // Handle user interaction to enable video playback
+    const handleUserInteraction = () => {
+        console.log('[PresentationApp] User interaction detected - enabling video playback');
+        setHasUserInteraction(true);
+        setShowInteractionOverlay(false);
+
+        // Store in sessionStorage so it persists if user refreshes
+        if (sessionId) {
+            sessionStorage.setItem(`presentation-interaction-${sessionId}`, 'true');
+        }
+    };
+
+    // Check for existing user interaction on mount
+    useEffect(() => {
+        if (sessionId) {
+            const hasInteraction = sessionStorage.getItem(`presentation-interaction-${sessionId}`) === 'true';
+            if (hasInteraction) {
+                setHasUserInteraction(true);
+                setShowInteractionOverlay(false);
+            }
+        }
+    }, [sessionId]);
 
     // Fullscreen functionality
     const toggleFullscreen = async () => {
@@ -47,7 +68,7 @@ const PresentationApp: React.FC = () => {
         }
     };
 
-    // Listen for fullscreen changes (in case user exits with ESC)
+    // Listen for fullscreen changes
     useEffect(() => {
         const handleFullscreenChange = () => {
             setIsFullscreen(!!document.fullscreenElement);
@@ -69,33 +90,36 @@ const PresentationApp: React.FC = () => {
             setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
             setConnectionError(false);
+
+            // Show interaction overlay if user hasn't interacted yet and we have a video slide
+            if (!hasUserInteraction && slide.type === 'video') {
+                setShowInteractionOverlay(true);
+            }
         });
 
         return () => {
             console.log('[PresentationApp] Cleaning up slide listener');
             unsubscribeSlides();
         };
-    }, [broadcastManager]);
+    }, [broadcastManager, hasUserInteraction]);
 
-    // Simple connection timeout check
+    // Connection timeout check
     useEffect(() => {
         if (!sessionId || !broadcastManager) return;
 
-        // Simple timeout to show connection error if no slides received
         const connectionTimeout = setTimeout(() => {
             if (!isConnectedToHost) {
                 setConnectionError(true);
                 setStatusMessage('Unable to connect to host. Please ensure the host dashboard is open.');
             }
-        }, 10000); // 10 second timeout
+        }, 10000);
 
         return () => clearTimeout(connectionTimeout);
     }, [sessionId, broadcastManager, isConnectedToHost]);
 
-    // Send ping responses automatically (handled by SimpleBroadcastManager)
+    // Send ping responses automatically
     useEffect(() => {
         if (broadcastManager) {
-            // SimpleBroadcastManager automatically handles ping/pong
             console.log('[PresentationApp] Presentation initialized and ready');
         }
     }, [broadcastManager]);
@@ -192,6 +216,37 @@ const PresentationApp: React.FC = () => {
                 onVideoEnd={handleVideoEnd}
             />
 
+            {/* User Interaction Overlay */}
+            {showInteractionOverlay && (
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-30">
+                    <div className="text-center text-white p-8 max-w-md">
+                        <div className="mb-6">
+                            <Play size={64} className="mx-auto mb-4 text-blue-400"/>
+                            <h2 className="text-2xl font-bold mb-2">Ready to Start</h2>
+                            <p className="text-lg text-gray-300 mb-4">
+                                Click to enable video playback for this presentation
+                            </p>
+                            <div className="flex items-center justify-center gap-2 text-sm text-green-400 mb-4">
+                                <Wifi size={16}/>
+                                <span>Connected to host</span>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleUserInteraction}
+                            className="flex items-center justify-center gap-3 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg mx-auto transition-colors text-lg font-semibold shadow-lg"
+                        >
+                            <Play size={24}/>
+                            Start Presentation
+                        </button>
+
+                        <p className="text-xs text-gray-400 mt-4">
+                            This enables browser video playback permissions
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Connection status indicator and fullscreen toggle */}
             <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
                 {/* Fullscreen toggle button */}
@@ -230,6 +285,17 @@ const PresentationApp: React.FC = () => {
                         </span>
                     </div>
                 </div>
+
+                {/* User interaction status */}
+                {hasUserInteraction && (
+                    <div
+                        className="px-3 py-1 rounded-full text-xs font-medium bg-blue-900/80 text-blue-300 border border-blue-700">
+                        <div className="flex items-center gap-2">
+                            <Play size={12} className="text-blue-400"/>
+                            <span>Video Enabled</span>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Development debug info */}
@@ -240,6 +306,7 @@ const PresentationApp: React.FC = () => {
                     <div>Mode: Presentation (Slave)</div>
                     <div>Connected: {isConnectedToHost ? 'Yes' : 'No'}</div>
                     <div>Fullscreen: {isFullscreen ? 'Yes' : 'No'}</div>
+                    <div>User Interaction: {hasUserInteraction ? 'Yes' : 'No'}</div>
                     <div>Session: {sessionId?.substring(0, 8)}...</div>
                     <div>Auto-advance: Enabled</div>
                 </div>
