@@ -1,4 +1,4 @@
-// src/views/host/HostApp.tsx - Enhanced with video auto-advance integration
+// src/views/host/HostApp.tsx - Enhanced with slide number display
 import React from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
@@ -8,7 +8,7 @@ import PresentationButton from '@views/host/components/GameControls/Presentation
 
 /**
  * HostApp is the main component for the facilitator's game control interface.
- * Enhanced with video auto-advance functionality
+ * Enhanced with video auto-advance functionality and slide number display
  */
 const HostApp: React.FC = () => {
     const {
@@ -132,7 +132,7 @@ const HostApp: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Navigation Controls */}
+                        {/* Navigation Controls with Enhanced Slide Information */}
                         <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
                             <div className="flex items-center justify-center gap-6">
                                 {/* Previous Slide Button */}
@@ -145,13 +145,28 @@ const HostApp: React.FC = () => {
                                     <ChevronLeft size={24}/>
                                 </button>
 
-                                {/* Current Slide Information */}
+                                {/* Enhanced Current Slide Information */}
                                 <div className="flex-1 text-center">
                                     <div className="text-sm font-medium text-gray-700">
-                                        {currentSlideData?.title || `Slide ${currentSlideData?.id || 'N/A'}`}
+                                        {currentSlideData ? (
+                                            <>
+                                                <span
+                                                    className="text-blue-600 font-semibold">Slide {currentSlideData.id}</span>
+                                                {currentSlideData.title && (
+                                                    <>: {currentSlideData.title}</>
+                                                )}
+                                            </>
+                                        ) : (
+                                            'No Slide Selected'
+                                        )}
                                     </div>
                                     <div className="text-xs text-gray-500">
                                         {currentPhaseNode?.label || 'No Phase'}
+                                        {currentPhaseNode && state.currentSlideIdInPhase !== null && (
+                                            <span className="ml-2">
+                                                ({state.currentSlideIdInPhase + 1} of {currentPhaseNode.slide_ids.length})
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 

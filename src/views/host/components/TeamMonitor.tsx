@@ -1,8 +1,8 @@
-// src/components/Host/TeamSubmissions.tsx - Updated with New Supabase Structure
-import React, {useState, useEffect} from 'react';
+// src/views/host/components/TeamMonitor.tsx - Streamlined Team Submissions
+import React, {useState} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
-import {TeamDecision} from '@shared/types/common';
-import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, Wifi, WifiOff, AlertTriangle} from 'lucide-react';
+import {TeamDecision} from '@shared/types';
+import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, AlertTriangle, Users} from 'lucide-react';
 import {useRealtimeSubscription, useSupabaseConnection} from '@shared/services/supabase';
 import {useSupabaseMutation} from '@shared/hooks/supabase'
 import Modal from '@shared/components/UI/Modal';
@@ -13,12 +13,11 @@ const TeamSubmissions: React.FC = () => {
 
     const currentPhaseIdFromNode = currentPhaseNode?.id;
 
-    const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
     const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
 
     // Reset confirmation modal state
     const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
-    const [teamToReset, setTeamToReset] = useState<{id: string, name: string} | null>(null);
+    const [teamToReset, setTeamToReset] = useState<{ id: string, name: string } | null>(null);
 
     // Connection monitoring
     const connection = useSupabaseConnection();
@@ -31,7 +30,7 @@ const TeamSubmissions: React.FC = () => {
     } = useSupabaseMutation(
         async (teamId: string, phaseId: string) => {
             // Use the resetTeamDecisionForPhase from AppContext which handles both DB and state
-            const { resetTeamDecisionForPhase } = useGameContext();
+            const {resetTeamDecisionForPhase} = useGameContext();
             return resetTeamDecisionForPhase(teamId, phaseId);
         },
         {
@@ -56,22 +55,10 @@ const TeamSubmissions: React.FC = () => {
             onchange: (payload) => {
                 console.log(`[TeamSubmissionTable] Real-time team decision update:`, payload);
                 setLastUpdateTime(new Date().toLocaleTimeString());
-                setRealtimeStatus('connected');
             }
         },
         !!(currentSessionId && currentSessionId !== 'new' && currentPhaseIdFromNode)
     );
-
-    // Monitor connection status
-    useEffect(() => {
-        if (connection.isConnected) {
-            setRealtimeStatus('connected');
-        } else if (connection.status === 'connecting') {
-            setRealtimeStatus('connecting');
-        } else {
-            setRealtimeStatus('disconnected');
-        }
-    }, [connection.isConnected, connection.status]);
 
     const getTeamDecisionForCurrentPhase = (teamId: string): TeamDecision | undefined => {
         if (!currentPhaseIdFromNode) return undefined;
@@ -90,7 +77,7 @@ const TeamSubmissions: React.FC = () => {
 
             const selectedNames = decision.selected_investment_ids.map(id => {
                 const option = investmentOptionsForPhase.find(opt => opt.id === id);
-                return option ? option.name.split('.')[0] || option.name.substring(0,15) : `ID: ${id.substring(id.length - 4)}`;
+                return option ? option.name.split('.')[0] || option.name.substring(0, 15) : `ID: ${id.substring(id.length - 4)}`;
             }).join(', ');
             const totalSpent = decision.total_spent_budget !== undefined ? ` ($${(decision.total_spent_budget / 1000).toFixed(0)}k)` : '';
             return (selectedNames || 'Processing...') + totalSpent;
@@ -126,14 +113,14 @@ const TeamSubmissions: React.FC = () => {
             }
 
             const details = [];
-            if(dd.investmentToSacrificeId) {
+            if (dd.investmentToSacrificeId) {
                 const sacrificeOpt = rd3InvestmentOptions.find(o => o.id === dd.investmentToSacrificeId);
                 details.push(`Sacrifice: ${sacrificeOpt ? sacrificeOpt.name.replace(/^\d+\.\s*/, '') : `ID ${dd.investmentToSacrificeId.substring(dd.investmentToSacrificeId.length - 4)}`}`);
             } else {
                 details.push("Sacrifice: None Selected");
             }
 
-            if(dd.investmentToDoubleDownId) {
+            if (dd.investmentToDoubleDownId) {
                 const doubleDownOpt = rd3InvestmentOptions.find(o => o.id === dd.investmentToDoubleDownId);
                 details.push(`Double On: ${doubleDownOpt ? doubleDownOpt.name.replace(/^\d+\.\s*/, '') : `ID ${dd.investmentToDoubleDownId.substring(dd.investmentToDoubleDownId.length - 4)}`}`);
             } else {
@@ -164,18 +151,6 @@ const TeamSubmissions: React.FC = () => {
         setTeamToReset(null);
     };
 
-    const handleManualRefresh = async () => {
-        if (!currentSessionId || currentSessionId === 'new') return;
-
-        console.log(`[TeamSubmissionTable] Manual refresh triggered`);
-        try {
-            await fetchTeamsForSession();
-            setLastUpdateTime(new Date().toLocaleTimeString());
-        } catch (error) {
-            console.error('[TeamSubmissions] Error during manual refresh:', error);
-        }
-    };
-
     if (!currentPhaseNode?.is_interactive_player_phase) {
         return (
             <div className="bg-gray-50 p-3 my-4 rounded-lg shadow-inner text-center text-gray-500 text-sm">
@@ -200,57 +175,27 @@ const TeamSubmissions: React.FC = () => {
                 <div className="flex justify-between items-center mb-3">
                     <div>
                         <h3 className="text-base md:text-lg font-semibold text-gray-800">
-                            Team Submissions: <span className="text-blue-600">{currentPhaseNode?.label || 'Current Interactive Phase'}</span>
-                            <span className="ml-2 text-sm font-normal text-gray-600">({submittedCount}/{teams.length})</span>
+                            Team Submissions: <span
+                            className="text-blue-600">{currentPhaseNode?.label || 'Current Interactive Phase'}</span>
+                            <span
+                                className="ml-2 text-sm font-normal text-gray-600">({submittedCount}/{teams.length})</span>
                         </h3>
-                        {currentPhaseNode && <span className="text-xs text-gray-500">Phase ID: {currentPhaseNode.id}</span>}
+                        {currentPhaseNode &&
+                            <span className="text-xs text-gray-500">Phase ID: {currentPhaseNode.id}</span>}
                     </div>
-                    <div className="flex items-center gap-3">
-                        {/* Enhanced real-time status indicator */}
-                        <div className="flex items-center gap-1 text-xs">
-                            {realtimeStatus === 'connected' ? (
-                                <Wifi size={14} className="text-green-500" />
-                            ) : realtimeStatus === 'connecting' ? (
-                                <Wifi size={14} className="text-yellow-500 animate-pulse" />
-                            ) : (
-                                <WifiOff size={14} className="text-red-500" />
-                            )}
-                            <span className={`${
-                                realtimeStatus === 'connected' ? 'text-green-600' :
-                                    realtimeStatus === 'connecting' ? 'text-yellow-600' :
-                                        'text-red-600'
-                            }`}>
-                                {realtimeStatus === 'connected' ? 'Live' :
-                                    realtimeStatus === 'connecting' ? 'Connecting...' :
-                                        'Disconnected'}
-                            </span>
-                            {connection.latency && (
-                                <span className="text-gray-500 ml-1">
-                                    ({connection.latency}ms)
-                                </span>
-                            )}
-                        </div>
+                </div>
 
-                        {/* Manual refresh button */}
-                        <button
-                            onClick={handleManualRefresh}
-                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300"
-                            title="Manually refresh team data"
-                        >
-                            <RotateCcw size={14}/> Refresh
-                        </button>
-
-                        {/* Connection actions */}
-                        {!connection.isConnected && (
-                            <button
-                                onClick={connection.forceReconnect}
-                                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-red-100 hover:bg-red-200 text-red-700 transition-colors"
-                                title="Force reconnection"
-                            >
-                                <AlertTriangle size={14}/> Reconnect
-                            </button>
-                        )}
+                {/* Student Decision Status Notice */}
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center">
+                        <Users size={16} className="text-blue-600 mr-2"/>
+                        <span className="text-sm font-medium text-blue-800">
+                            Students can now make decisions on their devices
+                        </span>
                     </div>
+                    <p className="text-xs text-blue-600 mt-1 ml-6">
+                        Teams will appear below as they submit their decisions for this phase.
+                    </p>
                 </div>
 
                 {lastUpdateTime && (
@@ -270,16 +215,20 @@ const TeamSubmissions: React.FC = () => {
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-100">
                         <tr>
-                            <th scope="col" className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col"
+                                className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Team
                             </th>
-                            <th scope="col" className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col"
+                                className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Status
                             </th>
-                            <th scope="col" className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col"
+                                className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Selection/Details
                             </th>
-                            <th scope="col" className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col"
+                                className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Reset
                             </th>
                         </tr>
@@ -292,7 +241,9 @@ const TeamSubmissions: React.FC = () => {
                         )}
                         {!state.isLoading && teams.length === 0 && (
                             <tr>
-                                <td colSpan={4} className="text-center py-4 text-gray-500">No teams in this session yet.</td>
+                                <td colSpan={4} className="text-center py-4 text-gray-500">No teams in this session
+                                    yet.
+                                </td>
                             </tr>
                         )}
                         {teams.map((team) => {
@@ -352,16 +303,19 @@ const TeamSubmissions: React.FC = () => {
             >
                 <div className="p-1">
                     <div className="flex items-start">
-                        <div className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-orange-100 sm:mx-0 sm:h-8 sm:w-8">
+                        <div
+                            className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-orange-100 sm:mx-0 sm:h-8 sm:w-8">
                             <AlertTriangle className="h-5 w-5 text-orange-600" aria-hidden="true"/>
                         </div>
                         <div className="ml-3 text-left">
                             <p className="text-sm text-gray-700 mt-0.5">
-                                Are you sure you want to reset <strong className="font-semibold">{teamToReset?.name}</strong>'s
+                                Are you sure you want to reset <strong
+                                className="font-semibold">{teamToReset?.name}</strong>'s
                                 submission for "<strong className="font-semibold">{currentPhaseNode?.label}</strong>"?
                             </p>
                             <p className="text-xs text-orange-600 mt-2">
-                                This will clear their current submission and allow them to submit again. This action cannot be undone.
+                                This will clear their current submission and allow them to submit again. This action
+                                cannot be undone.
                             </p>
                         </div>
                     </div>
