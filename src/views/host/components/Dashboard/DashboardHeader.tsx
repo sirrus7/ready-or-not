@@ -1,7 +1,7 @@
 // src/pages/DashboardPage/components/DashboardHeader.tsx - Header component
 import React from 'react';
-import { LogOut, RefreshCw } from 'lucide-react';
-import { User } from '@shared/types/common';
+import {LogOut, RefreshCw} from 'lucide-react';
+import {User} from '@shared/types';
 
 interface DashboardHeaderProps {
     user: User | null;
@@ -24,11 +24,12 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     };
 
     return (
-        <header className="max-w-6xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <header
+            className="max-w-6xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div>
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800">Teacher Dashboard</h1>
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800">Host Dashboard</h1>
                 <p className="text-gray-600 text-sm md:text-base">
-                    Welcome, {user?.email ? capitalizeName(user.email.split('@')[0]) : 'Teacher'}!
+                    Welcome, {user?.email ? capitalizeName(user.email.split('@')[0]) : 'Host'}!
                 </p>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-3 mt-3 sm:mt-0">
