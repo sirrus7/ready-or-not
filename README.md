@@ -13,29 +13,29 @@ Ready or Not 2.0 is an interactive classroom simulation that teaches business fu
 
 - **Multi-round Gameplay**: Three strategic rounds (years) of business decisions
 - **Real-time Collaboration**: Teams make decisions simultaneously on their devices
-- **Live Dashboard**: Teachers control game flow and monitor team progress
+- **Live Dashboard**: Host control game flow and monitor team progress
 - **Instant Feedback**: See the impact of decisions through KPI updates
 - **Double Down Mechanic**: High-risk, high-reward opportunities in the final round
 - **Comprehensive Reporting**: Track performance metrics and learning outcomes
 
 ## 🚀 Quick Start
 
-### For Teachers/Facilitators
+### For Hosts/Facilitators
 
 1. **Create an Account**: Sign up at [ron2.netlify.app](https://ron2.netlify.app/)
 2. **Set Up a New Game**:
     - Click "Create Game" from your dashboard
     - Configure team sizes and game parameters
     - Print handouts for physical game materials
-    - Set up your classroom layout
+    - Set up your game layout
 3. **Launch the Game**:
     - Start your session from the dashboard
-    - Launch the student display for projector/screen
-    - Share the game link and team codes with students
+    - Launch the presentation display for projector/screen
+    - Share the game link and team codes with teams
 
-### For Students/Teams
+### For Teams
 
-1. **Join Your Team**: Navigate to the session link provided by your teacher
+1. **Join Your Team**: Navigate to the session link provided by your host
 2. **Enter Credentials**: Use your team name and 4-digit passcode
 3. **Make Decisions**: Follow on-screen prompts during decision phases
 4. **Track Performance**: Monitor your KPIs throughout the game
