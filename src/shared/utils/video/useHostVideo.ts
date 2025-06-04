@@ -117,6 +117,43 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         };
     }, []);
 
+    // Add this useEffect temporarily for debugging
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            // 🔴 BREAKPOINT HERE
+            console.log('[DEBUG] Visibility change:', {
+                visibilityState: document.visibilityState,
+                hidden: document.hidden,
+                focused: document.hasFocus(),
+                videoState: videoRef.current ? {
+                    paused: videoRef.current.paused,
+                    currentTime: videoRef.current.currentTime,
+                    muted: videoRef.current.muted
+                } : null
+            });
+        };
+
+        const handleFocus = () => {
+            // 🔴 BREAKPOINT HERE
+            console.log('[DEBUG] Window focus event');
+        };
+
+        const handleBlur = () => {
+            // 🔴 BREAKPOINT HERE
+            console.log('[DEBUG] Window blur event');
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleFocus);
+        window.addEventListener('blur', handleBlur);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('blur', handleBlur);
+        };
+    }, []);
+
     const executeLocalCommand = useCallback(async (action: 'play' | 'pause' | 'seek', time?: number): Promise<void> => {
         const video = videoRef.current;
         if (!video) {
