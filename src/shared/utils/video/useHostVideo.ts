@@ -40,7 +40,9 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     // NEW: Add tracking for tab visibility and event throttling
     const isTabVisibleRef = useRef(true);
     const lastEventTimeRef = useRef(0);
+    const tabVisibilityChangeTimeRef = useRef(0);
     const EVENT_THROTTLE_MS = 1000; // Throttle events to prevent rapid-fire triggers
+    const TAB_VISIBILITY_COOLDOWN_MS = 3000; // Block video resets for 3 seconds after tab changes
 
     // Connection status monitoring
     useEffect(() => {
@@ -74,20 +76,41 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             const nowVisible = !document.hidden;
             isTabVisibleRef.current = nowVisible;
 
-            console.log(`[useHostVideo] Tab visibility changed: ${wasVisible} -> ${nowVisible}`);
+            // Record the time of visibility change
+            tabVisibilityChangeTimeRef.current = Date.now();
 
-            // When tab becomes visible, explicitly prevent autoplay
+            console.log(`[useHostVideo] Tab visibility changed: ${wasVisible} -> ${nowVisible} (cooldown activated)`);
+
+            // When tab becomes visible, aggressively prevent autoplay
             if (!wasVisible && nowVisible) {
                 const video = videoRef.current;
                 if (video) {
-                    console.log('[useHostVideo] Tab became visible - enforcing autoplay prevention');
-                    video.autoplay = false;
+                    console.log('[useHostVideo] Tab became visible - AGGRESSIVE autoplay prevention');
 
-                    // If video is somehow playing, pause it (unless we explicitly started it)
-                    if (!video.paused && hasEndedRef.current === false) {
-                        console.log('[useHostVideo] Pausing unexpected autoplay on tab visibility');
+                    // Multiple layers of autoplay prevention
+                    video.autoplay = false;
+                    video.removeAttribute('autoplay');
+
+                    // Force pause if playing and we didn't start it intentionally
+                    if (!video.paused) {
+                        console.log('[useHostVideo] FORCE PAUSING unexpected autoplay on tab visibility');
                         video.pause();
+                        video.currentTime = video.currentTime; // Force time update
                     }
+
+                    // Set up additional autoplay prevention with delays
+                    const preventAutoplay = () => {
+                        if (video.autoplay) {
+                            video.autoplay = false;
+                            video.removeAttribute('autoplay');
+                        }
+                    };
+
+                    // Multiple prevention attempts
+                    setTimeout(preventAutoplay, 50);
+                    setTimeout(preventAutoplay, 100);
+                    setTimeout(preventAutoplay, 250);
+                    setTimeout(preventAutoplay, 500);
                 }
             }
         };
@@ -122,57 +145,108 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         };
 
         const handleLoadStart = () => {
-            // FIXED: Add throttling and better source detection
+            // FIXED: Add throttling and complete blocking during tab visibility changes
             if (shouldThrottleEvent()) {
                 console.log('[useHostVideo] Load start event throttled');
                 return;
             }
 
+            // CRITICAL FIX: Block ALL video source detection during tab visibility cooldown
+            const timeSinceTabChange = Date.now() - tabVisibilityChangeTimeRef.current;
+            if (timeSinceTabChange < TAB_VISIBILITY_COOLDOWN_MS) {
+                console.log(`[useHostVideo] BLOCKING loadstart - tab visibility cooldown active (${timeSinceTabChange}ms ago)`);
+
+                // Still prevent autoplay even if we're blocking the reset
+                const video = videoRef.current;
+                if (video) {
+                    video.autoplay = false;
+                    video.removeAttribute('autoplay');
+                }
+                return;
+            }
+
             console.log('[useHostVideo] Video load start - checking for actual source change');
 
-            // FIXED: More robust source comparison
+            // FIXED: More robust source comparison with additional checks
             const newSrc = video.src || video.currentSrc;
             const currentSrc = currentVideoSrcRef.current;
 
-            // Only proceed if we have a meaningful source change
-            if (newSrc && newSrc !== currentSrc && newSrc !== 'about:blank' && newSrc !== '') {
+            // Additional checks to prevent false positives
+            const isValidNewSource = newSrc &&
+                newSrc !== currentSrc &&
+                newSrc !== 'about:blank' &&
+                newSrc !== '' &&
+                !newSrc.includes('blob:') || newSrc !== currentSrc; // Handle blob URLs properly
+
+            if (isValidNewSource) {
                 console.log('[useHostVideo] Genuine new video source detected:', newSrc);
                 currentVideoSrcRef.current = newSrc;
                 hasEndedRef.current = false;
 
-                // FIXED: Explicit autoplay prevention during source changes
+                // FIXED: Multiple layers of autoplay prevention
                 video.autoplay = false;
+                video.removeAttribute('autoplay');
 
                 setTimeout(() => {
                     if (video.currentTime !== 0) {
                         video.currentTime = 0;
                         console.log('[useHostVideo] Reset currentTime to 0 for new video');
                     }
-                    // FIXED: Double-check autoplay prevention after reset
+                    // FIXED: Aggressive autoplay prevention after reset
                     video.autoplay = false;
+                    video.removeAttribute('autoplay');
+
+                    // Additional prevention with delay
+                    setTimeout(() => {
+                        video.autoplay = false;
+                        video.removeAttribute('autoplay');
+                    }, 50);
                 }, 100);
             } else {
-                console.log('[useHostVideo] Same video source, ignoring load start event');
+                console.log('[useHostVideo] Same video source or invalid source, ignoring load start event');
+                // Still prevent autoplay even on same source
+                video.autoplay = false;
+                video.removeAttribute('autoplay');
             }
         };
 
         const handleLoadedData = () => {
-            // FIXED: Add autoplay prevention on data load
+            // FIXED: Aggressive autoplay prevention on data load
             video.autoplay = false;
+            video.removeAttribute('autoplay');
 
             if (video.currentTime !== 0) {
                 console.log('[useHostVideo] Video loaded with non-zero time, resetting to 0');
                 video.currentTime = 0;
             }
+
+            // Additional autoplay prevention with delay
+            setTimeout(() => {
+                video.autoplay = false;
+                video.removeAttribute('autoplay');
+            }, 50);
         };
 
-        // FIXED: Add explicit autoplay prevention on any video events
+        // FIXED: Enhanced autoplay prevention on all video events
         const handleCanPlay = () => {
             video.autoplay = false;
+            video.removeAttribute('autoplay');
         };
 
         const handleLoadedMetadata = () => {
             video.autoplay = false;
+            video.removeAttribute('autoplay');
+        };
+
+        // NEW: Additional events that might trigger autoplay
+        const handleCanPlayThrough = () => {
+            video.autoplay = false;
+            video.removeAttribute('autoplay');
+        };
+
+        const handleProgress = () => {
+            video.autoplay = false;
+            video.removeAttribute('autoplay');
         };
 
         video.addEventListener('play', handlePlay);
@@ -181,6 +255,8 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         video.addEventListener('loadeddata', handleLoadedData);
         video.addEventListener('canplay', handleCanPlay);
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
+        video.addEventListener('canplaythrough', handleCanPlayThrough);
+        video.addEventListener('progress', handleProgress);
 
         return () => {
             video.removeEventListener('play', handlePlay);
@@ -189,6 +265,8 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             video.removeEventListener('loadeddata', handleLoadedData);
             video.removeEventListener('canplay', handleCanPlay);
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('canplaythrough', handleCanPlayThrough);
+            video.removeEventListener('progress', handleProgress);
         };
     }, []);
 
@@ -278,8 +356,9 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             video.currentTime = 0;
             hasEndedRef.current = false;
 
-            // FIXED: Explicit autoplay prevention during reset
+            // FIXED: Aggressive autoplay prevention during reset
             video.autoplay = false;
+            video.removeAttribute('autoplay');
 
             video.dispatchEvent(new Event('timeupdate'));
             video.dispatchEvent(new Event('loadedmetadata'));
@@ -295,8 +374,9 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
                     video.dispatchEvent(new Event('timeupdate'));
                     video.dispatchEvent(new Event('loadedmetadata'));
                 }
-                // FIXED: Ensure autoplay stays disabled
+                // FIXED: Aggressive autoplay prevention
                 video.autoplay = false;
+                video.removeAttribute('autoplay');
             }, 100);
         }
     }, []);
@@ -334,13 +414,20 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             onLoadedData: () => {
                 const video = videoRef.current;
                 if (video) {
-                    // FIXED: Prevent autoplay on data load
+                    // FIXED: Aggressive autoplay prevention on data load
                     video.autoplay = false;
+                    video.removeAttribute('autoplay');
 
                     if (video.currentTime !== 0) {
                         console.log('[useHostVideo] onLoadedData: Resetting video to start');
                         video.currentTime = 0;
                     }
+
+                    // Additional prevention with delay
+                    setTimeout(() => {
+                        video.autoplay = false;
+                        video.removeAttribute('autoplay');
+                    }, 50);
                 }
             }
         };
