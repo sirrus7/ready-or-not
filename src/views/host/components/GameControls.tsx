@@ -1,17 +1,16 @@
 // src/views/host/components/GameControls.tsx
 // This component orchestrates the various host controls.
-import React, { useState } from 'react';
-import { useGameContext } from '@app/providers/GameProvider';
+import React, {useState} from 'react';
+import {useGameContext} from '@app/providers/GameProvider';
 import ActionButtons from './GameControls/ActionButtons';
 import AlertModal from './GameControls/AlertModal';
 import ExitModal from './GameControls/ExitModal';
 import JoinInfoModal from './GameControls/JoinInfoModal';
 import NotesSection from './GameControls/NotesSection';
-import PresentationButton from './GameControls/PresentationButton';
 import TeamCodesModal from './GameControls/TeamCodesModal';
 
-const GameControls: React.FC = () => { // Renamed component from HostGameControls
-    const { state, currentSlideData, updateHostNotesForCurrentSlide } = useGameContext();
+const GameControls: React.FC = () => {
+    const {state, currentSlideData, updateHostNotesForCurrentSlide, setCurrentHostAlertState} = useGameContext();
 
     // Modal states
     const [showNotes, setShowNotes] = useState(false);
@@ -33,11 +32,6 @@ const GameControls: React.FC = () => { // Renamed component from HostGameControl
     return (
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
             <div className="p-3 md:p-4">
-                {/* Presentation Display Section */}
-                <div className="mb-3 pb-3 border-b border-gray-200">
-                    <PresentationButton /> {/* Using the renamed component */}
-                </div>
-
                 {/* Action Buttons */}
                 <ActionButtons
                     onOpenJoinInfo={() => setIsJoinCompanyModalOpen(true)}
@@ -59,7 +53,7 @@ const GameControls: React.FC = () => { // Renamed component from HostGameControl
             {/* Modals */}
             <AlertModal
                 isOpen={!!state.currentHostAlert}
-                onClose={() => state.setCurrentHostAlertState(null)}
+                onClose={() => setCurrentHostAlertState(null)}
                 title={state.currentHostAlert?.title || "Game Host Alert!"}
                 message={state.currentHostAlert?.message || ""} // Ensure message prop is passed if AlertModal expects it
             />
@@ -84,4 +78,4 @@ const GameControls: React.FC = () => { // Renamed component from HostGameControl
     );
 };
 
-export default GameControls; // Renamed export
+export default GameControls;
