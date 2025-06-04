@@ -1,4 +1,4 @@
-// src/shared/utils/video/useHostVideo.ts - Fixed to preserve onEnded callback
+// src/shared/utils/video/useHostVideo.ts - Fixed tab-switching autoplay issue
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
 
@@ -37,6 +37,11 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     const hasEndedRef = useRef(false);
     const currentVideoSrcRef = useRef<string | undefined>(undefined);
 
+    // NEW: Add tracking for tab visibility and event throttling
+    const isTabVisibleRef = useRef(true);
+    const lastEventTimeRef = useRef(0);
+    const EVENT_THROTTLE_MS = 1000; // Throttle events to prevent rapid-fire triggers
+
     // Connection status monitoring
     useEffect(() => {
         if (!broadcastManager) return;
@@ -62,10 +67,49 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         return unsubscribe;
     }, [broadcastManager, isConnectedToPresentation]);
 
-    // Reset ended flag and handle video source changes - BUT preserve onEnded callback
+    // NEW: Track tab visibility to prevent autoplay on tab switches
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            const wasVisible = isTabVisibleRef.current;
+            const nowVisible = !document.hidden;
+            isTabVisibleRef.current = nowVisible;
+
+            console.log(`[useHostVideo] Tab visibility changed: ${wasVisible} -> ${nowVisible}`);
+
+            // When tab becomes visible, explicitly prevent autoplay
+            if (!wasVisible && nowVisible) {
+                const video = videoRef.current;
+                if (video) {
+                    console.log('[useHostVideo] Tab became visible - enforcing autoplay prevention');
+                    video.autoplay = false;
+
+                    // If video is somehow playing, pause it (unless we explicitly started it)
+                    if (!video.paused && hasEndedRef.current === false) {
+                        console.log('[useHostVideo] Pausing unexpected autoplay on tab visibility');
+                        video.pause();
+                    }
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
+
+    // Enhanced video event handling with autoplay prevention
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
+
+        // Helper function to check if we should throttle events
+        const shouldThrottleEvent = (): boolean => {
+            const now = Date.now();
+            if (now - lastEventTimeRef.current < EVENT_THROTTLE_MS) {
+                return true;
+            }
+            lastEventTimeRef.current = now;
+            return false;
+        };
 
         const handlePlay = () => {
             hasEndedRef.current = false;
@@ -78,79 +122,73 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         };
 
         const handleLoadStart = () => {
-            console.log('[useHostVideo] Video load start - resetting state');
-            // DON'T reset hasEndedRef here - let it be managed by the onEnded callback
+            // FIXED: Add throttling and better source detection
+            if (shouldThrottleEvent()) {
+                console.log('[useHostVideo] Load start event throttled');
+                return;
+            }
 
+            console.log('[useHostVideo] Video load start - checking for actual source change');
+
+            // FIXED: More robust source comparison
             const newSrc = video.src || video.currentSrc;
-            if (newSrc && newSrc !== currentVideoSrcRef.current) {
-                console.log('[useHostVideo] New video source detected, forcing reset');
+            const currentSrc = currentVideoSrcRef.current;
+
+            // Only proceed if we have a meaningful source change
+            if (newSrc && newSrc !== currentSrc && newSrc !== 'about:blank' && newSrc !== '') {
+                console.log('[useHostVideo] Genuine new video source detected:', newSrc);
                 currentVideoSrcRef.current = newSrc;
-                // Only reset hasEndedRef for truly new videos
                 hasEndedRef.current = false;
+
+                // FIXED: Explicit autoplay prevention during source changes
+                video.autoplay = false;
 
                 setTimeout(() => {
                     if (video.currentTime !== 0) {
                         video.currentTime = 0;
                         console.log('[useHostVideo] Reset currentTime to 0 for new video');
                     }
+                    // FIXED: Double-check autoplay prevention after reset
+                    video.autoplay = false;
                 }, 100);
+            } else {
+                console.log('[useHostVideo] Same video source, ignoring load start event');
             }
         };
 
         const handleLoadedData = () => {
+            // FIXED: Add autoplay prevention on data load
+            video.autoplay = false;
+
             if (video.currentTime !== 0) {
                 console.log('[useHostVideo] Video loaded with non-zero time, resetting to 0');
                 video.currentTime = 0;
             }
         };
 
+        // FIXED: Add explicit autoplay prevention on any video events
+        const handleCanPlay = () => {
+            video.autoplay = false;
+        };
+
+        const handleLoadedMetadata = () => {
+            video.autoplay = false;
+        };
+
         video.addEventListener('play', handlePlay);
         video.addEventListener('seeked', handleSeeked);
         video.addEventListener('loadstart', handleLoadStart);
         video.addEventListener('loadeddata', handleLoadedData);
+        video.addEventListener('canplay', handleCanPlay);
+        video.addEventListener('loadedmetadata', handleLoadedMetadata);
 
         return () => {
             video.removeEventListener('play', handlePlay);
             video.removeEventListener('seeked', handleSeeked);
             video.removeEventListener('loadstart', handleLoadStart);
             video.removeEventListener('loadeddata', handleLoadedData);
-        };
-    }, []);
-
-    // Add this useEffect temporarily for debugging
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            // 🔴 BREAKPOINT HERE
-            console.log('[DEBUG] Visibility change:', {
-                visibilityState: document.visibilityState,
-                hidden: document.hidden,
-                focused: document.hasFocus(),
-                videoState: videoRef.current ? {
-                    paused: videoRef.current.paused,
-                    currentTime: videoRef.current.currentTime,
-                    muted: videoRef.current.muted
-                } : null
-            });
-        };
-
-        const handleFocus = () => {
-            // 🔴 BREAKPOINT HERE
-            console.log('[DEBUG] Window focus event');
-        };
-
-        const handleBlur = () => {
-            // 🔴 BREAKPOINT HERE
-            console.log('[DEBUG] Window blur event');
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('focus', handleFocus);
-        window.addEventListener('blur', handleBlur);
-
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            window.removeEventListener('focus', handleFocus);
-            window.removeEventListener('blur', handleBlur);
+            video.removeEventListener('canplay', handleCanPlay);
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
         };
     }, []);
 
@@ -238,7 +276,10 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
 
             video.pause();
             video.currentTime = 0;
-            hasEndedRef.current = false; // Reset ended flag on manual reset
+            hasEndedRef.current = false;
+
+            // FIXED: Explicit autoplay prevention during reset
+            video.autoplay = false;
 
             video.dispatchEvent(new Event('timeupdate'));
             video.dispatchEvent(new Event('loadedmetadata'));
@@ -254,6 +295,8 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
                     video.dispatchEvent(new Event('timeupdate'));
                     video.dispatchEvent(new Event('loadedmetadata'));
                 }
+                // FIXED: Ensure autoplay stays disabled
+                video.autoplay = false;
             }, 100);
         }
     }, []);
@@ -273,7 +316,7 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             ref: videoRef,
             playsInline: true,
             controls: false,
-            autoPlay: false,
+            autoPlay: false, // FIXED: Ensure this is always false
             muted: isConnectedToPresentation,
             preload: 'auto' as const,
             className: 'pointer-events-none',
@@ -284,17 +327,20 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             },
             onEnded: onVideoEnd ? () => {
                 console.log('[useHostVideo] Video ended event fired, hasEnded:', hasEndedRef.current);
-                // Always call the callback - let the caller decide what to do
                 console.log('[useHostVideo] Video ended, triggering callback');
                 onVideoEnd();
-                // Set the flag AFTER calling the callback
                 hasEndedRef.current = true;
             } : undefined,
             onLoadedData: () => {
                 const video = videoRef.current;
-                if (video && video.currentTime !== 0) {
-                    console.log('[useHostVideo] onLoadedData: Resetting video to start');
-                    video.currentTime = 0;
+                if (video) {
+                    // FIXED: Prevent autoplay on data load
+                    video.autoplay = false;
+
+                    if (video.currentTime !== 0) {
+                        console.log('[useHostVideo] onLoadedData: Resetting video to start');
+                        video.currentTime = 0;
+                    }
                 }
             }
         };
