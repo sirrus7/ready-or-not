@@ -1,4 +1,4 @@
-// src/shared/utils/video/useHostVideo.ts - Enhanced Firefox tab-switching autoplay fix
+// src/shared/utils/video/useHostVideo.ts - Fixed to preserve onEnded callback
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
 
@@ -37,15 +37,6 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     const hasEndedRef = useRef(false);
     const currentVideoSrcRef = useRef<string | undefined>(undefined);
 
-    // Firefox-specific autoplay prevention
-    const isFirefox = /Firefox/.test(navigator.userAgent);
-    const intentionalPlayRef = useRef(false);
-    const tabSwitchTimeRef = useRef(0);
-    const autoplayBlockerRef = useRef<NodeJS.Timeout | null>(null);
-    const playBlockingActiveRef = useRef(false);
-
-    console.log('[useHostVideo] Browser detection:', {isFirefox, userAgent: navigator.userAgent});
-
     // Connection status monitoring
     useEffect(() => {
         if (!broadcastManager) return;
@@ -71,136 +62,13 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         return unsubscribe;
     }, [broadcastManager, isConnectedToPresentation]);
 
-    // Enhanced tab visibility handling for Firefox
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            const wasVisible = !document.hidden;
-
-            if (wasVisible) {
-                // Tab became visible
-                tabSwitchTimeRef.current = Date.now();
-                console.log('[useHostVideo] Tab became visible - activating Firefox autoplay prevention');
-
-                if (isFirefox) {
-                    // Activate aggressive autoplay blocking for Firefox
-                    playBlockingActiveRef.current = true;
-
-                    // Clear any existing timeout
-                    if (autoplayBlockerRef.current) {
-                        clearTimeout(autoplayBlockerRef.current);
-                    }
-
-                    // Block autoplay for 3 seconds after tab becomes visible
-                    autoplayBlockerRef.current = setTimeout(() => {
-                        playBlockingActiveRef.current = false;
-                        console.log('[useHostVideo] Firefox autoplay blocking period ended');
-                    }, 3000);
-
-                    // Immediate video check and pause if needed
-                    const video = videoRef.current;
-                    if (video && !video.paused && !intentionalPlayRef.current) {
-                        console.log('[useHostVideo] Firefox: Pausing video on tab switch');
-                        video.pause();
-                        // Force time update to ensure UI reflects pause state
-                        video.dispatchEvent(new Event('timeupdate'));
-                    }
-                }
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        // Also listen for focus events as additional protection
-        const handleWindowFocus = () => {
-            if (isFirefox) {
-                tabSwitchTimeRef.current = Date.now();
-                playBlockingActiveRef.current = true;
-
-                const video = videoRef.current;
-                if (video && !video.paused && !intentionalPlayRef.current) {
-                    console.log('[useHostVideo] Firefox: Pausing video on window focus');
-                    video.pause();
-                }
-
-                setTimeout(() => {
-                    playBlockingActiveRef.current = false;
-                }, 2000);
-            }
-        };
-
-        window.addEventListener('focus', handleWindowFocus);
-
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            window.removeEventListener('focus', handleWindowFocus);
-            if (autoplayBlockerRef.current) {
-                clearTimeout(autoplayBlockerRef.current);
-            }
-        };
-    }, [isFirefox]);
-
-    // Comprehensive video event handling
+    // Reset ended flag and handle video source changes - BUT preserve onEnded callback
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
 
-        // Override the play method directly for Firefox
-        if (isFirefox && video.play) {
-            const originalPlay = video.play.bind(video);
-
-            video.play = function () {
-                const timeSinceTabSwitch = Date.now() - tabSwitchTimeRef.current;
-
-                console.log('[useHostVideo] Firefox play() called', {
-                    intentional: intentionalPlayRef.current,
-                    blockingActive: playBlockingActiveRef.current,
-                    timeSinceTabSwitch
-                });
-
-                // Block play if it's within the vulnerable window and not intentional
-                if (playBlockingActiveRef.current && !intentionalPlayRef.current && timeSinceTabSwitch < 3000) {
-                    console.log('[useHostVideo] Firefox: Blocking unauthorized play() call');
-                    return Promise.reject(new DOMException('Play blocked by autoplay prevention', 'NotAllowedError'));
-                }
-
-                return originalPlay();
-            };
-        }
-
-        const handlePlay = (event: Event) => {
-            console.log('[useHostVideo] Play event fired', {
-                intentional: intentionalPlayRef.current,
-                blockingActive: playBlockingActiveRef.current,
-                isFirefox,
-                timeSinceTabSwitch: Date.now() - tabSwitchTimeRef.current
-            });
-
-            // Firefox-specific autoplay prevention
-            if (isFirefox && playBlockingActiveRef.current && !intentionalPlayRef.current) {
-                console.log('[useHostVideo] Firefox: Preventing autoplay event');
-                event.preventDefault();
-                event.stopImmediatePropagation();
-
-                // Force pause
-                setTimeout(() => {
-                    if (video && !video.paused) {
-                        video.pause();
-                        console.log('[useHostVideo] Firefox: Force-paused after event prevention');
-                    }
-                }, 0);
-
-                return false;
-            }
-
+        const handlePlay = () => {
             hasEndedRef.current = false;
-            // Reset intentional flag after successful play
-            setTimeout(() => {
-                intentionalPlayRef.current = false;
-            }, 100);
-        };
-
-        const handlePause = () => {
-            intentionalPlayRef.current = false;
         };
 
         const handleSeeked = () => {
@@ -210,17 +78,16 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         };
 
         const handleLoadStart = () => {
-            console.log('[useHostVideo] Video load start');
-            hasEndedRef.current = false;
+            console.log('[useHostVideo] Video load start - resetting state');
+            // DON'T reset hasEndedRef here - let it be managed by the onEnded callback
 
             const newSrc = video.src || video.currentSrc;
-            if (newSrc && newSrc !== currentVideoSrcRef.current &&
-                newSrc !== 'about:blank' && newSrc !== '') {
-
-                console.log('[useHostVideo] New video source detected:', newSrc);
+            if (newSrc && newSrc !== currentVideoSrcRef.current) {
+                console.log('[useHostVideo] New video source detected, forcing reset');
                 currentVideoSrcRef.current = newSrc;
+                // Only reset hasEndedRef for truly new videos
+                hasEndedRef.current = false;
 
-                // Reset video position after load
                 setTimeout(() => {
                     if (video.currentTime !== 0) {
                         video.currentTime = 0;
@@ -237,51 +104,18 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             }
         };
 
-        // Use capture phase for play events to intercept early
-        video.addEventListener('play', handlePlay, {capture: true, passive: false});
-        video.addEventListener('pause', handlePause);
+        video.addEventListener('play', handlePlay);
         video.addEventListener('seeked', handleSeeked);
         video.addEventListener('loadstart', handleLoadStart);
         video.addEventListener('loadeddata', handleLoadedData);
 
-        // Additional Firefox-specific event monitoring
-        if (isFirefox) {
-            const handleCanPlay = () => {
-                if (playBlockingActiveRef.current && !intentionalPlayRef.current) {
-                    console.log('[useHostVideo] Firefox: canplay event during blocking period');
-                }
-            };
-
-            const handlePlaying = (event: Event) => {
-                if (playBlockingActiveRef.current && !intentionalPlayRef.current) {
-                    console.log('[useHostVideo] Firefox: Stopping unauthorized playing event');
-                    event.preventDefault();
-                    video.pause();
-                }
-            };
-
-            video.addEventListener('canplay', handleCanPlay);
-            video.addEventListener('playing', handlePlaying, {capture: true, passive: false});
-
-            return () => {
-                video.removeEventListener('play', handlePlay, {capture: true});
-                video.removeEventListener('pause', handlePause);
-                video.removeEventListener('seeked', handleSeeked);
-                video.removeEventListener('loadstart', handleLoadStart);
-                video.removeEventListener('loadeddata', handleLoadedData);
-                video.removeEventListener('canplay', handleCanPlay);
-                video.removeEventListener('playing', handlePlaying, {capture: true});
-            };
-        }
-
         return () => {
-            video.removeEventListener('play', handlePlay, {capture: true});
-            video.removeEventListener('pause', handlePause);
+            video.removeEventListener('play', handlePlay);
             video.removeEventListener('seeked', handleSeeked);
             video.removeEventListener('loadstart', handleLoadStart);
             video.removeEventListener('loadeddata', handleLoadedData);
         };
-    }, [isFirefox]);
+    }, []);
 
     const executeLocalCommand = useCallback(async (action: 'play' | 'pause' | 'seek', time?: number): Promise<void> => {
         const video = videoRef.current;
@@ -293,22 +127,15 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
         try {
             switch (action) {
                 case 'play':
-                    // Mark as intentional play BEFORE calling play()
-                    intentionalPlayRef.current = true;
-                    console.log('[useHostVideo] Executing intentional play command');
-
                     if (time !== undefined && Math.abs(video.currentTime - time) > 0.5) {
                         video.currentTime = time;
                         await new Promise(resolve => setTimeout(resolve, 50));
                     }
-
                     await video.play();
                     console.log(`[useHostVideo] Local play executed at time: ${time || video.currentTime}`);
                     break;
 
                 case 'pause':
-                    intentionalPlayRef.current = false;
-
                     if (time !== undefined && Math.abs(video.currentTime - time) > 0.5) {
                         video.currentTime = time;
                     }
@@ -325,9 +152,6 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
             }
         } catch (error) {
             console.error(`[useHostVideo] Local ${action} command failed:`, error);
-            if (action === 'play') {
-                intentionalPlayRef.current = false; // Reset on failure
-            }
         }
     }, []);
 
@@ -368,27 +192,30 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
     const reset = useCallback(() => {
         const video = videoRef.current;
         if (video) {
-            console.log('[useHostVideo] Reset called');
-
-            // Clear intentional play flag
-            intentionalPlayRef.current = false;
+            console.log('[useHostVideo] RESET CALLED - Before reset:', {
+                currentTime: video.currentTime,
+                duration: video.duration,
+                src: video.src,
+                paused: video.paused
+            });
 
             video.pause();
             video.currentTime = 0;
-            hasEndedRef.current = false;
+            hasEndedRef.current = false; // Reset ended flag on manual reset
 
-            // Force UI updates
             video.dispatchEvent(new Event('timeupdate'));
             video.dispatchEvent(new Event('loadedmetadata'));
+            video.dispatchEvent(new Event('loadeddata'));
+            video.dispatchEvent(new Event('durationchange'));
 
-            console.log('[useHostVideo] Reset completed');
+            console.log('[useHostVideo] RESET COMPLETED');
 
-            // Verification
             setTimeout(() => {
                 if (video.currentTime !== 0) {
-                    console.warn('[useHostVideo] Reset verification failed, forcing again');
+                    console.warn('[useHostVideo] Reset failed, forcing again');
                     video.currentTime = 0;
                     video.dispatchEvent(new Event('timeupdate'));
+                    video.dispatchEvent(new Event('loadedmetadata'));
                 }
             }, 100);
         }
@@ -419,11 +246,12 @@ export const useHostVideo = (sessionId: string | null): UseHostVideoReturn => {
                 objectFit: 'contain'
             },
             onEnded: onVideoEnd ? () => {
-                if (!hasEndedRef.current) {
-                    console.log('[useHostVideo] Video ended, triggering callback');
-                    onVideoEnd();
-                    hasEndedRef.current = true;
-                }
+                console.log('[useHostVideo] Video ended event fired, hasEnded:', hasEndedRef.current);
+                // Always call the callback - let the caller decide what to do
+                console.log('[useHostVideo] Video ended, triggering callback');
+                onVideoEnd();
+                // Set the flag AFTER calling the callback
+                hasEndedRef.current = true;
             } : undefined,
             onLoadedData: () => {
                 const video = videoRef.current;
