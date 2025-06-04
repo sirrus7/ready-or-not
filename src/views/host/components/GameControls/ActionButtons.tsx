@@ -1,7 +1,7 @@
-// src/components/Host/Controls/ActionButtonsRow.tsx
+// src/views/host/components/GameControls/ActionButtons.tsx
 import React from 'react';
-import { Users, QrCode, Trophy, FileText, LogOut } from 'lucide-react';
-import { useGameContext } from '@app/providers/GameProvider';
+import {Users, QrCode, Trophy, FileText, LogOut} from 'lucide-react';
+import {useGameContext} from '@app/providers/GameProvider';
 
 interface ActionButtonsRowProps {
     onOpenJoinInfo: () => void;
@@ -12,13 +12,13 @@ interface ActionButtonsRowProps {
 }
 
 const ActionButtons: React.FC<ActionButtonsRowProps> = ({
-                                                               onOpenJoinInfo,
-                                                               onOpenTeamCodes,
-                                                               onToggleNotes,
-                                                               onExitGame,
-                                                               showNotes
-                                                           }) => {
-    const { currentPhaseNode, selectPhase, allPhasesInOrder } = useGameContext();
+                                                            onOpenJoinInfo,
+                                                            onOpenTeamCodes,
+                                                            onToggleNotes,
+                                                            onExitGame,
+                                                            showNotes
+                                                        }) => {
+    const {currentPhaseNode, selectPhase, allPhasesInOrder} = useGameContext();
 
     const showCurrentRoundLeaderboard = () => {
         if (currentPhaseNode && currentPhaseNode.round_number > 0) {
@@ -37,7 +37,7 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
     };
 
     return (
-        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 border-t border-gray-200 pt-3">
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
             <button
                 onClick={onOpenJoinInfo}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300"
