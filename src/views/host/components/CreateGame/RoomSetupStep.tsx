@@ -37,7 +37,7 @@ const RoomSetupStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => 
                 </h4>
                 <ul className="list-disc list-inside space-y-2 text-sm pl-2">
                     <li>
-                        <strong className="font-medium">Facilitator Screen (Your Computer):</strong> This is your main
+                        <strong className="font-medium">Host Screen (Your Computer):</strong> This is your main
                         control panel. From here, you will:
                         <ul className="list-circle list-inside ml-6 mt-1 text-xs text-gray-600 space-y-0.5">
                             <li>Navigate through game phases and presentation slides.</li>
@@ -47,18 +47,18 @@ const RoomSetupStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => 
                     </li>
                     <li className="mt-1.5">
                         <strong className="font-medium">Presentation Screen (Projector or Large Monitor):</strong> This
-                        screen is for all students to view. It will mirror:
+                        screen is for all teams to view. It will mirror:
                         <ul className="list-circle list-inside ml-6 mt-1 text-xs text-gray-600 space-y-0.5">
                             <li>Instructional slides and introductory videos for each phase.</li>
                             <li>Timers for decision-making periods.</li>
                             <li>Consequence and Investment Payoff information.</li>
                             <li>End-of-round KPIs and Leaderboards.</li>
                         </ul>
-                        <p className="text-xs text-gray-500 mt-1">Launch this via the "Launch Student Display" button on
+                        <p className="text-xs text-gray-500 mt-1">Launch this via the "Launch Presentation Display" button on
                             your control panel once the game starts.</p>
                     </li>
                     <li className="mt-1.5">
-                        <strong className="font-medium">Student Device Access:</strong> Each team will need at least one
+                        <strong className="font-medium">Team Device Access:</strong> Each team will need at least one
                         device (laptop, tablet, or smartphone) to:
                         <ul className="list-circle list-inside ml-6 mt-1 text-xs text-gray-600 space-y-0.5">
                             <li>Log in with their team name and passcode.</li>
@@ -70,7 +70,7 @@ const RoomSetupStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => 
                 <div className="mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
                     <p className="text-xs text-gray-600 flex items-center"><Tv2 size={14}
                                                                                 className="mr-2 text-gray-500 flex-shrink-0"/>Ensure
-                        your Presentation Screen is visible to all participants and that your Facilitator Screen is
+                        your Presentation Screen is visible to all participants and that your Host Screen is
                         positioned for your easy control.</p>
                 </div>
             </div>
@@ -80,7 +80,7 @@ const RoomSetupStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => 
                     <LayoutGrid size={22} className="mr-2.5 text-green-600 flex-shrink-0"/> Physical Room & Table Setup
                 </h4>
                 <p className="text-sm mb-3">
-                    Arrange student teams at tables or designated areas. The "How To Host Guide" (referenced in the
+                    Arrange teams at tables or designated areas. The "How To Host Guide" (referenced in the
                     "Print Handouts" step) provides visual examples of table setups for various team sizes (e.g.,
                     8-player teams, 4-player teams, etc.) showing optimal placement of game boards and handouts.
                 </p>

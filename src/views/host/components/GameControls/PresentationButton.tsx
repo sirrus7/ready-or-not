@@ -113,7 +113,7 @@ const PresentationButton: React.FC = () => {
                     bgClass: 'bg-blue-600',
                     textClass: 'text-white',
                     iconClass: 'text-white',
-                    statusText: 'Launch Student Display',
+                    statusText: 'Launch Presentation Display',
                     statusIcon: null
                 };
         }
