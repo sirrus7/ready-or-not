@@ -1,6 +1,6 @@
 // src/components/Host/CreateGameWizard/Step4_PrintHandouts.tsx
 import React, {useState, useMemo} from 'react';
-import {NewGameData} from '@shared/types/common.ts'; // Ensure path is correct
+import {NewGameData} from '@shared/types';
 import {generateTeamNameCardsPDF} from '@shared/utils/generateTeamNameCards.ts';
 import {
     ArrowLeft,
@@ -580,7 +580,7 @@ Thank you,
                 </button>
                 <button
                     type="button"
-                    onClick={onNext}
+                    onClick={() => onNext()}
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
                     Next: Finalize & Start <ArrowRight size={18}/>

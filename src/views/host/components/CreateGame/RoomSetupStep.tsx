@@ -122,7 +122,7 @@ const RoomSetupStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => 
                 </button>
                 <button
                     type="button"
-                    onClick={onNext}
+                    onClick={() => onNext}
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
                     Next: Print Handouts <ArrowRight size={18}/>

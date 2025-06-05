@@ -119,7 +119,7 @@ const FinalizeStep: React.FC<Step5Props> = ({gameData, onFinalize, onPrevious, i
                 <button
                     type="button"
                     onClick={onFinalize}
-                    disabled={isSubmitting || !gameData.name || gameData.num_players < 2 || gameData.num_teams < 1} // Disable if required fields are bad
+                    disabled={isSubmitting || !gameData.name || gameData.num_players < 2 || gameData.num_teams < 1}
                     className="flex items-center justify-center gap-2 bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[230px]"
                 >
                     {isSubmitting ? (
