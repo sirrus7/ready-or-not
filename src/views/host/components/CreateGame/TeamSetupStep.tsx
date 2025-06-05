@@ -1,6 +1,6 @@
-// src/components/Host/CreateGameWizard/Step2_TeamSetup.tsx
+// src/views/host/components/CreateGame/TeamSetupStep.tsx - Cleaned up version
 import React, {useState, useEffect} from 'react';
-import {NewGameData, TeamConfig as AppTeamConfig} from '@shared/types/common';
+import {NewGameData, TeamConfig as AppTeamConfig} from '@shared/types';
 import {
     ArrowLeft,
     ArrowRight,
@@ -29,7 +29,7 @@ const DEFAULT_TEAM_NAMES = [
 ];
 
 const generatePasscode = (): string => {
-    return Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit numeric passcode
+    return Math.floor(100 + Math.random() * 900).toString(); // 3-digit numeric passcode
 };
 
 const getDefaultTeamName = (index: number): string => {
@@ -45,19 +45,26 @@ const MAX_TEAM_NAME_LENGTH = 15;
 
 interface Step2Props {
     gameData: NewGameData;
-    onDataChange: (field: keyof NewGameData, value: AppTeamConfig[]) => void; // Specifically for teams_config
+    onDataChange: (field: keyof NewGameData, value: AppTeamConfig[]) => void;
     onNext: (dataFromStep: Partial<NewGameData>) => void;
     onPrevious: () => void;
+    draftSessionId: string | null;
 }
 
-const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, onPrevious}) => {
+const TeamSetupStep: React.FC<Step2Props> = ({
+                                                 gameData,
+                                                 onDataChange,
+                                                 onNext,
+                                                 onPrevious,
+                                                 draftSessionId
+                                             }) => {
     const [localTeams, setLocalTeams] = useState<LocalTeamConfig[]>([]);
     const [editingTeamId, setEditingTeamId] = useState<number | null>(null);
     const [tempTeamName, setTempTeamName] = useState('');
 
-    // Initialize or re-initialize teams when gameData.num_teams changes or gameData.teams_config is different
+    // Initialize or re-initialize teams when gameData.num_teams changes
     useEffect(() => {
-        console.log("Step2TeamSetup: useEffect for gameData.num_teams or gameData.teams_config change.", gameData);
+        console.log("TeamSetup: useEffect for gameData.num_teams change.", gameData);
         const numTeams = gameData.num_teams || 0;
         const existingTeamsConfig = gameData.teams_config || [];
         const newLocalTeams: LocalTeamConfig[] = [];
@@ -71,27 +78,24 @@ const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, on
         }
         setLocalTeams(newLocalTeams);
 
-        // Update parent if the generated/retrieved teams differ from what's in gameData.teams_config
-        // This handles initial setup and cases where num_teams might change after this step was visited.
+        // Update parent if the generated/retrieved teams differ
         const newAppTeamConfigs = newLocalTeams.map(({id, ...rest}) => rest);
         if (JSON.stringify(gameData.teams_config) !== JSON.stringify(newAppTeamConfigs)) {
-            console.log("Step2TeamSetup: Updating parent teams_config due to initialization/change.");
+            console.log("TeamSetup: Updating parent teams_config due to initialization/change.");
             onDataChange('teams_config', newAppTeamConfigs);
         }
-    }, [gameData.num_teams]); // Only re-initialize if num_teams changes. gameData.teams_config is for initial load.
+    }, [gameData.num_teams]);
 
     // Effect to update parent if localTeams state changes due to user edits
     useEffect(() => {
-        // Avoid updating parent during initial setup from gameData.num_teams
         if (localTeams.length > 0 && localTeams.length === gameData.num_teams) {
             const appTeamConfigs = localTeams.map(({id, ...rest}) => rest);
             if (JSON.stringify(gameData.teams_config) !== JSON.stringify(appTeamConfigs)) {
-                console.log("Step2TeamSetup: Local teams changed by user, updating parent teams_config.");
+                console.log("TeamSetup: Local teams changed by user, updating parent teams_config.");
                 onDataChange('teams_config', appTeamConfigs);
             }
         }
     }, [localTeams, gameData.teams_config, gameData.num_teams, onDataChange]);
-
 
     const handleEditName = (team: LocalTeamConfig) => {
         setEditingTeamId(team.id);
@@ -130,32 +134,42 @@ const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, on
         );
     };
 
+    // Enhanced print function with real QR codes
     const printLogins = async (multiplePerPage: boolean) => {
-        // Generate QR codes for each team
         const baseUrl = `${window.location.origin}/student-game`;
-        const sessionPlaceholder = '[SESSION_ID]'; // Placeholder since session isn't created yet
-        const qrDataUrl = await QRCode.toDataURL(`${baseUrl}/${sessionPlaceholder}`, {
-            width: 120,
-            margin: 1,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
+        const actualUrl = draftSessionId ? `${baseUrl}/${draftSessionId}` : `${baseUrl}/[SESSION_ID]`;
+
+        let qrDataUrl: string | null = null;
+
+        if (draftSessionId) {
+            try {
+                qrDataUrl = await QRCode.toDataURL(actualUrl, {
+                    width: 120,
+                    margin: 1,
+                    color: {
+                        dark: '#000000',
+                        light: '#FFFFFF'
+                    }
+                });
+            } catch (error) {
+                console.error('Error generating QR code:', error);
             }
-        }).catch(() => null);
+        }
 
         let content = localTeams.map(team => {
             const qrCodeHtml = qrDataUrl
                 ? `<img src="${qrDataUrl}" style="width:80px; height:80px; margin:10px auto; display:block;" alt="QR Code" />`
                 : `<div style="width:80px; height:80px; background-color: #f0f0f0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.7em; color:#888; margin:10px auto; border:1px dashed #ccc;">QR for Session</div>`;
 
+            const urlText = draftSessionId ? actualUrl : `${baseUrl}/[SESSION_ID]`;
+
             return `<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; width: ${multiplePerPage ? 'calc(50% - 20px)' : 'calc(100% - 30px)'}; box-sizing: border-box; display: inline-block; vertical-align: top; margin-right: ${multiplePerPage ? '10px' : '0'};">
                     <h3 style="margin-top: 0; color: #333; font-size: 1.1em;">Ready Or Not Game Login</h3>
                     <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Name:</strong> ${team.name}</p>
-                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Login URL:</strong> ${baseUrl}/[SESSION_ID]</p>
+                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Login URL:</strong> ${urlText}</p>
                     ${qrCodeHtml}
                     <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Passcode:</strong> <span style="font-size: 1.3em; color: #007bff; font-weight: bold;">${team.passcode}</span></p>
                     <p style="color:red; font-size:0.8em; margin-top: 10px;">Keep your passcode secret within your team!</p>
-                    <p style="color:#666; font-size:0.7em; margin-top: 5px; font-style: italic;">*The actual Session ID will be provided by your facilitator when the game starts.</p>
                 </div>`;
         }).join(multiplePerPage ? '' : '<div style="page-break-after: always;"></div>');
 
@@ -176,7 +190,6 @@ const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, on
         </style>
         </head><body>
         <h2 class="no-print">Team Login Information</h2>
-        <p class="no-print"><strong>Important:</strong> The game Session ID and specific Login URL/QR code will be available after the facilitator starts the game session from their control panel.</p>
         <button class="no-print" onclick="window.print()" style="padding:10px; margin:10px 0; background-color:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">Print This Page</button>
         <hr class="no-print"/>
         ${content}
@@ -186,15 +199,26 @@ const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, on
 
     const emailLogins = () => {
         const subject = `Team Logins for "Ready or Not" Game: ${gameData.name || 'New Game'}`;
+        const baseUrl = `${window.location.origin}/student-game`;
+        const actualUrl = draftSessionId ? `${baseUrl}/${draftSessionId}` : `${baseUrl}/[SESSION_ID]`;
+
         let body = `Hello Teams,\n\nPlease find your login details for the "Ready or Not" simulation: ${gameData.name || ''}.\n\n`;
-        body += `The specific Session URL/QR Code will be provided by your facilitator when the game begins.\n\n`;
+
+        if (draftSessionId) {
+            body += `Login URL: ${actualUrl}\n\n`;
+        } else {
+            body += `The specific Session URL will be provided by your facilitator when the game begins.\n\n`;
+        }
+
         localTeams.forEach(team => {
             body += `-------------------------------------\n`;
             body += `Team Name: ${team.name}\n`;
             body += `Team Passcode: ${team.passcode}\n`;
             body += `-------------------------------------\n\n`;
         });
+
         body += `Please keep your passcode secret within your team.\n\nGood luck!\nYour Facilitator`;
+
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
@@ -208,8 +232,9 @@ const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, on
                     <div className="ml-3">
                         <p className="text-sm text-sky-700">
                             Based on your selection of <strong
-                            className="font-medium">{gameData.num_teams} teams</strong>, team names from our curated list and unique
-                            4-digit passcodes have been generated. The names are inspired by Pacific Northwest nature.
+                            className="font-medium">{gameData.num_teams} teams</strong>,
+                            team names and unique 3-digit passcodes have been generated. The names are inspired by
+                            Pacific Northwest nature.
                             You can customize any team name below by clicking the edit icon.
                         </p>
                     </div>
@@ -249,15 +274,21 @@ const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, on
                         </div>
                         <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
                             <span
-                                className="text-sm text-blue-700 font-mono bg-blue-100 px-2.5 py-1 rounded-md shadow-sm">{team.passcode}</span>
+                                className="text-sm text-blue-700 font-mono bg-blue-100 px-2.5 py-1 rounded-md shadow-sm">
+                                {team.passcode}
+                            </span>
                             {editingTeamId === team.id ? (
                                 <button onClick={() => handleSaveName(team.id)}
                                         className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-100 rounded-full"
-                                        title="Save name"><Save size={16}/></button>
+                                        title="Save name">
+                                    <Save size={16}/>
+                                </button>
                             ) : (
                                 <button onClick={() => handleEditName(team)}
                                         className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded-full"
-                                        title="Edit team name"><Edit2 size={16}/></button>
+                                        title="Edit team name">
+                                    <Edit2 size={16}/>
+                                </button>
                             )}
                             <button onClick={() => regeneratePasscode(team.id)}
                                     className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-100 rounded-full"
@@ -278,8 +309,10 @@ const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, on
                         </div>
                         <div className="ml-3">
                             <p className="text-sm text-yellow-700">
-                                You have more teams ({gameData.num_teams}) than our default names list ({DEFAULT_TEAM_NAMES.length}).
-                                Teams beyond the first {DEFAULT_TEAM_NAMES.length} will use generic names (Team A, Team B, etc.)
+                                You have more teams ({gameData.num_teams}) than our default names list
+                                ({DEFAULT_TEAM_NAMES.length}).
+                                Teams beyond the first {DEFAULT_TEAM_NAMES.length} will use generic names (Team A, Team
+                                B, etc.)
                                 that you can customize by clicking the edit icon.
                             </p>
                         </div>
@@ -303,8 +336,6 @@ const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, on
                         <Mail size={16}/> Compose Email
                     </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">The Session ID and specific Login URL/QR code will be
-                    available once the game is finalized and started from the main control panel.</p>
             </div>
 
             <div className="mt-8 flex justify-between">
@@ -317,7 +348,7 @@ const TeamSetupStep: React.FC<Step2Props> = ({gameData, onDataChange, onNext, on
                 </button>
                 <button
                     type="button"
-                    onClick={() => onNext(gameData)} // Pass the current gameData which includes updated teams_config
+                    onClick={() => onNext(gameData)}
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
                     Next: Room Setup <ArrowRight size={18}/>

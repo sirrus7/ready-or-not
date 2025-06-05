@@ -1,8 +1,6 @@
-// src/shared/types/database.ts
-// These types directly map to Supabase table schemas
-
-// Use 'import type' for type-only imports to prevent bundling issues or circular dependencies
+// src/shared/types/database.ts - Updated with new session fields
 import type {DoubleDownChoice, KpiKey} from './game';
+import type {NewGameData} from './ui';
 
 export interface GameSession {
     id: string;
@@ -16,6 +14,8 @@ export interface GameSession {
     is_playing: boolean;
     is_complete: boolean;
     teacher_notes: Record<string, string> | null;
+    status: 'draft' | 'active' | 'completed'; // New field
+    wizard_state: Partial<NewGameData> | null; // New field
     created_at: string;
     updated_at: string;
 }
@@ -55,7 +55,7 @@ export interface TeamDecision {
     round_number: 0 | 1 | 2 | 3;
     selected_investment_ids?: string[];
     selected_challenge_option_id?: string;
-    double_down_decision?: DoubleDownChoice; // References type from game.ts
+    double_down_decision?: DoubleDownChoice;
     total_spent_budget?: number;
     submitted_at: string;
 }
@@ -65,7 +65,7 @@ export interface PermanentKpiAdjustment {
     session_id: string;
     team_id: string;
     applies_to_round_start: 1 | 2 | 3;
-    kpi_key: KpiKey; // References type from game.ts
+    kpi_key: KpiKey;
     change_value: number;
     is_percentage?: boolean;
     description?: string;

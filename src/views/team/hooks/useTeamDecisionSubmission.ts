@@ -2,7 +2,7 @@
 import {useState, useCallback, useMemo} from 'react';
 import {useSupabaseMutation} from '@shared/hooks/supabase'; // Correct import
 import {db} from '@shared/services/supabase'; // Correct import
-import {GamePhaseNode} from '@shared/types/common'; // Correct import
+import {GamePhaseNode} from '@shared/types'; // Correct import
 import {DecisionState} from '@views/team/hooks/useDecisionMaking'; // Correct import (from useDecisionLogic)
 
 interface UseTeamDecisionSubmissionProps {
