@@ -1,4 +1,4 @@
-// src/pages/DashboardPage/index.tsx - Main orchestration component
+// src/views/host/pages/DashboardPage.tsx - Enhanced with lifecycle management
 import React from 'react';
 import {Link} from 'react-router-dom';
 import {PlusCircle} from 'lucide-react';
@@ -6,6 +6,7 @@ import {useAuth} from '@app/providers/AuthProvider';
 import {useDashboardData} from '@views/host/hooks/useDashboardData';
 import {useDashboardActions} from '@views/host/hooks/useDashboardActions';
 import DashboardHeader from '@views/host/components/Dashboard/DashboardHeader';
+import DraftGamesList from '@views/host/components/Dashboard/DraftGamesList';
 import GameLists from '@views/host/components/Dashboard/GameLists';
 import NotificationBanner from '@views/host/components/Dashboard/NotificationBanner';
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
@@ -13,7 +14,7 @@ import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmMo
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
 
-    // Data management
+    // Enhanced data management with lifecycle support
     const {
         games,
         isLoadingGames,
@@ -21,7 +22,7 @@ const DashboardPage: React.FC = () => {
         refetchGames
     } = useDashboardData(user?.id);
 
-    // Action handlers
+    // Enhanced action handlers with draft management
     const {
         notification,
         isDeleteModalOpen,
@@ -29,6 +30,7 @@ const DashboardPage: React.FC = () => {
         isDeleting,
         deleteError,
         handleGameSelect,
+        handleResumeDraft,
         handleOpenDeleteModal,
         handleConfirmDelete,
         handleLogout,
@@ -47,10 +49,6 @@ const DashboardPage: React.FC = () => {
         );
     }
 
-    // Split games into current and completed
-    const currentGames = games.filter(session => !session.is_complete);
-    const completedGames = games.filter(session => session.is_complete);
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-100 to-sky-100 p-4 md:p-8">
             <DashboardHeader
@@ -68,10 +66,10 @@ const DashboardPage: React.FC = () => {
                 onDismiss={dismissNotification}
             />
 
-            <main className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            <main className="max-w-6xl mx-auto space-y-6 md:space-y-8">
                 {/* Create New Game Card */}
                 <div
-                    className="md:col-span-1 bg-blue-600 text-white p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow flex flex-col items-center justify-center text-center order-first md:order-none">
+                    className="bg-blue-600 text-white p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow flex flex-col items-center justify-center text-center">
                     <PlusCircle size={40} className="mb-2 opacity-80"/>
                     <h2 className="text-xl lg:text-2xl font-bold mb-1.5">Start a New Game</h2>
                     <p className="text-xs lg:text-sm opacity-90 mb-5">
@@ -85,17 +83,31 @@ const DashboardPage: React.FC = () => {
                     </Link>
                 </div>
 
-                {/* Game Lists */}
-                <GameLists
-                    currentGames={currentGames}
-                    completedGames={completedGames}
+                {/* Draft Games Section */}
+                <DraftGamesList
+                    games={games.draft}
                     isLoading={isLoadingGames}
-                    onGameSelect={handleGameSelect}
-                    onGameDelete={handleOpenDeleteModal}
+                    onResume={handleResumeDraft}
+                    onDelete={(sessionId, gameName) => handleOpenDeleteModal(sessionId, gameName, 'draft')}
                 />
+
+                {/* Active and Completed Games */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                    <GameLists
+                        currentGames={games.active}
+                        completedGames={games.completed}
+                        isLoading={isLoadingGames}
+                        onGameSelect={(sessionId) => {
+                            const isActive = games.active.some(g => g.id === sessionId);
+                            const gameType = isActive ? 'active' : 'completed';
+                            handleGameSelect(sessionId, gameType);
+                        }}
+                        onGameDelete={(sessionId, gameName) => handleOpenDeleteModal(sessionId, gameName, 'active')}
+                    />
+                </div>
             </main>
 
-            {/* Delete Confirmation Modal */}
+            {/* Enhanced Delete Confirmation Modal */}
             <DeleteConfirmModal
                 isOpen={isDeleteModalOpen}
                 gameToDelete={gameToDelete}

@@ -1,4 +1,4 @@
-// src/views/host/hooks/useDashboardActions.ts - Action handlers
+// src/views/host/hooks/useDashboardActions.ts - Enhanced with draft management
 import {useState, useCallback} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
@@ -11,14 +11,21 @@ interface NotificationState {
     message: string;
 }
 
+interface CategorizedGames {
+    draft: GameSession[];
+    active: GameSession[];
+    completed: GameSession[];
+}
+
 interface UseDashboardActionsReturn {
     notification: NotificationState | null;
     isDeleteModalOpen: boolean;
-    gameToDelete: { id: string; name: string } | null;
+    gameToDelete: { id: string; name: string; type: 'draft' | 'active' } | null;
     isDeleting: boolean;
     deleteError: string | null;
-    handleGameSelect: (sessionId: string) => void;
-    handleOpenDeleteModal: (sessionId: string, gameName: string) => void;
+    handleGameSelect: (sessionId: string, gameType: 'draft' | 'active' | 'completed') => void;
+    handleResumeDraft: (sessionId: string, sessionName: string) => void;
+    handleOpenDeleteModal: (sessionId: string, gameName: string, gameType: 'draft' | 'active') => void;
     handleConfirmDelete: () => Promise<void>;
     handleLogout: () => Promise<void>;
     dismissNotification: () => void;
@@ -26,36 +33,44 @@ interface UseDashboardActionsReturn {
 }
 
 export const useDashboardActions = (
-    games: GameSession[],
-    refetchGames: () => Promise<GameSession[] | null>
+    games: CategorizedGames,
+    refetchGames: () => Promise<CategorizedGames | null>
 ): UseDashboardActionsReturn => {
     const {signOut} = useAuth();
     const navigate = useNavigate();
-    const {deleteSession} = useGameSessionManagement(); // Use the new hook
+    const {deleteSession} = useGameSessionManagement();
 
     const [notification, setNotification] = useState<NotificationState | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [gameToDelete, setGameToDelete] = useState<{ id: string; name: string } | null>(null);
+    const [gameToDelete, setGameToDelete] = useState<{
+        id: string;
+        name: string;
+        type: 'draft' | 'active'
+    } | null>(null);
 
-    // Delete game mutation - now uses the deleteSession from useGameSessionManagement
+    // Delete game mutation
     const {
-        execute: deleteGameMutation, // Renamed to avoid confusion with deleteSession from hook
+        execute: deleteGameMutation,
         isLoading: isDeleting,
         error: deleteError
     } = useSupabaseMutation(
         async (gameId: string) => {
-            // Call the deleteSession method from the management hook
             return deleteSession(gameId);
         },
         {
             onSuccess: (_, gameId) => {
-                const deletedGame = games.find(g => g.id === gameId);
+                const allGames = [...games.draft, ...games.active, ...games.completed];
+                const deletedGame = allGames.find(g => g.id === gameId);
+                const gameType = gameToDelete?.type === 'draft' ? 'draft' : 'active';
+
                 setNotification({
                     type: 'success',
-                    message: `Game "${deletedGame?.name || 'Unknown'}" deleted successfully.`
+                    message: `${gameType === 'draft' ? 'Draft' : 'Active'} game "${deletedGame?.name || 'Unknown'}" deleted successfully.`
                 });
+
                 // Auto-dismiss success message
                 setTimeout(() => setNotification(null), 4000);
+
                 // Refresh the games list
                 refetchGames();
             },
@@ -66,19 +81,28 @@ export const useDashboardActions = (
         }
     );
 
-    const handleGameSelect = useCallback((sessionId: string) => {
-        const selectedGame = games.find(g => g.id === sessionId);
-        if (selectedGame) {
-            if (selectedGame.is_complete) {
-                alert(`Navigating to report for completed game: ${sessionId} (Not yet implemented)`);
-            } else {
-                navigate(`/classroom/${sessionId}`);
-            }
+    const handleGameSelect = useCallback((sessionId: string, gameType: 'draft' | 'active' | 'completed') => {
+        if (gameType === 'draft') {
+            // Draft games should resume creation
+            handleResumeDraft(sessionId, 'Draft Game');
+        } else if (gameType === 'completed') {
+            // Completed games show report (not yet implemented)
+            alert(`Navigating to report for completed game: ${sessionId} (Not yet implemented)`);
+        } else {
+            // Active games go to classroom
+            navigate(`/classroom/${sessionId}`);
         }
-    }, [games, navigate]);
+    }, [navigate]);
 
-    const handleOpenDeleteModal = useCallback((sessionId: string, gameName: string) => {
-        setGameToDelete({id: sessionId, name: gameName});
+    const handleResumeDraft = useCallback((sessionId: string, sessionName: string) => {
+        console.log('Resuming draft game creation:', sessionId, sessionName);
+        // Navigate to create-game with the draft session ID
+        // The CreateGamePage will detect and load the existing draft
+        navigate(`/create-game?resume=${sessionId}`);
+    }, [navigate]);
+
+    const handleOpenDeleteModal = useCallback((sessionId: string, gameName: string, gameType: 'draft' | 'active') => {
+        setGameToDelete({id: sessionId, name: gameName, type: gameType});
         setNotification(null);
         setIsDeleteModalOpen(true);
     }, []);
@@ -86,7 +110,7 @@ export const useDashboardActions = (
     const handleConfirmDelete = useCallback(async () => {
         if (!gameToDelete) return;
 
-        await deleteGameMutation(gameToDelete.id); // Call the mutation
+        await deleteGameMutation(gameToDelete.id);
         setIsDeleteModalOpen(false);
         setGameToDelete(null);
     }, [gameToDelete, deleteGameMutation]);
@@ -121,6 +145,7 @@ export const useDashboardActions = (
         isDeleting,
         deleteError,
         handleGameSelect,
+        handleResumeDraft,
         handleOpenDeleteModal,
         handleConfirmDelete,
         handleLogout,

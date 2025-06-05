@@ -1,5 +1,5 @@
-// src/components/Host/CreateGame/Step1/components/GameDetailsForm.tsx - Fixed players input
-import React from 'react';
+// src/views/host/components/CreateGame/GameDetailsForm.tsx - Final working version
+import React, {useState} from 'react';
 import {NewGameData} from '@shared/types/ui';
 
 interface GameDetailsFormProps {
@@ -21,36 +21,78 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
         "Professional Development", "Other"
     ];
 
-    // Handle players input change with direct field update
-    const handlePlayersInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
+    // Use local state for the input values to prevent external interference
+    const [playersInput, setPlayersInput] = useState(gameData.num_players > 0 ? gameData.num_players.toString() : '');
+    const [teamsInput, setTeamsInput] = useState(gameData.num_teams > 0 ? gameData.num_teams.toString() : '');
+    const [userEditedTeams, setUserEditedTeams] = useState(false);
 
-        // Update the field directly first to maintain input responsiveness
-        const numericValue = value === '' ? 0 : parseInt(value, 10);
-        if (!isNaN(numericValue) && numericValue >= 0) {
-            onFieldChange('num_players', numericValue);
+    // Sync teams input with gameData changes (from recommendation system)
+    // But only if user hasn't manually edited the teams field
+    React.useEffect(() => {
+        if (!userEditedTeams) {
+            const newTeamsValue = gameData.num_teams > 0 ? gameData.num_teams.toString() : '';
+            if (newTeamsValue !== teamsInput) {
+                setTeamsInput(newTeamsValue);
+            }
+        }
+    }, [gameData.num_teams, userEditedTeams, teamsInput]);
+
+    const handlePlayersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        console.log('Players input changed to:', value);
+
+        // Update local state immediately
+        setPlayersInput(value);
+
+        // Reset the user edited teams flag when players change
+        setUserEditedTeams(false);
+
+        // Parse and update parent state
+        const numValue = value === '' ? 0 : parseInt(value, 10);
+        console.log('Parsed players value:', numValue, 'from input:', value);
+
+        if (!isNaN(numValue) && numValue >= 0) {
+            onFieldChange('num_players', numValue);
+
+            // Call recommendation logic with delay to prevent interference
+            setTimeout(() => {
+                onPlayersChange(value);
+            }, 50);
         } else if (value === '') {
             onFieldChange('num_players', 0);
+            setTimeout(() => {
+                onPlayersChange(value);
+            }, 50);
         }
-
-        // Then trigger the recommendation logic
-        onPlayersChange(value);
     };
 
-    // Handle teams input change with direct field update
-    const handleTeamsInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleTeamsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
+        console.log('Teams input changed to:', value);
 
-        // Update the field directly first
-        const numericValue = value === '' ? 0 : parseInt(value, 10);
-        if (!isNaN(numericValue) && numericValue >= 0) {
-            onFieldChange('num_teams', numericValue);
+        // Mark that user has manually edited teams
+        setUserEditedTeams(true);
+
+        // Update local state immediately
+        setTeamsInput(value);
+
+        // Parse and update parent state
+        const numValue = value === '' ? 0 : parseInt(value, 10);
+        console.log('Parsed teams value:', numValue, 'from input:', value);
+
+        if (!isNaN(numValue) && numValue >= 0) {
+            onFieldChange('num_teams', numValue);
+
+            // Call teams logic with delay
+            setTimeout(() => {
+                onTeamsChange(value);
+            }, 50);
         } else if (value === '') {
             onFieldChange('num_teams', 0);
+            setTimeout(() => {
+                onTeamsChange(value);
+            }, 50);
         }
-
-        // Then trigger the teams logic
-        onTeamsChange(value);
     };
 
     return (
@@ -127,9 +169,9 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                     <input
                         type="number"
                         id="num_players_input"
-                        name="num_players_str"
-                        value={gameData.num_players > 0 ? gameData.num_players.toString() : ''}
-                        onChange={handlePlayersInputChange}
+                        name="num_players_input"
+                        value={playersInput}
+                        onChange={handlePlayersChange}
                         min="0"
                         placeholder="e.g., 15"
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -142,9 +184,9 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                     <input
                         type="number"
                         id="num_teams_input"
-                        name="num_teams_str"
-                        value={gameData.num_teams > 0 ? gameData.num_teams.toString() : ''}
-                        onChange={handleTeamsInputChange}
+                        name="num_teams_input"
+                        value={teamsInput}
+                        onChange={handleTeamsChange}
                         min="0"
                         placeholder="e.g., 3"
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

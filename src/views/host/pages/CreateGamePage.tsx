@@ -1,10 +1,9 @@
-// src/pages/CreateGamePage.tsx - Updated with New Supabase Structure
-import React, {useState, useEffect} from 'react';
-import {useNavigate} from 'react-router-dom';
+// src/views/host/pages/CreateGamePage.tsx - Complete overhaul with draft session support
+import React, {useState, useEffect, useCallback} from 'react';
+import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
-import {db} from '@shared/services/supabase';
-import {useSupabaseMutation} from '@shared/hooks/supabase'
-import {NewGameData} from '@shared/types/common';
+import {GameSessionManager} from '@core/game/GameSessionManager';
+import {NewGameData} from '@shared/types';
 import {
     FinalizeStep,
     GameDetailsStep,
@@ -36,114 +35,113 @@ const WIZARD_STEPS = [
 const CreateGamePage: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(1);
     const [gameData, setGameData] = useState<NewGameData>(initialNewGameData);
+    const [draftSessionId, setDraftSessionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const {user} = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const resumeSessionId = searchParams.get('resume');
 
-    // Enhanced mutation for creating game sessions
-    const {
-        execute: createGameSession,
-        isLoading: isSubmitting,
-        error: submissionError
-    } = useSupabaseMutation(
-        async (finalGameData: NewGameData) => {
-            if (!user) {
-                throw new Error("User not authenticated. Please log in again.");
-            }
+    const sessionManager = GameSessionManager.getInstance();
 
-            // Create the session first
-            const initialPhase = readyOrNotGame_2_0_DD.welcome_phases[0];
-            const sessionToInsert = {
-                name: finalGameData.name.trim() || `Game Session - ${new Date().toLocaleDateString()}`,
-                teacher_id: user.id,
-                class_name: finalGameData.class_name.trim() || null,
-                grade_level: finalGameData.grade_level || null,
-                game_version: finalGameData.game_version,
-                current_phase_id: initialPhase?.id || null,
-                current_slide_id_in_phase: initialPhase ? 0 : null,
-                is_playing: false,
-                is_complete: false,
-                teacher_notes: {},
-            };
-
-            console.log("CreateGamePage: Creating session with data:", sessionToInsert);
-            const newSession = await db.sessions.create(sessionToInsert);
-
-            if (!newSession || !newSession.id) {
-                throw new Error("Failed to create game session record (no data/ID returned).");
-            }
-
-            console.log("CreateGamePage: Session created successfully, ID:", newSession.id);
-
-            // Create teams if configured
-            const teamsToCreate = finalGameData.teams_config && Array.isArray(finalGameData.teams_config)
-                ? finalGameData.teams_config
-                : [];
-
-            if (teamsToCreate.length > 0) {
-                console.log("CreateGamePage: Creating teams:", teamsToCreate);
-
-                // Create teams one by one using the enhanced database service
-                for (const teamConfig of teamsToCreate) {
-                    await db.teams.create({
-                        session_id: newSession.id,
-                        name: teamConfig.name,
-                        passcode: teamConfig.passcode,
-                    });
-                }
-
-                console.log(`CreateGamePage: ${teamsToCreate.length} teams created successfully.`);
-            } else if (finalGameData.num_teams > 0) {
-                // Fallback to creating default teams
-                console.log(`CreateGamePage: Fallback - Creating ${finalGameData.num_teams} default teams.`);
-
-                for (let i = 0; i < finalGameData.num_teams; i++) {
-                    await db.teams.create({
-                        session_id: newSession.id,
-                        name: `Team ${String.fromCharCode(65 + i)}`,
-                        passcode: Math.floor(1000 + Math.random() * 9000).toString(),
-                    });
-                }
-            }
-
-            return newSession;
-        },
-        {
-            onSuccess: (newSession) => {
-                console.log("CreateGamePage: Game setup complete. Navigating to classroom session:", newSession.id);
-                navigate(`/classroom/${newSession.id}`);
-            },
-            onError: (error) => {
-                console.error("CreateGamePage: Error in handleFinalizeGame:", error);
-                setError(error);
-            }
-        }
-    );
-
+    // Initialize or resume draft session
     useEffect(() => {
         if (!user) {
             navigate('/login', {replace: true});
+            return;
         }
-    }, [user, navigate]);
 
-    // Update error state when submission error changes
-    useEffect(() => {
-        if (submissionError) {
-            setError(submissionError);
-        }
-    }, [submissionError]);
+        const initializeDraftSession = async () => {
+            setIsLoading(true);
+            setError(null);
 
+            try {
+                let draftSession;
+
+                if (resumeSessionId) {
+                    // Resume existing draft
+                    console.log('Resuming draft session:', resumeSessionId);
+                    draftSession = await sessionManager.loadSession(resumeSessionId);
+
+                    if ((draftSession as any).status !== 'draft') {
+                        throw new Error('Session is not in draft status');
+                    }
+
+                    // Load saved wizard state
+                    if ((draftSession as any).wizard_state) {
+                        const savedState = (draftSession as any).wizard_state;
+                        setGameData(prev => ({...prev, ...savedState}));
+                        console.log('Loaded saved wizard state:', savedState);
+                    }
+                } else {
+                    // Check for existing draft or create new
+                    const existingDraft = await sessionManager.getLatestDraftForTeacher(user.id);
+
+                    if (existingDraft) {
+                        console.log('Found existing draft session:', existingDraft.id);
+                        draftSession = existingDraft;
+
+                        // Load saved wizard state
+                        if ((existingDraft as any).wizard_state) {
+                            const savedState = (existingDraft as any).wizard_state;
+                            setGameData(prev => ({...prev, ...savedState}));
+                            console.log('Loaded saved wizard state:', savedState);
+                        }
+                    } else {
+                        // Create new draft
+                        console.log('Creating new draft session');
+                        draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD);
+                    }
+                }
+
+                setDraftSessionId(draftSession.id);
+                console.log('Draft session initialized:', draftSession.id);
+
+            } catch (error) {
+                console.error('Error initializing draft session:', error);
+                setError(error instanceof Error ? error.message : 'Failed to initialize game session');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        initializeDraftSession();
+    }, [user, resumeSessionId, navigate, sessionManager]);
+
+    // Handle data changes - NO automatic database saves
+    const handleDataChange = useCallback((field: keyof NewGameData, value: NewGameData[keyof NewGameData]) => {
+        console.log(`CreateGamePage: handleDataChange - Field: ${field}, Value:`, value);
+
+        const updatedData = {...gameData, [field]: value};
+        setGameData(updatedData);
+
+        // No automatic database saving - only save when user clicks Next
+    }, [gameData]);
+
+    // Handle wizard navigation - SAVE TO DATABASE HERE
     const handleNextStep = (dataFromStep?: Partial<NewGameData>) => {
         setError(null);
+
+        let finalData = gameData;
         if (dataFromStep) {
             console.log("CreateGamePage: Data from step", currentStep, dataFromStep);
-            setGameData(prev => ({...prev, ...dataFromStep}));
+            finalData = {...gameData, ...dataFromStep};
+            setGameData(finalData);
         }
+
+        // Save to database when moving to next step
+        if (draftSessionId) {
+            sessionManager.updateWizardState(draftSessionId, finalData).catch(error => {
+                console.error('Error saving wizard state:', error);
+                // Don't block navigation on save error
+            });
+        }
+
         if (currentStep < WIZARD_STEPS.length) {
             setCurrentStep(prev => prev + 1);
-        } else {
-            handleFinalizeGame();
         }
     };
 
@@ -156,21 +154,76 @@ const CreateGamePage: React.FC = () => {
         }
     };
 
-    const handleDataChange = (field: keyof NewGameData, value: NewGameData[keyof NewGameData]) => {
-        console.log(`CreateGamePage: handleDataChange - Field: ${field}, Value:`, value);
-        setGameData(prev => ({...prev, [field]: value}));
-    };
-
+    // Handle game finalization
     const handleFinalizeGame = async () => {
-        if (!user) {
-            setError("User not authenticated. Please log in again.");
-            navigate('/login', {replace: true});
+        if (!user || !draftSessionId) {
+            setError("No draft session available to finalize");
             return;
         }
 
-        console.log("CreateGamePage: Finalizing game with data:", gameData);
-        await createGameSession(gameData);
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            console.log("CreateGamePage: Finalizing game with data:", gameData);
+
+            // Finalize the draft session
+            const finalizedSession = await sessionManager.finalizeDraftSession(draftSessionId, gameData);
+
+            console.log("CreateGamePage: Game finalized successfully:", finalizedSession.id);
+            navigate(`/classroom/${finalizedSession.id}`);
+
+        } catch (error) {
+            console.error("CreateGamePage: Error finalizing game:", error);
+            setError(error instanceof Error ? error.message : 'Failed to finalize game');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
+
+    // Handle cancellation
+    const handleCancel = async () => {
+        if (draftSessionId) {
+            try {
+                await sessionManager.deleteSession(draftSessionId);
+                console.log('Draft session deleted:', draftSessionId);
+            } catch (error) {
+                console.error('Error deleting draft session:', error);
+            }
+        }
+        navigate('/dashboard');
+    };
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
+                <p className="mt-4 text-gray-600">
+                    {resumeSessionId ? 'Loading draft session...' : 'Initializing game creator...'}
+                </p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error && !draftSessionId) {
+        return (
+            <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
+                <div className="bg-white p-8 rounded-xl shadow-xl max-w-md text-center">
+                    <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-4"/>
+                    <h2 className="text-xl font-bold text-red-700 mb-2">Initialization Error</h2>
+                    <p className="text-gray-600 mb-6">{error}</p>
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        className="bg-blue-600 text-white font-medium py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Back to Dashboard
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     const CurrentStepComponent = WIZARD_STEPS[currentStep - 1].component;
     const CurrentStepIcon = WIZARD_STEPS[currentStep - 1].icon;
@@ -178,25 +231,36 @@ const CreateGamePage: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-100 flex flex-col items-center p-4 md:p-8">
             <div className="w-full max-w-3xl bg-white rounded-xl shadow-2xl border border-gray-200">
+                {/* Header */}
                 <div className="p-6 border-b border-gray-200">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center">
                             <Zap size={32} className="text-blue-600 mr-3"/>
                             <div>
-                                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Create New Game</h1>
-                                <p className="text-gray-500 text-sm mt-0.5">Set up your "Ready or Not" simulation.</p>
+                                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+                                    {resumeSessionId ? 'Resume Game Creation' : 'Create New Game'}
+                                </h1>
+                                <p className="text-gray-500 text-sm mt-0.5">
+                                    {resumeSessionId ? 'Continue setting up your "Ready or Not" simulation.' : 'Set up your "Ready or Not" simulation.'}
+                                </p>
+                                {draftSessionId && (
+                                    <p className="text-xs text-blue-600 mt-1 font-mono">
+                                        Session ID: {draftSessionId.substring(0, 8)}...
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <button
-                            onClick={() => navigate('/dashboard')}
+                            onClick={handleCancel}
                             className="text-sm text-gray-500 hover:text-blue-600 transition-colors"
-                            title="Back to Dashboard"
+                            title="Cancel and return to Dashboard"
                         >
                             <ArrowLeft size={20} className="inline mr-1"/> Cancel & Back to Dashboard
                         </button>
                     </div>
                 </div>
 
+                {/* Progress Indicator */}
                 <div className="px-6 py-5 border-b border-gray-200 bg-slate-50 rounded-t-none">
                     <div className="flex justify-around items-start">
                         {WIZARD_STEPS.map((step, index) => (
@@ -227,6 +291,7 @@ const CreateGamePage: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Main Content */}
                 <div className="p-6 md:p-8">
                     <div className="flex items-center mb-6 text-gray-700">
                         <CurrentStepIcon size={22} className="text-blue-600 mr-2.5 flex-shrink-0"/>
@@ -250,7 +315,11 @@ const CreateGamePage: React.FC = () => {
                         onDataChange={handleDataChange}
                         onNext={handleNextStep}
                         onPrevious={handlePreviousStep}
-                        {...(currentStep === WIZARD_STEPS.length && {isSubmitting, onFinalize: handleFinalizeGame})}
+                        draftSessionId={draftSessionId} // Pass draft session ID to components that need it
+                        {...(currentStep === WIZARD_STEPS.length && {
+                            isSubmitting,
+                            onFinalize: handleFinalizeGame
+                        })}
                     />
                 </div>
             </div>

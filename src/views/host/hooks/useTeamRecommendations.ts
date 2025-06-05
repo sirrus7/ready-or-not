@@ -1,6 +1,6 @@
-// src/components/Host/CreateGame/Step1/hooks/useTeamRecommendations.ts - Recommendation logic
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { calculateTeamRecommendation } from '@shared/utils/teamCalculations';
+// src/components/Host/CreateGame/Step1/hooks/useTeamRecommendations.ts - Original working version
+import {useState, useCallback, useRef, useEffect} from 'react';
+import {calculateTeamRecommendation} from '@shared/utils/teamCalculations';
 
 interface UseTeamRecommendationsProps {
     numPlayers: number;
