@@ -1,4 +1,4 @@
-// src/views/host/components/CreateGame/GameDetailsStep.tsx - Final fix with direct form validation
+// src/views/host/components/CreateGame/GameDetailsStep.tsx - Final fix with direct form validation and improved styling
 import React, {useState, useRef} from 'react';
 import {NewGameData} from '@shared/types/ui';
 import {ArrowRight, AlertCircle} from 'lucide-react';
@@ -93,10 +93,10 @@ const GameDetailsStep: React.FC<Step1Props> = ({gameData, onDataChange, onNext})
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             {error && (
-                <div className="p-3 bg-red-100 text-red-700 border border-red-200 rounded-md text-sm flex items-center">
-                    <AlertCircle size={18} className="mr-2 flex-shrink-0"/> {error}
+                <div className="p-4 bg-red-100 text-red-700 border border-red-200 rounded-lg text-sm flex items-center">
+                    <AlertCircle size={18} className="mr-3 flex-shrink-0"/> {error}
                 </div>
             )}
 
@@ -114,17 +114,17 @@ const GameDetailsStep: React.FC<Step1Props> = ({gameData, onDataChange, onNext})
                 isVisible={teamRecommendations.shouldShowRecommendation}
             />
 
-            <div className="mt-8 flex justify-end">
-                <button
-                    type="button"
-                    onClick={handleNext}
-                    className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                    Next: Team Setup <ArrowRight size={18}/>
-                </button>
+            <div className="pt-6 border-t border-gray-200">
+                <div className="flex justify-end">
+                    <button
+                        type="button"
+                        onClick={handleNext}
+                        className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-3 px-8 rounded-lg hover:bg-blue-700 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-base"
+                    >
+                        Next: Team Setup <ArrowRight size={18}/>
+                    </button>
+                </div>
             </div>
-
-
         </div>
     );
 };
