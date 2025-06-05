@@ -1,5 +1,5 @@
-// src/views/host/components/CreateGame/GameDetailsForm.tsx - Final working version
-import React, {useState} from 'react';
+// src/views/host/components/CreateGame/GameDetailsForm.tsx - Fixed input handling
+import React, {useState, useEffect} from 'react';
 import {NewGameData} from '@shared/types/ui';
 
 interface GameDetailsFormProps {
@@ -26,16 +26,24 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
     const [teamsInput, setTeamsInput] = useState(gameData.num_teams > 0 ? gameData.num_teams.toString() : '');
     const [userEditedTeams, setUserEditedTeams] = useState(false);
 
-    // Sync teams input with gameData changes (from recommendation system)
-    // But only if user hasn't manually edited the teams field
-    React.useEffect(() => {
+    // Sync input values with gameData when it changes externally
+    useEffect(() => {
+        const newPlayersValue = gameData.num_players > 0 ? gameData.num_players.toString() : '';
+        if (newPlayersValue !== playersInput) {
+            console.log('Syncing players input:', newPlayersValue);
+            setPlayersInput(newPlayersValue);
+        }
+    }, [gameData.num_players]);
+
+    useEffect(() => {
         if (!userEditedTeams) {
             const newTeamsValue = gameData.num_teams > 0 ? gameData.num_teams.toString() : '';
             if (newTeamsValue !== teamsInput) {
+                console.log('Syncing teams input (auto):', newTeamsValue);
                 setTeamsInput(newTeamsValue);
             }
         }
-    }, [gameData.num_teams, userEditedTeams, teamsInput]);
+    }, [gameData.num_teams, userEditedTeams]);
 
     const handlePlayersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -47,22 +55,18 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
         // Reset the user edited teams flag when players change
         setUserEditedTeams(false);
 
-        // Parse and update parent state
+        // Parse and update parent state immediately
         const numValue = value === '' ? 0 : parseInt(value, 10);
         console.log('Parsed players value:', numValue, 'from input:', value);
 
+        // Always update the parent state with the parsed number
         if (!isNaN(numValue) && numValue >= 0) {
             onFieldChange('num_players', numValue);
-
-            // Call recommendation logic with delay to prevent interference
-            setTimeout(() => {
-                onPlayersChange(value);
-            }, 50);
+            // Call recommendation logic
+            onPlayersChange(value);
         } else if (value === '') {
             onFieldChange('num_players', 0);
-            setTimeout(() => {
-                onPlayersChange(value);
-            }, 50);
+            onPlayersChange(value);
         }
     };
 
@@ -76,22 +80,17 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
         // Update local state immediately
         setTeamsInput(value);
 
-        // Parse and update parent state
+        // Parse and update parent state immediately
         const numValue = value === '' ? 0 : parseInt(value, 10);
         console.log('Parsed teams value:', numValue, 'from input:', value);
 
+        // Always update the parent state with the parsed number
         if (!isNaN(numValue) && numValue >= 0) {
             onFieldChange('num_teams', numValue);
-
-            // Call teams logic with delay
-            setTimeout(() => {
-                onTeamsChange(value);
-            }, 50);
+            onTeamsChange(value);
         } else if (value === '') {
             onFieldChange('num_teams', 0);
-            setTimeout(() => {
-                onTeamsChange(value);
-            }, 50);
+            onTeamsChange(value);
         }
     };
 

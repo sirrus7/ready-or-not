@@ -1,4 +1,4 @@
-// src/views/host/components/CreateGame/TeamSetupStep.tsx - Enhanced with real QR codes
+// src/views/host/components/CreateGame/TeamSetupStep.tsx - Cleaned up version
 import React, {useState, useEffect} from 'react';
 import {NewGameData, TeamConfig as AppTeamConfig} from '@shared/types';
 import {
@@ -9,8 +9,7 @@ import {
     Mail,
     Info,
     RefreshCw,
-    Save,
-    CheckCircle2
+    Save
 } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -30,7 +29,7 @@ const DEFAULT_TEAM_NAMES = [
 ];
 
 const generatePasscode = (): string => {
-    return Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit numeric passcode
+    return Math.floor(100 + Math.random() * 900).toString(); // 3-digit numeric passcode
 };
 
 const getDefaultTeamName = (index: number): string => {
@@ -49,7 +48,7 @@ interface Step2Props {
     onDataChange: (field: keyof NewGameData, value: AppTeamConfig[]) => void;
     onNext: (dataFromStep: Partial<NewGameData>) => void;
     onPrevious: () => void;
-    draftSessionId: string | null; // NEW: Real session ID for QR codes
+    draftSessionId: string | null;
 }
 
 const TeamSetupStep: React.FC<Step2Props> = ({
@@ -163,9 +162,6 @@ const TeamSetupStep: React.FC<Step2Props> = ({
                 : `<div style="width:80px; height:80px; background-color: #f0f0f0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.7em; color:#888; margin:10px auto; border:1px dashed #ccc;">QR for Session</div>`;
 
             const urlText = draftSessionId ? actualUrl : `${baseUrl}/[SESSION_ID]`;
-            const sessionNote = draftSessionId
-                ? '<p style="color:#10b981; font-size:0.8em; margin-top: 10px; font-weight: bold;">✓ Session is ready! Students can use this link and QR code now.</p>'
-                : '<p style="color:#f59e0b; font-size:0.8em; margin-top: 10px; font-style: italic;">*The actual Session ID will be provided when the game is finalized.</p>';
 
             return `<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; width: ${multiplePerPage ? 'calc(50% - 20px)' : 'calc(100% - 30px)'}; box-sizing: border-box; display: inline-block; vertical-align: top; margin-right: ${multiplePerPage ? '10px' : '0'};">
                     <h3 style="margin-top: 0; color: #333; font-size: 1.1em;">Ready Or Not Game Login</h3>
@@ -174,7 +170,6 @@ const TeamSetupStep: React.FC<Step2Props> = ({
                     ${qrCodeHtml}
                     <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Passcode:</strong> <span style="font-size: 1.3em; color: #007bff; font-weight: bold;">${team.passcode}</span></p>
                     <p style="color:red; font-size:0.8em; margin-top: 10px;">Keep your passcode secret within your team!</p>
-                    ${sessionNote}
                 </div>`;
         }).join(multiplePerPage ? '' : '<div style="page-break-after: always;"></div>');
 
@@ -195,10 +190,6 @@ const TeamSetupStep: React.FC<Step2Props> = ({
         </style>
         </head><body>
         <h2 class="no-print">Team Login Information</h2>
-        ${draftSessionId ?
-            `<p class="no-print" style="color: #10b981; font-weight: bold;">✓ Your game session is ready! Students can use these login credentials immediately.</p>` :
-            `<p class="no-print"><strong>Important:</strong> The game Session ID and specific Login URL/QR code will be available after the facilitator starts the game session from their control panel.</p>`
-        }
         <button class="no-print" onclick="window.print()" style="padding:10px; margin:10px 0; background-color:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">Print This Page</button>
         <hr class="no-print"/>
         ${content}
@@ -214,7 +205,6 @@ const TeamSetupStep: React.FC<Step2Props> = ({
         let body = `Hello Teams,\n\nPlease find your login details for the "Ready or Not" simulation: ${gameData.name || ''}.\n\n`;
 
         if (draftSessionId) {
-            body += `✓ Game session is ready! You can log in immediately using:\n`;
             body += `Login URL: ${actualUrl}\n\n`;
         } else {
             body += `The specific Session URL will be provided by your facilitator when the game begins.\n\n`;
@@ -243,21 +233,10 @@ const TeamSetupStep: React.FC<Step2Props> = ({
                         <p className="text-sm text-sky-700">
                             Based on your selection of <strong
                             className="font-medium">{gameData.num_teams} teams</strong>,
-                            team names and unique 4-digit passcodes have been generated. The names are inspired by
+                            team names and unique 3-digit passcodes have been generated. The names are inspired by
                             Pacific Northwest nature.
                             You can customize any team name below by clicking the edit icon.
                         </p>
-                        {draftSessionId && (
-                            <div className="mt-2 p-2 bg-green-100 border border-green-300 rounded-md">
-                                <div className="flex items-center">
-                                    <CheckCircle2 size={16} className="text-green-600 mr-2 flex-shrink-0"/>
-                                    <p className="text-sm text-green-700 font-medium">
-                                        Session Ready! Students can now access the game using the QR codes and links
-                                        below.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>
@@ -356,20 +335,6 @@ const TeamSetupStep: React.FC<Step2Props> = ({
                             className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
                         <Mail size={16}/> Compose Email
                     </button>
-                </div>
-                <div className="mt-2 text-xs text-gray-500">
-                    {draftSessionId ? (
-                        <div className="flex items-center">
-                            <CheckCircle2 size={14} className="text-green-500 mr-1"/>
-                            <span className="text-green-600 font-medium">
-                                Session is active! QR codes and URLs are ready for immediate use.
-                            </span>
-                        </div>
-                    ) : (
-                        <span>
-                            The Session ID and QR codes will be available once the game is finalized and started.
-                        </span>
-                    )}
                 </div>
             </div>
 

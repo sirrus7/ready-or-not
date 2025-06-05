@@ -1,5 +1,5 @@
-// src/views/host/components/CreateGame/GameDetailsStep.tsx - Fixed validation timing
-import React, {useState, useEffect} from 'react';
+// src/views/host/components/CreateGame/GameDetailsStep.tsx - Final fix with direct form validation
+import React, {useState, useRef} from 'react';
 import {NewGameData} from '@shared/types/ui';
 import {ArrowRight, AlertCircle} from 'lucide-react';
 import GameDetailsForm from './GameDetailsForm';
@@ -12,78 +12,84 @@ interface Step1Props {
     onNext: (dataFromStep: Partial<NewGameData>) => void;
 }
 
-// Simple validation function
-const validateGameDetails = (gameData: NewGameData): { isValid: boolean; error: string | null } => {
-    console.log('Validating game data:', gameData);
-
-    if (!gameData.name || gameData.name.trim().length === 0) {
-        return {isValid: false, error: 'Game name is required.'};
-    }
-
-    if (!gameData.num_players || gameData.num_players < 2) {
-        return {isValid: false, error: 'Number of players must be at least 2.'};
-    }
-
-    if (!gameData.num_teams || gameData.num_teams < 1) {
-        return {isValid: false, error: 'Number of teams must be at least 1.'};
-    }
-
-    return {isValid: true, error: null};
-};
-
 const GameDetailsStep: React.FC<Step1Props> = ({gameData, onDataChange, onNext}) => {
-    const [localGameData, setLocalGameData] = useState<NewGameData>(gameData);
     const [error, setError] = useState<string | null>(null);
+    const formRef = useRef<HTMLFormElement>(null);
 
     // Team recommendation logic
     const teamRecommendations = useTeamRecommendations({
-        numPlayers: localGameData.num_players,
+        numPlayers: gameData.num_players,
         onTeamCountChange: (newTeamCount: number) => {
             console.log(`GameDetailsStep: Team recommendation suggests ${newTeamCount} teams`);
-
-            // Only update teams, not players
-            const updatedData = {...localGameData, num_teams: newTeamCount};
-            setLocalGameData(updatedData);
             onDataChange('num_teams', newTeamCount);
         }
     });
 
-    // Initialize local state from parent, but don't sync after that
-    useEffect(() => {
-        // Only sync on initial load
-        if (localGameData.num_players === 0 && localGameData.num_teams === 0) {
-            setLocalGameData(gameData);
-        }
-    }, [gameData.name]); // Only sync when the game name changes (new session)
-
     // Handle form field changes
     const handleFieldChange = (field: keyof NewGameData, value: any) => {
         console.log(`GameDetailsStep: handleFieldChange - ${field} = ${value}`);
-
-        const updatedData = {...localGameData, [field]: value};
-        setLocalGameData(updatedData);
         onDataChange(field, value);
 
         // Clear error when user makes changes
         if (error) setError(null);
     };
 
-    // Handle form submission with up-to-date data
+    // Get current form values directly from DOM
+    const getCurrentFormData = (): NewGameData => {
+        const nameInput = document.getElementById('name') as HTMLInputElement;
+        const playersInput = document.getElementById('num_players_input') as HTMLInputElement;
+        const teamsInput = document.getElementById('num_teams_input') as HTMLInputElement;
+        const classInput = document.getElementById('class_name') as HTMLInputElement;
+        const gradeSelect = document.getElementById('grade_level') as HTMLSelectElement;
+        const versionSelect = document.getElementById('game_version') as HTMLSelectElement;
+
+        return {
+            name: nameInput?.value || gameData.name || '',
+            num_players: playersInput?.value ? parseInt(playersInput.value, 10) || 0 : gameData.num_players,
+            num_teams: teamsInput?.value ? parseInt(teamsInput.value, 10) || 0 : gameData.num_teams,
+            class_name: classInput?.value || gameData.class_name || '',
+            grade_level: gradeSelect?.value || gameData.grade_level || 'Freshman',
+            game_version: (versionSelect?.value as '2.0_dd' | '1.5_dd') || gameData.game_version || '2.0_dd',
+            teams_config: gameData.teams_config || []
+        };
+    };
+
+    // Simple validation function
+    const validateFormData = (data: NewGameData): { isValid: boolean; error: string | null } => {
+        console.log('Validating form data:', data);
+
+        if (!data.name || data.name.trim().length === 0) {
+            return {isValid: false, error: 'Game name is required.'};
+        }
+
+        if (!data.num_players || data.num_players < 2) {
+            return {isValid: false, error: 'Number of players must be at least 2.'};
+        }
+
+        if (!data.num_teams || data.num_teams < 1) {
+            return {isValid: false, error: 'Number of teams must be at least 1.'};
+        }
+
+        return {isValid: true, error: null};
+    };
+
+    // Handle form submission
     const handleNext = () => {
         setError(null);
 
-        // Use the most current local data for validation
-        const currentData = localGameData;
-        console.log('About to validate current data:', currentData);
+        // Get the current form data directly from DOM
+        const currentFormData = getCurrentFormData();
+        console.log('Current form data:', currentFormData);
 
-        const validation = validateGameDetails(currentData);
+        const validation = validateFormData(currentFormData);
         if (!validation.isValid) {
+            console.log('Validation failed:', validation.error);
             setError(validation.error);
             return;
         }
 
-        // Pass the current data to the parent
-        onNext(currentData);
+        console.log('Validation passed, proceeding with data:', currentFormData);
+        onNext(currentFormData);
     };
 
     return (
@@ -94,12 +100,14 @@ const GameDetailsStep: React.FC<Step1Props> = ({gameData, onDataChange, onNext})
                 </div>
             )}
 
-            <GameDetailsForm
-                gameData={localGameData}
-                onFieldChange={handleFieldChange}
-                onPlayersChange={teamRecommendations.handlePlayersChange}
-                onTeamsChange={teamRecommendations.handleTeamsChange}
-            />
+            <form ref={formRef} onSubmit={(e) => e.preventDefault()}>
+                <GameDetailsForm
+                    gameData={gameData}
+                    onFieldChange={handleFieldChange}
+                    onPlayersChange={teamRecommendations.handlePlayersChange}
+                    onTeamsChange={teamRecommendations.handleTeamsChange}
+                />
+            </form>
 
             <TeamRecommendationDisplay
                 recommendation={teamRecommendations.recommendation}
@@ -116,14 +124,7 @@ const GameDetailsStep: React.FC<Step1Props> = ({gameData, onDataChange, onNext})
                 </button>
             </div>
 
-            {/* Debug info */}
-            <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
-                <p><strong>Debug:</strong></p>
-                <p>Local Players: {localGameData.num_players}</p>
-                <p>Local Teams: {localGameData.num_teams}</p>
-                <p>Parent Players: {gameData.num_players}</p>
-                <p>Parent Teams: {gameData.num_teams}</p>
-            </div>
+
         </div>
     );
 };
