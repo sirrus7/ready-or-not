@@ -1,6 +1,6 @@
 // src/views/host/pages/DashboardPage.tsx - Enhanced with completed games section and host resources
 import React, {useEffect} from 'react';
-import {Link, useLocation} from 'react-router-dom';
+import {Link, useLocation, useNavigate} from 'react-router-dom';
 import {
     PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, RefreshCw, LogOut,
     FileText, Download, Mail, HelpCircle, BookOpen, Users, TrendingUp
@@ -15,6 +15,7 @@ import {GameSession} from '@shared/types';
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
 
     // Check if we need to auto-refresh
     const shouldAutoRefresh = location.state?.forceRefresh === true;
@@ -92,7 +93,7 @@ const DashboardPage: React.FC = () => {
         if (status === 'draft') {
             handleResumeDraft(game.id, game.name);
         } else if (status === 'active') {
-            window.open(`/classroom/${game.id}`, '_blank');
+            navigate(`/classroom/${game.id}`);
         } else {
             // Navigate to game results/analytics page
             window.open(`/game-results/${game.id}`, '_blank');
@@ -159,7 +160,7 @@ const DashboardPage: React.FC = () => {
                             <p className="text-gray-600 text-lg">
                                 {user?.email ?
                                     `Ready to facilitate, ${user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)}?` :
-                                    'Ready to create amazing learning experiences?'
+                                    'Ready to create amazing simulation experiences?'
                                 }
                             </p>
                         </div>
@@ -200,19 +201,15 @@ const DashboardPage: React.FC = () => {
                             className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
                             <div className="p-8 text-center">
                                 <div
-                                    className="bg-white/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                                    className="bg-white/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
                                     <PlusCircle size={40} className="text-white"/>
                                 </div>
-                                <h2 className="text-2xl font-bold mb-2">Create New Game</h2>
-                                <p className="text-blue-100 mb-6 max-w-md mx-auto">
-                                    Set up a new "Ready or Not" business simulation for your students
-                                </p>
                                 <Link
                                     to="/create-game"
                                     className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold py-3 px-8 rounded-xl hover:bg-blue-50 transition-colors shadow-lg text-lg"
                                 >
                                     <PlusCircle size={20}/>
-                                    Start Creating
+                                    Create New Game
                                 </Link>
                             </div>
                         </div>
@@ -438,12 +435,12 @@ const DashboardPage: React.FC = () => {
                             <div className="p-6 border-b border-gray-100">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                     <BookOpen size={20} className="text-purple-600"/>
-                                    Teaching Resources
+                                    Game Resources
                                 </h3>
                             </div>
                             <div className="p-6 space-y-4">
                                 <a
-                                    href="/resources/facilitator-guide.pdf"
+                                    href="/game-materials/core/how-to-host-guide.pdf"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
@@ -453,31 +450,31 @@ const DashboardPage: React.FC = () => {
                                         <FileText size={16} className="text-blue-600"/>
                                     </div>
                                     <div className="flex-1">
-                                        <div className="font-medium text-gray-900">Facilitator Guide</div>
-                                        <div className="text-sm text-gray-500">Complete teaching manual</div>
+                                        <div className="font-medium text-gray-900">How to Host Guide</div>
+                                        <div className="text-sm text-gray-500">Complete facilitation manual</div>
                                     </div>
                                     <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
                                 </a>
 
                                 <a
-                                    href="/resources/game-materials.zip"
+                                    href="/game-materials/core/vocabulary-definitions.pdf"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
                                 >
                                     <div
                                         className="bg-green-100 p-2 rounded-lg group-hover:bg-green-200 transition-colors">
-                                        <Download size={16} className="text-green-600"/>
+                                        <BookOpen size={16} className="text-green-600"/>
                                     </div>
                                     <div className="flex-1">
-                                        <div className="font-medium text-gray-900">Game Materials</div>
-                                        <div className="text-sm text-gray-500">All printable handouts</div>
+                                        <div className="font-medium text-gray-900">Vocabulary Definitions</div>
+                                        <div className="text-sm text-gray-500">Business terms reference</div>
                                     </div>
                                     <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
                                 </a>
 
                                 <a
-                                    href="/resources/setup-checklist.pdf"
+                                    href="/game-materials/core/vocabulary-quiz.pdf"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
@@ -487,8 +484,8 @@ const DashboardPage: React.FC = () => {
                                         <Users size={16} className="text-orange-600"/>
                                     </div>
                                     <div className="flex-1">
-                                        <div className="font-medium text-gray-900">Setup Checklist</div>
-                                        <div className="text-sm text-gray-500">Pre-class preparation</div>
+                                        <div className="font-medium text-gray-900">Vocabulary Quiz</div>
+                                        <div className="text-sm text-gray-500">Assessment tool</div>
                                     </div>
                                     <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
                                 </a>
@@ -505,7 +502,7 @@ const DashboardPage: React.FC = () => {
                             </div>
                             <div className="p-6 space-y-4">
                                 <a
-                                    href="mailto:support@readyornot.edu?subject=Ready or Not Support Request"
+                                    href="mailto:support@readyornot.com?subject=Ready or Not Support Request"
                                     className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
                                 >
                                     <div className="bg-red-100 p-2 rounded-lg group-hover:bg-red-200 transition-colors">
@@ -518,7 +515,7 @@ const DashboardPage: React.FC = () => {
                                 </a>
 
                                 <a
-                                    href="/resources/faq.pdf"
+                                    href="/support/faq"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
@@ -529,7 +526,7 @@ const DashboardPage: React.FC = () => {
                                     </div>
                                     <div className="flex-1">
                                         <div className="font-medium text-gray-900">FAQ & Troubleshooting</div>
-                                        <div className="text-sm text-gray-500">Common questions answered</div>
+                                        <div className="text-sm text-gray-500">Common questions and solutions</div>
                                     </div>
                                 </a>
                             </div>
@@ -539,10 +536,10 @@ const DashboardPage: React.FC = () => {
                         <div
                             className="bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-2xl shadow-lg">
                             <div className="p-6">
-                                <h3 className="text-lg font-semibold mb-4">Your Teaching Impact</h3>
+                                <h3 className="text-lg font-semibold mb-4">Game Metrics</h3>
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-purple-200">Total Games:</span>
+                                        <span className="text-purple-200">Total Sessions:</span>
                                         <span className="font-bold">{activeGames.length + completedGames.length}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
