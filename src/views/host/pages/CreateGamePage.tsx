@@ -1,4 +1,4 @@
-// src/views/host/pages/CreateGamePage.tsx - Complete overhaul with draft session support
+// src/views/host/pages/CreateGamePage.tsx - Fixed cancel with dashboard refresh
 import React, {useState, useEffect, useCallback} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
@@ -39,6 +39,7 @@ const CreateGamePage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false); // Add loading state for cancel
 
     const {user} = useAuth();
     const navigate = useNavigate();
@@ -150,7 +151,7 @@ const CreateGamePage: React.FC = () => {
         if (currentStep > 1) {
             setCurrentStep(prev => prev - 1);
         } else {
-            navigate('/dashboard');
+            handleCancel(); // Use the same cancel logic when going back from step 1
         }
     };
 
@@ -181,17 +182,37 @@ const CreateGamePage: React.FC = () => {
         }
     };
 
-    // Handle cancellation
+    // Enhanced cancellation with proper cleanup and UI feedback
     const handleCancel = async () => {
-        if (draftSessionId) {
-            try {
+        setIsCancelling(true);
+        setError(null);
+
+        try {
+            if (draftSessionId) {
+                console.log('Deleting draft session before cancel:', draftSessionId);
                 await sessionManager.deleteSession(draftSessionId);
-                console.log('Draft session deleted:', draftSessionId);
-            } catch (error) {
-                console.error('Error deleting draft session:', error);
+                console.log('Draft session deleted successfully:', draftSessionId);
+
+                // Clear the draft session ID to prevent any further operations
+                setDraftSessionId(null);
             }
+
+            // Navigate to dashboard and force a complete refresh
+            navigate('/dashboard', {
+                replace: true,
+                state: {forceRefresh: true, deletedDraftId: draftSessionId}
+            });
+
+        } catch (error) {
+            console.error('Error deleting draft session during cancel:', error);
+            // Still navigate to dashboard even if deletion fails
+            navigate('/dashboard', {
+                replace: true,
+                state: {forceRefresh: true, deletedDraftId: draftSessionId}
+            });
+        } finally {
+            setIsCancelling(false);
         }
-        navigate('/dashboard');
     };
 
     // Loading state
@@ -252,10 +273,21 @@ const CreateGamePage: React.FC = () => {
                         </div>
                         <button
                             onClick={handleCancel}
-                            className="text-sm text-gray-500 hover:text-blue-600 transition-colors"
+                            disabled={isCancelling}
+                            className="text-sm text-gray-500 hover:text-blue-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Cancel and return to Dashboard"
                         >
-                            <ArrowLeft size={20} className="inline mr-1"/> Cancel & Back to Dashboard
+                            {isCancelling ? (
+                                <>
+                                    <div
+                                        className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400 mr-2"></div>
+                                    Cleaning up...
+                                </>
+                            ) : (
+                                <>
+                                    <ArrowLeft size={20} className="inline mr-1"/> Cancel & Back to Dashboard
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>

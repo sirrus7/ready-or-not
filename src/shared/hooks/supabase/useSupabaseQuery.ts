@@ -1,22 +1,73 @@
-// src/hooks/supabase/useSupabaseQuery.ts - Query specialization
-import { useEffect } from 'react';
-import { useSupabaseOperation, OperationOptions } from './core/useSupabaseOperation';
+// src/shared/hooks/supabase/useSupabaseQuery.ts - Enhanced with better cache control
+import {useEffect, useCallback, useRef} from 'react';
+import {useSupabaseOperation, OperationOptions} from './core/useSupabaseOperation';
 
 export const useSupabaseQuery = <T = any>(
     queryFn: () => Promise<T>,
     dependencies: any[] = [],
-    options: OperationOptions = {}
+    options: OperationOptions & {
+        cacheKey?: string;
+        cacheTimeout?: number;
+    } = {}
 ) => {
+    const cacheRef = useRef<Map<string, { data: T; timestamp: number }>>(new Map());
+    const {cacheKey, cacheTimeout = 5 * 60 * 1000, ...operationOptions} = options; // Default 5 minutes
+
     const operation = useSupabaseOperation(queryFn, {
         retryOnError: true,
         maxRetries: 2,
         suppressLoadingFor: 200,
-        ...options
+        ...operationOptions
     });
+
+    // Enhanced execute function with caching
+    const executeWithCache = useCallback(async () => {
+        if (cacheKey && cacheTimeout > 0) {
+            const cached = cacheRef.current.get(cacheKey);
+            const now = Date.now();
+
+            if (cached && (now - cached.timestamp) < cacheTimeout) {
+                console.log(`[useSupabaseQuery] Using cached data for key: ${cacheKey}`);
+                // Use cached data but still return the operation state
+                return cached.data;
+            }
+        }
+
+        console.log(`[useSupabaseQuery] Executing fresh query for key: ${cacheKey || 'no-cache'}`);
+        const result = await operation.execute();
+
+        // Cache the result if cacheKey is provided
+        if (cacheKey && result !== null) {
+            cacheRef.current.set(cacheKey, {
+                data: result,
+                timestamp: Date.now()
+            });
+        }
+
+        return result;
+    }, [cacheKey, cacheTimeout, operation]);
+
+    // Clear cache function
+    const clearCache = useCallback(() => {
+        if (cacheKey) {
+            console.log(`[useSupabaseQuery] Clearing cache for key: ${cacheKey}`);
+            cacheRef.current.delete(cacheKey);
+        } else {
+            console.log(`[useSupabaseQuery] Clearing entire cache`);
+            cacheRef.current.clear();
+        }
+    }, [cacheKey]);
+
+    // Enhanced refresh function that bypasses cache
+    const refresh = useCallback(async () => {
+        console.log(`[useSupabaseQuery] Refresh called - bypassing cache for key: ${cacheKey || 'no-cache'}`);
+        clearCache(); // Clear cache first
+        return await operation.execute();
+    }, [clearCache, operation]);
 
     // Auto-execute when dependencies change
     useEffect(() => {
-        operation.execute();
+        executeWithCache();
     }, dependencies);
 
     // Cleanup on unmount
@@ -24,5 +75,9 @@ export const useSupabaseQuery = <T = any>(
         return operation.cleanup;
     }, []);
 
-    return operation;
+    return {
+        ...operation,
+        refresh,
+        clearCache
+    };
 };

@@ -1,6 +1,6 @@
-// src/views/host/pages/DashboardPage.tsx - Enhanced with lifecycle management
-import React from 'react';
-import {Link} from 'react-router-dom';
+// src/views/host/pages/DashboardPage.tsx - Enhanced with auto-refresh on return
+import React, {useEffect} from 'react';
+import {Link, useLocation} from 'react-router-dom';
 import {PlusCircle} from 'lucide-react';
 import {useAuth} from '@app/providers/AuthProvider';
 import {useDashboardData} from '@views/host/hooks/useDashboardData';
@@ -13,6 +13,11 @@ import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmMo
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
+    const location = useLocation();
+
+    // Check if we need to auto-refresh (from cancelled draft creation)
+    const shouldAutoRefresh = location.state?.forceRefresh === true;
+    const deletedDraftId = location.state?.deletedDraftId;
 
     // Enhanced data management with lifecycle support
     const {
@@ -37,6 +42,34 @@ const DashboardPage: React.FC = () => {
         dismissNotification,
         closeDeleteModal
     } = useDashboardActions(games, refetchGames);
+
+    // Auto-refresh when returning from cancelled draft creation
+    useEffect(() => {
+        if (shouldAutoRefresh && !authLoading && user) {
+            console.log('[DashboardPage] Auto-refreshing due to forceRefresh state', {deletedDraftId});
+
+            // Force refresh immediately and clear cache
+            setTimeout(async () => {
+                await refetchGames();
+            }, 100);
+
+            // Clear the navigation state to prevent re-triggering
+            window.history.replaceState({}, '', '/dashboard');
+        }
+    }, [shouldAutoRefresh, authLoading, user, refetchGames, deletedDraftId]);
+
+    // Additional effect to ensure draft games list is filtered properly
+    useEffect(() => {
+        if (deletedDraftId && games.draft.length > 0) {
+            const stillExists = games.draft.some(game => game.id === deletedDraftId);
+            if (stillExists) {
+                console.log('[DashboardPage] Deleted draft still exists, forcing another refresh');
+                setTimeout(async () => {
+                    await refetchGames();
+                }, 800);
+            }
+        }
+    }, [games.draft, deletedDraftId, refetchGames]);
 
     // Loading state
     if (authLoading && !user) {
