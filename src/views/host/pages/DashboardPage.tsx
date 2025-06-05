@@ -19,7 +19,6 @@ const DashboardPage: React.FC = () => {
 
     // Check if we need to auto-refresh
     const shouldAutoRefresh = location.state?.forceRefresh === true;
-    const deletedDraftId = location.state?.deletedDraftId;
 
     const {
         games,
@@ -34,7 +33,6 @@ const DashboardPage: React.FC = () => {
         gameToDelete,
         isDeleting,
         deleteError,
-        handleGameSelect,
         handleResumeDraft,
         handleOpenDeleteModal,
         handleConfirmDelete,
@@ -165,6 +163,13 @@ const DashboardPage: React.FC = () => {
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
+                            <Link
+                                to="/create-game"
+                                className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-blue-700 transition-colors shadow-lg"
+                            >
+                                <PlusCircle size={20}/>
+                                Create New Game
+                            </Link>
                             <button
                                 onClick={refetchGames}
                                 disabled={isLoadingGames}
@@ -196,23 +201,6 @@ const DashboardPage: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-8">
-                        {/* Create New Game Card */}
-                        <div
-                            className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                            <div className="p-8 text-center">
-                                <div
-                                    className="bg-white/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
-                                    <PlusCircle size={40} className="text-white"/>
-                                </div>
-                                <Link
-                                    to="/create-game"
-                                    className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold py-3 px-8 rounded-xl hover:bg-blue-50 transition-colors shadow-lg text-lg"
-                                >
-                                    <PlusCircle size={20}/>
-                                    Create New Game
-                                </Link>
-                            </div>
-                        </div>
 
                         {/* My Games Section */}
                         <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
