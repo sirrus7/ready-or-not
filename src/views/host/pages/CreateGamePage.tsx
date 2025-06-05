@@ -1,4 +1,4 @@
-// src/views/host/pages/CreateGamePage.tsx - Fixed cancel with dashboard refresh
+// src/views/host/pages/CreateGamePage.tsx - Fixed draft session management
 import React, {useState, useEffect, useCallback} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
@@ -39,7 +39,7 @@ const CreateGamePage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isCancelling, setIsCancelling] = useState(false); // Add loading state for cancel
+    const [isCancelling, setIsCancelling] = useState(false);
 
     const {user} = useAuth();
     const navigate = useNavigate();
@@ -78,24 +78,23 @@ const CreateGamePage: React.FC = () => {
                         console.log('Loaded saved wizard state:', savedState);
                     }
                 } else {
-                    // Check for existing draft or create new
+                    // FIXED: Clean up any existing drafts first, then create a new one
+                    console.log('Checking for existing draft sessions to clean up...');
                     const existingDraft = await sessionManager.getLatestDraftForTeacher(user.id);
 
                     if (existingDraft) {
-                        console.log('Found existing draft session:', existingDraft.id);
-                        draftSession = existingDraft;
-
-                        // Load saved wizard state
-                        if ((existingDraft as any).wizard_state) {
-                            const savedState = (existingDraft as any).wizard_state;
-                            setGameData(prev => ({...prev, ...savedState}));
-                            console.log('Loaded saved wizard state:', savedState);
+                        console.log('Found existing draft session, cleaning up:', existingDraft.id);
+                        try {
+                            await sessionManager.deleteSession(existingDraft.id);
+                            console.log('Cleaned up existing draft session');
+                        } catch (cleanupError) {
+                            console.warn('Failed to clean up existing draft, continuing with new draft:', cleanupError);
                         }
-                    } else {
-                        // Create new draft
-                        console.log('Creating new draft session');
-                        draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD);
                     }
+
+                    // Create new draft
+                    console.log('Creating new draft session');
+                    draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD);
                 }
 
                 setDraftSessionId(draftSession.id);
@@ -111,6 +110,30 @@ const CreateGamePage: React.FC = () => {
 
         initializeDraftSession();
     }, [user, resumeSessionId, navigate, sessionManager]);
+
+    // FIXED: Cleanup draft session when component unmounts (user navigates away)
+    useEffect(() => {
+        return () => {
+            // Only clean up if we're not resuming (meaning this was a fresh creation)
+            // and if we're not in the middle of finalizing
+            if (draftSessionId && !resumeSessionId && !isSubmitting) {
+                console.log('Component unmounting, cleaning up draft session:', draftSessionId);
+                // Use a timeout to allow for navigation to complete
+                setTimeout(async () => {
+                    try {
+                        const currentSession = await sessionManager.loadSession(draftSessionId);
+                        // Only delete if it's still a draft (not finalized)
+                        if ((currentSession as any).status === 'draft') {
+                            await sessionManager.deleteSession(draftSessionId);
+                            console.log('Cleaned up draft session on unmount:', draftSessionId);
+                        }
+                    } catch (error) {
+                        console.warn('Failed to cleanup draft session on unmount:', error);
+                    }
+                }, 100);
+            }
+        };
+    }, [draftSessionId, resumeSessionId, isSubmitting, sessionManager]);
 
     // Handle data changes - NO automatic database saves
     const handleDataChange = useCallback((field: keyof NewGameData, value: NewGameData[keyof NewGameData]) => {
