@@ -1,5 +1,5 @@
 // src/views/host/pages/CreateGamePage.tsx - Fixed draft session management
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
 import {GameSessionManager} from '@core/game/GameSessionManager';
@@ -46,7 +46,33 @@ const CreateGamePage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const resumeSessionId = searchParams.get('resume');
 
+    // Track if user is intentionally leaving (not just refreshing)
+    const isIntentionalNavigation = useRef(false);
+    const beforeUnloadHandled = useRef(false);
+
     const sessionManager = GameSessionManager.getInstance();
+
+    // Handle browser refresh/close - prevent draft deletion on refresh
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (draftSessionId && !isSubmitting) {
+                // Store the draft session ID in sessionStorage so we can resume after refresh
+                sessionStorage.setItem('ron_draft_session_id', draftSessionId);
+                sessionStorage.setItem('ron_draft_wizard_data', JSON.stringify(gameData));
+                sessionStorage.setItem('ron_draft_current_step', currentStep.toString());
+
+                beforeUnloadHandled.current = true;
+
+                // Show warning for browser close (but not refresh) - modern approach
+                e.preventDefault();
+                // Return empty string for modern browsers, they'll show their own dialog
+                return '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [draftSessionId, gameData, currentStep, isSubmitting]);
 
     // Initialize or resume draft session
     useEffect(() => {
@@ -63,8 +89,8 @@ const CreateGamePage: React.FC = () => {
                 let draftSession;
 
                 if (resumeSessionId) {
-                    // Resume existing draft
-                    console.log('Resuming draft session:', resumeSessionId);
+                    // Resume existing draft from URL parameter
+                    console.log('Resuming draft session from URL:', resumeSessionId);
                     draftSession = await sessionManager.loadSession(resumeSessionId);
 
                     if ((draftSession as any).status !== 'draft') {
@@ -75,26 +101,68 @@ const CreateGamePage: React.FC = () => {
                     if ((draftSession as any).wizard_state) {
                         const savedState = (draftSession as any).wizard_state;
                         setGameData(prev => ({...prev, ...savedState}));
-                        console.log('Loaded saved wizard state:', savedState);
+                        console.log('Loaded saved wizard state from database:', savedState);
                     }
                 } else {
-                    // FIXED: Clean up any existing drafts first, then create a new one
-                    console.log('Checking for existing draft sessions to clean up...');
-                    const existingDraft = await sessionManager.getLatestDraftForTeacher(user.id);
+                    // Check for draft session from page refresh first
+                    const storedDraftId = sessionStorage.getItem('ron_draft_session_id');
+                    const storedWizardData = sessionStorage.getItem('ron_draft_wizard_data');
+                    const storedCurrentStep = sessionStorage.getItem('ron_draft_current_step');
 
-                    if (existingDraft) {
-                        console.log('Found existing draft session, cleaning up:', existingDraft.id);
+                    if (storedDraftId && storedWizardData) {
                         try {
-                            await sessionManager.deleteSession(existingDraft.id);
-                            console.log('Cleaned up existing draft session');
-                        } catch (cleanupError) {
-                            console.warn('Failed to clean up existing draft, continuing with new draft:', cleanupError);
+                            console.log('Attempting to resume draft session from refresh:', storedDraftId);
+                            // Try to load the stored draft session
+                            draftSession = await sessionManager.loadSession(storedDraftId);
+
+                            if ((draftSession as any).status === 'draft') {
+                                console.log('Successfully resumed draft session from refresh');
+
+                                // Restore wizard state from sessionStorage
+                                const parsedWizardData = JSON.parse(storedWizardData);
+                                setGameData(parsedWizardData);
+
+                                if (storedCurrentStep) {
+                                    setCurrentStep(parseInt(storedCurrentStep, 10));
+                                }
+
+                                // Clear the sessionStorage now that we've restored
+                                sessionStorage.removeItem('ron_draft_session_id');
+                                sessionStorage.removeItem('ron_draft_wizard_data');
+                                sessionStorage.removeItem('ron_draft_current_step');
+                            } else {
+                                throw new Error('Stored session is not a draft');
+                            }
+                        } catch (refreshResumeError) {
+                            console.warn('Could not resume from refresh, creating new draft:', refreshResumeError);
+                            // Clear invalid sessionStorage
+                            sessionStorage.removeItem('ron_draft_session_id');
+                            sessionStorage.removeItem('ron_draft_wizard_data');
+                            sessionStorage.removeItem('ron_draft_current_step');
+                            // Fall through to create new draft
+                            draftSession = null;
                         }
                     }
 
-                    // Create new draft
-                    console.log('Creating new draft session');
-                    draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD);
+                    // Create new draft if we don't have one from refresh
+                    if (!draftSession) {
+                        console.log('Checking for existing draft sessions to clean up...');
+                        const existingDraft = await sessionManager.getLatestDraftForTeacher(user.id);
+
+                        if (existingDraft) {
+                            console.log('Found existing draft session, cleaning up:', existingDraft.id);
+                            try {
+                                await sessionManager.deleteSession(existingDraft.id);
+                                console.log('Cleaned up existing draft session');
+                            } catch (cleanupError) {
+                                console.warn('Failed to clean up existing draft, continuing with new draft:', cleanupError);
+                            }
+                        }
+
+                        // Create new draft
+                        console.log('Creating new draft session');
+                        draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD);
+                    }
                 }
 
                 setDraftSessionId(draftSession.id);
@@ -111,13 +179,17 @@ const CreateGamePage: React.FC = () => {
         initializeDraftSession();
     }, [user, resumeSessionId, navigate, sessionManager]);
 
-    // FIXED: Cleanup draft session when component unmounts (user navigates away)
+    // FIXED: Only cleanup draft session on intentional navigation, not refresh
     useEffect(() => {
         return () => {
-            // Only clean up if we're not resuming (meaning this was a fresh creation)
-            // and if we're not in the middle of finalizing
-            if (draftSessionId && !resumeSessionId && !isSubmitting) {
-                console.log('Component unmounting, cleaning up draft session:', draftSessionId);
+            // Only clean up if:
+            // 1. We have a draft session ID
+            // 2. User is not in the middle of submitting
+            // 3. This is NOT a page refresh (beforeUnload wasn't handled)
+            // 4. User is intentionally navigating away
+            if (draftSessionId && !isSubmitting && !beforeUnloadHandled.current && isIntentionalNavigation.current) {
+                console.log('Component unmounting due to intentional navigation, cleaning up draft session:', draftSessionId);
+
                 // Use a timeout to allow for navigation to complete
                 setTimeout(async () => {
                     try {
@@ -125,15 +197,15 @@ const CreateGamePage: React.FC = () => {
                         // Only delete if it's still a draft (not finalized)
                         if ((currentSession as any).status === 'draft') {
                             await sessionManager.deleteSession(draftSessionId);
-                            console.log('Cleaned up draft session on unmount:', draftSessionId);
+                            console.log('Cleaned up draft session on intentional navigation:', draftSessionId);
                         }
                     } catch (error) {
-                        console.warn('Failed to cleanup draft session on unmount:', error);
+                        console.warn('Failed to cleanup draft session on navigation:', error);
                     }
                 }, 100);
             }
         };
-    }, [draftSessionId, resumeSessionId, isSubmitting, sessionManager]);
+    }, [draftSessionId, isSubmitting, sessionManager]);
 
     // Handle data changes - NO automatic database saves
     const handleDataChange = useCallback((field: keyof NewGameData, value: NewGameData[keyof NewGameData]) => {
@@ -142,11 +214,28 @@ const CreateGamePage: React.FC = () => {
         const updatedData = {...gameData, [field]: value};
         setGameData(updatedData);
 
-        // No automatic database saving - only save when user clicks Next
-    }, [gameData]);
+        // Update sessionStorage for refresh persistence - FIX: Only store serializable data
+        if (draftSessionId) {
+            try {
+                const serializableData = {
+                    game_version: updatedData.game_version,
+                    name: updatedData.name,
+                    class_name: updatedData.class_name,
+                    grade_level: updatedData.grade_level,
+                    num_players: updatedData.num_players,
+                    num_teams: updatedData.num_teams,
+                    teams_config: updatedData.teams_config || []
+                };
+                sessionStorage.setItem('ron_draft_wizard_data', JSON.stringify(serializableData));
+            } catch (error) {
+                console.error('CreateGamePage: Error saving data change to sessionStorage:', error);
+            }
+        }
+    }, [gameData, draftSessionId]);
 
-    // Handle wizard navigation - SAVE TO DATABASE HERE
+    // Handle wizard navigation - SAVE TO DATABASE HERE (FIXED)
     const handleNextStep = (dataFromStep?: Partial<NewGameData>) => {
+        console.log('CreateGamePage: handleNextStep called, current step:', currentStep);
         setError(null);
 
         let finalData = gameData;
@@ -156,23 +245,58 @@ const CreateGamePage: React.FC = () => {
             setGameData(finalData);
         }
 
-        // Save to database when moving to next step
+        const newStep = currentStep + 1;
+        console.log('CreateGamePage: Advancing to step:', newStep);
+
+        // Save to database when moving to next step - FIXED: Only save serializable data
         if (draftSessionId) {
-            sessionManager.updateWizardState(draftSessionId, finalData).catch(error => {
-                console.error('Error saving wizard state:', error);
-                // Don't block navigation on save error
-            });
+            try {
+                // Create a clean copy of finalData with only serializable properties
+                const serializableData = {
+                    game_version: finalData.game_version,
+                    name: finalData.name,
+                    class_name: finalData.class_name,
+                    grade_level: finalData.grade_level,
+                    num_players: finalData.num_players,
+                    num_teams: finalData.num_teams,
+                    teams_config: finalData.teams_config || []
+                };
+
+                console.log('CreateGamePage: Saving wizard state to database...');
+                sessionManager.updateWizardState(draftSessionId, serializableData).catch(error => {
+                    console.error('Error saving wizard state (non-blocking):', error);
+                    // Don't block navigation on save error - just log it
+                });
+
+                // Update sessionStorage with the same clean data
+                sessionStorage.setItem('ron_draft_wizard_data', JSON.stringify(serializableData));
+                sessionStorage.setItem('ron_draft_current_step', newStep.toString());
+                console.log('CreateGamePage: Successfully saved to database and sessionStorage');
+            } catch (error) {
+                console.error('CreateGamePage: Error preparing data for save:', error);
+                // Don't block navigation on preparation error
+            }
         }
 
         if (currentStep < WIZARD_STEPS.length) {
-            setCurrentStep(prev => prev + 1);
+            console.log('CreateGamePage: Setting current step to:', newStep);
+            setCurrentStep(newStep);
+            console.log('CreateGamePage: State update called, should re-render with step:', newStep);
+        } else {
+            console.log('CreateGamePage: Already at last step, not advancing');
         }
     };
 
     const handlePreviousStep = () => {
         setError(null);
         if (currentStep > 1) {
-            setCurrentStep(prev => prev - 1);
+            const newStep = currentStep - 1;
+            setCurrentStep(newStep);
+
+            // Update sessionStorage
+            if (draftSessionId) {
+                sessionStorage.setItem('ron_draft_current_step', newStep.toString());
+            }
         } else {
             handleCancel(); // Use the same cancel logic when going back from step 1
         }
@@ -191,10 +315,18 @@ const CreateGamePage: React.FC = () => {
         try {
             console.log("CreateGamePage: Finalizing game with data:", gameData);
 
+            // Clear sessionStorage since we're finalizing
+            sessionStorage.removeItem('ron_draft_session_id');
+            sessionStorage.removeItem('ron_draft_wizard_data');
+            sessionStorage.removeItem('ron_draft_current_step');
+
             // Finalize the draft session
             const finalizedSession = await sessionManager.finalizeDraftSession(draftSessionId, gameData);
 
             console.log("CreateGamePage: Game finalized successfully:", finalizedSession.id);
+
+            // Mark as intentional navigation since we're going to classroom
+            isIntentionalNavigation.current = false; // Don't clean up since it's finalized
             navigate(`/classroom/${finalizedSession.id}`);
 
         } catch (error) {
@@ -209,6 +341,7 @@ const CreateGamePage: React.FC = () => {
     const handleCancel = async () => {
         setIsCancelling(true);
         setError(null);
+        isIntentionalNavigation.current = true; // Mark as intentional
 
         try {
             if (draftSessionId) {
@@ -216,8 +349,11 @@ const CreateGamePage: React.FC = () => {
                 await sessionManager.deleteSession(draftSessionId);
                 console.log('Draft session deleted successfully:', draftSessionId);
 
-                // Clear the draft session ID to prevent any further operations
+                // Clear the draft session ID and sessionStorage
                 setDraftSessionId(null);
+                sessionStorage.removeItem('ron_draft_session_id');
+                sessionStorage.removeItem('ron_draft_wizard_data');
+                sessionStorage.removeItem('ron_draft_current_step');
             }
 
             // Navigate to dashboard and force a complete refresh

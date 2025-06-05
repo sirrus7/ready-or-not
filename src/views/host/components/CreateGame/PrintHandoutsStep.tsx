@@ -580,7 +580,7 @@ Thank you,
                 </button>
                 <button
                     type="button"
-                    onClick={() => onNext()}
+                    onClick={onNext}
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
                     Next: Finalize & Start <ArrowRight size={18}/>

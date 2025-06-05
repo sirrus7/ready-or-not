@@ -3,13 +3,13 @@ import React from 'react';
 import {NewGameData} from '@shared/types/ui';
 import {ArrowLeft, ArrowRight, MonitorPlay, Download, Info, Tv2, LayoutGrid} from 'lucide-react';
 
-interface Step4Props {
+interface RoomSetupStep {
     gameData: NewGameData; // May be used for dynamic instructions based on player/team count later
     onNext: () => void;
     onPrevious: () => void;
 }
 
-const RoomSetupStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => {
+const RoomSetupStep: React.FC<RoomSetupStep> = ({gameData, onNext, onPrevious}) => {
     // Placeholder for the actual PDF link. This should be an asset or a configurable URL.
     const howToHostGuideUrl = "/path-to-your/how-to-host-guide.pdf"; // REPLACE THIS
 
@@ -54,7 +54,8 @@ const RoomSetupStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => 
                             <li>Consequence and Investment Payoff information.</li>
                             <li>End-of-round KPIs and Leaderboards.</li>
                         </ul>
-                        <p className="text-xs text-gray-500 mt-1">Launch this via the "Launch Presentation Display" button on
+                        <p className="text-xs text-gray-500 mt-1">Launch this via the "Launch Presentation Display"
+                            button on
                             your control panel once the game starts.</p>
                     </li>
                     <li className="mt-1.5">
@@ -122,7 +123,7 @@ const RoomSetupStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => 
                 </button>
                 <button
                     type="button"
-                    onClick={() => onNext}
+                    onClick={() => onNext()}
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 >
                     Next: Print Handouts <ArrowRight size={18}/>
