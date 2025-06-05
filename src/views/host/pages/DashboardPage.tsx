@@ -1,25 +1,25 @@
-// src/views/host/pages/DashboardPage.tsx - Enhanced with auto-refresh on return
+// src/views/host/pages/DashboardPage.tsx - Enhanced with completed games section and host resources
 import React, {useEffect} from 'react';
 import {Link, useLocation} from 'react-router-dom';
-import {PlusCircle} from 'lucide-react';
+import {
+    PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, RefreshCw, LogOut,
+    FileText, Download, Mail, HelpCircle, BookOpen, Users, TrendingUp
+} from 'lucide-react';
 import {useAuth} from '@app/providers/AuthProvider';
 import {useDashboardData} from '@views/host/hooks/useDashboardData';
 import {useDashboardActions} from '@views/host/hooks/useDashboardActions';
-import DashboardHeader from '@views/host/components/Dashboard/DashboardHeader';
-import DraftGamesList from '@views/host/components/Dashboard/DraftGamesList';
-import GameLists from '@views/host/components/Dashboard/GameLists';
 import NotificationBanner from '@views/host/components/Dashboard/NotificationBanner';
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
+import {GameSession} from '@shared/types';
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
     const location = useLocation();
 
-    // Check if we need to auto-refresh (from cancelled draft creation)
+    // Check if we need to auto-refresh
     const shouldAutoRefresh = location.state?.forceRefresh === true;
     const deletedDraftId = location.state?.deletedDraftId;
 
-    // Enhanced data management with lifecycle support
     const {
         games,
         isLoadingGames,
@@ -27,7 +27,6 @@ const DashboardPage: React.FC = () => {
         refetchGames
     } = useDashboardData(user?.id);
 
-    // Enhanced action handlers with draft management
     const {
         notification,
         isDeleteModalOpen,
@@ -46,36 +45,101 @@ const DashboardPage: React.FC = () => {
     // Auto-refresh when returning from cancelled draft creation
     useEffect(() => {
         if (shouldAutoRefresh && !authLoading && user) {
-            console.log('[DashboardPage] Auto-refreshing due to forceRefresh state', {deletedDraftId});
-
-            // Force refresh immediately and clear cache
+            console.log('[DashboardPage] Auto-refreshing due to forceRefresh state');
             setTimeout(async () => {
                 await refetchGames();
             }, 100);
-
-            // Clear the navigation state to prevent re-triggering
             window.history.replaceState({}, '', '/dashboard');
         }
-    }, [shouldAutoRefresh, authLoading, user, refetchGames, deletedDraftId]);
+    }, [shouldAutoRefresh, authLoading, user, refetchGames]);
 
-    // Additional effect to ensure draft games list is filtered properly
-    useEffect(() => {
-        if (deletedDraftId && games.draft.length > 0) {
-            const stillExists = games.draft.some(game => game.id === deletedDraftId);
-            if (stillExists) {
-                console.log('[DashboardPage] Deleted draft still exists, forcing another refresh');
-                setTimeout(async () => {
-                    await refetchGames();
-                }, 800);
-            }
+    // Combine active and draft games
+    const activeGames = [
+        ...games.draft.map(game => ({...game, displayStatus: 'draft' as const})),
+        ...games.active.map(game => ({...game, displayStatus: 'active' as const}))
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const completedGames = games.completed.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const getStatusConfig = (status: 'draft' | 'active' | 'completed') => {
+        switch (status) {
+            case 'draft':
+                return {
+                    label: 'Draft',
+                    color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                    icon: Edit,
+                    description: 'Being set up'
+                };
+            case 'active':
+                return {
+                    label: 'Active',
+                    color: 'bg-blue-100 text-blue-800 border-blue-200',
+                    icon: Play,
+                    description: 'In progress'
+                };
+            case 'completed':
+                return {
+                    label: 'Completed',
+                    color: 'bg-green-100 text-green-800 border-green-200',
+                    icon: CheckCircle,
+                    description: 'Finished'
+                };
         }
-    }, [games.draft, deletedDraftId, refetchGames]);
+    };
+
+    const handleGameAction = (game: GameSession & { displayStatus?: 'draft' | 'active' | 'completed' }) => {
+        const status = game.displayStatus || 'completed';
+        if (status === 'draft') {
+            handleResumeDraft(game.id, game.name);
+        } else if (status === 'active') {
+            window.open(`/classroom/${game.id}`, '_blank');
+        } else {
+            // Navigate to game results/analytics page
+            window.open(`/game-results/${game.id}`, '_blank');
+        }
+    };
+
+    const getActionButton = (game: GameSession & { displayStatus?: 'draft' | 'active' | 'completed' }) => {
+        const status = game.displayStatus || 'completed';
+        switch (status) {
+            case 'draft':
+                return (
+                    <button
+                        onClick={() => handleGameAction(game)}
+                        className="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-700 transition-colors flex items-center gap-2"
+                    >
+                        <Edit size={16}/>
+                        Resume Setup
+                    </button>
+                );
+            case 'active':
+                return (
+                    <button
+                        onClick={() => handleGameAction(game)}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                        <Play size={16}/>
+                        Open Game
+                    </button>
+                );
+            case 'completed':
+                return (
+                    <button
+                        onClick={() => handleGameAction(game)}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                        <BarChart3 size={16}/>
+                        View Results
+                    </button>
+                );
+        }
+    };
 
     // Loading state
     if (authLoading && !user) {
         return (
             <div
-                className="min-h-screen bg-gradient-to-br from-slate-100 to-sky-100 flex flex-col items-center justify-center p-4">
+                className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
                 <p className="mt-4 text-gray-600">Loading Dashboard...</p>
             </div>
@@ -83,64 +147,424 @@ const DashboardPage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-100 to-sky-100 p-4 md:p-8">
-            <DashboardHeader
-                user={user}
-                isLoadingGames={isLoadingGames}
-                onRefresh={refetchGames}
-                onLogout={handleLogout}
-            />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Header */}
+                <header className="mb-8">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
+                                Welcome back!
+                            </h1>
+                            <p className="text-gray-600 text-lg">
+                                {user?.email ?
+                                    `Ready to facilitate, ${user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)}?` :
+                                    'Ready to create amazing learning experiences?'
+                                }
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={refetchGames}
+                                disabled={isLoadingGames}
+                                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200 hover:border-blue-300"
+                                title="Refresh games"
+                            >
+                                <RefreshCw size={16} className={isLoadingGames ? 'animate-spin' : ''}/>
+                                <span className="hidden sm:inline">Refresh</span>
+                            </button>
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-red-200 hover:border-red-300"
+                            >
+                                <LogOut size={16}/>
+                                <span className="hidden sm:inline">Logout</span>
+                            </button>
+                        </div>
+                    </div>
+                </header>
 
-            <NotificationBanner
-                notification={notification || (gamesError ? {
-                    type: 'error',
-                    message: gamesError
-                } : null) || (deleteError ? {type: 'error', message: deleteError} : null)}
-                onDismiss={dismissNotification}
-            />
-
-            <main className="max-w-6xl mx-auto space-y-6 md:space-y-8">
-                {/* Create New Game Card */}
-                <div
-                    className="bg-blue-600 text-white p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow flex flex-col items-center justify-center text-center">
-                    <PlusCircle size={40} className="mb-2 opacity-80"/>
-                    <h2 className="text-xl lg:text-2xl font-bold mb-1.5">Start a New Game</h2>
-                    <p className="text-xs lg:text-sm opacity-90 mb-5">
-                        Set up a new "Ready or Not" simulation for your class.
-                    </p>
-                    <Link
-                        to="/create-game"
-                        className="bg-white text-blue-700 font-semibold py-2.5 px-6 lg:py-3 lg:px-8 rounded-lg hover:bg-blue-50 transition-colors shadow-md text-sm lg:text-base"
-                    >
-                        Create Game
-                    </Link>
-                </div>
-
-                {/* Draft Games Section */}
-                <DraftGamesList
-                    games={games.draft}
-                    isLoading={isLoadingGames}
-                    onResume={handleResumeDraft}
-                    onDelete={(sessionId, gameName) => handleOpenDeleteModal(sessionId, gameName, 'draft')}
+                <NotificationBanner
+                    notification={notification || (gamesError ? {
+                        type: 'error',
+                        message: gamesError
+                    } : null) || (deleteError ? {type: 'error', message: deleteError} : null)}
+                    onDismiss={dismissNotification}
                 />
 
-                {/* Active and Completed Games */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                    <GameLists
-                        currentGames={games.active}
-                        completedGames={games.completed}
-                        isLoading={isLoadingGames}
-                        onGameSelect={(sessionId) => {
-                            const isActive = games.active.some(g => g.id === sessionId);
-                            const gameType = isActive ? 'active' : 'completed';
-                            handleGameSelect(sessionId, gameType);
-                        }}
-                        onGameDelete={(sessionId, gameName) => handleOpenDeleteModal(sessionId, gameName, 'active')}
-                    />
-                </div>
-            </main>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Main Content */}
+                    <div className="lg:col-span-2 space-y-8">
+                        {/* Create New Game Card */}
+                        <div
+                            className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+                            <div className="p-8 text-center">
+                                <div
+                                    className="bg-white/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                                    <PlusCircle size={40} className="text-white"/>
+                                </div>
+                                <h2 className="text-2xl font-bold mb-2">Create New Game</h2>
+                                <p className="text-blue-100 mb-6 max-w-md mx-auto">
+                                    Set up a new "Ready or Not" business simulation for your students
+                                </p>
+                                <Link
+                                    to="/create-game"
+                                    className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold py-3 px-8 rounded-xl hover:bg-blue-50 transition-colors shadow-lg text-lg"
+                                >
+                                    <PlusCircle size={20}/>
+                                    Start Creating
+                                </Link>
+                            </div>
+                        </div>
 
-            {/* Enhanced Delete Confirmation Modal */}
+                        {/* My Games Section */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+                            <div className="p-6 border-b border-gray-100">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                                            <div className="bg-blue-100 p-2 rounded-lg">
+                                                <Play size={24} className="text-blue-600"/>
+                                            </div>
+                                            My Games
+                                        </h2>
+                                        <p className="text-gray-600 mt-1">Active and draft simulation sessions</p>
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                        {activeGames.length} games
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-6">
+                                {isLoadingGames ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <div
+                                            className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
+                                        <span className="text-gray-500">Loading games...</span>
+                                    </div>
+                                ) : activeGames.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <div
+                                            className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                                            <Clock size={32} className="text-gray-400"/>
+                                        </div>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">No active games</h3>
+                                        <p className="text-gray-500">Your active and draft games will appear here</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {activeGames.map((game) => {
+                                            const statusConfig = getStatusConfig(game.displayStatus);
+                                            const StatusIcon = statusConfig.icon;
+
+                                            return (
+                                                <div
+                                                    key={game.id}
+                                                    className="border border-gray-200 rounded-xl hover:shadow-md transition-all duration-200 hover:border-blue-200 bg-white"
+                                                >
+                                                    <div className="p-6">
+                                                        <div className="flex items-start justify-between">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-3 mb-3">
+                                                                    <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                                                        {game.name}
+                                                                    </h3>
+                                                                    <span
+                                                                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.color}`}>
+                                                                        <StatusIcon size={12}/>
+                                                                        {statusConfig.label}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div
+                                                                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                                                                    <div>
+                                                                        <span
+                                                                            className="font-medium text-gray-700">Created:</span>
+                                                                        <div>{new Date(game.created_at).toLocaleDateString()}</div>
+                                                                    </div>
+                                                                    {game.class_name && (
+                                                                        <div>
+                                                                            <span
+                                                                                className="font-medium text-gray-700">Class:</span>
+                                                                            <div
+                                                                                className="truncate">{game.class_name}</div>
+                                                                        </div>
+                                                                    )}
+                                                                    {game.game_version && (
+                                                                        <div>
+                                                                            <span
+                                                                                className="font-medium text-gray-700">Version:</span>
+                                                                            <div>v{game.game_version.startsWith('2') ? '2.0' : '1.5'}</div>
+                                                                        </div>
+                                                                    )}
+                                                                    <div>
+                                                                        <span
+                                                                            className="font-medium text-gray-700">Status:</span>
+                                                                        <div
+                                                                            className="text-gray-500">{statusConfig.description}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-3 ml-6">
+                                                                {getActionButton(game)}
+
+                                                                <button
+                                                                    onClick={() => handleOpenDeleteModal(
+                                                                        game.id,
+                                                                        game.name,
+                                                                        game.displayStatus === 'draft' ? 'draft' : 'active'
+                                                                    )}
+                                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                    title={`Delete ${game.displayStatus} game`}
+                                                                >
+                                                                    <Trash2 size={18}/>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Completed Games Section */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+                            <div className="p-6 border-b border-gray-100">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                                            <div className="bg-green-100 p-2 rounded-lg">
+                                                <CheckCircle size={24} className="text-green-600"/>
+                                            </div>
+                                            Completed Games
+                                        </h2>
+                                        <p className="text-gray-600 mt-1">View results and analytics from finished
+                                            sessions</p>
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                        {completedGames.length} completed
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-6">
+                                {completedGames.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <div
+                                            className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                                            <TrendingUp size={32} className="text-gray-400"/>
+                                        </div>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">No completed games
+                                            yet</h3>
+                                        <p className="text-gray-500">Completed games will appear here with full
+                                            analytics and results</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {completedGames.map((game) => (
+                                            <div
+                                                key={game.id}
+                                                className="border border-gray-200 rounded-xl hover:shadow-md transition-all duration-200 hover:border-green-200 bg-white"
+                                            >
+                                                <div className="p-6">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-3 mb-3">
+                                                                <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                                                    {game.name}
+                                                                </h3>
+                                                                <span
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border bg-green-100 text-green-800 border-green-200">
+                                                                    <CheckCircle size={12}/>
+                                                                    Completed
+                                                                </span>
+                                                            </div>
+
+                                                            <div
+                                                                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                                                                <div>
+                                                                    <span
+                                                                        className="font-medium text-gray-700">Completed:</span>
+                                                                    <div>{new Date(game.updated_at).toLocaleDateString()}</div>
+                                                                </div>
+                                                                {game.class_name && (
+                                                                    <div>
+                                                                        <span
+                                                                            className="font-medium text-gray-700">Class:</span>
+                                                                        <div
+                                                                            className="truncate">{game.class_name}</div>
+                                                                    </div>
+                                                                )}
+                                                                {game.game_version && (
+                                                                    <div>
+                                                                        <span
+                                                                            className="font-medium text-gray-700">Version:</span>
+                                                                        <div>v{game.game_version.startsWith('2') ? '2.0' : '1.5'}</div>
+                                                                    </div>
+                                                                )}
+                                                                <div>
+                                                                    <span
+                                                                        className="font-medium text-gray-700">Duration:</span>
+                                                                    <div className="text-gray-500">
+                                                                        {Math.ceil((new Date(game.updated_at).getTime() - new Date(game.created_at).getTime()) / (1000 * 60 * 60 * 24))} days
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-3 ml-6">
+                                                            {getActionButton(game)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sidebar */}
+                    <div className="space-y-6">
+                        {/* Quick Resources */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+                            <div className="p-6 border-b border-gray-100">
+                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                    <BookOpen size={20} className="text-purple-600"/>
+                                    Teaching Resources
+                                </h3>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <a
+                                    href="/resources/facilitator-guide.pdf"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                >
+                                    <div
+                                        className="bg-blue-100 p-2 rounded-lg group-hover:bg-blue-200 transition-colors">
+                                        <FileText size={16} className="text-blue-600"/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-medium text-gray-900">Facilitator Guide</div>
+                                        <div className="text-sm text-gray-500">Complete teaching manual</div>
+                                    </div>
+                                    <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
+                                </a>
+
+                                <a
+                                    href="/resources/game-materials.zip"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                >
+                                    <div
+                                        className="bg-green-100 p-2 rounded-lg group-hover:bg-green-200 transition-colors">
+                                        <Download size={16} className="text-green-600"/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-medium text-gray-900">Game Materials</div>
+                                        <div className="text-sm text-gray-500">All printable handouts</div>
+                                    </div>
+                                    <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
+                                </a>
+
+                                <a
+                                    href="/resources/setup-checklist.pdf"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                >
+                                    <div
+                                        className="bg-orange-100 p-2 rounded-lg group-hover:bg-orange-200 transition-colors">
+                                        <Users size={16} className="text-orange-600"/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-medium text-gray-900">Setup Checklist</div>
+                                        <div className="text-sm text-gray-500">Pre-class preparation</div>
+                                    </div>
+                                    <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* Support */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+                            <div className="p-6 border-b border-gray-100">
+                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                    <HelpCircle size={20} className="text-indigo-600"/>
+                                    Need Help?
+                                </h3>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <a
+                                    href="mailto:support@readyornot.edu?subject=Ready or Not Support Request"
+                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                >
+                                    <div className="bg-red-100 p-2 rounded-lg group-hover:bg-red-200 transition-colors">
+                                        <Mail size={16} className="text-red-600"/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-medium text-gray-900">Contact Support</div>
+                                        <div className="text-sm text-gray-500">Get help with setup or gameplay</div>
+                                    </div>
+                                </a>
+
+                                <a
+                                    href="/resources/faq.pdf"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                >
+                                    <div
+                                        className="bg-purple-100 p-2 rounded-lg group-hover:bg-purple-200 transition-colors">
+                                        <HelpCircle size={16} className="text-purple-600"/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-medium text-gray-900">FAQ & Troubleshooting</div>
+                                        <div className="text-sm text-gray-500">Common questions answered</div>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* Quick Stats */}
+                        <div
+                            className="bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-2xl shadow-lg">
+                            <div className="p-6">
+                                <h3 className="text-lg font-semibold mb-4">Your Teaching Impact</h3>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-purple-200">Total Games:</span>
+                                        <span className="font-bold">{activeGames.length + completedGames.length}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-purple-200">Completed:</span>
+                                        <span className="font-bold">{completedGames.length}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-purple-200">Success Rate:</span>
+                                        <span className="font-bold">
+                                            {activeGames.length + completedGames.length > 0
+                                                ? Math.round((completedGames.length / (activeGames.length + completedGames.length)) * 100)
+                                                : 0}%
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Delete Confirmation Modal */}
             <DeleteConfirmModal
                 isOpen={isDeleteModalOpen}
                 gameToDelete={gameToDelete}
