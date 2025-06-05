@@ -1,4 +1,4 @@
-// src/views/host/pages/CreateGamePage.tsx - Fixed draft session management on refresh
+// src/views/host/pages/CreateGamePage.tsx - Fixed to prevent session recreation when opening new tabs
 import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
@@ -46,16 +46,26 @@ const CreateGamePage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const resumeSessionId = searchParams.get('resume');
 
-    // Track if user is intentionally leaving (not just refreshing)
+    // Track if user is intentionally leaving (not just refreshing or opening new tabs)
     const isIntentionalNavigation = useRef(false);
     const beforeUnloadHandled = useRef(false);
+    const sessionInitialized = useRef(false); // NEW: Track if session is properly initialized
+    const isNewTabAction = useRef(false); // NEW: Track if user is opening new tabs
 
     const sessionManager = GameSessionManager.getInstance();
 
-    // Handle browser refresh/close - prevent draft deletion on refresh
+    // NEW: Enhanced beforeunload handler that better detects actual page unload vs tab actions
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (draftSessionId && !isSubmitting) {
+            // Only handle if we have a session and user isn't in middle of submitting
+            if (!draftSessionId || isSubmitting) return;
+
+            // Check if this is likely a page refresh/close vs opening a new tab
+            const isLikelyPageUnload = !isNewTabAction.current && document.visibilityState !== 'hidden';
+
+            if (isLikelyPageUnload) {
+                console.log('[CreateGamePage] Handling page unload - saving draft session state');
+
                 // Store the draft session ID in sessionStorage so we can resume after refresh
                 sessionStorage.setItem('ron_draft_session_id', draftSessionId);
                 sessionStorage.setItem('ron_draft_wizard_data', JSON.stringify(gameData));
@@ -63,21 +73,55 @@ const CreateGamePage: React.FC = () => {
 
                 beforeUnloadHandled.current = true;
 
-                // Show warning for browser close (but not refresh) - modern approach
+                // Show warning for browser close/refresh
                 e.preventDefault();
-                // Return empty string for modern browsers, they'll show their own dialog
                 return '';
             }
         };
 
+        // NEW: Track mouse events that might indicate new tab opening
+        const handleMouseDown = (e: MouseEvent) => {
+            // Detect middle click or ctrl+click which often opens new tabs
+            if (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey))) {
+                console.log('[CreateGamePage] Detected potential new tab action');
+                isNewTabAction.current = true;
+                // Reset after a short delay
+                setTimeout(() => {
+                    isNewTabAction.current = false;
+                }, 1000);
+            }
+        };
+
+        // NEW: Track visibility changes to better understand page state
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && sessionInitialized.current) {
+                console.log('[CreateGamePage] Page became visible - checking session state');
+                // Reset the new tab flag when page becomes visible again
+                isNewTabAction.current = false;
+            }
+        };
+
         window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+        document.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            document.removeEventListener('mousedown', handleMouseDown);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [draftSessionId, gameData, currentStep, isSubmitting]);
 
     // Initialize or resume draft session
     useEffect(() => {
         if (!user) {
             navigate('/login', {replace: true});
+            return;
+        }
+
+        // Prevent re-initialization if already done
+        if (sessionInitialized.current) {
+            console.log('[CreateGamePage] Session already initialized, skipping');
             return;
         }
 
@@ -109,7 +153,7 @@ const CreateGamePage: React.FC = () => {
                     const storedWizardData = sessionStorage.getItem('ron_draft_wizard_data');
                     const storedCurrentStep = sessionStorage.getItem('ron_draft_current_step');
 
-                    if (storedDraftId && storedWizardData) {
+                    if (storedDraftId && storedWizardData && !beforeUnloadHandled.current) {
                         try {
                             console.log('Attempting to resume draft session from refresh:', storedDraftId);
                             // Try to load the stored draft session
@@ -131,8 +175,9 @@ const CreateGamePage: React.FC = () => {
                                 sessionStorage.removeItem('ron_draft_wizard_data');
                                 sessionStorage.removeItem('ron_draft_current_step');
 
-                                // IMPORTANT: Set the draft session ID and exit early
+                                // IMPORTANT: Set the draft session ID and mark as initialized
                                 setDraftSessionId(draftSession.id);
+                                sessionInitialized.current = true;
                                 setIsLoading(false);
                                 console.log('Draft session restored from refresh:', draftSession.id);
                                 return; // Exit early to prevent creating new session
@@ -169,6 +214,7 @@ const CreateGamePage: React.FC = () => {
                 }
 
                 setDraftSessionId(draftSession.id);
+                sessionInitialized.current = true; // Mark as initialized
                 console.log('Draft session initialized:', draftSession.id);
 
             } catch (error) {
@@ -182,15 +228,21 @@ const CreateGamePage: React.FC = () => {
         initializeDraftSession();
     }, [user, resumeSessionId, navigate, sessionManager]);
 
-    // FIXED: Only cleanup draft session on intentional navigation, not refresh
+    // FIXED: Only cleanup draft session on intentional navigation, not refresh or tab actions
     useEffect(() => {
         return () => {
             // Only clean up if:
             // 1. We have a draft session ID
             // 2. User is not in the middle of submitting
             // 3. This is NOT a page refresh (beforeUnload wasn't handled)
-            // 4. User is intentionally navigating away
-            if (draftSessionId && !isSubmitting && !beforeUnloadHandled.current && isIntentionalNavigation.current) {
+            // 4. This is NOT a new tab action
+            // 5. User is intentionally navigating away
+            if (draftSessionId &&
+                !isSubmitting &&
+                !beforeUnloadHandled.current &&
+                !isNewTabAction.current &&
+                isIntentionalNavigation.current) {
+
                 console.log('Component unmounting due to intentional navigation, cleaning up draft session:', draftSessionId);
 
                 // Use a timeout to allow for navigation to complete
@@ -218,7 +270,7 @@ const CreateGamePage: React.FC = () => {
         setGameData(updatedData);
 
         // Update sessionStorage for refresh persistence - FIX: Only store serializable data
-        if (draftSessionId) {
+        if (draftSessionId && sessionInitialized.current) {
             try {
                 const serializableData = {
                     game_version: updatedData.game_version,
@@ -236,7 +288,7 @@ const CreateGamePage: React.FC = () => {
         }
     }, [gameData, draftSessionId]);
 
-    // Handle wizard navigation - SAVE TO DATABASE HERE (FIXED)
+    // Handle wizard navigation - SAVE TO DATABASE HERE
     const handleNextStep = (dataFromStep?: Partial<NewGameData>) => {
         console.log('CreateGamePage: handleNextStep called, current step:', currentStep);
         setError(null);
@@ -251,10 +303,9 @@ const CreateGamePage: React.FC = () => {
         const newStep = currentStep + 1;
         console.log('CreateGamePage: Advancing to step:', newStep);
 
-        // Save to database when moving to next step - FIXED: Only save serializable data
-        if (draftSessionId) {
+        // Save to database when moving to next step
+        if (draftSessionId && sessionInitialized.current) {
             try {
-                // Create a clean copy of finalData with only serializable properties
                 const serializableData = {
                     game_version: finalData.game_version,
                     name: finalData.name,
@@ -268,25 +319,18 @@ const CreateGamePage: React.FC = () => {
                 console.log('CreateGamePage: Saving wizard state to database...');
                 sessionManager.updateWizardState(draftSessionId, serializableData).catch(error => {
                     console.error('Error saving wizard state (non-blocking):', error);
-                    // Don't block navigation on save error - just log it
                 });
 
-                // Update sessionStorage with the same clean data
                 sessionStorage.setItem('ron_draft_wizard_data', JSON.stringify(serializableData));
                 sessionStorage.setItem('ron_draft_current_step', newStep.toString());
                 console.log('CreateGamePage: Successfully saved to database and sessionStorage');
             } catch (error) {
                 console.error('CreateGamePage: Error preparing data for save:', error);
-                // Don't block navigation on preparation error
             }
         }
 
         if (currentStep < WIZARD_STEPS.length) {
-            console.log('CreateGamePage: Setting current step to:', newStep);
             setCurrentStep(newStep);
-            console.log('CreateGamePage: State update called, should re-render with step:', newStep);
-        } else {
-            console.log('CreateGamePage: Already at last step, not advancing');
         }
     };
 
@@ -296,12 +340,11 @@ const CreateGamePage: React.FC = () => {
             const newStep = currentStep - 1;
             setCurrentStep(newStep);
 
-            // Update sessionStorage
-            if (draftSessionId) {
+            if (draftSessionId && sessionInitialized.current) {
                 sessionStorage.setItem('ron_draft_current_step', newStep.toString());
             }
         } else {
-            handleCancel(); // Use the same cancel logic when going back from step 1
+            handleCancel();
         }
     };
 
@@ -347,7 +390,7 @@ const CreateGamePage: React.FC = () => {
         isIntentionalNavigation.current = true; // Mark as intentional
 
         try {
-            if (draftSessionId) {
+            if (draftSessionId && sessionInitialized.current) {
                 console.log('Deleting draft session before cancel:', draftSessionId);
                 await sessionManager.deleteSession(draftSessionId);
                 console.log('Draft session deleted successfully:', draftSessionId);
@@ -509,7 +552,7 @@ const CreateGamePage: React.FC = () => {
                         onDataChange={handleDataChange}
                         onNext={handleNextStep}
                         onPrevious={handlePreviousStep}
-                        draftSessionId={draftSessionId} // Pass draft session ID to components that need it
+                        draftSessionId={draftSessionId}
                         {...(currentStep === WIZARD_STEPS.length && {
                             isSubmitting,
                             onFinalize: handleFinalizeGame
