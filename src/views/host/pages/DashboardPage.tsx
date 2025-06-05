@@ -1,5 +1,5 @@
-// src/views/host/pages/DashboardPage.tsx - Enhanced with completed games section and host resources
-import React, {useEffect} from 'react';
+// src/views/host/pages/DashboardPage.tsx - Fixed infinite refresh loop
+import React, {useEffect, useRef} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
 import {
     PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, RefreshCw, LogOut,
@@ -19,12 +19,14 @@ const DashboardPage: React.FC = () => {
 
     // Check if we need to auto-refresh
     const shouldAutoRefresh = location.state?.forceRefresh === true;
+    const autoRefreshHandled = useRef(false); // Prevent multiple auto-refreshes
 
     const {
         games,
         isLoadingGames,
         gamesError,
-        refetchGames
+        refetchGames,
+        clearCache
     } = useDashboardData(user?.id);
 
     const {
@@ -41,16 +43,29 @@ const DashboardPage: React.FC = () => {
         closeDeleteModal
     } = useDashboardActions(games, refetchGames);
 
-    // Auto-refresh when returning from cancelled draft creation
+    // FIXED: Auto-refresh when returning from cancelled draft creation
     useEffect(() => {
-        if (shouldAutoRefresh && !authLoading && user) {
+        if (shouldAutoRefresh && !authLoading && user && !autoRefreshHandled.current) {
             console.log('[DashboardPage] Auto-refreshing due to forceRefresh state');
+            autoRefreshHandled.current = true; // Prevent multiple executions
+
+            // Clear the location state immediately to prevent re-triggering
+            window.history.replaceState({}, '', '/dashboard');
+
+            // Clear cache and refetch with a small delay
             setTimeout(async () => {
+                clearCache();
                 await refetchGames();
             }, 100);
-            window.history.replaceState({}, '', '/dashboard');
         }
-    }, [shouldAutoRefresh, authLoading, user, refetchGames]);
+    }, [shouldAutoRefresh, authLoading, user, clearCache, refetchGames]);
+
+    // Manual refresh function
+    const handleManualRefresh = async () => {
+        console.log('[DashboardPage] Manual refresh triggered');
+        clearCache();
+        await refetchGames();
+    };
 
     // Combine active and draft games
     const activeGames = [
@@ -171,7 +186,7 @@ const DashboardPage: React.FC = () => {
                                 Create New Game
                             </Link>
                             <button
-                                onClick={refetchGames}
+                                onClick={handleManualRefresh}
                                 disabled={isLoadingGames}
                                 className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200 hover:border-blue-300"
                                 title="Refresh games"

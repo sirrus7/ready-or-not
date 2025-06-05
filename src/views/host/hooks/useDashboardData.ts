@@ -1,4 +1,4 @@
-// src/views/host/hooks/useDashboardData.ts - Enhanced with better cache management
+// src/views/host/hooks/useDashboardData.ts - Fixed infinite loop issue
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {GameSessionManager} from '@core/game/GameSessionManager';
 import {GameSession} from '@shared/types';
@@ -15,7 +15,7 @@ interface UseDashboardDataReturn {
     isLoadingGames: boolean;
     gamesError: string | null;
     refetchGames: () => Promise<CategorizedGames | null>;
-    clearCache: () => void; // Add cache clearing function
+    clearCache: () => void;
 }
 
 export const useDashboardData = (userId?: string): UseDashboardDataReturn => {
@@ -44,7 +44,7 @@ export const useDashboardData = (userId?: string): UseDashboardDataReturn => {
         [userId],
         {
             cacheKey: `categorized-sessions-${userId}`,
-            cacheTimeout: 30 * 1000, // Reduced cache timeout to 30 seconds for more responsive updates
+            cacheTimeout: 30 * 1000, // 30 seconds cache timeout
             retryOnError: true,
             maxRetries: 2,
             onError: (error) => {
@@ -56,16 +56,16 @@ export const useDashboardData = (userId?: string): UseDashboardDataReturn => {
     const games = categorizedGames || {draft: [], active: [], completed: []};
     const allGames = [...games.draft, ...games.active, ...games.completed];
 
-    // Enhanced refetch function that clears cache first
+    // FIXED: Simple refetch function that doesn't clear cache automatically
+    // The caller (DashboardPage) will handle cache clearing when needed
     const enhancedRefetchGames = async () => {
-        console.log('[useDashboardData] Enhanced refetch - clearing cache first');
-        clearCache(); // Clear the cache before refetching
+        console.log('[useDashboardData] Refetching games data');
         return await refetchGames();
     };
 
     return {
         games,
-        allGames, // For backwards compatibility
+        allGames,
         isLoadingGames,
         gamesError,
         refetchGames: enhancedRefetchGames,

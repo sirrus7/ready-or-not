@@ -1,4 +1,4 @@
-// src/views/host/pages/CreateGamePage.tsx - Fixed draft session management
+// src/views/host/pages/CreateGamePage.tsx - Fixed draft session management on refresh
 import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
@@ -130,6 +130,12 @@ const CreateGamePage: React.FC = () => {
                                 sessionStorage.removeItem('ron_draft_session_id');
                                 sessionStorage.removeItem('ron_draft_wizard_data');
                                 sessionStorage.removeItem('ron_draft_current_step');
+
+                                // IMPORTANT: Set the draft session ID and exit early
+                                setDraftSessionId(draftSession.id);
+                                setIsLoading(false);
+                                console.log('Draft session restored from refresh:', draftSession.id);
+                                return; // Exit early to prevent creating new session
                             } else {
                                 throw new Error('Stored session is not a draft');
                             }
@@ -140,29 +146,26 @@ const CreateGamePage: React.FC = () => {
                             sessionStorage.removeItem('ron_draft_wizard_data');
                             sessionStorage.removeItem('ron_draft_current_step');
                             // Fall through to create new draft
-                            draftSession = null;
                         }
                     }
 
-                    // Create new draft if we don't have one from refresh
-                    if (!draftSession) {
-                        console.log('Checking for existing draft sessions to clean up...');
-                        const existingDraft = await sessionManager.getLatestDraftForTeacher(user.id);
+                    // Create new draft ONLY if we don't have one from refresh
+                    console.log('Checking for existing draft sessions to clean up...');
+                    const existingDraft = await sessionManager.getLatestDraftForTeacher(user.id);
 
-                        if (existingDraft) {
-                            console.log('Found existing draft session, cleaning up:', existingDraft.id);
-                            try {
-                                await sessionManager.deleteSession(existingDraft.id);
-                                console.log('Cleaned up existing draft session');
-                            } catch (cleanupError) {
-                                console.warn('Failed to clean up existing draft, continuing with new draft:', cleanupError);
-                            }
+                    if (existingDraft) {
+                        console.log('Found existing draft session, cleaning up:', existingDraft.id);
+                        try {
+                            await sessionManager.deleteSession(existingDraft.id);
+                            console.log('Cleaned up existing draft session');
+                        } catch (cleanupError) {
+                            console.warn('Failed to clean up existing draft, continuing with new draft:', cleanupError);
                         }
-
-                        // Create new draft
-                        console.log('Creating new draft session');
-                        draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD);
                     }
+
+                    // Create new draft
+                    console.log('Creating new draft session');
+                    draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD);
                 }
 
                 setDraftSessionId(draftSession.id);
