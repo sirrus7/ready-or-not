@@ -1,4 +1,6 @@
-const imageWidth = '180px';
+const imageWidth = '160px';
+const fontFamily = "'Century Gothic','Nunito Sans', sans-serif";
+
 
 export const createLogoSection = (logoUrl?: string): string => {
     if (!logoUrl) return '';
@@ -12,7 +14,7 @@ export const createLogoSection = (logoUrl?: string): string => {
 
 export const createTeamNameSection = (teamName: string): string => {
     return `
-    <h1 style="font-family: 'Century Gothic','Nunito Sans', sans-serif; font-size: 86px; margin: 20px 0; font-weight: bold; color: black; text-align: center;">
+    <h1 style="font-family: ${fontFamily}; font-size: 82px; margin: 20px 0; font-weight: bold; color: black; text-align: center;">
       ${teamName}
     </h1>
   `;
@@ -54,11 +56,13 @@ export const createLeftSide = (teamName: string, logoUrl?: string): string => {
         display: flex;
         flex-direction: row;
         width: 90%;
+        margin: 10px;
+        justify-content: center;
       ">
           <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
             ${createTeamNameSection(teamName)}
           </div>
-          <div style="flex: 0 0 auto;">
+          <div style="flex: 0 0 auto; margin: 10px;">
             ${createLogoSection(logoUrl)}
           </div>
       </div>
@@ -89,11 +93,12 @@ export const createRightSide = (teamName: string, logoUrl?: string, qrCodeUrl?: 
         flex-direction: row;
         width: 90%;
         justify-content: center;
+        margin: 10px;
       ">
-          <div style="flex: 0 0 auto; flex-direction: row; justify-content: center">
+          <div style="flex: 0 0 auto; flex-direction: row; justify-content: center; margin: 10px;">
               <div style="flex: 0 0 auto;">
               <div style="
-                font-family: 'Century Gothic','Nunito Sans', sans-serif; 
+                font-family: ${fontFamily}; 
                 font-size: 20px; font-weight: bold; color: black; text-align: center;">
                 Team Login
               </div>
