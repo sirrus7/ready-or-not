@@ -17,7 +17,7 @@ export interface PDFConfig {
 
 export interface TeamCardAssets {
     logoUrl?: string;
-    generateQRCode?: (team: TeamConfig) => string;
+    teamJoinUrl?: string;
 }
 
 export interface ProcessedTeamAssets {

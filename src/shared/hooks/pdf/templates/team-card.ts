@@ -8,20 +8,21 @@ import {
 export const generateTeamCardHTML = (
     team: TeamConfig,
     logoUrl?: string,
-    qrCodeUrl?: string
+    qrCodeImage?: string
 ): string => {
+
+    console.debug(`logo: ${logoUrl?.slice(0,20)}, qrCodeImage: ${qrCodeImage?.slice(0, 20)}`)
     // Left side: Logo + Team Name + QR Code (rotated -90 degrees, baseline toward left edge)
     const leftSide = createLeftSide(
         team.name,
         logoUrl,
-        qrCodeUrl
     );
 
     // Right side: Logo + Team Name + QR Code (rotated 90 degrees, baseline toward right edge)
     const rightSide = createRightSide(
         team.name,
         logoUrl,
-        qrCodeUrl
+        qrCodeImage
     );
 
     return createFoldableCardContainer(leftSide, rightSide);

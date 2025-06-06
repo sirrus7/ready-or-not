@@ -1,7 +1,7 @@
 // src/components/Host/CreateGameWizard/Step4_PrintHandouts.tsx
 import React, {useState, useMemo} from 'react';
 import {NewGameData} from '@shared/types';
-import {generateTeamNameCardsPDF} from '@shared/utils/generateTeamNameCards.ts';
+
 import {
     ArrowLeft,
     ArrowRight,
@@ -20,18 +20,23 @@ interface Step4Props {
     gameData: NewGameData;
     onNext: () => void;
     onPrevious: () => void;
+    draftSessionId: string;
 }
 
-const PrintHandoutsStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => {
+const PrintHandoutsStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious, draftSessionId}) => {
     const { generatePDF: generateTeamCardPDF, isGenerating: isGeneratingTeamCardPDF } = usePDFGeneration("teamCards", false);
     const handleGenerateTeamCards = async () => {
         try {
+            // TODO - consolidate this
+            const teamDisplayBaseUrl = `${window.location.origin}/team`;
+            const teamJoinUrl = `${teamDisplayBaseUrl}/${draftSessionId}`;
+
             await generateTeamCardPDF({
                 teams: gameData.teams_config!,
                 assets: {
                     logoUrl: '/images/ready-or-not-logo.png',
                     // TODO - which url to use here
-                    generateQRCode: (team) => `https://company.com/teams/${team.id || team.name}`
+                    teamJoinUrl,
                 },
                 // enable if you want to preview things prior to render
                 debug: false,
@@ -113,14 +118,8 @@ Thank you,
 [Your Name]
   `.trim();
 
-    const downloadItem = (url: string, filename?: string) => {
-        if (filename === 'team-name-cards') {
-            // Generate team name cards PDF - this will automatically download
-            generateTeamNameCardsPDF(gameData.teams_config);
-        } else {
-            // Open other PDFs in new tab like the rest
-            window.open(url, '_blank');
-        }
+    const downloadItem = (url: string) => {
+        window.open(url, '_blank');
     };
 
     const toggleSection = (sectionId: string) => {

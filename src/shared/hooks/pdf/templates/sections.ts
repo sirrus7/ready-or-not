@@ -19,6 +19,8 @@ export const createTeamNameSection = (teamName: string): string => {
 export const createQRSection = (qrCodeUrl?: string): string => {
     if (!qrCodeUrl) return '';
 
+    console.debug(`Creating Team Card QR Section with url: "${qrCodeUrl}"`)
+
     return `
     <div style="margin: 10px;">
       <img src="${qrCodeUrl}" 
@@ -29,7 +31,7 @@ export const createQRSection = (qrCodeUrl?: string): string => {
 };
 
 // Left side - text rotated 90 degrees clockwise (baseline toward right edge)
-export const createLeftSide = (teamName: string, logoUrl?: string, qrCodeUrl?: string): string => {
+export const createLeftSide = (teamName: string, logoUrl?: string): string => {
     return `
     <div style="
       width: 100%;
@@ -51,15 +53,13 @@ export const createLeftSide = (teamName: string, logoUrl?: string, qrCodeUrl?: s
         flex-direction: row;
         width: 90%;
       ">
-          <div style="flex: 0 0 auto;">
-            ${createLogoSection(logoUrl)}
+        <div style="flex: 0 0 auto; width: 200px">
           </div>
           <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
             ${createTeamNameSection(teamName)}
           </div>
           <div style="flex: 0 0 auto;">
-            <div>Team Login</div>
-            ${createQRSection(qrCodeUrl)}
+            ${createLogoSection(logoUrl)}
           </div>
       </div>
     </div>
@@ -90,7 +90,10 @@ export const createRightSide = (teamName: string, logoUrl?: string, qrCodeUrl?: 
         width: 90%;
       ">
 <!--      Space holder-->
-            <div style="flex: 0 0 auto; width: 200px">
+
+          <div style="flex: 0 0 auto;">
+            <div>Team Login</div>
+            ${createQRSection(qrCodeUrl)}
           </div>
           <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
             ${createTeamNameSection(teamName)}

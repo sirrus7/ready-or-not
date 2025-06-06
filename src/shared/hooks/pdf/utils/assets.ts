@@ -1,5 +1,6 @@
 import { TeamConfig, TeamCardAssets, ProcessedTeamAssets } from '../types';
 import { QR_CODE_OPTIONS } from '../config';
+import QRCode from "qrcode";
 
 export const preloadImage = (url: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
@@ -11,10 +12,9 @@ export const preloadImage = (url: string): Promise<HTMLImageElement> => {
     });
 };
 
-export const generateQRCodeDataURL = async (text: string): Promise<string> => {
+export const generateQRCodeDataImage = async (text: string): Promise<string> => {
     try {
-        const QRCode = await import('qrcode');
-        return await QRCode.default.toDataURL(text, QR_CODE_OPTIONS);
+        return QRCode.toDataURL(text, QR_CODE_OPTIONS);
     } catch (error) {
         console.error('Failed to generate QR code:', error);
         return `data:image/svg+xml,${encodeURIComponent(`
@@ -38,15 +38,14 @@ export const processLogo = async (logoUrl?: string): Promise<void> => {
     }
 };
 
+// TODO - consolidate this
 export const processQRCode = async (
     team: TeamConfig,
-    generateQRCode?: (team: TeamConfig) => string
+    url: string,
 ): Promise<string | undefined> => {
-    if (!generateQRCode) return undefined;
 
     try {
-        const qrText = generateQRCode(team);
-        return await generateQRCodeDataURL(qrText);
+        return await generateQRCodeDataImage(url);
     } catch (error) {
         console.error(`Failed to generate QR code for team ${team.name}`, error);
         return undefined;
@@ -55,10 +54,10 @@ export const processQRCode = async (
 
 export const processTeamAssets = async (
     team: TeamConfig,
-    assets: TeamCardAssets
+    assets: TeamCardAssets,
 ): Promise<ProcessedTeamAssets> => {
     const [qrCodeUrl] = await Promise.all([
-        processQRCode(team, assets.generateQRCode),
+        processQRCode(team, assets.teamJoinUrl!),
     ]);
 
     return { qrCodeUrl };

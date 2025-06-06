@@ -10,7 +10,7 @@ export const captureElementToPNG = async (
 ): Promise<string> => {
 
     const canvas = await html2canvas(element, {
-        // scale: config.scale,
+        scale: config.scale,
         useCORS: true,
         logging: process.env.NODE_ENV === 'development',
         // width: config.width,
@@ -39,6 +39,8 @@ export const renderTeamCardInContainer = async (
 
     const teamAssets = await processTeamAssets(team, assets);
     const html = generateTeamCardHTML(team, assets.logoUrl, teamAssets.qrCodeUrl);
+
+    console.debug(`renderTeamCardInContainer - qrCodeUrl: ${teamAssets.qrCodeUrl}`)
     if (debug) {
         debugHTML(html);
     }

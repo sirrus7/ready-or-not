@@ -5,6 +5,8 @@ export const DEFAULT_CONFIG: PDFConfig = {
     unit: 'in',
     format: 'letter',
     scale: 1,
+    width: 11,
+    height: 8.5,
 };
 
 export const QR_CODE_OPTIONS = {
