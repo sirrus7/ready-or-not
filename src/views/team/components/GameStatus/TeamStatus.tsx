@@ -25,7 +25,7 @@ const TeamStatusDisplay: React.FC<TeamStatusDisplayProps> = ({
         <div className="flex-shrink-0 sticky top-0 z-10">
             <KpiDisplay
                 teamName={teamName}
-                currentRoundLabel={kpiRoundLabel}
+                currentRoundLabel={isLoading ? "Loading..." : kpiRoundLabel}
                 kpis={teamKpis}
             />
             {isLoading && currentPhase?.round_number > 0 && (

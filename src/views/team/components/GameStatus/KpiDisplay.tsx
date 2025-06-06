@@ -1,6 +1,6 @@
 // src/components/Game/KpiDisplay.tsx
 import React from 'react';
-import {TeamRoundData} from '@shared/types/common';
+import {TeamRoundData} from '@shared/types';
 import {
     TrendingUp,
     TrendingDown,
@@ -15,7 +15,6 @@ interface KpiDisplayProps {
     teamName: string | null;
     currentRoundLabel: string;
     kpis: TeamRoundData | null;
-    // No isLoadingData prop needed here
 }
 
 // Base starting values for the game

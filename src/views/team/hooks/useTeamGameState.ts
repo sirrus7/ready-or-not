@@ -1,4 +1,4 @@
-// src/views/team/hooks/useTeamGameState.ts - Enhanced with decision phase integration
+// src/views/team/hooks/useTeamGameState.ts - FIXED Real-time Updates
 import {useState, useEffect, useMemo} from 'react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {useRealtimeSubscription} from '@shared/services/supabase';
@@ -26,9 +26,6 @@ interface useTeamGameStateReturn {
     connectionStatus: 'disconnected' | 'connecting' | 'connected';
 }
 
-/**
- * Enhanced team game state hook with decision phase integration
- */
 export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStateProps): useTeamGameStateReturn => {
     // Core state
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
@@ -84,10 +81,15 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     useRealtimeSubscription(
         `session-changes-${sessionId}`,
         {
-            table: 'game_sessions',  // Make sure this matches your actual table name
+            table: 'game_sessions',
             filter: `id=eq.${sessionId}`,
             onchange: (payload) => {
                 console.log('[useTeamGameState] Session updated via real-time:', payload.eventType, payload.new);
+                // Immediate session data update
+                if (payload.new && payload.eventType !== 'DELETE') {
+                    updateFromSessionData(payload.new);
+                }
+                // Also refetch to ensure consistency
                 refetchSession();
             }
         },
@@ -108,12 +110,12 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         !!(sessionId && loggedInTeamId && sessionId !== 'new')
     );
 
-    // Update current phase and slide based on session data
-    useEffect(() => {
-        if (!sessionData || !gameStructure) return;
+    // Helper function to update state from session data
+    const updateFromSessionData = (sessionDataToProcess: any) => {
+        if (!sessionDataToProcess || !gameStructure) return;
 
-        const phaseId = sessionData.current_phase_id;
-        const slideIndex = sessionData.current_slide_id_in_phase;
+        const phaseId = sessionDataToProcess.current_phase_id;
+        const slideIndex = sessionDataToProcess.current_slide_id_in_phase;
 
         if (!phaseId || slideIndex === null || slideIndex === undefined) {
             console.warn('[useTeamGameState] Session data incomplete:', {phaseId, slideIndex});
@@ -139,6 +141,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         console.log('[useTeamGameState] Updated current phase and slide:', {
             phase: phase.label,
             slide: slide.title,
+            slideId: slide.id,
             isInteractive: phase.is_interactive_player_phase
         });
 
@@ -153,33 +156,44 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
         const shouldBeDecisionTime = isInteractiveSlide && phase.is_interactive_player_phase;
 
-        if (shouldBeDecisionTime !== isDecisionTime) {
-            console.log('[useTeamGameState] Decision time changed:', shouldBeDecisionTime);
-            setIsDecisionTime(shouldBeDecisionTime);
+        console.log('[useTeamGameState] Decision time check:', {
+            slideType: slide.type,
+            isInteractiveSlide,
+            phaseIsInteractive: phase.is_interactive_player_phase,
+            shouldBeDecisionTime
+        });
 
-            // Set timer if this is a timed decision phase
-            if (shouldBeDecisionTime && slide.timer_duration_seconds) {
-                const endTime = Date.now() + (slide.timer_duration_seconds * 1000);
-                setDecisionPhaseTimerEndTime(endTime);
-                console.log('[useTeamGameState] Set decision timer for', slide.timer_duration_seconds, 'seconds');
-            } else if (!shouldBeDecisionTime) {
-                setDecisionPhaseTimerEndTime(undefined);
-            }
+        setIsDecisionTime(shouldBeDecisionTime);
+
+        // Set timer if this is a timed decision phase
+        if (shouldBeDecisionTime && slide.timer_duration_seconds) {
+            const endTime = Date.now() + (slide.timer_duration_seconds * 1000);
+            setDecisionPhaseTimerEndTime(endTime);
+            console.log('[useTeamGameState] Set decision timer for', slide.timer_duration_seconds, 'seconds');
+        } else if (!shouldBeDecisionTime) {
+            setDecisionPhaseTimerEndTime(undefined);
         }
+    };
 
-    }, [sessionData, gameStructure, isDecisionTime]);
+    // Update current phase and slide based on session data
+    useEffect(() => {
+        if (sessionData) {
+            updateFromSessionData(sessionData);
+        }
+    }, [sessionData, gameStructure]);
 
-    // Broadcast integration for real-time slide updates
+    // Enhanced broadcast integration for real-time slide updates
     useEffect(() => {
         if (!sessionId) return;
 
+        console.log('[useTeamGameState] Setting up broadcast manager for session:', sessionId);
         const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'presentation');
 
-        console.log('[useTeamGameState] Setting up broadcast listener for session:', sessionId);
         setConnectionStatus('connecting');
 
+        // Set up slide update listener
         const unsubscribeSlideUpdates = broadcastManager.onSlideUpdate((slide: Slide) => {
-            console.log('[useTeamGameState] Received slide update from host:', slide.id, slide.title);
+            console.log('[useTeamGameState] Received slide update from host:', slide.id, slide.title || 'No title');
 
             // Find the phase that contains this slide
             const containingPhase = gameStructure.allPhases.find(phase =>
@@ -187,6 +201,8 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             );
 
             if (containingPhase) {
+                console.log('[useTeamGameState] Found containing phase:', containingPhase.label, containingPhase.id);
+
                 setCurrentActivePhase(containingPhase);
                 setCurrentActiveSlide(slide);
 
@@ -198,34 +214,50 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
                 const shouldBeDecisionTime = isInteractiveSlide && containingPhase.is_interactive_player_phase;
 
+                console.log('[useTeamGameState] Broadcast decision time check:', {
+                    slideType: slide.type,
+                    isInteractiveSlide,
+                    phaseIsInteractive: containingPhase.is_interactive_player_phase,
+                    shouldBeDecisionTime
+                });
+
                 setIsDecisionTime(shouldBeDecisionTime);
 
                 if (shouldBeDecisionTime && slide.timer_duration_seconds) {
                     const endTime = Date.now() + (slide.timer_duration_seconds * 1000);
                     setDecisionPhaseTimerEndTime(endTime);
+                    console.log('[useTeamGameState] Set timer from broadcast:', slide.timer_duration_seconds, 'seconds');
                 } else if (!shouldBeDecisionTime) {
                     setDecisionPhaseTimerEndTime(undefined);
                 }
 
                 console.log('[useTeamGameState] Updated from broadcast - Decision time:', shouldBeDecisionTime);
+            } else {
+                console.warn('[useTeamGameState] Could not find phase for slide:', slide.id);
             }
         });
 
-        // Monitor connection status
-        const checkConnection = () => {
-            const status = broadcastManager.getConnectionStatus();
+        // Set up connection status monitoring
+        const unsubscribeStatus = broadcastManager.onPresentationStatus((status) => {
+            console.log('[useTeamGameState] Connection status changed:', status);
             setConnectionStatus(status);
+        });
+
+        // Send ready status immediately and periodically
+        const sendReady = () => {
+            console.log('[useTeamGameState] Sending ready status to host');
+            broadcastManager.sendStatus('ready');
         };
 
-        const connectionInterval = setInterval(checkConnection, 2000);
-
-        // Initial check
-        setTimeout(checkConnection, 500);
+        sendReady(); // Immediate
+        const readyInterval = setInterval(sendReady, 5000); // Every 5 seconds
 
         return () => {
-            console.log('[useTeamGameState] Cleaning up broadcast listeners');
+            console.log('[useTeamGameState] Cleaning up broadcast listeners for session:', sessionId);
+            clearInterval(readyInterval);
             unsubscribeSlideUpdates();
-            clearInterval(connectionInterval);
+            unsubscribeStatus();
+            broadcastManager.destroy();
         };
     }, [sessionId, gameStructure]);
 

@@ -1,7 +1,7 @@
-// src/views/team/TeamApp.tsx - FIXED PROPS
+// src/views/team/TeamApp.tsx - DEBUG VERSION
 import React, {useState, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
-import {AlertTriangle, Smartphone, Clock, RefreshCw, CheckCircle} from 'lucide-react';
+import {AlertTriangle, Smartphone, Clock, RefreshCw, CheckCircle, Bug} from 'lucide-react';
 import {useSupabaseConnection} from '@shared/services/supabase';
 import {GameSessionManager} from '@core/game/GameSessionManager';
 import {useTeamGameState} from './hooks/useTeamGameState';
@@ -20,6 +20,7 @@ const TeamApp: React.FC = () => {
     const [sessionStatus, setSessionStatus] = useState<SessionStatus>('loading');
     const [sessionError, setSessionError] = useState<string | null>(null);
     const [lastCheckTime, setLastCheckTime] = useState<number>(Date.now());
+    const [showDebug, setShowDebug] = useState<boolean>(false);
 
     // Team login state
     const [loggedInTeamId, setLoggedInTeamId] = React.useState<string | null>(
@@ -241,6 +242,35 @@ const TeamApp: React.FC = () => {
     // Active session - show main game interface
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col touch-manipulation">
+            {/* Debug Toggle - Only in development */}
+            <button
+                onClick={() => setShowDebug(!showDebug)}
+                className="fixed top-16 right-4 z-30 bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 transition-colors"
+                title="Toggle Debug Info"
+            >
+                <Bug size={16}/>
+            </button>
+
+            {/* Debug Panel */}
+            {showDebug && (
+                <div className="fixed top-20 right-4 z-20 bg-black/90 text-white p-4 rounded-lg text-xs max-w-sm">
+                    <h4 className="font-bold mb-2">Debug Info</h4>
+                    <div className="space-y-1">
+                        <div>Session: {sessionId?.substring(0, 8)}...</div>
+                        <div>Team: {loggedInTeamId?.substring(0, 8)}...</div>
+                        <div>Connection: {broadcastState.connectionStatus}</div>
+                        <div>Current Slide: {broadcastState.currentActiveSlide?.id || 'None'}</div>
+                        <div>Current Phase: {broadcastState.currentActivePhase?.id || 'None'}</div>
+                        <div>Is Decision Time: {broadcastState.isDecisionTime ? 'YES' : 'NO'}</div>
+                        <div>Decision Key: {broadcastState.decisionOptionsKey || 'None'}</div>
+                        <div>Timer: {broadcastState.timeRemainingSeconds || 'None'}</div>
+                        <div>Slide Type: {broadcastState.currentActiveSlide?.type || 'None'}</div>
+                        <div>Phase
+                            Interactive: {broadcastState.currentActivePhase?.is_interactive_player_phase ? 'YES' : 'NO'}</div>
+                    </div>
+                </div>
+            )}
+
             {/* Team Logout Button */}
             <TeamLogout
                 teamName={loggedInTeamName}
@@ -284,10 +314,25 @@ const TeamApp: React.FC = () => {
                                             {broadcastState.currentActiveSlide.sub_text && (
                                                 <p className="text-sm text-gray-300 mb-4">{broadcastState.currentActiveSlide.sub_text}</p>
                                             )}
+
+                                            {/* Debug slide info */}
+                                            {showDebug && (
+                                                <div className="mt-4 p-3 bg-purple-900/50 rounded text-xs text-left">
+                                                    <div>Slide ID: {broadcastState.currentActiveSlide.id}</div>
+                                                    <div>Type: {broadcastState.currentActiveSlide.type}</div>
+                                                    <div>Timer: {broadcastState.currentActiveSlide.timer_duration_seconds || 'None'}</div>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="text-center text-gray-400 py-12">
                                             <p className="text-lg">Waiting for facilitator to start next phase...</p>
+                                            {showDebug && (
+                                                <div className="mt-4 text-xs">
+                                                    <div>No slide data available</div>
+                                                    <div>Connection: {broadcastState.connectionStatus}</div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

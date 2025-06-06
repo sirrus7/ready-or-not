@@ -1,14 +1,15 @@
-// src/views/host/HostApp.tsx - Enhanced with slide number display
-import React from 'react';
+// src/views/host/HostApp.tsx - FIXED with Broadcast Integration
+import React, {useEffect} from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
 import {AlertCircle, Info, ChevronLeft, ChevronRight} from 'lucide-react';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import PresentationButton from '@views/host/components/GameControls/PresentationButton';
+import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 /**
  * HostApp is the main component for the facilitator's game control interface.
- * Enhanced with video auto-advance functionality and slide number display
+ * Enhanced with video auto-advance functionality, slide number display, and broadcast integration
  */
 const HostApp: React.FC = () => {
     const {
@@ -21,6 +22,26 @@ const HostApp: React.FC = () => {
     } = useGameContext();
 
     const {currentSessionId, gameStructure} = state;
+
+    // Broadcast slide updates to team devices
+    useEffect(() => {
+        if (!currentSessionId || currentSessionId === 'new' || !currentSlideData) return;
+
+        console.log('[HostApp] Broadcasting slide update:', currentSlideData.id, currentSlideData.title);
+
+        const broadcastManager = SimpleBroadcastManager.getInstance(currentSessionId, 'host');
+        broadcastManager.sendSlideUpdate(currentSlideData);
+
+        // Also log for debugging
+        console.log('[HostApp] Current slide details:', {
+            id: currentSlideData.id,
+            title: currentSlideData.title,
+            type: currentSlideData.type,
+            phase: currentPhaseNode?.label,
+            isInteractive: currentPhaseNode?.is_interactive_player_phase
+        });
+
+    }, [currentSessionId, currentSlideData, currentPhaseNode]);
 
     // Handle video end with proper host alert logic
     const handleVideoEnd = () => {
@@ -128,6 +149,15 @@ const HostApp: React.FC = () => {
                                     <div className="absolute top-3 right-3 z-50 w-48">
                                         <PresentationButton/>
                                     </div>
+
+                                    {/* Debug info for interactive slides */}
+                                    {currentSlideData.type.includes('interactive') && (
+                                        <div
+                                            className="absolute bottom-3 left-3 z-50 bg-blue-900/80 text-white px-3 py-1 rounded text-xs">
+                                            Interactive: {currentSlideData.type} |
+                                            Phase: {currentPhaseNode?.is_interactive_player_phase ? 'Active' : 'Inactive'}
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -166,6 +196,9 @@ const HostApp: React.FC = () => {
                                             <span className="ml-2">
                                                 ({state.currentSlideIdInPhase + 1} of {currentPhaseNode.slide_ids.length})
                                             </span>
+                                        )}
+                                        {currentPhaseNode?.is_interactive_player_phase && (
+                                            <span className="ml-2 text-green-600 font-medium">• Interactive</span>
                                         )}
                                     </div>
                                 </div>
