@@ -9,6 +9,12 @@ const TeamCardsPDFDemo: React.FC = () => {
 
     const sampleTeams: TeamConfig[] = [
         {
+            id: '0',
+            name: 'ABCDEFGHIJKLMNO',
+            members: ['Eve Davis', 'Frank Miller'],
+            category: 'Marketing'
+        },
+        {
             id: '1',
             name: 'Alpha Team',
             members: ['John Doe', 'Jane Smith', 'Bob Johnson'],
@@ -32,7 +38,7 @@ const TeamCardsPDFDemo: React.FC = () => {
         try {
             await generatePDF({ teams: sampleTeams, debug: false, assets: {
                 logoUrl: '/images/ready-or-not-logo.png',
-                generateQRCode: (team) => `https://company.com/teams/${team.id || team.name}`,
+                teamJoinUrl: `https://company.com/teams/foobar`,
             }});
         } catch (error) {
             alert('Error generating PDF: ' + (error as Error).message);

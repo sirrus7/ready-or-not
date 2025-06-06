@@ -1,16 +1,18 @@
+const imageWidth = '180px';
+
 export const createLogoSection = (logoUrl?: string): string => {
     if (!logoUrl) return '';
 
     return `
     <img src="${logoUrl}" 
-         style="width: 120px; height: 120px; object-fit: contain; margin: 10px;"
+         style="width: ${imageWidth}; object-fit: contain;"
          crossorigin="anonymous" />
   `;
 };
 
 export const createTeamNameSection = (teamName: string): string => {
     return `
-    <h1 style="font-family: 'Century Gothic','Nunito Sans', sans-serif; font-size: 96px; margin: 20px 0; font-weight: bold; color: black; text-align: center;">
+    <h1 style="font-family: 'Century Gothic','Nunito Sans', sans-serif; font-size: 86px; margin: 20px 0; font-weight: bold; color: black; text-align: center;">
       ${teamName}
     </h1>
   `;
@@ -24,7 +26,7 @@ export const createQRSection = (qrCodeUrl?: string): string => {
     return `
     <div style="margin: 10px;">
       <img src="${qrCodeUrl}" 
-           style="width: 120px; height: 120px; background: white; padding: 4px; border-radius: 8px; border: 1px solid #ddd;"
+           style="width: ${imageWidth}; object-fit: contain; background: white; border-radius: 8px; border: 1px solid #ddd;"
            crossorigin="anonymous" />
     </div>
   `;
@@ -90,7 +92,11 @@ export const createRightSide = (teamName: string, logoUrl?: string, qrCodeUrl?: 
       ">
           <div style="flex: 0 0 auto; flex-direction: row; justify-content: center">
               <div style="flex: 0 0 auto;">
-              <div>Team Login</div>
+              <div style="
+                font-family: 'Century Gothic','Nunito Sans', sans-serif; 
+                font-size: 20px; font-weight: bold; color: black; text-align: center;">
+                Team Login
+              </div>
                 ${createQRSection(qrCodeUrl)}
               </div>
               <div style="flex: 0 0 auto;">
