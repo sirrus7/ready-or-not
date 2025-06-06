@@ -1,4 +1,4 @@
-// src/views/host/HostApp.tsx - FIXED with Broadcast Integration
+// src/views/host/HostApp.tsx - REFACTOR: Fixed navigation logic
 import React, {useEffect} from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
@@ -7,211 +7,89 @@ import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import PresentationButton from '@views/host/components/GameControls/PresentationButton';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
-/**
- * HostApp is the main component for the facilitator's game control interface.
- * Enhanced with video auto-advance functionality, slide number display, and broadcast integration
- */
 const HostApp: React.FC = () => {
     const {
         state,
         currentSlideData,
-        currentPhaseNode,
         previousSlide,
         nextSlide,
         setCurrentHostAlertState,
     } = useGameContext();
 
-    const {currentSessionId, gameStructure} = state;
+    const {currentSessionId, gameStructure, current_slide_index} = state;
 
-    // Broadcast slide updates to team devices
     useEffect(() => {
         if (!currentSessionId || currentSessionId === 'new' || !currentSlideData) return;
-
-        console.log('[HostApp] Broadcasting slide update:', currentSlideData.id, currentSlideData.title);
-
         const broadcastManager = SimpleBroadcastManager.getInstance(currentSessionId, 'host');
         broadcastManager.sendSlideUpdate(currentSlideData);
+    }, [currentSessionId, currentSlideData]);
 
-        // Also log for debugging
-        console.log('[HostApp] Current slide details:', {
-            id: currentSlideData.id,
-            title: currentSlideData.title,
-            type: currentSlideData.type,
-            phase: currentPhaseNode?.label,
-            isInteractive: currentPhaseNode?.is_interactive_player_phase
-        });
-
-    }, [currentSessionId, currentSlideData, currentPhaseNode]);
-
-    // Handle video end with proper host alert logic
     const handleVideoEnd = () => {
-        if (!currentSlideData || !currentPhaseNode) {
-            console.warn('[HostApp] Cannot handle video end - missing slide or phase data');
-            return;
-        }
-
-        console.log('[HostApp] Video ended for slide:', currentSlideData.id);
-
-        // Check if slide has a host alert that should be shown
+        if (!currentSlideData) return;
         if (currentSlideData.host_alert) {
-            console.log('[HostApp] Video ended with host alert - showing alert:', currentSlideData.host_alert.title);
-            // Show the host alert instead of auto-advancing
-            setCurrentHostAlertState({
-                title: currentSlideData.host_alert.title,
-                message: currentSlideData.host_alert.message
-            });
+            setCurrentHostAlertState(currentSlideData.host_alert);
         } else {
-            console.log('[HostApp] Video ended without host alert - auto-advancing to next slide');
-            // Auto-advance to next slide
             nextSlide();
         }
     };
 
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
-        return (
-            <div
-                className="min-h-screen bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 flex flex-col items-center justify-center p-4 text-center">
-                <AlertCircle size={48} className="text-orange-500 mb-4"/>
-                <h1 className="text-2xl font-semibold text-gray-700">Session Not Fully Loaded</h1>
-                <p className="text-gray-600">Please wait for the session to initialize or start/select a game from the
-                    dashboard.</p>
-                {currentSessionId === 'new' &&
-                    <p className="text-sm text-gray-500 mt-2">Setting up new game session...</p>}
-            </div>
-        );
+        return <div className="min-h-screen ..."><AlertCircle/>Session Not Fully Loaded</div>;
     }
 
-    // Determine navigation boundaries
-    const isFirstSlideOverall = currentPhaseNode?.id === gameStructure?.welcome_phases?.[0]?.id && state.currentSlideIdInPhase === 0;
-    const gameEndPhaseIds = gameStructure?.game_end_phases?.map(p => p.id) || [];
-
-    let isLastSlideOverall = false;
-    if (currentPhaseNode && gameStructure) {
-        if (gameEndPhaseIds.includes(currentPhaseNode.id)) {
-            const lastGameEndPhase = gameStructure.game_end_phases[gameStructure.game_end_phases.length - 1];
-            if (currentPhaseNode.id === lastGameEndPhase.id && state.currentSlideIdInPhase === (lastGameEndPhase.slide_ids.length - 1)) {
-                isLastSlideOverall = true;
-            }
-        }
-    }
+    // REFACTOR: Simplified navigation boundary checks
+    const isFirstSlideOverall = current_slide_index === 0;
+    const isLastSlideOverall = current_slide_index === (gameStructure.slides.length - 1);
 
     return (
-        <div
-            className="min-h-screen bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 p-3 md:p-4 lg:p-6 overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-br from-gray-200 to-gray-400 p-3 md:p-4 lg:p-6 overflow-hidden">
             <div className="max-w-screen-2xl mx-auto h-full flex flex-col">
-                {/* Header Section */}
-                <header
-                    className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center flex-shrink-0">
+                <header className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
                     <div>
-                        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-800">
-                            {gameStructure?.name || 'Game Decision Simulator'}
-                        </h1>
-                        <p className="text-gray-500 text-xs md:text-sm">
-                            Facilitator Control Center (Session: {currentSessionId?.substring(0, 8)}...)
-                        </p>
+                        <h1 className="text-xl ...">{gameStructure?.name || 'Game'}</h1>
+                        <p className="text-gray-500 text-xs ...">Session: {currentSessionId?.substring(0, 8)}...</p>
                     </div>
                 </header>
-
-                {/* Main Content Grid */}
                 <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 min-h-0">
-                    {/* Left Panel: Teacher Control Panel */}
-                    <div
-                        className="lg:col-span-1 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-120px)]">
+                    <div className="lg:col-span-1 ... max-h-[calc(100vh-120px)]">
                         <GamePanel/>
                     </div>
-
-                    {/* Right Panel: Content Preview Area */}
-                    <div
-                        className="lg:col-span-2 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-120px)]">
-                        {/* Content Area with SlideRenderer */}
+                    <div className="lg:col-span-2 ... max-h-[calc(100vh-120px)]">
                         <div className="flex-grow bg-gray-50 overflow-hidden relative">
                             {!currentSlideData ? (
-                                <div className="h-full flex items-center justify-center text-gray-400">
-                                    <div className="text-center">
-                                        <Info size={48} className="mx-auto mb-3 opacity-50"/>
-                                        <p>No content loaded</p>
-                                        <p className="text-sm mt-1">Navigate to a slide using the journey map</p>
-                                    </div>
-                                </div>
+                                <div className="h-full flex items-center justify-center text-gray-400"><Info/> No
+                                    content loaded</div>
                             ) : (
                                 <>
-                                    {/* Enhanced SlideRenderer with auto-advance callback */}
-                                    <div className="h-full">
-                                        <SlideRenderer
-                                            slide={currentSlideData}
-                                            sessionId={currentSessionId}
-                                            isHost={true}
-                                            onVideoEnd={handleVideoEnd}
-                                        />
-                                    </div>
-
-                                    {/* Presentation Button */}
-                                    <div className="absolute top-3 right-3 z-50 w-48">
-                                        <PresentationButton/>
-                                    </div>
-
-                                    {/* Debug info for interactive slides */}
-                                    {currentSlideData.type.includes('interactive') && (
+                                    <div className="h-full"><SlideRenderer slide={currentSlideData}
+                                                                           sessionId={currentSessionId} isHost={true}
+                                                                           onVideoEnd={handleVideoEnd}/></div>
+                                    <div className="absolute top-3 right-3 z-50 w-48"><PresentationButton/></div>
+                                    {currentSlideData.interactive_data_key && (
                                         <div
-                                            className="absolute bottom-3 left-3 z-50 bg-blue-900/80 text-white px-3 py-1 rounded text-xs">
-                                            Interactive: {currentSlideData.type} |
-                                            Phase: {currentPhaseNode?.is_interactive_player_phase ? 'Active' : 'Inactive'}
-                                        </div>
+                                            className="absolute bottom-3 left-3 ...">Interactive: {currentSlideData.type}</div>
                                     )}
                                 </>
                             )}
                         </div>
-
-                        {/* Navigation Controls with Enhanced Slide Information */}
-                        <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
+                        <div className="flex-shrink-0 bg-white border-t p-4">
                             <div className="flex items-center justify-center gap-6">
-                                {/* Previous Slide Button */}
-                                <button
-                                    onClick={previousSlide}
-                                    disabled={isFirstSlideOverall}
-                                    className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg hover:bg-blue-700 transition-colors"
-                                    title="Previous Slide"
-                                >
-                                    <ChevronLeft size={24}/>
-                                </button>
-
-                                {/* Enhanced Current Slide Information */}
+                                <button onClick={previousSlide} disabled={isFirstSlideOverall}
+                                        className="w-12 h-12 ..."><ChevronLeft/></button>
                                 <div className="flex-1 text-center">
-                                    <div className="text-sm font-medium text-gray-700">
-                                        {currentSlideData ? (
-                                            <>
-                                                <span
-                                                    className="text-blue-600 font-semibold">Slide {currentSlideData.id}</span>
-                                                {currentSlideData.title && (
-                                                    <>: {currentSlideData.title}</>
-                                                )}
-                                            </>
-                                        ) : (
-                                            'No Slide Selected'
-                                        )}
+                                    <div className="text-sm ...">
+                                        {currentSlideData ? `Slide ${currentSlideData.id}: ${currentSlideData.title}` : 'No Slide Selected'}
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                        {currentPhaseNode?.label || 'No Phase'}
-                                        {currentPhaseNode && state.currentSlideIdInPhase !== null && (
-                                            <span className="ml-2">
-                                                ({state.currentSlideIdInPhase + 1} of {currentPhaseNode.slide_ids.length})
-                                            </span>
+                                        {currentSlideData && current_slide_index !== null && (
+                                            <span>({current_slide_index + 1} of {gameStructure.slides.length})</span>
                                         )}
-                                        {currentPhaseNode?.is_interactive_player_phase && (
-                                            <span className="ml-2 text-green-600 font-medium">• Interactive</span>
-                                        )}
+                                        {currentSlideData?.interactive_data_key &&
+                                            <span className="ml-2 text-green-600 font-medium">• Interactive</span>}
                                     </div>
                                 </div>
-
-                                {/* Next Slide Button */}
-                                <button
-                                    onClick={nextSlide}
-                                    disabled={isLastSlideOverall}
-                                    className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg hover:bg-blue-700 transition-colors"
-                                    title="Next Slide"
-                                >
-                                    <ChevronRight size={24}/>
-                                </button>
+                                <button onClick={nextSlide} disabled={isLastSlideOverall} className="w-12 h-12 ...">
+                                    <ChevronRight/></button>
                             </div>
                         </div>
                     </div>

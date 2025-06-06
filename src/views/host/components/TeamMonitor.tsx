@@ -1,9 +1,9 @@
-// src/views/host/components/TeamMonitor.tsx - ENHANCED with better real-time
-import React, {useState, useEffect, useMemo} from 'react';
+// src/views/host/components/TeamMonitor.tsx - REFACTOR: Removed redundant real-time logic and unused variables.
+import React, {useState, useMemo, useEffect} from 'react';
 import {useGameContext} from '@app/providers/GameProvider.tsx';
 import {TeamDecision} from '@shared/types';
-import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, AlertTriangle, Users, Clock, DollarSign} from 'lucide-react';
-import {useRealtimeSubscription, useSupabaseConnection} from '@shared/services/supabase';
+import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, Clock} from 'lucide-react';
+import {useSupabaseConnection} from '@shared/services/supabase';
 import {useSupabaseMutation} from '@shared/hooks/supabase';
 import Modal from '@shared/components/UI/Modal';
 
@@ -17,223 +17,83 @@ const formatCurrency = (value: number): string => {
     return `$${value.toFixed(0)}`;
 };
 
-const TeamSubmissions: React.FC = () => {
+const TeamMonitor: React.FC = () => {
     const {
         state,
-        currentPhaseNode,
-        fetchTeamsForSession,
-        resetTeamDecisionForPhase,
+        currentSlideData,
+        resetTeamDecision,
         setAllTeamsSubmittedCurrentInteractivePhase
     } = useGameContext();
-    const {teams, teamDecisions, currentSessionId, gameStructure} = state;
-
-    const currentPhaseIdFromNode = currentPhaseNode?.id;
-    const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
-
-    // Reset confirmation modal state
+    const {teams, teamDecisions, gameStructure} = state;
     const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
     const [teamToReset, setTeamToReset] = useState<{ id: string, name: string } | null>(null);
-
-    // Connection monitoring
     const connection = useSupabaseConnection();
-
-    // Enhanced real-time subscription for team decisions
-    useRealtimeSubscription(
-        `team-decisions-realtime-${currentSessionId}`,
-        {
-            table: 'team_decisions',
-            filter: `session_id=eq.${currentSessionId}`,
-            onchange: (payload) => {
-                console.log(`[TeamMonitor] Real-time team decision update:`, payload.eventType, payload.new, payload.old);
-                setLastUpdateTime(new Date().toLocaleTimeString());
-
-                // Refresh teams data to get latest decisions
-                if (currentSessionId && currentSessionId !== 'new') {
-                    // Small delay to ensure database consistency
-                    setTimeout(() => {
-                        console.log('[TeamMonitor] Refreshing team data after real-time update');
-                        fetchTeamsForSession();
-                    }, 500);
-                }
-            }
-        },
-        !!(currentSessionId && currentSessionId !== 'new' && currentPhaseIdFromNode)
-    );
-
-    // Calculate submission statistics
+    const decisionKey = currentSlideData?.interactive_data_key;
     const submissionStats = useMemo(() => {
-        if (!currentPhaseIdFromNode || teams.length === 0) {
-            return {submitted: 0, total: 0, allSubmitted: false, submittedTeams: []};
+        if (!decisionKey || teams.length === 0) {
+            return {submitted: 0, total: teams.length, allSubmitted: false, submittedTeams: []};
         }
-
-        const submittedTeams = teams.filter(team => {
-            const decision = teamDecisions[team.id]?.[currentPhaseIdFromNode];
-            return !!decision?.submitted_at;
-        });
-
-        const submittedCount = submittedTeams.length;
-        const allSubmitted = submittedCount === teams.length && teams.length > 0;
-
+        const submittedTeams = teams.filter(team => teamDecisions[team.id]?.[decisionKey]?.submitted_at);
+        const allSubmitted = submittedTeams.length === teams.length && teams.length > 0;
         return {
-            submitted: submittedCount,
+            submitted: submittedTeams.length,
             total: teams.length,
             allSubmitted,
             submittedTeams: submittedTeams.map(t => t.name)
         };
-    }, [teams, teamDecisions, currentPhaseIdFromNode]);
+    }, [teams, teamDecisions, decisionKey]);
 
-    // Auto-trigger host alert when all teams submit
     useEffect(() => {
-        if (submissionStats.allSubmitted && currentPhaseNode?.is_interactive_player_phase) {
-            console.log('[TeamMonitor] All teams have submitted - triggering host alert');
-            setAllTeamsSubmittedCurrentInteractivePhase(true);
-        } else {
-            setAllTeamsSubmittedCurrentInteractivePhase(false);
-        }
-    }, [submissionStats.allSubmitted, currentPhaseNode?.is_interactive_player_phase, setAllTeamsSubmittedCurrentInteractivePhase]);
-
-    const getTeamDecisionForCurrentPhase = (teamId: string): TeamDecision | undefined => {
-        if (!currentPhaseIdFromNode) return undefined;
-        const decisionsByTeam = teamDecisions[teamId] || {};
-        return decisionsByTeam[currentPhaseIdFromNode];
-    };
-
-    const formatInvestmentSelection = (decision: TeamDecision): string => {
-        if (!decision.selected_investment_ids || decision.selected_investment_ids.length === 0) {
-            const budget = gameStructure?.investment_phase_budgets?.[currentPhaseIdFromNode!] || 0;
-            return `No investments (${formatCurrency(budget)} unspent)`;
-        }
-
-        const dataKey = currentPhaseNode?.interactive_data_key || currentPhaseIdFromNode!;
-        const investmentOptions = gameStructure?.all_investment_options?.[dataKey] || [];
-
-        const selectedNames = decision.selected_investment_ids.map(id => {
-            const option = investmentOptions.find(opt => opt.id === id);
-            return option ? option.name.split('.')[0].trim() : `#${id.slice(-4)}`;
-        });
-
-        const totalSpent = decision.total_spent_budget || 0;
-        const budget = gameStructure?.investment_phase_budgets?.[currentPhaseIdFromNode!] || 0;
-        const unspent = budget - totalSpent;
-
-        return `${selectedNames.join(', ')} (${formatCurrency(totalSpent)} spent, ${formatCurrency(unspent)} unspent)`;
-    };
-
-    const formatChoiceSelection = (decision: TeamDecision): string => {
-        if (!decision.selected_challenge_option_id) return 'No choice made';
-
-        const dataKey = currentPhaseNode?.interactive_data_key || currentPhaseIdFromNode!;
-        const challengeOptions = gameStructure?.all_challenge_options?.[dataKey] || [];
-        const option = challengeOptions.find(opt => opt.id === decision.selected_challenge_option_id);
-
-        if (!option) return `Option ${decision.selected_challenge_option_id}`;
-
-        return option.text.length > 40
-            ? `${option.id}: "${option.text.substring(0, 37)}..."`
-            : `${option.id}: "${option.text}"`;
-    };
+        setAllTeamsSubmittedCurrentInteractivePhase(submissionStats.allSubmitted);
+    }, [submissionStats.allSubmitted, setAllTeamsSubmittedCurrentInteractivePhase]);
 
     const formatSelection = (decision?: TeamDecision): string => {
-        if (!decision || !currentPhaseNode || !gameStructure) return 'Pending...';
+        if (!decision || !currentSlideData || !gameStructure || !decisionKey) return 'Pending...';
 
-        switch (currentPhaseNode.phase_type) {
-            case 'invest':
-                return formatInvestmentSelection(decision);
-            case 'choice':
-                return formatChoiceSelection(decision);
-            case 'double-down-prompt':
-                const dataKey = currentPhaseNode.interactive_data_key || currentPhaseNode.id;
-                const ddOption = gameStructure.all_challenge_options[dataKey]
-                    ?.find(opt => opt.id === decision.selected_challenge_option_id);
-                return ddOption ? ddOption.text : `Choice: ${decision.selected_challenge_option_id}`;
-            case 'double-down-select':
-                if (!decision.double_down_decision) return 'No selection made';
-                const dd = decision.double_down_decision;
-                const rd3Options = gameStructure.all_investment_options['rd3-invest'] || [];
-                const sacrificeOpt = rd3Options.find(opt => opt.id === dd.investmentToSacrificeId);
-                const doubleOpt = rd3Options.find(opt => opt.id === dd.investmentToDoubleDownId);
-                return `Sacrifice: ${sacrificeOpt?.name || dd.investmentToSacrificeId?.slice(-6)} | Double: ${doubleOpt?.name || dd.investmentToDoubleDownId?.slice(-6)}`;
+        switch (currentSlideData.type) {
+            case 'interactive_invest':
+                const selectedIds = decision.selected_investment_ids || [];
+                if (selectedIds.length === 0) return `No investments selected`;
+                const investmentOptions = gameStructure.all_investment_options[decisionKey] || [];
+                const selectedNames = selectedIds.map(id => investmentOptions.find(opt => opt.id === id)?.name.split('.')[0] || 'Unknown').join(', ');
+                return `${selectedNames} (${formatCurrency(decision.total_spent_budget || 0)} spent)`;
+            case 'interactive_choice':
+            case 'interactive_double_down_prompt':
+                const optionId = decision.selected_challenge_option_id;
+                if (!optionId) return 'No choice made';
+                const options = gameStructure.all_challenge_options[decisionKey] || [];
+                const option = options.find(opt => opt.id === optionId);
+                return option ? `${option.id}: "${option.text.substring(0, 40)}..."` : `Option ${optionId}`;
             default:
                 return decision.submitted_at ? 'Submitted' : 'Pending...';
         }
     };
 
-    // Enhanced mutation hook for resetting decisions
-    const {
-        execute: resetDecision,
-        isLoading: isResetting,
-        error: resetError
-    } = useSupabaseMutation(
-        async (data: { teamId: string, phaseId: string }) => {
-            console.log(`[TeamMonitor] Resetting decision for team ${data.teamId}, phase ${data.phaseId}`);
-            await resetTeamDecisionForPhase(data.teamId, data.phaseId);
-            // Refresh the team data after reset
-            setTimeout(() => {
-                console.log('[TeamMonitor] Refreshing after reset');
-                fetchTeamsForSession();
-            }, 300);
-        },
-        {
-            onSuccess: (_, data) => {
-                console.log(`[TeamMonitor] Successfully reset team ${data.teamId} decision`);
-                setLastUpdateTime(new Date().toLocaleTimeString());
-            },
-            onError: (error, data) => {
-                console.error(`[TeamMonitor] Failed to reset team ${data?.teamId} decision:`, error);
-            }
+    const {execute: executeReset, isLoading: isResetting, error: resetError} = useSupabaseMutation(
+        async (data: { teamId: string, decisionKey: string }) => {
+            // REFACTOR: This now just calls the function from the context.
+            // The context handles the DB call and the data refetch.
+            await resetTeamDecision(data.teamId, data.decisionKey);
         }
     );
 
-    const handleResetClick = async (teamId: string, teamName: string) => {
+    const handleResetClick = (teamId: string, teamName: string) => {
         setTeamToReset({id: teamId, name: teamName});
         setIsResetModalOpen(true);
     };
 
     const confirmReset = async () => {
-        if (!teamToReset || !currentSessionId || !currentPhaseIdFromNode) {
-            console.error("Cannot reset: Missing team, session, or phase information", {
-                teamToReset: !!teamToReset,
-                currentSessionId: !!currentSessionId,
-                currentPhaseIdFromNode: currentPhaseIdFromNode,
-                currentPhaseNode: currentPhaseNode?.label
-            });
-            setIsResetModalOpen(false);
-            setTeamToReset(null);
-            return;
-        }
-
-        console.log('[TeamMonitor] Attempting reset with:', {
-            teamId: teamToReset.id,
-            teamName: teamToReset.name,
-            phaseId: currentPhaseIdFromNode,
-            sessionId: currentSessionId
-        });
-
-        await resetDecision({teamId: teamToReset.id, phaseId: currentPhaseIdFromNode});
+        if (!teamToReset || !decisionKey) return;
+        await executeReset({teamId: teamToReset.id, decisionKey});
         setIsResetModalOpen(false);
         setTeamToReset(null);
     };
 
-    // Early return conditions
-    if (!currentPhaseNode?.is_interactive_player_phase) {
+    if (!currentSlideData || !decisionKey) {
         return (
             <div className="bg-gray-50 p-3 my-4 rounded-lg shadow-inner text-center text-gray-500 text-sm">
                 <Info size={18} className="inline mr-1.5 text-blue-500"/>
-                Team submissions are not active for the current phase ({currentPhaseNode?.label || 'N/A'}).
-                {/* Debug info */}
-                <div className="text-xs mt-2 text-gray-400">
-                    Phase ID: {currentPhaseIdFromNode || 'None'} |
-                    Interactive: {currentPhaseNode?.is_interactive_player_phase ? 'Yes' : 'No'}
-                </div>
-            </div>
-        );
-    }
-
-    if (teams.length === 0 && !state.isLoading) {
-        return (
-            <div className="text-center p-4 text-gray-500">
-                <Users size={24} className="mx-auto mb-2 text-gray-400"/>
-                No teams have joined the session yet.
+                Submissions are not active for this slide.
             </div>
         );
     }
@@ -241,193 +101,57 @@ const TeamSubmissions: React.FC = () => {
     return (
         <>
             <div className="bg-white p-3 md:p-4 rounded-lg shadow-md border border-gray-200 mt-4">
-                {/* Header with enhanced stats */}
                 <div className="flex justify-between items-center mb-3">
                     <div>
                         <h3 className="text-base md:text-lg font-semibold text-gray-800 flex items-center gap-2">
-                            {currentPhaseNode.phase_type === 'invest' &&
-                                <DollarSign size={18} className="text-green-600"/>}
-                            {currentPhaseNode.phase_type === 'choice' &&
-                                <AlertTriangle size={18} className="text-orange-600"/>}
-                            Team Submissions: <span className="text-blue-600">{currentPhaseNode.label}</span>
+                            Team Submissions: <span className="text-blue-600">{currentSlideData.title}</span>
                         </h3>
-                        <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                            <span>Progress: {submissionStats.submitted}/{submissionStats.total}</span>
-                            {currentPhaseNode && <span>Phase: {currentPhaseNode.id}</span>}
-                            {!currentPhaseIdFromNode && <span className="text-red-600">⚠ No Phase ID</span>}
-                            {lastUpdateTime && <span>Updated: {lastUpdateTime}</span>}
-                            {!connection.isConnected && <span className="text-red-600">⚠ Disconnected</span>}
+                        {/* REFACTOR: Removed lastUpdateTime and redundant phase info */}
+                        <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
+                            {!connection.isConnected &&
+                                <span className="text-red-600 font-semibold">⚠ Disconnected</span>}
                         </div>
                     </div>
-
-                    {/* Progress indicator */}
                     <div className="text-right">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-                            submissionStats.allSubmitted
-                                ? 'bg-green-100 text-green-800 border border-green-200'
-                                : submissionStats.submitted > 0
-                                    ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                                    : 'bg-gray-100 text-gray-600 border border-gray-200'
-                        }`}>
-                            {submissionStats.allSubmitted ? (
-                                <CheckCircle2 size={16}/>
-                            ) : submissionStats.submitted > 0 ? (
-                                <Clock size={16}/>
-                            ) : (
-                                <Hourglass size={16}/>
-                            )}
+                        <div
+                            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${submissionStats.allSubmitted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            {submissionStats.allSubmitted ? <CheckCircle2 size={16}/> : <Clock size={16}/>}
                             {submissionStats.submitted}/{submissionStats.total}
                         </div>
                     </div>
                 </div>
-
-                {/* Decision phase notice */}
-                <div className={`mb-4 p-3 rounded-md border ${
-                    submissionStats.allSubmitted
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-blue-50 border-blue-200'
-                }`}>
-                    <div className="flex items-center">
-                        {submissionStats.allSubmitted ? (
-                            <>
-                                <CheckCircle2 size={16} className="text-green-600 mr-2"/>
-                                <span className="text-sm font-medium text-green-800">
-                                    All teams have submitted their decisions!
-                                </span>
-                            </>
-                        ) : (
-                            <>
-                                <Users size={16} className="text-blue-600 mr-2"/>
-                                <span className="text-sm font-medium text-blue-800">
-                                    Students can make {currentPhaseNode.phase_type === 'invest' ? 'investment' : 'choice'} decisions on their devices
-                                </span>
-                            </>
-                        )}
-                    </div>
-                    {!submissionStats.allSubmitted && (
-                        <p className="text-xs text-blue-600 mt-1 ml-6">
-                            {submissionStats.submitted > 0
-                                ? `${submissionStats.total - submissionStats.submitted} teams still working...`
-                                : 'Waiting for teams to begin submissions...'
-                            }
-                        </p>
-                    )}
-                    {submissionStats.submittedTeams.length > 0 && (
-                        <p className="text-xs text-gray-500 mt-1 ml-6">
-                            Submitted: {submissionStats.submittedTeams.join(', ')}
-                        </p>
-                    )}
-                </div>
-
-                {/* Show reset error if any */}
-                {resetError && (
-                    <div className="mb-3 p-2 bg-red-100 text-red-700 border border-red-200 rounded-md text-sm">
-                        Reset failed: {resetError}
-                    </div>
-                )}
-
-                {/* Submissions table */}
+                {resetError && <div className="mb-3 p-2 bg-red-100 text-red-700 rounded-md text-sm">Reset
+                    failed: {resetError}</div>}
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-100">
                         <tr>
-                            <th scope="col"
-                                className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Team
-                            </th>
-                            <th scope="col"
-                                className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Status
-                            </th>
-                            <th scope="col"
-                                className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {currentPhaseNode.phase_type === 'invest' ? 'Investment Selection' : 'Selection Details'}
-                            </th>
-                            <th scope="col"
-                                className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
-                            </th>
+                            <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Team</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Selection</th>
+                            <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                        {state.isLoading && teams.length === 0 && (
-                            <tr>
-                                <td colSpan={4} className="text-center py-4 text-gray-500">
-                                    <div className="flex items-center justify-center">
-                                        <div
-                                            className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-                                        Loading team data...
-                                    </div>
-                                </td>
-                            </tr>
-                        )}
-                        {!state.isLoading && teams.length === 0 && (
-                            <tr>
-                                <td colSpan={4} className="text-center py-4 text-gray-500">No teams in this session
-                                    yet.
-                                </td>
-                            </tr>
-                        )}
                         {teams.map((team) => {
-                            const decision = getTeamDecisionForCurrentPhase(team.id);
+                            const decision = teamDecisions[team.id]?.[decisionKey];
                             const hasSubmitted = !!decision?.submitted_at;
-                            const submittedTime = hasSubmitted && decision.submitted_at
-                                ? new Date(decision.submitted_at).toLocaleTimeString()
-                                : null;
-
                             return (
-                                <tr key={team.id} className={`${
-                                    hasSubmitted
-                                        ? 'bg-green-50/70 hover:bg-green-100/70'
-                                        : 'bg-yellow-50/70 hover:bg-yellow-100/70'
-                                } transition-colors`}>
-                                    <td className="px-3 py-2.5 whitespace-nowrap">
-                                        <div className="font-medium text-gray-800">{team.name}</div>
-                                        {submittedTime && (
-                                            <div className="text-xs text-gray-500">at {submittedTime}</div>
-                                        )}
+                                <tr key={team.id} className={hasSubmitted ? 'bg-green-50/70' : 'bg-yellow-50/70'}>
+                                    <td className="px-3 py-2.5 font-medium text-gray-800">{team.name}</td>
+                                    <td className="px-3 py-2.5">
+                                        {hasSubmitted ?
+                                            <span className="flex items-center text-green-700"><CheckCircle2 size={16}
+                                                                                                             className="mr-1.5"/>Submitted</span> :
+                                            <span className="flex items-center text-amber-700"><Hourglass size={16}
+                                                                                                          className="mr-1.5"/>Working...</span>}
                                     </td>
-                                    <td className="px-3 py-2.5 whitespace-nowrap">
-                                        {hasSubmitted ? (
-                                            <span className="flex items-center text-green-700 font-medium">
-                                                <CheckCircle2 size={16} className="mr-1.5 flex-shrink-0"/>
-                                                Submitted
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center text-amber-700 font-medium">
-                                                <Hourglass size={16} className="mr-1.5 flex-shrink-0 animate-pulse"/>
-                                                Working...
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-3 py-2.5 text-gray-600 max-w-md">
-                                        <div className="break-words">
-                                            {formatSelection(decision)}
-                                        </div>
-                                        {currentPhaseNode.phase_type === 'invest' && decision?.total_spent_budget !== undefined && (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                Budget: {formatCurrency(decision.total_spent_budget)} / {formatCurrency(gameStructure?.investment_phase_budgets?.[currentPhaseIdFromNode!] || 0)}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="px-3 py-2.5 whitespace-nowrap text-center">
-                                        {hasSubmitted && currentPhaseIdFromNode && (
-                                            <button
-                                                onClick={() => handleResetClick(team.id, team.name)}
-                                                disabled={isResetting}
-                                                className="text-red-600 hover:text-red-800 disabled:opacity-50 p-1.5 rounded-full hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1 transition-colors"
-                                                title="Reset this team's submission"
-                                            >
-                                                {isResetting ? (
-                                                    <RotateCcw size={18} className="animate-spin"/>
-                                                ) : (
-                                                    <XCircle size={18}/>
-                                                )}
-                                            </button>
-                                        )}
-                                        {hasSubmitted && !currentPhaseIdFromNode && (
-                                            <span className="text-xs text-gray-500">Phase not loaded</span>
-                                        )}
+                                    <td className="px-3 py-2.5 text-gray-600 max-w-md break-words">{formatSelection(decision)}</td>
+                                    <td className="px-3 py-2.5 text-center">
+                                        {hasSubmitted && <button onClick={() => handleResetClick(team.id, team.name)}
+                                                                 disabled={isResetting}
+                                                                 className="text-red-600 hover:text-red-800 p-1.5 rounded-full hover:bg-red-100">
+                                            <XCircle size={18}/></button>}
                                     </td>
                                 </tr>
                             );
@@ -436,62 +160,19 @@ const TeamSubmissions: React.FC = () => {
                     </table>
                 </div>
             </div>
-
-            {/* Reset Confirmation Modal */}
-            <Modal
-                isOpen={isResetModalOpen}
-                onClose={() => {
-                    if (!isResetting) {
-                        setIsResetModalOpen(false);
-                        setTeamToReset(null);
-                    }
-                }}
-                title="Reset Team Submission"
-                size="sm"
-            >
+            <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Reset Team Submission"
+                   size="sm">
                 <div className="p-1">
-                    <div className="flex items-start">
-                        <div
-                            className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-orange-100 sm:mx-0 sm:h-8 sm:w-8">
-                            <AlertTriangle className="h-5 w-5 text-orange-600" aria-hidden="true"/>
-                        </div>
-                        <div className="ml-3 text-left">
-                            <p className="text-sm text-gray-700 mt-0.5">
-                                Are you sure you want to reset <strong
-                                className="font-semibold">{teamToReset?.name}</strong>'s
-                                submission for "<strong className="font-semibold">{currentPhaseNode?.label}</strong>"?
-                            </p>
-                            <p className="text-xs text-orange-600 mt-2">
-                                This will clear their
-                                current {currentPhaseNode?.phase_type === 'invest' ? 'investment selections' : 'choice'} and
-                                allow them to submit again. This action cannot be undone.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="mt-5 sm:mt-6 flex flex-row-reverse gap-3">
-                        <button
-                            type="button"
-                            className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm disabled:opacity-50 w-full sm:w-auto"
-                            onClick={confirmReset}
-                            disabled={isResetting || !teamToReset}
-                        >
-                            {isResetting ? (
-                                <RotateCcw className="animate-spin h-5 w-5 mr-2"/>
-                            ) : (
-                                <XCircle className="h-5 w-5 mr-2"/>
-                            )}
-                            {isResetting ? 'Resetting...' : 'Yes, Reset'}
+                    <p>Are you sure you want to reset the submission for <strong>{teamToReset?.name}</strong>? This will
+                        allow them to submit again.</p>
+                    <div className="mt-5 flex flex-row-reverse gap-3">
+                        <button onClick={confirmReset} disabled={isResetting}
+                                className="bg-red-600 text-white inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto">
+                            {isResetting ? <><RotateCcw
+                                className="animate-spin h-5 w-5 mr-2"/> Resetting...</> : 'Yes, Reset'}
                         </button>
-                        <button
-                            type="button"
-                            className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm disabled:opacity-50 w-full sm:w-auto"
-                            onClick={() => {
-                                setIsResetModalOpen(false);
-                                setTeamToReset(null);
-                            }}
-                            disabled={isResetting}
-                        >
-                            Cancel
+                        <button onClick={() => setIsResetModalOpen(false)} disabled={isResetting}
+                                className="bg-white text-gray-700 inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 text-base font-medium hover:bg-gray-50 disabled:opacity-50 w-full sm:w-auto">Cancel
                         </button>
                     </div>
                 </div>
@@ -500,4 +181,4 @@ const TeamSubmissions: React.FC = () => {
     );
 };
 
-export default TeamSubmissions;
+export default TeamMonitor;

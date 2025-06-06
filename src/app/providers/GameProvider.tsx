@@ -12,22 +12,17 @@ import {Slide} from '@shared/types';
 interface GameContextType {
     state: AppState;
     currentSlideData: Slide | null;
-    // Navigation
     selectSlideByIndex: (index: number) => Promise<void>;
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
-    // Team management
     fetchTeamsForSession: () => Promise<void>;
     resetTeamDecision: (teamId: string, interactiveDataKey: string) => Promise<void>;
-    // Host UI
     updateHostNotesForCurrentSlide: (notes: string) => void;
     clearHostAlert: () => Promise<void>;
     setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
-    // Processing
     processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     resetGameProgress: () => Promise<void>;
-    // Team submission monitoring
     allTeamsSubmittedCurrentInteractivePhase: boolean;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
 }
@@ -51,13 +46,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
     } = useSessionManager(passedSessionId, user, authLoading, gameStructure);
     const teamDataManager = useTeamDataManager(session?.id || null);
 
-    // REFACTOR: Game controller now takes the processing function directly.
-    const gameController = useGameController(
-        session,
-        gameStructure,
-        (completedSlide: Slide) => gameProcessing.processInteractiveSlide(completedSlide)
-    );
-
     const gameProcessing = useGameProcessing({
         currentDbSession: session,
         gameStructure,
@@ -69,6 +57,12 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         setTeamRoundDataDirectly: teamDataManager.setTeamRoundDataDirectly
     });
 
+    const gameController = useGameController(
+        session,
+        gameStructure,
+        (completedSlide: Slide) => gameProcessing.processInteractiveSlide(completedSlide)
+    );
+
     const fetchTeamsForSession = async () => {
         if (session?.id && session.id !== 'new') {
             await Promise.all([
@@ -79,7 +73,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         }
     };
 
-    // REFACTOR: Renamed from `resetTeamDecisionForPhase` for clarity.
     const resetTeamDecision = useCallback(async (teamId: string, interactiveDataKey: string) => {
         if (!session?.id || session.id === 'new') throw new Error("No active session");
         try {
@@ -95,7 +88,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         fetchTeamsForSession();
     }, [session?.id]);
 
-    // REFACTOR: AppState now uses `current_slide_index`.
     const state: AppState = {
         currentSessionId: session?.id || null,
         gameStructure,

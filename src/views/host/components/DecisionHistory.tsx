@@ -5,44 +5,41 @@ import DecisionHistoryButton from './DecisionHistoryButton';
 import {Slide} from '@shared/types';
 import {ChevronDown, ChevronUp, ListChecks, DollarSign, Repeat} from 'lucide-react';
 
-const DecisionHistory: React.FC = () => {
+interface DecisionHistoryProps {
+    onReviewDecision: (decisionKey: string) => void;
+}
+
+// REFACTOR: Moved helper function outside the component body.
+const getRoundLabel = (key: string) => {
+    const num = key.split('_')[1];
+    if (num === '0') return "Setup Decisions";
+    return `Round ${num} Decisions`;
+};
+
+const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => {
     const {state} = useGameContext();
     const {gameStructure, current_slide_index} = state;
 
-    // REFACTOR: State to manage which round sections are expanded
     const [expandedRounds, setExpandedRounds] = useState<Record<string, boolean>>({});
 
     const currentSlide = gameStructure?.slides[current_slide_index ?? -1];
     const currentRoundKey = currentSlide ? `round_${currentSlide.round_number}` : null;
 
-    // REFACTOR: Group interactive slides by their round number
     const groupedSlides = useMemo(() => {
         if (!gameStructure) return {};
-
         return gameStructure.interactive_slides.reduce((acc, slide) => {
             const roundKey = `round_${slide.round_number}`;
-            if (!acc[roundKey]) {
-                acc[roundKey] = [];
-            }
+            if (!acc[roundKey]) acc[roundKey] = [];
             acc[roundKey].push(slide);
             return acc;
         }, {} as Record<string, Slide[]>);
     }, [gameStructure]);
 
-    // REFACTOR: Automatically expand the current round's section
     useEffect(() => {
         if (currentRoundKey) {
-            setExpandedRounds(prev => {
-                // To avoid keeping all past rounds open, you might want to collapse others.
-                // This implementation just ensures the current one is open.
-                if (!prev[currentRoundKey]) {
-                    return {...prev, [currentRoundKey]: true};
-                }
-                return prev;
-            });
+            setExpandedRounds(prev => ({...prev, [currentRoundKey]: true}));
         }
     }, [currentRoundKey]);
-
 
     if (!gameStructure) {
         return <div className="text-center p-4 text-gray-500">Loading decision history...</div>;
@@ -50,17 +47,6 @@ const DecisionHistory: React.FC = () => {
 
     const toggleRoundExpansion = (roundKey: string) => {
         setExpandedRounds(prev => ({...prev, [roundKey]: !prev[roundKey]}));
-    };
-
-    // A placeholder function for what should happen when a history button is clicked.
-    const reviewDecision = (slideKey: string) => {
-        alert(`Reviewing decisions for: ${slideKey}. (Functionality to be implemented)`);
-    };
-
-    const getRoundLabel = (key: string) => {
-        const num = key.split('_')[1];
-        if (num === '0') return "Setup Decisions";
-        return `Round ${num} Decisions`;
     };
 
     return (
@@ -93,19 +79,16 @@ const DecisionHistory: React.FC = () => {
                                     )}
                                 </div>
                                 <div className="flex items-center">
-                                    <span className="text-xs text-gray-500 mr-2">
-                                        {slidesInRound.length} decision{slidesInRound.length !== 1 ? 's' : ''}
-                                    </span>
-                                    {isExpanded ?
-                                        <ChevronUp size={18} className="text-gray-500"/> :
-                                        <ChevronDown size={18} className="text-gray-500"/>
-                                    }
+                                    <span
+                                        className="text-xs text-gray-500 mr-2">{slidesInRound.length} decision{slidesInRound.length !== 1 ? 's' : ''}</span>
+                                    {isExpanded ? <ChevronUp size={18} className="text-gray-500"/> :
+                                        <ChevronDown size={18} className="text-gray-500"/>}
                                 </div>
                             </button>
 
                             {isExpanded && (
                                 <div className="p-2 border-t border-gray-200 space-y-2">
-                                    {slidesInRound.map((slide, index) => {
+                                    {slidesInRound.map((slide) => {
                                         const isCurrentSlide = slide.id === currentSlide?.id;
                                         const slideIndexInMainList = gameStructure.slides.findIndex(s => s.id === slide.id);
                                         const isCompleted = current_slide_index !== null && slideIndexInMainList < current_slide_index;
@@ -117,12 +100,12 @@ const DecisionHistory: React.FC = () => {
                                         return (
                                             <DecisionHistoryButton
                                                 key={slide.interactive_data_key || slide.id}
-                                                label={slide.title || `Decision ${index + 1}`}
+                                                label={slide.title || `Decision Point`}
                                                 round={slide.round_number}
                                                 isCurrent={isCurrentSlide}
                                                 isCompleted={isCompleted}
                                                 icon={icon}
-                                                onClick={() => reviewDecision(slide.interactive_data_key!)}
+                                                onClick={() => onReviewDecision(slide.interactive_data_key!)}
                                             />
                                         );
                                     })}
