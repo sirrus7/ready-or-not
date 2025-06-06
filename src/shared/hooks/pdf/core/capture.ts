@@ -3,6 +3,10 @@ import { PDFConfig } from '../types';
 import {debugHTML, previewImage} from "@shared/hooks/pdf/debug.ts";
 import html2canvas from "html2canvas";
 
+import { processTeamAssets } from '../utils/assets';
+import { generateTeamCardHTML } from '../templates/team-card';
+import { sleep } from '../utils/dom';
+
 export const captureElementToPNG = async (
     element: HTMLElement,
     config: PDFConfig,
@@ -33,9 +37,6 @@ export const renderTeamCardInContainer = async (
     assets: any, // TeamCardAssets
     debug: boolean,
 ): Promise<void> => {
-    const { processTeamAssets } = await import('../utils/assets');
-    const { generateTeamCardHTML } = await import('../templates/team-card');
-    const { sleep } = await import('../utils/dom');
 
     const teamAssets = await processTeamAssets(team, assets);
     const html = generateTeamCardHTML(team, assets.logoUrl, teamAssets.qrCodeUrl);
