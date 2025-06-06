@@ -12,6 +12,7 @@ import {
     Save
 } from 'lucide-react';
 import QRCode from 'qrcode';
+import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
 
 // Internal state for this component can use an 'id' for React keys
 interface LocalTeamConfig extends AppTeamConfig {
@@ -58,6 +59,8 @@ const TeamSetupStep: React.FC<Step2Props> = ({
                                                  onPrevious,
                                                  draftSessionId
                                              }) => {
+    const [isPrinting, setIsPrinting] = useState(false);
+    const [isEmailing, setIsEmailing] = useState(false);
     const [localTeams, setLocalTeams] = useState<LocalTeamConfig[]>([]);
     const [editingTeamId, setEditingTeamId] = useState<number | null>(null);
     const [tempTeamName, setTempTeamName] = useState('');
@@ -136,90 +139,101 @@ const TeamSetupStep: React.FC<Step2Props> = ({
 
     // Enhanced print function with real QR codes
     const printLogins = async (multiplePerPage: boolean) => {
-        const baseUrl = `${window.location.origin}/team`;
-        const actualUrl = draftSessionId ? `${baseUrl}/${draftSessionId}` : `${baseUrl}/[SESSION_ID]`;
+        setIsPrinting(true);
+        try {
+            const joinUrl = await generateTeamJoinUrl(draftSessionId);
 
-        let qrDataUrl: string | null = null;
+            const teamCardsHtml = await Promise.all(localTeams.map(async (team) => {
+                let qrDataUrl: string | null = null;
 
-        if (draftSessionId) {
-            try {
-                qrDataUrl = await QRCode.toDataURL(actualUrl, {
-                    width: 120,
-                    margin: 1,
-                    color: {
-                        dark: '#000000',
-                        light: '#FFFFFF'
+                if (draftSessionId) {
+                    try {
+                        qrDataUrl = await QRCode.toDataURL(joinUrl, {
+                            width: 120,
+                            margin: 1,
+                            color: {
+                                dark: '#000000',
+                                light: '#FFFFFF'
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Error generating QR code for print:', error);
                     }
-                });
-            } catch (error) {
-                console.error('Error generating QR code:', error);
+                }
+
+                const qrCodeHtml = qrDataUrl
+                    ? `<img src="${qrDataUrl}" style="width:80px; height:80px; margin:10px auto; display:block;" alt="QR Code" />`
+                    : `<div style="width:80px; height:80px; background-color: #f0f0f0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.7em; color:#888; margin:10px auto; border:1px dashed #ccc;">QR for Session</div>`;
+
+                const urlText = joinUrl || `${window.location.origin}/team/[SESSION_ID]`;
+
+                return `<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; width: ${multiplePerPage ? 'calc(50% - 20px)' : 'calc(100% - 30px)'}; box-sizing: border-box; display: inline-block; vertical-align: top; margin-right: ${multiplePerPage ? '10px' : '0'};">
+                        <h3 style="margin-top: 0; color: #333; font-size: 1.1em;">Ready Or Not Game Login</h3>
+                        <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Name:</strong> ${team.name}</p>
+                        <p style="margin: 8px 0; font-size: 0.9em;"><strong>Login URL:</strong> ${urlText}</p>
+                        ${qrCodeHtml}
+                        <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Passcode:</strong> <span style="font-size: 1.3em; color: #007bff; font-weight: bold;">${team.passcode}</span></p>
+                        <p style="color:red; font-size:0.8em; margin-top: 10px;">Keep your passcode secret within your team!</p>
+                    </div>`;
+            }));
+
+            let content = teamCardsHtml.join(multiplePerPage ? '' : '<div style="page-break-after: always;"></div>');
+
+            if (multiplePerPage) {
+                content = `<div style="display: flex; flex-wrap: wrap; gap: 10px;">${content}</div>`;
             }
+
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            printWindow?.document.write(`
+            <html><head><title>Team Login Credentials</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                @media print { 
+                    body { margin: 10mm; } 
+                    .no-print { display: none !important; }
+                    .login-card { box-shadow: none !important; border: 1px dashed #999 !important; }
+                }
+            </style>
+            </head><body>
+            <h2 class="no-print">Team Login Information</h2>
+            <button class="no-print" onclick="window.print()" style="padding:10px; margin:10px 0; background-color:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">Print This Page</button>
+            <hr class="no-print"/>
+            ${content}
+            </body></html>`);
+            printWindow?.document.close();
+
+        } finally {
+            setIsPrinting(false);
         }
-
-        let content = localTeams.map(team => {
-            const qrCodeHtml = qrDataUrl
-                ? `<img src="${qrDataUrl}" style="width:80px; height:80px; margin:10px auto; display:block;" alt="QR Code" />`
-                : `<div style="width:80px; height:80px; background-color: #f0f0f0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.7em; color:#888; margin:10px auto; border:1px dashed #ccc;">QR for Session</div>`;
-
-            const urlText = draftSessionId ? actualUrl : `${baseUrl}/[SESSION_ID]`;
-
-            return `<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; width: ${multiplePerPage ? 'calc(50% - 20px)' : 'calc(100% - 30px)'}; box-sizing: border-box; display: inline-block; vertical-align: top; margin-right: ${multiplePerPage ? '10px' : '0'};">
-                    <h3 style="margin-top: 0; color: #333; font-size: 1.1em;">Ready Or Not Game Login</h3>
-                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Name:</strong> ${team.name}</p>
-                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Login URL:</strong> ${urlText}</p>
-                    ${qrCodeHtml}
-                    <p style="margin: 8px 0; font-size: 0.9em;"><strong>Team Passcode:</strong> <span style="font-size: 1.3em; color: #007bff; font-weight: bold;">${team.passcode}</span></p>
-                    <p style="color:red; font-size:0.8em; margin-top: 10px;">Keep your passcode secret within your team!</p>
-                </div>`;
-        }).join(multiplePerPage ? '' : '<div style="page-break-after: always;"></div>');
-
-        if (multiplePerPage) {
-            content = `<div style="display: flex; flex-wrap: wrap; gap: 10px;">${content}</div>`;
-        }
-
-        const printWindow = window.open('', '_blank', 'width=800,height=600');
-        printWindow?.document.write(`
-        <html><head><title>Team Login Credentials</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            @media print { 
-                body { margin: 10mm; } 
-                .no-print { display: none !important; }
-                .login-card { box-shadow: none !important; border: 1px dashed #999 !important; }
-            }
-        </style>
-        </head><body>
-        <h2 class="no-print">Team Login Information</h2>
-        <button class="no-print" onclick="window.print()" style="padding:10px; margin:10px 0; background-color:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">Print This Page</button>
-        <hr class="no-print"/>
-        ${content}
-        </body></html>`);
-        printWindow?.document.close();
     };
 
-    const emailLogins = () => {
-        const subject = `Team Logins for "Ready or Not" Game: ${gameData.name || 'New Game'}`;
-        const baseUrl = `${window.location.origin}/team`;
-        const actualUrl = draftSessionId ? `${baseUrl}/${draftSessionId}` : `${baseUrl}/[SESSION_ID]`;
+    const emailLogins = async () => {
+        setIsEmailing(true);
+        try {
+            const subject = `Team Logins for "Ready or Not" Game: ${gameData.name || 'New Game'}`;
+            const joinUrl = await generateTeamJoinUrl(draftSessionId);
 
-        let body = `Hello Teams,\n\nPlease find your login details for the "Ready or Not" simulation: ${gameData.name || ''}.\n\n`;
+            let body = `Hello Teams,\n\nPlease find your login details for the "Ready or Not" simulation: ${gameData.name || ''}.\n\n`;
 
-        if (draftSessionId) {
-            body += `Login URL: ${actualUrl}\n\n`;
-        } else {
-            body += `The specific Session URL will be provided by your facilitator when the game begins.\n\n`;
+            if (draftSessionId) {
+                body += `Login URL: ${joinUrl}\n\n`;
+            } else {
+                body += `The specific Session URL will be provided by your facilitator when the game begins.\n\n`;
+            }
+
+            localTeams.forEach(team => {
+                body += `-------------------------------------\n`;
+                body += `Team Name: ${team.name}\n`;
+                body += `Team Passcode: ${team.passcode}\n`;
+                body += `-------------------------------------\n\n`;
+            });
+
+            body += `Please keep your passcode secret within your team.\n\nGood luck!\nYour Facilitator`;
+
+            window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        } finally {
+            setIsEmailing(false);
         }
-
-        localTeams.forEach(team => {
-            body += `-------------------------------------\n`;
-            body += `Team Name: ${team.name}\n`;
-            body += `Team Passcode: ${team.passcode}\n`;
-            body += `-------------------------------------\n\n`;
-        });
-
-        body += `Please keep your passcode secret within your team.\n\nGood luck!\nYour Facilitator`;
-
-        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
     return (
@@ -323,17 +337,26 @@ const TeamSetupStep: React.FC<Step2Props> = ({
             <div className="mt-4 pt-4 border-t border-gray-200">
                 <h4 className="text-sm font-medium text-gray-600 mb-2">Distribute Login Credentials:</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <button onClick={() => printLogins(false)}
-                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                        <PrinterIcon size={16}/> Print (1 per Page)
+                    <button onClick={() => printLogins(false)} disabled={isPrinting || isEmailing}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50">
+                        {isPrinting ?
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div> :
+                            <PrinterIcon size={16}/>}
+                        Print (1 per Page)
                     </button>
-                    <button onClick={() => printLogins(true)}
-                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                        <PrinterIcon size={16}/> Print (Multiple/Page)
+                    <button onClick={() => printLogins(true)} disabled={isPrinting || isEmailing}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50">
+                        {isPrinting ?
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div> :
+                            <PrinterIcon size={16}/>}
+                        Print (Multiple/Page)
                     </button>
-                    <button onClick={emailLogins}
-                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                        <Mail size={16}/> Compose Email
+                    <button onClick={emailLogins} disabled={isPrinting || isEmailing}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50">
+                        {isEmailing ?
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div> :
+                            <Mail size={16}/>}
+                        Compose Email
                     </button>
                 </div>
             </div>

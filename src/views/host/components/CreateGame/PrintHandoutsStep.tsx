@@ -1,4 +1,4 @@
-// src/components/Host/CreateGameWizard/Step4_PrintHandouts.tsx
+// src/views/host/components/CreateGame/PrintHandoutsStep.tsx
 import React, {useState, useMemo} from 'react';
 import {NewGameData} from '@shared/types';
 
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import {usePDFGeneration} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
+import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
 
 interface Step4Props {
     gameData: NewGameData;
@@ -24,18 +25,18 @@ interface Step4Props {
 }
 
 const PrintHandoutsStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious, draftSessionId}) => {
-    const { generatePDF: generateTeamCardPDF, isGenerating: isGeneratingTeamCardPDF } = usePDFGeneration("teamCards", false);
+    const {
+        generatePDF: generateTeamCardPDF,
+        isGenerating: isGeneratingTeamCardPDF
+    } = usePDFGeneration("teamCards", false);
     const handleGenerateTeamCards = async () => {
         try {
-            // TODO - consolidate this
-            const teamDisplayBaseUrl = `${window.location.origin}/team`;
-            const teamJoinUrl = `${teamDisplayBaseUrl}/${draftSessionId}`;
+            const teamJoinUrl = await generateTeamJoinUrl(draftSessionId);
 
             await generateTeamCardPDF({
                 teams: gameData.teams_config!,
                 assets: {
                     logoUrl: '/images/ready-or-not-logo.png',
-                    // TODO - which url to use here
                     teamJoinUrl,
                 },
                 // enable if you want to preview things prior to render
