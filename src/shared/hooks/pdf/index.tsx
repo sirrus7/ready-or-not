@@ -19,7 +19,7 @@ import type { TeamConfig, TeamCardAssets, PDFConfig } from '../pdf';
 
 interface TeamCardsPDFContextType {
     generatePDF: (teams: TeamConfig[], assets?: TeamCardAssets, config?: Partial<PDFConfig>) => Promise<void>;
-    isGenerating: boolean;
+    isGeneratingTeamCardPDF: boolean;
 }
 
 const TeamCardsPDFContext = createContext<TeamCardsPDFContextType | null>(null);

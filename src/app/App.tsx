@@ -12,6 +12,8 @@ import PresentationApp from '@views/presentation/PresentationApp';
 import DashboardPage from '@views/host/pages/DashboardPage';
 import CreateGamePage from '@views/host/pages/CreateGamePage';
 import TeamApp from '@views/team/TeamApp';
+import {TeamCardsPDFProvider} from "@shared/hooks/pdf";
+import PDFGeneratorDemo from "@views/host/components/PDFGeneratorDemo.tsx";
 
 // Wrapper component to extract sessionId and pass it to providers
 const SessionAwareProviders: React.FC<{ children: React.ReactNode }> = ({children}) => {
@@ -53,6 +55,15 @@ function App() {
                             <TeamApp/>
                         </ErrorBoundary>
                     }/>
+
+                    {/* TODO - remove this once validated*/}
+                    <Route path="/test-the-pdf-generation" element={
+                        <ErrorBoundary>
+                            <TeamCardsPDFProvider>
+                                <PDFGeneratorDemo />
+                            </TeamCardsPDFProvider>
+                        </ErrorBoundary>
+                    } />
 
                     {/* Student Display - Special handling for same-browser different tab */}
                     <Route path="/student-display/:sessionId" element={<DisplayWrapper />} />
