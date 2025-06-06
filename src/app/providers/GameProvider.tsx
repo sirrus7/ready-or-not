@@ -1,4 +1,4 @@
-// src/app/providers/GameProvider.tsx - Fixed with missing export
+// src/app/providers/GameProvider.tsx
 import React, {createContext, useContext, ReactNode, useEffect, useCallback} from 'react';
 import {useAuth} from './AuthProvider';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
@@ -7,28 +7,27 @@ import {useTeamDataManager} from '@shared/hooks/useTeamDataManager';
 import {useGameController} from '@core/game/useGameController';
 import {useGameProcessing} from '@core/game/useGameProcessing';
 import {AppState} from '@shared/types/state';
-import {GameSession, GameStructure, GamePhaseNode, Slide} from '@shared/types';
+import {Slide} from '@shared/types';
 
 interface GameContextType {
     state: AppState;
     currentSlideData: Slide | null;
-    currentPhaseNode: GamePhaseNode | null;
     // Navigation
-    selectPhase: (phaseId: string) => Promise<void>;
+    selectSlideByIndex: (index: number) => Promise<void>;
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
     // Team management
     fetchTeamsForSession: () => Promise<void>;
-    resetTeamDecisionForPhase: (teamId: string, phaseId: string) => Promise<void>;
+    resetTeamDecision: (teamId: string, interactiveDataKey: string) => Promise<void>;
     // Host UI
     updateHostNotesForCurrentSlide: (notes: string) => void;
     clearHostAlert: () => Promise<void>;
     setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
     // Processing
-    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3, currentPhaseId: string | null) => Promise<void>;
+    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     resetGameProgress: () => Promise<void>;
-    // Team submission monitoring - FIXED: Added missing export
+    // Team submission monitoring
     allTeamsSubmittedCurrentInteractivePhase: boolean;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
 }
@@ -44,41 +43,32 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
     const {user, loading: authLoading} = useAuth();
     const gameStructure = readyOrNotGame_2_0_DD;
 
-    // Session management
-    const {session, isLoading: sessionLoading, error: sessionError, updateSessionInDb} = useSessionManager(
-        passedSessionId,
-        user,
-        authLoading,
-        gameStructure
-    );
-
-    // Team data management
+    const {
+        session,
+        isLoading: sessionLoading,
+        error: sessionError,
+        updateSessionInDb
+    } = useSessionManager(passedSessionId, user, authLoading, gameStructure);
     const teamDataManager = useTeamDataManager(session?.id || null);
 
-    // Game controller with decision processing integration
+    // REFACTOR: Game controller now takes the processing function directly.
     const gameController = useGameController(
         session,
         gameStructure,
-        // Pass the processChoicePhaseDecisions function from useGameProcessing
-        async (phaseId: string, associatedSlide: Slide | null) => {
-            await gameProcessing.processChoicePhaseDecisions(phaseId, associatedSlide);
-        }
+        (completedSlide: Slide) => gameProcessing.processInteractiveSlide(completedSlide)
     );
 
-    // Game processing
     const gameProcessing = useGameProcessing({
         currentDbSession: session,
         gameStructure,
         teams: teamDataManager.teams,
         teamDecisions: teamDataManager.teamDecisions,
         teamRoundData: teamDataManager.teamRoundData,
-        allPhasesInOrder: gameController.allPhasesInOrder,
         updateSessionInDb,
         fetchTeamRoundDataFromHook: teamDataManager.fetchTeamRoundDataForSession,
         setTeamRoundDataDirectly: teamDataManager.setTeamRoundDataDirectly
     });
 
-    // Fetch teams data helper
     const fetchTeamsForSession = async () => {
         if (session?.id && session.id !== 'new') {
             await Promise.all([
@@ -89,19 +79,11 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         }
     };
 
-    const resetTeamDecisionForPhase = useCallback(async (teamId: string, phaseId: string) => {
-        console.log(`[GameProvider] resetTeamDecisionForPhase called with teamId: ${teamId}, phaseId: ${phaseId}`);
-
-        if (!session?.id || session.id === 'new') {
-            throw new Error("Cannot reset team decision: No active session");
-        }
-
+    // REFACTOR: Renamed from `resetTeamDecisionForPhase` for clarity.
+    const resetTeamDecision = useCallback(async (teamId: string, interactiveDataKey: string) => {
+        if (!session?.id || session.id === 'new') throw new Error("No active session");
         try {
-            // Call resetTeamDecisionInDb with correct parameters: sessionId, teamId, phaseId
-            await teamDataManager.resetTeamDecisionInDb(session.id, teamId, phaseId);
-            console.log(`[GameProvider] Successfully reset decision for team ${teamId}, phase ${phaseId}`);
-
-            // Refresh team data to update UI
+            await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
             await fetchTeamsForSession();
         } catch (error) {
             console.error(`[GameProvider] Failed to reset team decision:`, error);
@@ -109,23 +91,21 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         }
     }, [session?.id, teamDataManager.resetTeamDecisionInDb, fetchTeamsForSession]);
 
-    // Auto-fetch teams when session changes
     useEffect(() => {
         fetchTeamsForSession();
     }, [session?.id]);
 
-    // Construct the app state
+    // REFACTOR: AppState now uses `current_slide_index`.
     const state: AppState = {
         currentSessionId: session?.id || null,
         gameStructure,
-        currentPhaseId: gameController.currentPhaseId,
-        currentSlideIdInPhase: gameController.currentSlideIdInPhase,
+        current_slide_index: gameController.currentSlideIndex,
         hostNotes: gameController.teacherNotes,
         isPlaying: session?.is_playing || false,
         teams: teamDataManager.teams,
         teamDecisions: teamDataManager.teamDecisions,
         teamRoundData: teamDataManager.teamRoundData,
-        isPlayerWindowOpen: false, // Legacy field
+        isPlayerWindowOpen: false,
         isLoading: sessionLoading || teamDataManager.isLoadingTeams,
         error: sessionError || teamDataManager.error,
         currentHostAlert: gameController.currentHostAlert
@@ -134,38 +114,26 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
     const contextValue: GameContextType = {
         state,
         currentSlideData: gameController.currentSlideData,
-        currentPhaseNode: gameController.currentPhaseNode,
-        // Navigation
-        selectPhase: gameController.selectPhase,
+        selectSlideByIndex: gameController.selectSlideByIndex,
         nextSlide: gameController.nextSlide,
         previousSlide: gameController.previousSlide,
-        // Team management
         fetchTeamsForSession,
-        resetTeamDecisionForPhase,
-        // Host UI
+        resetTeamDecision,
         updateHostNotesForCurrentSlide: gameController.updateHostNotesForCurrentSlide,
         clearHostAlert: gameController.clearHostAlert,
         setCurrentHostAlertState: gameController.setCurrentHostAlertState,
-        // Processing
         processInvestmentPayoffs: gameProcessing.processInvestmentPayoffs,
         calculateAndFinalizeRoundKPIs: gameProcessing.calculateAndFinalizeRoundKPIs,
         resetGameProgress: gameProcessing.resetGameProgress,
-        // Team submission monitoring
         allTeamsSubmittedCurrentInteractivePhase: gameController.allTeamsSubmittedCurrentInteractivePhase,
         setAllTeamsSubmittedCurrentInteractivePhase: gameController.setAllTeamsSubmittedCurrentInteractivePhase
     };
 
-    return (
-        <GameContext.Provider value={contextValue}>
-            {children}
-        </GameContext.Provider>
-    );
+    return <GameContext.Provider value={contextValue}>{children}</GameContext.Provider>;
 };
 
 export const useGameContext = (): GameContextType => {
     const context = useContext(GameContext);
-    if (context === undefined) {
-        throw new Error('useGameContext must be used within a GameProvider');
-    }
+    if (context === undefined) throw new Error('useGameContext must be used within a GameProvider');
     return context;
 };

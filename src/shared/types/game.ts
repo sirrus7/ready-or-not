@@ -1,6 +1,4 @@
 // src/shared/types/game.ts
-// These types define the core game content, rules, and logic
-
 export interface KPIs {
     capacity: number;
     orders: number;
@@ -57,12 +55,6 @@ export interface InvestmentPayoff {
     effects: KpiEffect[];
 }
 
-export interface DoubleDownPayoffRollResult {
-    dice_roll: number;
-    percentage_boost: number;
-    description: string;
-}
-
 export type SlideType =
     | 'image'
     | 'video'
@@ -81,7 +73,7 @@ export type SlideType =
 export interface Slide {
     id: number;
     title?: string;
-    phase_id?: string;
+    round_number: 0 | 1 | 2 | 3;
     type: SlideType;
     source_url?: string;
     main_text?: string;
@@ -98,36 +90,15 @@ export interface Slide {
     details?: string[];
 }
 
-export interface GamePhaseNode {
-    id: string;
-    label: string;
-    sub_label?: string;
-    icon_name: string;
-    phase_type: 'welcome' | 'setup' | 'narration' | 'invest' | 'choice' | 'consequence' | 'payoff' | 'double-down-prompt' | 'double-down-select' | 'double-down-payoff' | 'kpi' | 'leaderboard' | 'game-end';
-    round_number: 0 | 1 | 2 | 3;
-    slide_ids: number[];
-    is_interactive_player_phase: boolean;
-    expected_duration_minutes?: number;
-}
-
-export interface GameRound {
-    id: string;
-    name: string;
-    year_label: string;
-    phases: GamePhaseNode[];
-}
 
 export interface GameStructure {
     id: string;
     name: string;
-    welcome_phases: GamePhaseNode[];
-    rounds: GameRound[];
-    game_end_phases: GamePhaseNode[];
     slides: Slide[];
+    interactive_slides: Slide[];
     all_investment_options: Record<string, InvestmentOption[]>;
     all_challenge_options: Record<string, ChallengeOption[]>;
     investment_phase_budgets: Record<string, number>;
     all_consequences: Record<string, Consequence[]>;
     all_investment_payoffs: Record<string, InvestmentPayoff[]>;
-    allPhases: GamePhaseNode[];
 }

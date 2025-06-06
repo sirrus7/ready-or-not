@@ -1,82 +1,59 @@
-// src/views/team/components/InteractionPanel/DecisionContainer.tsx - COMPLETE INTEGRATION
+// src/views/team/components/InteractionPanel/DecisionContainer.tsx
 import React, {useMemo} from 'react';
 import DecisionPanel from '@views/team/components/DecisionForms/DecisionPanel';
-import {GamePhaseNode, GameStructure} from '@shared/types';
+import {Slide, GameStructure} from '@shared/types';
 
 interface DecisionModeContainerProps {
     sessionId: string;
     teamId: string;
-    currentPhase: GamePhaseNode | null;
+    currentSlide: Slide | null;
     timeRemainingSeconds: number | undefined;
-    submissionState?: any; // REMOVED - we handle submission internally now
     gameStructure: GameStructure;
-    decisionOptionsKey: string | undefined;
 }
 
 const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                                                                          sessionId,
                                                                          teamId,
-                                                                         currentPhase,
+                                                                         currentSlide,
                                                                          timeRemainingSeconds,
-                                                                         gameStructure,
-                                                                         decisionOptionsKey
+                                                                         gameStructure
                                                                      }) => {
-    if (!currentPhase) {
+    if (!currentSlide) {
         return (
             <div className="flex-1 p-3 md:p-4 flex items-center justify-center">
                 <div className="text-center text-gray-400">
-                    <p className="text-lg">No active phase</p>
+                    <p className="text-lg">No active decision</p>
                     <p className="text-sm mt-1">Waiting for facilitator...</p>
                 </div>
             </div>
         );
     }
 
-    // Compute phase-specific options and budgets
     const phaseData = useMemo(() => {
-        const dataKey = decisionOptionsKey || currentPhase.id;
+        const dataKey = currentSlide.interactive_data_key;
+        if (!dataKey) return {investmentOptions: [], challengeOptions: [], rd3Investments: [], budgetForPhase: 0};
 
-        const investmentOptions = currentPhase.phase_type === 'invest' && dataKey ?
-            gameStructure.all_investment_options[dataKey] || [] : [];
+        const investmentOptions = currentSlide.type === 'interactive_invest' ? gameStructure.all_investment_options[dataKey] || [] : [];
+        const challengeOptions = (currentSlide.type === 'interactive_choice' || currentSlide.type === 'interactive_double_down_prompt') ? gameStructure.all_challenge_options[dataKey] || [] : [];
+        const rd3Investments = currentSlide.type === 'interactive_double_down_select' ? gameStructure.all_investment_options['rd3-invest'] || [] : [];
+        const budgetForPhase = currentSlide.type === 'interactive_invest' ? gameStructure.investment_phase_budgets[dataKey] || 0 : 0;
 
-        const challengeOptions = (currentPhase.phase_type === 'choice' || currentPhase.phase_type === 'double-down-prompt') && dataKey ?
-            gameStructure.all_challenge_options[dataKey] || [] : [];
-
-        const rd3Investments = currentPhase.phase_type === 'double-down-select' ?
-            gameStructure.all_investment_options['rd3-invest'] || [] : [];
-
-        const budgetForPhase = currentPhase.phase_type === 'invest' && dataKey ?
-            gameStructure.investment_phase_budgets[dataKey] || 0 : 0;
-
-        console.log('[DecisionContainer] Phase data computed:', {
-            phaseType: currentPhase.phase_type,
-            dataKey,
-            investmentCount: investmentOptions.length,
-            challengeCount: challengeOptions.length,
-            rd3Count: rd3Investments.length,
-            budget: budgetForPhase
-        });
-
-        return {
-            investmentOptions,
-            challengeOptions,
-            rd3Investments,
-            budgetForPhase
-        };
-    }, [currentPhase, decisionOptionsKey, gameStructure]);
+        return {investmentOptions, challengeOptions, rd3Investments, budgetForPhase};
+    }, [currentSlide, gameStructure]);
 
     return (
         <div className="flex-1 p-3 md:p-4">
             <DecisionPanel
                 sessionId={sessionId}
                 teamId={teamId}
-                currentPhase={currentPhase}
+                currentSlide={currentSlide}
                 investmentOptions={phaseData.investmentOptions}
                 investUpToBudget={phaseData.budgetForPhase}
                 challengeOptions={phaseData.challengeOptions}
                 availableRd3Investments={phaseData.rd3Investments}
-                isDecisionTime={true} // Container only renders when decisions are active
+                isDecisionTime={true}
                 timeRemainingSeconds={timeRemainingSeconds}
+                gameStructure={gameStructure}
             />
         </div>
     );

@@ -1,10 +1,10 @@
-// src/views/team/hooks/useTeamGameState.ts - FIXED Real-time Updates
+// src/views/team/hooks/useTeamGameState.ts - REFACTOR: Simplified to rely on slide data
 import {useState, useEffect, useMemo} from 'react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {useRealtimeSubscription} from '@shared/services/supabase';
 import {db} from '@shared/services/supabase';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
-import {GamePhaseNode, Slide} from '@shared/types/game';
+import {Slide, GameStructure} from '@shared/types/game';
 import {TeamRoundData} from '@shared/types/database';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
@@ -15,21 +15,17 @@ interface useTeamGameStateProps {
 
 interface useTeamGameStateReturn {
     currentActiveSlide: Slide | null;
-    currentActivePhase: GamePhaseNode | null;
     isDecisionTime: boolean;
     decisionPhaseTimerEndTime: number | undefined;
     timeRemainingSeconds: number | undefined;
-    decisionOptionsKey: string | undefined;
     currentTeamKpis: TeamRoundData | null;
     isLoadingKpis: boolean;
-    gameStructure: typeof readyOrNotGame_2_0_DD;
+    gameStructure: GameStructure;
     connectionStatus: 'disconnected' | 'connecting' | 'connected';
 }
 
 export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStateProps): useTeamGameStateReturn => {
-    // Core state
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
-    const [currentActivePhase, setCurrentActivePhase] = useState<GamePhaseNode | null>(null);
     const [isDecisionTime, setIsDecisionTime] = useState<boolean>(false);
     const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined);
     const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | undefined>(undefined);
@@ -37,273 +33,96 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
-    // Fetch current session state from database
-    const {
-        data: sessionData,
-        isLoading: isLoadingSession,
-        refresh: refetchSession
-    } = useSupabaseQuery(
-        () => {
-            if (!sessionId) return Promise.resolve(null);
-            return db.sessions.get(sessionId);
-        },
-        [sessionId],
-        {
-            cacheKey: `session-${sessionId}`,
-            cacheTimeout: 5 * 1000, // Short cache for real-time feel
-            retryOnError: true,
-            maxRetries: 2
-        }
-    );
-
-    // Fetch current team KPIs
     const {
         data: currentTeamKpis,
         isLoading: isLoadingKpis,
         refresh: refetchKpis
     } = useSupabaseQuery(
         () => {
-            if (!sessionId || !loggedInTeamId || !currentActivePhase || currentActivePhase.round_number === 0) {
+            if (!sessionId || !loggedInTeamId || !currentActiveSlide || currentActiveSlide.round_number === 0) {
                 return Promise.resolve(null);
             }
-            return db.kpis.getForTeamRound(sessionId, loggedInTeamId, currentActivePhase.round_number);
+            return db.kpis.getForTeamRound(sessionId, loggedInTeamId, currentActiveSlide.round_number);
         },
-        [sessionId, loggedInTeamId, currentActivePhase?.round_number],
-        {
-            cacheKey: `team-kpis-${sessionId}-${loggedInTeamId}-${currentActivePhase?.round_number}`,
-            cacheTimeout: 30 * 1000,
-            retryOnError: true,
-            maxRetries: 2
-        }
+        [sessionId, loggedInTeamId, currentActiveSlide?.round_number],
+        {cacheKey: `team-kpis-${sessionId}-${loggedInTeamId}-${currentActiveSlide?.round_number}`, cacheTimeout: 30000}
     );
 
-    // Real-time subscription for session changes
-    useRealtimeSubscription(
-        `session-changes-${sessionId}`,
-        {
-            table: 'game_sessions',
-            filter: `id=eq.${sessionId}`,
-            onchange: (payload) => {
-                console.log('[useTeamGameState] Session updated via real-time:', payload.eventType, payload.new);
-                // Immediate session data update
-                if (payload.new && payload.eventType !== 'DELETE') {
-                    updateFromSessionData(payload.new);
-                }
-                // Also refetch to ensure consistency
-                refetchSession();
-            }
-        },
-        !!(sessionId && sessionId !== 'new')
-    );
-
-    // Real-time subscription for KPI changes
+    // REFACTOR: The realtime subscription for KPIs was incorrect. Let's fix it.
     useRealtimeSubscription(
         `team-kpis-${sessionId}-${loggedInTeamId}`,
         {
             table: 'team_round_data',
             filter: `session_id=eq.${sessionId}.and.team_id=eq.${loggedInTeamId}`,
-            onchange: (payload) => {
-                console.log('[useTeamGameState] KPI data updated via real-time:', payload);
-                refetchKpis();
-            }
         },
-        !!(sessionId && loggedInTeamId && sessionId !== 'new')
+        !!(sessionId && loggedInTeamId),
+        (payload) => {
+            console.log('[useTeamGameState] KPI data updated via real-time:', payload);
+            refetchKpis();
+        }
     );
 
-    // Helper function to update state from session data
-    const updateFromSessionData = (sessionDataToProcess: any) => {
-        if (!sessionDataToProcess || !gameStructure) return;
-
-        const phaseId = sessionDataToProcess.current_phase_id;
-        const slideIndex = sessionDataToProcess.current_slide_id_in_phase;
-
-        if (!phaseId || slideIndex === null || slideIndex === undefined) {
-            console.warn('[useTeamGameState] Session data incomplete:', {phaseId, slideIndex});
-            return;
-        }
-
-        // Find the current phase
-        const phase = gameStructure.allPhases.find(p => p.id === phaseId);
-        if (!phase) {
-            console.error('[useTeamGameState] Phase not found:', phaseId);
-            return;
-        }
-
-        // Find the current slide
-        const slideId = phase.slide_ids[slideIndex];
-        const slide = gameStructure.slides.find(s => s.id === slideId);
-
-        if (!slide) {
-            console.error('[useTeamGameState] Slide not found:', slideId, 'for phase:', phaseId, 'index:', slideIndex);
-            return;
-        }
-
-        console.log('[useTeamGameState] Updated current phase and slide:', {
-            phase: phase.label,
-            slide: slide.title,
-            slideId: slide.id,
-            isInteractive: phase.is_interactive_player_phase
-        });
-
-        setCurrentActivePhase(phase);
-        setCurrentActiveSlide(slide);
-
-        // Determine if this is a decision time
-        const isInteractiveSlide = slide.type === 'interactive_invest' ||
-            slide.type === 'interactive_choice' ||
-            slide.type === 'interactive_double_down_prompt' ||
-            slide.type === 'interactive_double_down_select';
-
-        const shouldBeDecisionTime = isInteractiveSlide && phase.is_interactive_player_phase;
-
-        console.log('[useTeamGameState] Decision time check:', {
-            slideType: slide.type,
-            isInteractiveSlide,
-            phaseIsInteractive: phase.is_interactive_player_phase,
-            shouldBeDecisionTime
-        });
-
-        setIsDecisionTime(shouldBeDecisionTime);
-
-        // Set timer if this is a timed decision phase
-        if (shouldBeDecisionTime && slide.timer_duration_seconds) {
-            const endTime = Date.now() + (slide.timer_duration_seconds * 1000);
-            setDecisionPhaseTimerEndTime(endTime);
-            console.log('[useTeamGameState] Set decision timer for', slide.timer_duration_seconds, 'seconds');
-        } else if (!shouldBeDecisionTime) {
-            setDecisionPhaseTimerEndTime(undefined);
-        }
-    };
-
-    // Update current phase and slide based on session data
-    useEffect(() => {
-        if (sessionData) {
-            updateFromSessionData(sessionData);
-        }
-    }, [sessionData, gameStructure]);
-
-    // Enhanced broadcast integration for real-time slide updates
     useEffect(() => {
         if (!sessionId) return;
 
-        console.log('[useTeamGameState] Setting up broadcast manager for session:', sessionId);
-        const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'presentation');
-
+        const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'presentation'); // Team acts like a presentation client
         setConnectionStatus('connecting');
 
-        // Set up slide update listener
         const unsubscribeSlideUpdates = broadcastManager.onSlideUpdate((slide: Slide) => {
-            console.log('[useTeamGameState] Received slide update from host:', slide.id, slide.title || 'No title');
+            console.log('[useTeamGameState] Received slide update from host:', slide);
+            setCurrentActiveSlide(slide);
 
-            // Find the phase that contains this slide
-            const containingPhase = gameStructure.allPhases.find(phase =>
-                phase.slide_ids.includes(slide.id)
-            );
+            const isInteractive = slide.type.startsWith('interactive_') && !!slide.interactive_data_key;
+            console.log(`[useTeamGameState] Slide ${slide.id} is interactive: ${isInteractive}`);
+            setIsDecisionTime(isInteractive);
 
-            if (containingPhase) {
-                console.log('[useTeamGameState] Found containing phase:', containingPhase.label, containingPhase.id);
-
-                setCurrentActivePhase(containingPhase);
-                setCurrentActiveSlide(slide);
-
-                // Check if this should trigger decision time
-                const isInteractiveSlide = slide.type === 'interactive_invest' ||
-                    slide.type === 'interactive_choice' ||
-                    slide.type === 'interactive_double_down_prompt' ||
-                    slide.type === 'interactive_double_down_select';
-
-                const shouldBeDecisionTime = isInteractiveSlide && containingPhase.is_interactive_player_phase;
-
-                console.log('[useTeamGameState] Broadcast decision time check:', {
-                    slideType: slide.type,
-                    isInteractiveSlide,
-                    phaseIsInteractive: containingPhase.is_interactive_player_phase,
-                    shouldBeDecisionTime
-                });
-
-                setIsDecisionTime(shouldBeDecisionTime);
-
-                if (shouldBeDecisionTime && slide.timer_duration_seconds) {
-                    const endTime = Date.now() + (slide.timer_duration_seconds * 1000);
-                    setDecisionPhaseTimerEndTime(endTime);
-                    console.log('[useTeamGameState] Set timer from broadcast:', slide.timer_duration_seconds, 'seconds');
-                } else if (!shouldBeDecisionTime) {
-                    setDecisionPhaseTimerEndTime(undefined);
-                }
-
-                console.log('[useTeamGameState] Updated from broadcast - Decision time:', shouldBeDecisionTime);
+            if (isInteractive && slide.timer_duration_seconds) {
+                const newEndTime = Date.now() + slide.timer_duration_seconds * 1000;
+                setDecisionPhaseTimerEndTime(newEndTime);
+                console.log(`[useTeamGameState] Timer set for ${slide.timer_duration_seconds}s. Ends at: ${new Date(newEndTime).toLocaleTimeString()}`);
             } else {
-                console.warn('[useTeamGameState] Could not find phase for slide:', slide.id);
+                setDecisionPhaseTimerEndTime(undefined);
             }
         });
 
-        // Set up connection status monitoring
         const unsubscribeStatus = broadcastManager.onPresentationStatus((status) => {
-            console.log('[useTeamGameState] Connection status changed:', status);
             setConnectionStatus(status);
+            if (status === 'connected') {
+                broadcastManager.sendStatus('ready');
+            }
         });
 
-        // Send ready status immediately and periodically
-        const sendReady = () => {
-            console.log('[useTeamGameState] Sending ready status to host');
-            broadcastManager.sendStatus('ready');
-        };
-
-        sendReady(); // Immediate
-        const readyInterval = setInterval(sendReady, 5000); // Every 5 seconds
-
         return () => {
-            console.log('[useTeamGameState] Cleaning up broadcast listeners for session:', sessionId);
-            clearInterval(readyInterval);
             unsubscribeSlideUpdates();
             unsubscribeStatus();
-            broadcastManager.destroy();
         };
-    }, [sessionId, gameStructure]);
+    }, [sessionId]);
 
-    // Timer countdown effect
     useEffect(() => {
         let timerInterval: NodeJS.Timeout | undefined;
-
         if (isDecisionTime && decisionPhaseTimerEndTime && decisionPhaseTimerEndTime > Date.now()) {
             const updateTimer = () => {
-                const now = Date.now();
-                const remaining = Math.max(0, Math.round((decisionPhaseTimerEndTime - now) / 1000));
-                setTimeRemainingSeconds(remaining);
-
+                const remaining = Math.round((decisionPhaseTimerEndTime - Date.now()) / 1000);
+                setTimeRemainingSeconds(Math.max(0, remaining));
                 if (remaining <= 0) {
-                    console.log('[useTeamGameState] Decision timer expired');
-                    clearInterval(timerInterval);
                     setIsDecisionTime(false);
                     setDecisionPhaseTimerEndTime(undefined);
+                    clearInterval(timerInterval);
                 }
             };
-
-            updateTimer(); // Initial update
+            updateTimer();
             timerInterval = setInterval(updateTimer, 1000);
         } else {
             setTimeRemainingSeconds(undefined);
-            if (timerInterval) clearInterval(timerInterval);
         }
-
-        return () => {
-            if (timerInterval) clearInterval(timerInterval);
-        };
+        return () => clearInterval(timerInterval);
     }, [isDecisionTime, decisionPhaseTimerEndTime]);
-
-    // Calculate decision options key
-    const decisionOptionsKey = useMemo(() => {
-        if (!currentActivePhase || !isDecisionTime) return undefined;
-        return currentActivePhase.interactive_data_key || currentActivePhase.id;
-    }, [currentActivePhase, isDecisionTime]);
 
     return {
         currentActiveSlide,
-        currentActivePhase,
         isDecisionTime,
         decisionPhaseTimerEndTime,
         timeRemainingSeconds,
-        decisionOptionsKey,
         currentTeamKpis,
         isLoadingKpis,
         gameStructure,
