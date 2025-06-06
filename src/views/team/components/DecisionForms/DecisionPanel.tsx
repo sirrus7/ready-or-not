@@ -66,20 +66,33 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
         );
     }
 
-    // Show success state if already submitted
-    if (submission.submissionSuccess) {
+    // Show success state if already submitted OR if submission was just successful
+    if (submission.submissionSuccess || submission.hasExistingSubmission) {
+        const isJustSubmitted = submission.submissionSuccess;
+        const isExistingSubmission = submission.hasExistingSubmission && !submission.submissionSuccess;
+
         return (
             <div
                 className="p-6 bg-green-800/50 backdrop-blur-sm text-green-100 text-center rounded-xl min-h-[200px] flex flex-col items-center justify-center border border-green-600">
                 <CheckCircle2 size={48} className="mb-4 text-green-400"/>
-                <h3 className="text-xl font-semibold mb-2">Decision Submitted Successfully!</h3>
-                <p className="text-green-200 mb-4">Your {currentPhase.label} decisions have been recorded.</p>
+                <h3 className="text-xl font-semibold mb-2">
+                    {isJustSubmitted ? 'Decision Submitted Successfully!' : 'Decision Already Submitted'}
+                </h3>
+                <p className="text-green-200 mb-4">
+                    {isJustSubmitted
+                        ? `Your ${currentPhase.label} decisions have been recorded.`
+                        : `You have already submitted your ${currentPhase.label} decision.`
+                    }
+                </p>
                 <div className="bg-green-900/50 rounded-lg p-4 max-w-md">
                     <p className="text-sm font-medium text-green-200">Summary:</p>
                     <p className="text-sm text-green-100 mt-1">{decisionLogic.submissionSummary}</p>
                 </div>
                 <p className="text-xs text-green-300 mt-4">
-                    Wait for your facilitator to continue to the next phase.
+                    {isExistingSubmission
+                        ? 'Wait for your facilitator to continue to the next phase, or they may reset submissions if changes are needed.'
+                        : 'Wait for your facilitator to continue to the next phase.'
+                    }
                 </p>
             </div>
         );

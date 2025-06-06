@@ -1,6 +1,6 @@
-// src/views/team/hooks/useTeamDecisionSubmission.ts - FIXED Integration
+// src/views/team/hooks/useTeamDecisionSubmission.ts
 import {useState, useCallback, useMemo, useEffect} from 'react';
-import {useSupabaseMutation} from '@shared/hooks/supabase';
+import {useSupabaseMutation, useSupabaseQuery} from '@shared/hooks/supabase';
 import {db} from '@shared/services/supabase';
 import {GamePhaseNode} from '@shared/types';
 
@@ -28,6 +28,7 @@ export interface UseTeamDecisionSubmissionReturn {
     isSubmitDisabled: boolean;
     submissionError: string | null;
     submissionSuccess: boolean;
+    hasExistingSubmission: boolean; // NEW: Track existing submissions
 
     // UI control
     showConfirmationModal: boolean;
@@ -53,13 +54,42 @@ export const useTeamDecisionSubmission = ({
     const [submissionError, setSubmissionError] = useState<string | null>(null);
     const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
-    // Reset success state when phase changes
+    // NEW: Check for existing submission in database
+    const {
+        data: existingDecision,
+        isLoading: isCheckingExisting,
+        refresh: checkForExistingDecision
+    } = useSupabaseQuery(
+        async () => {
+            if (!sessionId || !teamId || !currentPhase) return null;
+
+            try {
+                return await db.decisions.getForPhase(sessionId, teamId, currentPhase.id);
+            } catch (error) {
+                // If no decision exists, that's fine - return null
+                console.log('[useTeamDecisionSubmission] No existing decision found (expected for new submissions)');
+                return null;
+            }
+        },
+        [sessionId, teamId, currentPhase?.id],
+        {
+            cacheKey: `decision-${sessionId}-${teamId}-${currentPhase?.id}`,
+            cacheTimeout: 5000, // Short cache for real-time feel
+            retryOnError: false // Don't retry on "not found" errors
+        }
+    );
+
+    const hasExistingSubmission = !!(existingDecision?.submitted_at);
+
+    // Reset success state when phase changes or when checking for existing submissions
     useEffect(() => {
         if (currentPhase) {
             setSubmissionSuccess(false);
             setSubmissionError(null);
+            // Refresh check for existing decision when phase changes
+            checkForExistingDecision();
         }
-    }, [currentPhase?.id]);
+    }, [currentPhase?.id, checkForExistingDecision]);
 
     // Supabase mutation for decision submission
     const {
@@ -70,6 +100,11 @@ export const useTeamDecisionSubmission = ({
         async (payload: any) => {
             if (!sessionId || !teamId || !currentPhase) {
                 throw new Error('Missing required submission data');
+            }
+
+            // Additional check: prevent submission if one already exists
+            if (hasExistingSubmission) {
+                throw new Error('A decision has already been submitted for this phase. Please wait for the facilitator to continue or reset your submission.');
             }
 
             console.log('[useTeamDecisionSubmission] Submitting decision:', payload);
@@ -94,7 +129,12 @@ export const useTeamDecisionSubmission = ({
                 setSubmissionError(null);
                 setSubmissionSuccess(true);
 
-                // Auto-clear success message after 3 seconds
+                // Refresh the existing decision check to show submitted state
+                setTimeout(() => {
+                    checkForExistingDecision();
+                }, 500);
+
+                // Auto-clear success message after 3 seconds, but keep the existing submission check
                 setTimeout(() => {
                     setSubmissionSuccess(false);
                 }, 3000);
@@ -110,12 +150,14 @@ export const useTeamDecisionSubmission = ({
     // Calculate if submit should be disabled
     const isSubmitDisabled = useMemo(() => {
         return isMutationLoading ||
+            isCheckingExisting ||
             !isValidSubmission ||
             !sessionId ||
             !teamId ||
             !currentPhase ||
+            hasExistingSubmission || // NEW: Disable if already submitted
             submissionSuccess;
-    }, [isMutationLoading, isValidSubmission, sessionId, teamId, currentPhase, submissionSuccess]);
+    }, [isMutationLoading, isCheckingExisting, isValidSubmission, sessionId, teamId, currentPhase, hasExistingSubmission, submissionSuccess]);
 
     // Build decision payload based on phase type
     const buildDecisionPayload = useCallback(() => {
@@ -170,6 +212,11 @@ export const useTeamDecisionSubmission = ({
             return;
         }
 
+        if (hasExistingSubmission) {
+            setSubmissionError('You have already submitted a decision for this phase. Please wait for the facilitator to continue.');
+            return;
+        }
+
         if (!isValidSubmission) {
             setSubmissionError('Please complete your selections before submitting');
             return;
@@ -183,12 +230,17 @@ export const useTeamDecisionSubmission = ({
 
         // For other phases, show confirmation modal
         setShowConfirmationModal(true);
-    }, [sessionId, teamId, currentPhase, isValidSubmission]);
+    }, [sessionId, teamId, currentPhase, isValidSubmission, hasExistingSubmission]);
 
     // Handle confirmed submission
     const confirmSubmit = useCallback(async () => {
         setShowConfirmationModal(false);
         setSubmissionError(null);
+
+        if (hasExistingSubmission) {
+            setSubmissionError('You have already submitted a decision for this phase. Please wait for the facilitator to continue.');
+            return;
+        }
 
         try {
             const payload = buildDecisionPayload();
@@ -198,7 +250,7 @@ export const useTeamDecisionSubmission = ({
             console.error('[useTeamDecisionSubmission] Error in confirmSubmit:', errorMessage);
             setSubmissionError(errorMessage);
         }
-    }, [buildDecisionPayload, submitDecisionMutation]);
+    }, [buildDecisionPayload, submitDecisionMutation, hasExistingSubmission]);
 
     // Clear error messages
     const clearSubmissionMessage = useCallback(() => {
@@ -209,8 +261,10 @@ export const useTeamDecisionSubmission = ({
     // Retry failed submission
     const retrySubmission = useCallback(() => {
         setSubmissionError(null);
+        // Refresh existing decision check before retrying
+        checkForExistingDecision();
         handleSubmit();
-    }, [handleSubmit]);
+    }, [handleSubmit, checkForExistingDecision]);
 
     return {
         // State
@@ -218,6 +272,7 @@ export const useTeamDecisionSubmission = ({
         isSubmitDisabled,
         submissionError: submissionError || mutationError,
         submissionSuccess,
+        hasExistingSubmission, // NEW: Export this state
 
         // UI control
         showConfirmationModal,

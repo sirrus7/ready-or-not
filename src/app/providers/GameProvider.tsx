@@ -1,5 +1,5 @@
 // src/app/providers/GameProvider.tsx - Fixed with missing export
-import React, {createContext, useContext, ReactNode, useEffect} from 'react';
+import React, {createContext, useContext, ReactNode, useEffect, useCallback} from 'react';
 import {useAuth} from './AuthProvider';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {useSessionManager} from '@shared/hooks/useSessionManager';
@@ -89,6 +89,26 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         }
     };
 
+    const resetTeamDecisionForPhase = useCallback(async (teamId: string, phaseId: string) => {
+        console.log(`[GameProvider] resetTeamDecisionForPhase called with teamId: ${teamId}, phaseId: ${phaseId}`);
+
+        if (!session?.id || session.id === 'new') {
+            throw new Error("Cannot reset team decision: No active session");
+        }
+
+        try {
+            // Call resetTeamDecisionInDb with correct parameters: sessionId, teamId, phaseId
+            await teamDataManager.resetTeamDecisionInDb(session.id, teamId, phaseId);
+            console.log(`[GameProvider] Successfully reset decision for team ${teamId}, phase ${phaseId}`);
+
+            // Refresh team data to update UI
+            await fetchTeamsForSession();
+        } catch (error) {
+            console.error(`[GameProvider] Failed to reset team decision:`, error);
+            throw error;
+        }
+    }, [session?.id, teamDataManager.resetTeamDecisionInDb, fetchTeamsForSession]);
+
     // Auto-fetch teams when session changes
     useEffect(() => {
         fetchTeamsForSession();
@@ -121,7 +141,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         previousSlide: gameController.previousSlide,
         // Team management
         fetchTeamsForSession,
-        resetTeamDecisionForPhase: teamDataManager.resetTeamDecisionInDb,
+        resetTeamDecisionForPhase,
         // Host UI
         updateHostNotesForCurrentSlide: gameController.updateHostNotesForCurrentSlide,
         clearHostAlert: gameController.clearHostAlert,
@@ -130,7 +150,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         processInvestmentPayoffs: gameProcessing.processInvestmentPayoffs,
         calculateAndFinalizeRoundKPIs: gameProcessing.calculateAndFinalizeRoundKPIs,
         resetGameProgress: gameProcessing.resetGameProgress,
-        // Team submission monitoring - FIXED: Now properly exported
+        // Team submission monitoring
         allTeamsSubmittedCurrentInteractivePhase: gameController.allTeamsSubmittedCurrentInteractivePhase,
         setAllTeamsSubmittedCurrentInteractivePhase: gameController.setAllTeamsSubmittedCurrentInteractivePhase
     };
