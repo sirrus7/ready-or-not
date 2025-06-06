@@ -1,9 +1,18 @@
-// src/views/team/hooks/useTeamDecisionSubmission.ts - COMPLETED Submission Logic
+// src/views/team/hooks/useTeamDecisionSubmission.ts - FIXED Integration
 import {useState, useCallback, useMemo, useEffect} from 'react';
 import {useSupabaseMutation} from '@shared/hooks/supabase';
 import {db} from '@shared/services/supabase';
 import {GamePhaseNode} from '@shared/types';
-import {DecisionState} from '@views/team/hooks/useDecisionMaking';
+
+// Import DecisionState from the decision making hook
+export interface DecisionState {
+    selectedInvestmentIds: string[];
+    spentBudget: number;
+    selectedChallengeOptionId: string | null;
+    sacrificeInvestmentId: string | null;
+    doubleDownOnInvestmentId: string | null;
+    error: string | null;
+}
 
 interface UseTeamDecisionSubmissionProps {
     sessionId: string | null;

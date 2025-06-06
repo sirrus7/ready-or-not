@@ -1,11 +1,10 @@
-// src/views/team/TeamApp.tsx - Enhanced with draft session detection
+// src/views/team/TeamApp.tsx - FIXED PROPS
 import React, {useState, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
 import {AlertTriangle, Smartphone, Clock, RefreshCw, CheckCircle} from 'lucide-react';
 import {useSupabaseConnection} from '@shared/services/supabase';
 import {GameSessionManager} from '@core/game/GameSessionManager';
 import {useTeamGameState} from './hooks/useTeamGameState';
-import {useTeamDecisionSubmission} from './hooks/useTeamDecisionSubmission';
 import TeamLogin from './components/TeamLogin/TeamLogin';
 import TeamLogout from './components/TeamLogin/TeamLogout';
 import TeamStatusDisplay from './components/GameStatus/TeamStatus';
@@ -34,13 +33,6 @@ const TeamApp: React.FC = () => {
     const broadcastState = useTeamGameState({
         sessionId: sessionStatus === 'active' ? sessionId || null : null,
         loggedInTeamId: sessionStatus === 'active' ? loggedInTeamId : null
-    });
-
-    // Decision submission logic (only for active sessions)
-    const decisionSubmission = useTeamDecisionSubmission({
-        sessionId: sessionStatus === 'active' ? sessionId || null : null,
-        teamId: sessionStatus === 'active' ? loggedInTeamId : null,
-        currentPhase: broadcastState.currentActivePhase
     });
 
     // Check session status
@@ -272,7 +264,6 @@ const TeamApp: React.FC = () => {
                         teamId={loggedInTeamId}
                         currentPhase={broadcastState.currentActivePhase}
                         timeRemainingSeconds={broadcastState.timeRemainingSeconds}
-                        submissionState={decisionSubmission}
                         gameStructure={broadcastState.gameStructure}
                         decisionOptionsKey={broadcastState.decisionOptionsKey}
                     />

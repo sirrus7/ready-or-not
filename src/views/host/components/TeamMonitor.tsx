@@ -1,10 +1,10 @@
-// src/views/host/components/TeamMonitor.tsx - Enhanced with real-time investment tracking
+// src/views/host/components/TeamMonitor.tsx - ENHANCED with better real-time
 import React, {useState, useEffect, useMemo} from 'react';
-import {useGameContext} from '@app/providers/GameProvider';
+import {useGameContext} from '@app/providers/GameProvider.tsx';
 import {TeamDecision} from '@shared/types';
 import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, AlertTriangle, Users, Clock, DollarSign} from 'lucide-react';
 import {useRealtimeSubscription, useSupabaseConnection} from '@shared/services/supabase';
-import {useSupabaseMutation} from '@shared/hooks/supabase'
+import {useSupabaseMutation} from '@shared/hooks/supabase';
 import Modal from '@shared/components/UI/Modal';
 
 const formatCurrency = (value: number): string => {
@@ -49,7 +49,11 @@ const TeamSubmissions: React.FC = () => {
 
                 // Refresh teams data to get latest decisions
                 if (currentSessionId && currentSessionId !== 'new') {
-                    setTimeout(() => fetchTeamsForSession(), 500);
+                    // Small delay to ensure database consistency
+                    setTimeout(() => {
+                        console.log('[TeamMonitor] Refreshing team data after real-time update');
+                        fetchTeamsForSession();
+                    }, 500);
                 }
             }
         },
@@ -59,20 +63,22 @@ const TeamSubmissions: React.FC = () => {
     // Calculate submission statistics
     const submissionStats = useMemo(() => {
         if (!currentPhaseIdFromNode || teams.length === 0) {
-            return {submitted: 0, total: 0, allSubmitted: false};
+            return {submitted: 0, total: 0, allSubmitted: false, submittedTeams: []};
         }
 
-        const submittedCount = teams.filter(team => {
+        const submittedTeams = teams.filter(team => {
             const decision = teamDecisions[team.id]?.[currentPhaseIdFromNode];
             return !!decision?.submitted_at;
-        }).length;
+        });
 
+        const submittedCount = submittedTeams.length;
         const allSubmitted = submittedCount === teams.length && teams.length > 0;
 
         return {
             submitted: submittedCount,
             total: teams.length,
-            allSubmitted
+            allSubmitted,
+            submittedTeams: submittedTeams.map(t => t.name)
         };
     }, [teams, teamDecisions, currentPhaseIdFromNode]);
 
@@ -162,7 +168,10 @@ const TeamSubmissions: React.FC = () => {
             console.log(`[TeamMonitor] Resetting decision for team ${data.teamId}, phase ${data.phaseId}`);
             await resetTeamDecisionForPhase(data.teamId, data.phaseId);
             // Refresh the team data after reset
-            setTimeout(() => fetchTeamsForSession(), 300);
+            setTimeout(() => {
+                console.log('[TeamMonitor] Refreshing after reset');
+                fetchTeamsForSession();
+            }, 300);
         },
         {
             onSuccess: (_, data) => {
@@ -229,6 +238,7 @@ const TeamSubmissions: React.FC = () => {
                             <span>Progress: {submissionStats.submitted}/{submissionStats.total}</span>
                             {currentPhaseNode && <span>Phase: {currentPhaseNode.id}</span>}
                             {lastUpdateTime && <span>Updated: {lastUpdateTime}</span>}
+                            {!connection.isConnected && <span className="text-red-600">⚠ Disconnected</span>}
                         </div>
                     </div>
 
@@ -282,6 +292,11 @@ const TeamSubmissions: React.FC = () => {
                                 ? `${submissionStats.total - submissionStats.submitted} teams still working...`
                                 : 'Waiting for teams to begin submissions...'
                             }
+                        </p>
+                    )}
+                    {submissionStats.submittedTeams.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1 ml-6">
+                            Submitted: {submissionStats.submittedTeams.join(', ')}
                         </p>
                     )}
                 </div>

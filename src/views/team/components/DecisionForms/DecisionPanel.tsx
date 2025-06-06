@@ -1,4 +1,4 @@
-// src/views/team/components/DecisionForms/DecisionPanel.tsx - COMPLETED
+// src/views/team/components/DecisionForms/DecisionPanel.tsx - FIXED INTEGRATION
 import React from 'react';
 import {InvestmentOption, ChallengeOption, GamePhaseNode} from '@shared/types';
 import {Hourglass, CheckCircle2} from 'lucide-react';
@@ -45,7 +45,7 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
         onInvestmentSelectionChange
     });
 
-    // Submission logic
+    // Submission logic - FIXED to pass decisionState and isValidSubmission
     const submission = useTeamDecisionSubmission({
         sessionId,
         teamId,

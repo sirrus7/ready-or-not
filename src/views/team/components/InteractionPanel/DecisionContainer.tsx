@@ -1,4 +1,4 @@
-// src/views/team/components/InteractionPanel/DecisionContainer.tsx - Complete integration
+// src/views/team/components/InteractionPanel/DecisionContainer.tsx - COMPLETE INTEGRATION
 import React, {useMemo} from 'react';
 import DecisionPanel from '@views/team/components/DecisionForms/DecisionPanel';
 import {GamePhaseNode, GameStructure} from '@shared/types';
@@ -8,6 +8,7 @@ interface DecisionModeContainerProps {
     teamId: string;
     currentPhase: GamePhaseNode | null;
     timeRemainingSeconds: number | undefined;
+    submissionState?: any; // REMOVED - we handle submission internally now
     gameStructure: GameStructure;
     decisionOptionsKey: string | undefined;
 }
