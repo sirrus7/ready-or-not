@@ -1,7 +1,8 @@
 // src/components/Host/Controls/JoinInfoModal.tsx
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import QRCode from 'qrcode';
 import Modal from '@shared/components/UI/Modal';
+import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
 
 interface JoinInfoModalProps {
     isOpen: boolean;
@@ -9,48 +10,64 @@ interface JoinInfoModalProps {
     sessionId: string | null;
 }
 
-const JoinInfoModal: React.FC<JoinInfoModalProps> = ({ isOpen, onClose, sessionId }) => {
+const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId}) => {
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
-
-    const TeamDisplayBaseUrl = `${window.location.origin}/team`;
-    const studentJoinUrl = `${TeamDisplayBaseUrl}/${sessionId}`;
+    const [displayUrl, setDisplayUrl] = useState<string>('');
+    const [isLoadingUrl, setIsLoadingUrl] = useState(false);
 
     // Generate QR code when modal opens
     useEffect(() => {
         if (isOpen && sessionId) {
-            QRCode.toDataURL(studentJoinUrl, {
-                width: 200,
-                margin: 2,
-                color: {
-                    dark: '#000000',
-                    light: '#FFFFFF'
-                }
-            })
-                .then(url => {
-                    setQrCodeDataUrl(url);
+            setIsLoadingUrl(true);
+            setDisplayUrl('');
+            setQrCodeDataUrl(null);
+
+            generateTeamJoinUrl(sessionId).then(url => {
+                setDisplayUrl(url);
+                setIsLoadingUrl(false);
+
+                QRCode.toDataURL(url, {
+                    width: 200,
+                    margin: 2,
+                    color: {
+                        dark: '#000000',
+                        light: '#FFFFFF'
+                    }
                 })
-                .catch(err => {
-                    console.error('Error generating QR code:', err);
-                    setQrCodeDataUrl(null);
-                });
+                    .then(qr => setQrCodeDataUrl(qr))
+                    .catch(err => {
+                        console.error('Error generating QR code:', err);
+                        setQrCodeDataUrl(null);
+                    });
+            });
         }
-    }, [isOpen, studentJoinUrl, sessionId]);
+    }, [isOpen, sessionId]);
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Team Join Information" size="md">
             <div className="p-2 text-center">
                 <p className="text-sm text-gray-600 mb-2">Students join at:</p>
                 <div className="bg-gray-100 p-3 rounded-md mb-3">
-                    <a
-                        href={studentJoinUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-blue-600 hover:text-blue-800 break-all text-lg"
-                    >
-                        {studentJoinUrl}
-                    </a>
+                    {isLoadingUrl ? (
+                        <div className="h-7 animate-pulse bg-gray-300 rounded-md"></div>
+                    ) : (
+                        <a
+                            href={displayUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-blue-600 hover:text-blue-800 break-all text-lg"
+                        >
+                            {displayUrl}
+                        </a>
+                    )}
                 </div>
-                {sessionId && qrCodeDataUrl && (
+                {isLoadingUrl && (
+                    <div className="flex justify-center my-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-500"></div>
+                    </div>
+                )}
+
+                {!isLoadingUrl && sessionId && qrCodeDataUrl && (
                     <div className="flex justify-center my-4">
                         <div className="p-4 bg-white rounded-lg shadow-md border border-gray-200">
                             <img
