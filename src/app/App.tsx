@@ -1,9 +1,9 @@
 // src/app/App.tsx
 import React from 'react';
 import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
-import { AuthProvider } from '@app/providers/AuthProvider';
-import { GameProvider } from '@app/providers/GameProvider';
-import { VideoSettingsProvider } from '@shared/providers/VideoSettingsProvider';
+import {AuthProvider} from '@app/providers/AuthProvider';
+import {GameProvider} from '@app/providers/GameProvider';
+import {VideoSettingsProvider} from '@shared/providers/VideoSettingsProvider';
 import AuthGuard from '@routing/guards/AuthGuard';
 import ErrorBoundary from '@shared/components/UI/ErrorBoundary';
 import LoginPage from '@views/host/pages/LoginPage';
@@ -36,7 +36,7 @@ const DisplayWrapper: React.FC = () => {
             <ErrorBoundary>
                 <VideoSettingsProvider sessionId={sessionId}>
                     <GameProvider passedSessionId={sessionId}>
-                        <PresentationApp />
+                        <PresentationApp/>
                     </GameProvider>
                 </VideoSettingsProvider>
             </ErrorBoundary>
@@ -47,111 +47,112 @@ const DisplayWrapper: React.FC = () => {
 function App() {
     return (
         <ErrorBoundary>
-            <BrowserRouter>
-                <Routes>
-                    {/* Publicly accessible student-facing routes - NO AUTH REQUIRED */}
-                    <Route path="/student-game/:sessionId" element={
-                        <ErrorBoundary>
-                            <TeamApp/>
-                        </ErrorBoundary>
-                    }/>
+            {/*TODO - where is the best place for this provider*/}
+            <TeamCardsPDFProvider>
+                <BrowserRouter>
+                    <Routes>
+                        {/* Publicly accessible student-facing routes - NO AUTH REQUIRED */}
+                        <Route path="/student-game/:sessionId" element={
+                            <ErrorBoundary>
+                                <TeamApp/>
+                            </ErrorBoundary>
+                        }/>
 
-                    {/* TODO - remove this once validated*/}
-                    <Route path="/test-the-pdf-generation" element={
-                        <ErrorBoundary>
-                            <TeamCardsPDFProvider>
-                                <PDFGeneratorDemo />
-                            </TeamCardsPDFProvider>
-                        </ErrorBoundary>
-                    } />
+                        {/* TODO - remove this once validated*/}
+                        <Route path="/test-the-pdf-generation" element={
+                            <ErrorBoundary>
+                                <PDFGeneratorDemo/>
+                            </ErrorBoundary>
+                        }/>
 
-                    {/* Student Display - Special handling for same-browser different tab */}
-                    <Route path="/student-display/:sessionId" element={<DisplayWrapper />} />
+                        {/* Student Display - Special handling for same-browser different tab */}
+                        <Route path="/student-display/:sessionId" element={<DisplayWrapper/>}/>
 
-                    {/* All other routes wrapped in AuthProvider */}
-                    <Route path="/*" element={
-                        <AuthProvider>
-                            <Routes>
-                                {/* Teacher Login - Publicly accessible */}
-                                <Route path="/login" element={
-                                    <ErrorBoundary>
-                                        <VideoSettingsProvider>
-                                            <SessionAwareProviders>
-                                                <LoginPage/>
-                                            </SessionAwareProviders>
-                                        </VideoSettingsProvider>
-                                    </ErrorBoundary>
-                                }/>
-
-                                {/* Teacher-only authenticated routes */}
-                                <Route path="/dashboard" element={
-                                    <AuthGuard>
+                        {/* All other routes wrapped in AuthProvider */}
+                        <Route path="/*" element={
+                            <AuthProvider>
+                                <Routes>
+                                    {/* Teacher Login - Publicly accessible */}
+                                    <Route path="/login" element={
                                         <ErrorBoundary>
                                             <VideoSettingsProvider>
                                                 <SessionAwareProviders>
-                                                    <DashboardPage/>
+                                                    <LoginPage/>
                                                 </SessionAwareProviders>
                                             </VideoSettingsProvider>
                                         </ErrorBoundary>
-                                    </AuthGuard>
-                                }/>
-                                <Route path="/create-game" element={
-                                    <AuthGuard>
-                                        <ErrorBoundary>
-                                            <VideoSettingsProvider>
+                                    }/>
+
+                                    {/* Teacher-only authenticated routes */}
+                                    <Route path="/dashboard" element={
+                                        <AuthGuard>
+                                            <ErrorBoundary>
+                                                <VideoSettingsProvider>
+                                                    <SessionAwareProviders>
+                                                        <DashboardPage/>
+                                                    </SessionAwareProviders>
+                                                </VideoSettingsProvider>
+                                            </ErrorBoundary>
+                                        </AuthGuard>
+                                    }/>
+                                    <Route path="/create-game" element={
+                                        <AuthGuard>
+                                            <ErrorBoundary>
+                                                <VideoSettingsProvider>
+                                                    <SessionAwareProviders>
+                                                        <CreateGamePage/>
+                                                    </SessionAwareProviders>
+                                                </VideoSettingsProvider>
+                                            </ErrorBoundary>
+                                        </AuthGuard>
+                                    }/>
+                                    <Route path="/classroom/:sessionId" element={
+                                        <AuthGuard>
+                                            <ErrorBoundary>
                                                 <SessionAwareProviders>
-                                                    <CreateGamePage/>
-                                                </SessionAwareProviders>
-                                            </VideoSettingsProvider>
-                                        </ErrorBoundary>
-                                    </AuthGuard>
-                                }/>
-                                <Route path="/classroom/:sessionId" element={
-                                    <AuthGuard>
-                                        <ErrorBoundary>
-                                            <SessionAwareProviders>
-                                                <HostApp/>
-                                            </SessionAwareProviders>
-                                        </ErrorBoundary>
-                                    </AuthGuard>
-                                }/>
-                                <Route path="/classroom" element={
-                                    <AuthGuard>
-                                        <ErrorBoundary>
-                                            <VideoSettingsProvider>
-                                                <GameProvider passedSessionId="new">
                                                     <HostApp/>
+                                                </SessionAwareProviders>
+                                            </ErrorBoundary>
+                                        </AuthGuard>
+                                    }/>
+                                    <Route path="/classroom" element={
+                                        <AuthGuard>
+                                            <ErrorBoundary>
+                                                <VideoSettingsProvider>
+                                                    <GameProvider passedSessionId="new">
+                                                        <HostApp/>
+                                                    </GameProvider>
+                                                </VideoSettingsProvider>
+                                            </ErrorBoundary>
+                                        </AuthGuard>
+                                    }/>
+
+                                    {/* Default authenticated route */}
+                                    <Route path="/" element={
+                                        <AuthGuard>
+                                            <VideoSettingsProvider>
+                                                <GameProvider>
+                                                    <Navigate to="/dashboard" replace/>
                                                 </GameProvider>
                                             </VideoSettingsProvider>
-                                        </ErrorBoundary>
-                                    </AuthGuard>
-                                }/>
-
-                                {/* Default authenticated route */}
-                                <Route path="/" element={
-                                    <AuthGuard>
-                                        <VideoSettingsProvider>
-                                            <GameProvider>
-                                                <Navigate to="/dashboard" replace/>
-                                            </GameProvider>
-                                        </VideoSettingsProvider>
-                                    </AuthGuard>
-                                }/>
-                                {/* Fallback for any other authenticated paths */}
-                                <Route path="*" element={
-                                    <AuthGuard>
-                                        <VideoSettingsProvider>
-                                            <GameProvider>
-                                                <Navigate to="/dashboard" replace/>
-                                            </GameProvider>
-                                        </VideoSettingsProvider>
-                                    </AuthGuard>
-                                }/>
-                            </Routes>
-                        </AuthProvider>
-                    }/>
-                </Routes>
-            </BrowserRouter>
+                                        </AuthGuard>
+                                    }/>
+                                    {/* Fallback for any other authenticated paths */}
+                                    <Route path="*" element={
+                                        <AuthGuard>
+                                            <VideoSettingsProvider>
+                                                <GameProvider>
+                                                    <Navigate to="/dashboard" replace/>
+                                                </GameProvider>
+                                            </VideoSettingsProvider>
+                                        </AuthGuard>
+                                    }/>
+                                </Routes>
+                            </AuthProvider>
+                        }/>
+                    </Routes>
+                </BrowserRouter>
+            </TeamCardsPDFProvider>
         </ErrorBoundary>
     );
 }
