@@ -2,19 +2,13 @@
 import {useState, useEffect, useMemo} from 'react';
 import {GamePhaseNode, InvestmentOption, ChallengeOption} from '@shared/types';
 
+// Export DecisionState interface for use by submission hook
 export interface DecisionState {
-    // Investment state
     selectedInvestmentIds: string[];
     spentBudget: number;
-
-    // Challenge state
     selectedChallengeOptionId: string | null;
-
-    // Double down state
     sacrificeInvestmentId: string | null;
     doubleDownOnInvestmentId: string | null;
-
-    // Error state
     error: string | null;
 }
 

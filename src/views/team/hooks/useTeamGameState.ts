@@ -1,6 +1,7 @@
 // src/views/team/hooks/useTeamGameState.ts - Enhanced with decision phase integration
 import {useState, useEffect, useMemo} from 'react';
-import {useSupabaseQuery, useRealtimeSubscription} from '@shared/hooks/supabase';
+import {useSupabaseQuery} from '@shared/hooks/supabase';
+import {useRealtimeSubscription} from '@shared/services/supabase';
 import {db} from '@shared/services/supabase';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {GamePhaseNode, Slide} from '@shared/types/game';
@@ -83,10 +84,10 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     useRealtimeSubscription(
         `session-changes-${sessionId}`,
         {
-            table: 'game_sessions',
+            table: 'game_sessions',  // Make sure this matches your actual table name
             filter: `id=eq.${sessionId}`,
             onchange: (payload) => {
-                console.log('[useTeamGameState] Session updated via real-time:', payload);
+                console.log('[useTeamGameState] Session updated via real-time:', payload.eventType, payload.new);
                 refetchSession();
             }
         },

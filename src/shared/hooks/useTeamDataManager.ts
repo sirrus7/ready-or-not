@@ -1,7 +1,7 @@
 // src/hooks/useTeamDataManager.ts - Team data fetching/management
 import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 import { db, formatSupabaseError, useRealtimeSubscription } from '@shared/services/supabase';
-import { Team, TeamDecision, TeamRoundData } from '@shared/types/common';
+import { Team, TeamDecision, TeamRoundData } from '@shared/types';
 
 interface TeamDataManagerOutput {
     teams: Team[];
@@ -160,7 +160,7 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
             table: 'team_decisions',
             filter: `session_id=eq.${initialSessionId}`,
             onchange: (payload) => {
-                console.log('useTeamDataManager: Team decision change received:', payload);
+                console.log('useTeamDataManager: Team decision change received:', payload.eventType, payload.new, payload.old);
                 const newDecision = payload.new as TeamDecision;
                 const oldDecision = payload.old as TeamDecision;
 

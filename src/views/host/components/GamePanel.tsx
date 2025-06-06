@@ -1,5 +1,5 @@
 // src/components/Host/HostPanel.tsx - Updated with streamlined decision phase handling
-import React from 'react';
+import React, {useCallback} from 'react';
 import GameMap from './GameMap.tsx';
 import HostGameControls from './GameControls';
 import TeamSubmissions from './TeamMonitor';
@@ -10,8 +10,14 @@ interface HostPanelProps {
     // No props needed as it consumes from AppContext
 }
 
-const HostPanel: React.FC<HostPanelProps> = () => {
-    const {state, currentPhaseNode} = useGameContext();
+const GamePanel: React.FC<HostPanelProps> = () => {
+    // Inside your GamePanel component:
+    const {
+        state,
+        currentPhaseNode,
+        setCurrentHostAlertState,
+        processInvestmentPayoffs
+    } = useGameContext();
     const {gameStructure, currentSessionId, error: appError, isLoading} = state;
 
     // Determine if the current phase is one where students make interactive decisions
@@ -51,6 +57,29 @@ const HostPanel: React.FC<HostPanelProps> = () => {
             </div>
         );
     }
+
+    // Add this useCallback for handling payoff processing
+    const handlePayoffProcessing = useCallback(async () => {
+        if (currentPhaseNode?.phase_type === 'payoff') {
+            const roundNumber = currentPhaseNode.round_number as 1 | 2 | 3;
+
+            try {
+                console.log(`[GamePanel] Processing investment payoffs for round ${roundNumber}`);
+                await processInvestmentPayoffs(roundNumber, currentPhaseNode.id);
+
+                setCurrentHostAlertState({
+                    title: 'Investment Processing Complete',
+                    message: `Round ${roundNumber} investment payoffs have been applied to all teams.`
+                });
+            } catch (error) {
+                console.error('[GamePanel] Failed to process investment payoffs:', error);
+                setCurrentHostAlertState({
+                    title: 'Processing Error',
+                    message: `Failed to process round ${roundNumber} investment payoffs: ${error instanceof Error ? error.message : 'Unknown error'}`
+                });
+            }
+        }
+    }, [currentPhaseNode, processInvestmentPayoffs, setCurrentHostAlertState]);
 
     return (
         <div className="bg-gray-50 h-full flex flex-col">
@@ -94,4 +123,4 @@ const HostPanel: React.FC<HostPanelProps> = () => {
     );
 };
 
-export default HostPanel;
+export default GamePanel;

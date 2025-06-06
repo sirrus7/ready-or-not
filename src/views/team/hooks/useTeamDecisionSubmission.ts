@@ -4,8 +4,8 @@ import {useSupabaseMutation} from '@shared/hooks/supabase';
 import {db} from '@shared/services/supabase';
 import {GamePhaseNode} from '@shared/types';
 
-// Import DecisionState from the decision making hook
-export interface DecisionState {
+// Define DecisionState locally to match useDecisionMaking
+interface DecisionState {
     selectedInvestmentIds: string[];
     spentBudget: number;
     selectedChallengeOptionId: string | null;

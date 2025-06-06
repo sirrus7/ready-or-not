@@ -44,7 +44,7 @@ const TeamSubmissions: React.FC = () => {
             table: 'team_decisions',
             filter: `session_id=eq.${currentSessionId}`,
             onchange: (payload) => {
-                console.log(`[TeamMonitor] Real-time team decision update:`, payload);
+                console.log(`[TeamMonitor] Real-time team decision update:`, payload.eventType, payload.new, payload.old);
                 setLastUpdateTime(new Date().toLocaleTimeString());
 
                 // Refresh teams data to get latest decisions

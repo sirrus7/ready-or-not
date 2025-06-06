@@ -60,6 +60,7 @@ interface GameProps {
     activateDecisionPhase: (durationSeconds?: number) => void;
     deactivateDecisionPhase: () => void;
     isDecisionPhaseActive: boolean;
+    setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
 }
 
 const GameContext = createContext<GameProps | undefined>(undefined);
@@ -265,6 +266,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         activateDecisionPhase,
         deactivateDecisionPhase,
         isDecisionPhaseActive,
+        setAllTeamsSubmittedCurrentInteractivePhase: gameController.allTeamsSubmittedCurrentInteractivePhase,
     }), [
         combinedAppState, gameController, allPhasesInOrder, nextSlideWithProcessing, isLoadingSession,
         sessionError, clearSessionError, teams, teamDecisions, teamRoundData, isLoadingTeams,
