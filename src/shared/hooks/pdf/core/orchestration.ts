@@ -1,5 +1,9 @@
 
 import { TeamConfig, TeamCardAssets, PDFConfig } from '../types';
+import { renderTeamCardInContainer } from './capture';
+import { captureElementToPNG } from './capture';
+import { addImageToPDF } from './pdf-operations';
+
 
 export const processTeamCard = async (
     team: TeamConfig,
@@ -7,17 +11,14 @@ export const processTeamCard = async (
     pdf: any,
     container: HTMLElement,
     assets: TeamCardAssets,
-    config: PDFConfig
+    config: PDFConfig,
+    debug: boolean,
 ): Promise<void> => {
     console.log(`Processing card for team: ${team.name} (${index + 1})`);
 
-    const { renderTeamCardInContainer } = await import('./capture');
-    const { captureElementToPNG } = await import('./capture');
-    const { addImageToPDF } = await import('./pdf-operations');
-
-    await renderTeamCardInContainer(container, team, assets);
-    const imageData = await captureElementToPNG(container, config);
-    addImageToPDF(pdf, imageData, index === 0);
+    await renderTeamCardInContainer(container, team, assets, debug);
+    const imageData = await captureElementToPNG(container, config, debug);
+    addImageToPDF(pdf, imageData, index === 0, debug);
 
     console.log(`Completed card for team: ${team.name}`);
 };

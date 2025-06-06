@@ -2,18 +2,19 @@
 import { TeamConfig, TeamCardAssets, PDFConfig } from './types';
 import { DEFAULT_CONFIG } from './config';
 
+import { validateTeams, validateConfig } from './utils/validation';
+import { processLogo } from'./utils/assets';
+import { createCaptureContainer, cleanupCaptureContainer } from './utils/dom';
+import { createPDFDocument, generateTimestampedFilename } from './core/pdf-operations';
+import { processTeamCard } from './core/orchestration';
+
+
 export const generateTeamCardsPDF = async (
     teams: TeamConfig[],
     assets: TeamCardAssets = {},
-    customConfig?: Partial<PDFConfig>
+    customConfig?: Partial<PDFConfig>,
+    debug: boolean = false,
 ): Promise<void> => {
-    // Dynamic imports to keep bundle size small
-    const { validateTeams, validateConfig } = await import('./utils/validation');
-    const { processLogo } = await import('./utils/assets');
-    const { createCaptureContainer, cleanupCaptureContainer } = await import('./utils/dom');
-    const { loadPDFDependencies, createPDFDocument, generateTimestampedFilename } = await import('./core/pdf-operations');
-    const { processTeamCard } = await import('./core/orchestration');
-
     // Validation
     validateTeams(teams);
     const config = { ...DEFAULT_CONFIG, ...customConfig };
@@ -23,11 +24,8 @@ export const generateTeamCardsPDF = async (
         // Process shared assets
         await processLogo(assets.logoUrl);
 
-        // Load dependencies
-        await loadPDFDependencies();
-
         // Create PDF document
-        const pdf = createPDFDocument(config);
+        const pdf = createPDFDocument(config, debug);
 
         // Create and setup capture container
         const container = createCaptureContainer();
@@ -35,7 +33,7 @@ export const generateTeamCardsPDF = async (
         try {
             // Process each team
             for (let i = 0; i < teams.length; i++) {
-                await processTeamCard(teams[i], i, pdf, container, assets, config);
+                await processTeamCard(teams[i], i, pdf, container, assets, config, debug);
             }
 
             // Save PDF

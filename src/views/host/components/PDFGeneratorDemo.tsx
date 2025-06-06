@@ -3,9 +3,10 @@ import React from 'react';
 import { Download, FileText, Code } from 'lucide-react';
 import { useTeamCardsPDF } from '@shared/hooks/pdf';
 import type { TeamConfig } from '@shared/hooks/pdf';
+import {usePDFGeneration} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
 
 const TeamCardsPDFDemo: React.FC = () => {
-    const { generatePDF, isGeneratingTeamCardPDF } = useTeamCardsPDF();
+    const { generatePDF, isGenerating: isGeneratingTeamCardPDF } = usePDFGeneration("teamCards");
 
     const sampleTeams: TeamConfig[] = [
         {
@@ -30,10 +31,10 @@ const TeamCardsPDFDemo: React.FC = () => {
 
     const handleGenerate = async () => {
         try {
-            await generatePDF(sampleTeams, {
+            await generatePDF({ teams: sampleTeams, assets: {
                 logoUrl: '/images/ready-or-not-logo.png',
                 generateQRCode: (team) => `https://company.com/teams/${team.id || team.name}`
-            });
+            }});
         } catch (error) {
             alert('Error generating PDF: ' + (error as Error).message);
         }

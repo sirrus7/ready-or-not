@@ -1,7 +1,7 @@
 import { TeamConfig } from '../types';
 import {
-    createTopHalf,
-    createBottomHalf,
+    createLeftSide,
+    createRightSide,
     createFoldableCardContainer
 } from './sections';
 
@@ -10,20 +10,19 @@ export const generateTeamCardHTML = (
     logoUrl?: string,
     qrCodeUrl?: string
 ): string => {
-    // Top half: Logo and Team Name
-    const topHalf = createTopHalf(
+    // Left side: Logo + Team Name + QR Code (rotated -90 degrees, baseline toward left edge)
+    const leftSide = createLeftSide(
         team.name,
         logoUrl,
-        false // no QR code
-    );
-
-    // Bottom half: QR Code, Team Name, and Logo (rotated 180 degrees)
-    const bottomHalf = createBottomHalf(
-        team.name,
-        logoUrl,
-        true, // show QR code
         qrCodeUrl
     );
 
-    return createFoldableCardContainer(topHalf, bottomHalf);
+    // Right side: Logo + Team Name + QR Code (rotated 90 degrees, baseline toward right edge)
+    const rightSide = createRightSide(
+        team.name,
+        logoUrl,
+        qrCodeUrl
+    );
+
+    return createFoldableCardContainer(leftSide, rightSide);
 };

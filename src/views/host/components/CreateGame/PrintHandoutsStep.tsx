@@ -13,7 +13,8 @@ import {
     ChevronDown,
     ChevronUp
 } from 'lucide-react';
-import {useTeamCardsPDF} from "@shared/hooks/pdf";
+
+import {usePDFGeneration} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
 
 interface Step4Props {
     gameData: NewGameData;
@@ -22,17 +23,23 @@ interface Step4Props {
 }
 
 const PrintHandoutsStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => {
-    const { generatePDF, isGeneratingTeamCardPDF } = useTeamCardsPDF();
-
+    const { generatePDF: generateTeamCardPDF, isGenerating: isGeneratingTeamCardPDF } = usePDFGeneration("teamCards", false);
     const handleGenerateTeamCards = async () => {
         try {
-            await generatePDF(gameData.teams_config!, {
-                logoUrl: '/images/ready-or-not-logo.png',
-                // TODO - which url to use here
-                generateQRCode: (team) => `https://company.com/teams/${team.id || team.name}`
+            await generateTeamCardPDF({
+                teams: gameData.teams_config!,
+                assets: {
+                    logoUrl: '/images/ready-or-not-logo.png',
+                    // TODO - which url to use here
+                    generateQRCode: (team) => `https://company.com/teams/${team.id || team.name}`
+                },
+                // enable if you want to preview things prior to render
+                debug: false,
             });
         } catch (error) {
             alert('Error generating PDF: ' + (error as Error).message);
+        } finally {
+            // isGeneratingTeamCardPDF = false;
         }
     }
 

@@ -1,12 +1,10 @@
 import { PDFConfig } from './types';
 
 export const DEFAULT_CONFIG: PDFConfig = {
-    orientation: 'portrait',
+    orientation: 'landscape',
     unit: 'in',
     format: 'letter',
-    scale: 3,
-    width: 680,
-    height: 880,
+    scale: 1,
 };
 
 export const QR_CODE_OPTIONS = {

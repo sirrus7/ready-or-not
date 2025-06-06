@@ -1,22 +1,28 @@
 
 import { PDFConfig } from '../types';
+import {debugHTML, previewImage} from "@shared/hooks/pdf/debug.ts";
+import html2canvas from "html2canvas";
 
 export const captureElementToPNG = async (
     element: HTMLElement,
-    config: PDFConfig
+    config: PDFConfig,
+    debug: boolean,
 ): Promise<string> => {
-    const html2canvas = (globalThis as any).html2canvas;
 
     const canvas = await html2canvas(element, {
-        scale: config.scale,
+        // scale: config.scale,
         useCORS: true,
         logging: process.env.NODE_ENV === 'development',
-        width: config.width,
-        height: config.height,
-        windowWidth: config.width,
-        windowHeight: config.height,
-        backgroundColor: config.backgroundColor || null,
+        // width: config.width,
+        // height: config.height,
+        // windowWidth: config.width,
+        // windowHeight: config.height,
+        // backgroundColor: config.backgroundColor || null,
     });
+
+    if (debug) {
+        await previewImage(canvas);
+    }
 
     return canvas.toDataURL('image/png');
 };
@@ -24,7 +30,8 @@ export const captureElementToPNG = async (
 export const renderTeamCardInContainer = async (
     container: HTMLElement,
     team: any, // TeamConfig
-    assets: any // TeamCardAssets
+    assets: any, // TeamCardAssets
+    debug: boolean,
 ): Promise<void> => {
     const { processTeamAssets } = await import('../utils/assets');
     const { generateTeamCardHTML } = await import('../templates/team-card');
@@ -32,7 +39,9 @@ export const renderTeamCardInContainer = async (
 
     const teamAssets = await processTeamAssets(team, assets);
     const html = generateTeamCardHTML(team, assets.logoUrl, teamAssets.qrCodeUrl);
-
+    if (debug) {
+        debugHTML(html);
+    }
     container.innerHTML = html;
     await sleep(150);
 };
