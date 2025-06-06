@@ -13,6 +13,7 @@ import {
     ChevronDown,
     ChevronUp
 } from 'lucide-react';
+import {useTeamCardsPDF} from "@shared/hooks/pdf";
 
 interface Step4Props {
     gameData: NewGameData;
@@ -21,6 +22,20 @@ interface Step4Props {
 }
 
 const PrintHandoutsStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious}) => {
+    const { generatePDF, isGeneratingTeamCardPDF } = useTeamCardsPDF();
+
+    const handleGenerateTeamCards = async () => {
+        try {
+            await generatePDF(gameData.teams_config!, {
+                logoUrl: '/images/ready-or-not-logo.png',
+                // TODO - which url to use here
+                generateQRCode: (team) => `https://company.com/teams/${team.id || team.name}`
+            });
+        } catch (error) {
+            alert('Error generating PDF: ' + (error as Error).message);
+        }
+    }
+
     const [selectedOption, setSelectedOption] = useState<'order' | 'diy'>('diy');
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
         core: false,
@@ -108,9 +123,9 @@ Thank you,
         }));
     };
 
-    const handleDownloadAllPDFs = () => {
+    const handleDownloadAllPDFs = async () => {
         // Generate team name cards first
-        generateTeamNameCardsPDF(gameData.teams_config);
+        await handleGenerateTeamCards();
 
         // Download all static PDFs directly (no new tabs)
         const staticPdfs = [
@@ -305,7 +320,7 @@ Thank you,
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 per team, card stock, color</p>
                                     <button
-                                        onClick={() => downloadItem('', 'team-name-cards')}
+                                        onClick={handleGenerateTeamCards}
                                         className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
@@ -557,6 +572,7 @@ Thank you,
                     {/* Download All Button */}
                     <div className="border-t border-gray-200 pt-4">
                         <button
+                            disabled={isGeneratingTeamCardPDF}
                             onClick={handleDownloadAllPDFs}
                             className="w-full bg-green-600 text-white text-sm font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-lg flex items-center justify-center gap-2"
                         >

@@ -1,7 +1,7 @@
 // src/hooks/useTeamDataManager.ts - Team data fetching/management
 import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 import { db, formatSupabaseError, useRealtimeSubscription } from '@shared/services/supabase';
-import { Team, TeamDecision, TeamRoundData } from '@shared/types/common';
+import { Team, TeamDecision, TeamRoundData } from '@shared/types';
 
 interface TeamDataManagerOutput {
     teams: Team[];
