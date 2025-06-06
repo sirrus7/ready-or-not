@@ -1,24 +1,22 @@
-// src/core/game/InvestmentEngine.ts - Implement InvestmentEngine class with investment logic
-
-import {KpiEffect, TeamRoundData, GameSession, Team, TeamDecision, GameStructure} from '@shared/types'; // Updated imports
+// src/core/game/InvestmentEngine.ts - COMPLETED Investment Processing
+import {KpiEffect, TeamRoundData, GameSession, Team, TeamDecision, GameStructure} from '@shared/types';
 import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {db} from '@shared/services/supabase';
 import {KpiCalculations} from './ScoringEngine';
 
 interface InvestmentEngineProps {
     currentDbSession: GameSession | null;
-    gameStructure: GameStructure | null; // Use GameStructure type
+    gameStructure: GameStructure | null;
     teams: Team[];
     teamDecisions: Record<string, Record<string, TeamDecision>>;
-    teamRoundData: Record<string, Record<number, TeamRoundData>>; // Passed by reference for internal mutation
-    // Callbacks to update external state (used by useGameProcessing)
+    teamRoundData: Record<string, Record<number, TeamRoundData>>;
     fetchTeamRoundDataFromHook: (sessionId: string) => Promise<void>;
     setTeamRoundDataDirectly: (updater: (prev: Record<string, Record<number, TeamRoundData>>) => Record<string, Record<number, TeamRoundData>>) => void;
 }
 
 /**
  * The InvestmentEngine processes investment payoffs, applying their KPI effects to team data.
- * It also handles unspent budget logic and permanent KPI adjustments resulting from investments.
+ * It handles unspent budget logic and permanent KPI adjustments resulting from investments.
  */
 export class InvestmentEngine {
     private currentDbSession: GameSession | null;
@@ -42,12 +40,6 @@ export class InvestmentEngine {
     /**
      * Ensures that the TeamRoundData for a given team and round exists in the local state
      * (and DB if necessary), creating it with initial values if it doesn't.
-     * This is a private helper method used by both DecisionEngine and InvestmentEngine.
-     * @param teamId The ID of the team.
-     * @param roundNumber The round number.
-     * @param sessionId The ID of the current session.
-     * @returns The TeamRoundData object for the specified team and round.
-     * @private
      */
     private async ensureTeamRoundData(
         teamId: string,
@@ -96,12 +88,6 @@ export class InvestmentEngine {
 
     /**
      * Stores permanent KPI adjustments in the database, to be applied in future rounds.
-     * This is a private helper method used by both DecisionEngine and InvestmentEngine.
-     * @param teamId The ID of the team.
-     * @param sessionId The ID of the current session.
-     * @param effects The KPI effects, which may include permanent effects.
-     * @param phaseSourceLabel A label indicating the source of the adjustment (e.g., "RD1 Investment Payoff").
-     * @private
      */
     private async storePermanentAdjustments(
         teamId: string,
@@ -118,16 +104,13 @@ export class InvestmentEngine {
 
         if (adjustmentsToInsert.length > 0) {
             await db.adjustments.create(adjustmentsToInsert);
+            console.log(`[InvestmentEngine] Stored ${adjustmentsToInsert.length} permanent adjustments for team ${teamId}`);
         }
     }
 
     /**
      * Processes investment payoffs for a given round based on team decisions.
      * This method is called when advancing past a 'payoff' phase's last slide.
-     * @param roundNumber The current round number (1, 2, or 3).
-     * @param currentPhaseId The ID of the current payoff phase (e.g., 'rd1-payoff').
-     * @returns A promise that resolves when all investment payoffs for the round have been processed.
-     * @throws Error if any step of the processing fails.
      */
     public async processInvestmentPayoffs(roundNumber: 1 | 2 | 3, currentPhaseId: string | null): Promise<void> {
         if (!this.currentDbSession?.id || !this.gameStructure || !this.teams.length) {
@@ -135,29 +118,55 @@ export class InvestmentEngine {
             return;
         }
 
-        console.log(`[InvestmentEngine] Processing investment payoffs for round ${roundNumber}.`);
+        console.log(`[InvestmentEngine] Processing investment payoffs for round ${roundNumber}, phase: ${currentPhaseId}`);
 
         const payoffKey = `rd${roundNumber}-payoff`;
-        const payoffs = allInvestmentPayoffsData[payoffKey] || []; // Use imported data
+        const payoffs = allInvestmentPayoffsData[payoffKey] || [];
+
+        if (payoffs.length === 0) {
+            console.warn(`[InvestmentEngine] No payoffs found for ${payoffKey}`);
+            return;
+        }
 
         try {
+            let totalInvestmentsProcessed = 0;
+            let totalEffectsApplied = 0;
+
             for (const team of this.teams) {
+                console.log(`[InvestmentEngine] Processing payoffs for team: ${team.name} (${team.id})`);
+
                 const teamKpis = await this.ensureTeamRoundData(team.id, roundNumber, this.currentDbSession.id);
                 const investPhaseId = `rd${roundNumber}-invest`;
                 const investmentDecision = this.teamDecisions[team.id]?.[investPhaseId];
-                const selectedInvestmentIds = investmentDecision?.selected_investment_ids || [];
+
+                if (!investmentDecision) {
+                    console.log(`[InvestmentEngine] No investment decision found for team ${team.name} in ${investPhaseId}`);
+                    continue;
+                }
+
+                const selectedInvestmentIds = investmentDecision.selected_investment_ids || [];
+                console.log(`[InvestmentEngine] Team ${team.name} selected ${selectedInvestmentIds.length} investments:`, selectedInvestmentIds);
 
                 const effectsToApply: KpiEffect[] = [];
+
+                // Apply investment payoffs
                 selectedInvestmentIds.forEach(investId => {
                     const payoff = payoffs.find(p => p.investment_option_id === investId);
-                    if (payoff) effectsToApply.push(...payoff.effects);
+                    if (payoff) {
+                        console.log(`[InvestmentEngine] Applying payoff for investment ${investId}:`, payoff.name);
+                        effectsToApply.push(...payoff.effects);
+                        totalInvestmentsProcessed++;
+                    } else {
+                        console.warn(`[InvestmentEngine] No payoff found for investment ${investId}`);
+                    }
                 });
 
-                // Handle unspent budget for RD1 only, specifically at the rd1-payoff phase
+                // Handle unspent budget for RD1 only
                 if (roundNumber === 1 && currentPhaseId === 'rd1-payoff') {
-                    const budget = this.gameStructure.investment_phase_budgets['rd1-invest'];
-                    const spent = investmentDecision?.total_spent_budget ?? 0;
+                    const budget = this.gameStructure.investment_phase_budgets['rd1-invest'] || 0;
+                    const spent = investmentDecision.total_spent_budget ?? 0;
                     const unspent = budget - spent;
+
                     if (unspent > 0) {
                         effectsToApply.push({
                             kpi: 'cost',
@@ -165,29 +174,148 @@ export class InvestmentEngine {
                             timing: 'immediate',
                             description: 'RD-1 Unspent Budget Cost Reduction'
                         });
-                        console.log(`[InvestmentEngine] Team ${team.name}: Applied $${unspent} unspent budget reduction for RD1.`);
+                        console.log(`[InvestmentEngine] Team ${team.name}: Applied ${unspent} unspent budget reduction for RD1.`);
                     }
                 }
 
+                // Apply all effects if any exist
                 if (effectsToApply.length > 0) {
-                    const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, effectsToApply);
-                    await this.storePermanentAdjustments(team.id, this.currentDbSession.id, effectsToApply,
-                        `RD${roundNumber} Investment Payoff`);
+                    console.log(`[InvestmentEngine] Applying ${effectsToApply.length} effects to team ${team.name}`);
 
+                    // Apply effects to KPIs
+                    const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, effectsToApply);
+
+                    // Store permanent adjustments for future rounds
+                    await this.storePermanentAdjustments(
+                        team.id,
+                        this.currentDbSession.id,
+                        effectsToApply,
+                        `RD${roundNumber} Investment Payoff`
+                    );
+
+                    // Update KPIs in database
                     await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
-                    console.log(`[InvestmentEngine] Team ${team.name}: KPIs updated for investment payoffs of Round ${roundNumber}.`);
+
+                    totalEffectsApplied += effectsToApply.length;
+                    console.log(`[InvestmentEngine] Team ${team.name}: Successfully applied investment payoffs`);
+                } else {
+                    console.log(`[InvestmentEngine] Team ${team.name}: No investment effects to apply`);
                 }
             }
 
-            // After processing all teams, refetch the latest KPI data to update the UI
+            console.log(`[InvestmentEngine] Payoff processing complete. Processed ${totalInvestmentsProcessed} investments with ${totalEffectsApplied} total effects.`);
+
+            // Refresh team data to update UI
             await this.fetchTeamRoundDataFromHook(this.currentDbSession.id);
             console.log(`[InvestmentEngine] Successfully processed investment payoffs for round ${roundNumber} for all teams.`);
+
         } catch (err) {
             console.error(`[InvestmentEngine] Failed to process investment payoffs for round ${roundNumber}:`, err);
-            throw err; // Re-throw to be caught by the caller (e.g., useGameProcessing)
+            throw err;
         }
     }
 
-    // TODO: Add public method for processing double-down payoffs, which would use allInvestmentPayoffsData['dd-payoff']
-    // This might be called from DecisionEngine if DecisionEngine orchestrates the double-down dice roll.
+    /**
+     * Processes double-down payoffs based on dice roll results
+     */
+    public async processDoubleDownPayoffs(
+        teamId: string,
+        diceRoll: number,
+        doubleDownDecision: { investmentToSacrificeId: string; investmentToDoubleDownId: string }
+    ): Promise<void> {
+        if (!this.currentDbSession?.id || !this.gameStructure) {
+            throw new Error("Invalid session state for double-down processing");
+        }
+
+        console.log(`[InvestmentEngine] Processing double-down for team ${teamId}, dice roll: ${diceRoll}`);
+
+        const team = this.teams.find(t => t.id === teamId);
+        if (!team) {
+            throw new Error(`Team not found: ${teamId}`);
+        }
+
+        const teamKpis = await this.ensureTeamRoundData(teamId, 3, this.currentDbSession.id);
+
+        // Get the original payoff for the investment being doubled down on
+        const rd3Payoffs = allInvestmentPayoffsData['rd3-payoff'] || [];
+        const originalPayoff = rd3Payoffs.find(p => p.investment_option_id === doubleDownDecision.investmentToDoubleDownId);
+
+        if (!originalPayoff) {
+            throw new Error(`No RD3 payoff found for investment ${doubleDownDecision.investmentToDoubleDownId}`);
+        }
+
+        let multiplier: number;
+        let resultType: string;
+
+        // Determine multiplier based on dice roll
+        if (diceRoll === 6) {
+            multiplier = 3; // Critical success: 3x payoff
+            resultType = 'Critical Success';
+        } else if (diceRoll >= 4) {
+            multiplier = 2; // Success: 2x payoff
+            resultType = 'Success';
+        } else {
+            multiplier = 0; // Failure: lose the investment entirely
+            resultType = 'Failure';
+        }
+
+        console.log(`[InvestmentEngine] Double-down result: ${resultType} (${multiplier}x multiplier)`);
+
+        // Apply the multiplier to the original payoff effects
+        const doubleDownEffects: KpiEffect[] = originalPayoff.effects.map(effect => ({
+            ...effect,
+            change_value: effect.change_value * multiplier,
+            description: `Double Down ${resultType}: ${effect.description}`
+        }));
+
+        if (doubleDownEffects.length > 0) {
+            const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, doubleDownEffects);
+
+            await this.storePermanentAdjustments(
+                teamId,
+                this.currentDbSession.id,
+                doubleDownEffects,
+                `Double Down ${resultType} (Dice: ${diceRoll})`
+            );
+
+            await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
+
+            console.log(`[InvestmentEngine] Double-down effects applied for team ${team.name}`);
+        }
+
+        // Record the double-down result
+        await db.decisions.update(this.currentDbSession.id, teamId, 'dd-payoff', {
+            double_down_result: {
+                diceRoll,
+                resultType,
+                multiplier,
+                originalInvestmentId: doubleDownDecision.investmentToDoubleDownId,
+                sacrificedInvestmentId: doubleDownDecision.investmentToSacrificeId
+            }
+        });
+
+        console.log(`[InvestmentEngine] Double-down processing complete for team ${team.name}`);
+    }
+
+    /**
+     * Gets investment summary for a team and round
+     */
+    public getInvestmentSummary(teamId: string, roundNumber: 1 | 2 | 3): {
+        selectedInvestments: string[];
+        totalSpent: number;
+        budget: number;
+        unspentAmount: number;
+    } {
+        const investPhaseId = `rd${roundNumber}-invest`;
+        const decision = this.teamDecisions[teamId]?.[investPhaseId];
+        const budget = this.gameStructure?.investment_phase_budgets?.[investPhaseId] || 0;
+        const totalSpent = decision?.total_spent_budget || 0;
+
+        return {
+            selectedInvestments: decision?.selected_investment_ids || [],
+            totalSpent,
+            budget,
+            unspentAmount: Math.max(0, budget - totalSpent)
+        };
+    }
 }

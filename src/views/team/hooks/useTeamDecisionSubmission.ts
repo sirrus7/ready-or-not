@@ -1,194 +1,223 @@
-// src/views/team/hooks/useTeamDecisionSubmission.ts - Consolidated Decision submission logic and UI management
-import {useState, useCallback, useMemo} from 'react';
-import {useSupabaseMutation} from '@shared/hooks/supabase'; // Correct import
-import {db} from '@shared/services/supabase'; // Correct import
-import {GamePhaseNode} from '@shared/types'; // Correct import
-import {DecisionState} from '@views/team/hooks/useDecisionMaking'; // Correct import (from useDecisionLogic)
+// src/views/team/hooks/useTeamDecisionSubmission.ts - COMPLETED Submission Logic
+import {useState, useCallback, useMemo, useEffect} from 'react';
+import {useSupabaseMutation} from '@shared/hooks/supabase';
+import {db} from '@shared/services/supabase';
+import {GamePhaseNode} from '@shared/types';
+import {DecisionState} from '@views/team/hooks/useDecisionMaking';
 
 interface UseTeamDecisionSubmissionProps {
     sessionId: string | null;
     teamId: string | null;
     currentPhase: GamePhaseNode | null;
-    decisionState: DecisionState; // Now directly accepts DecisionState
+    decisionState: DecisionState;
+    isValidSubmission: boolean;
 }
 
 export interface UseTeamDecisionSubmissionReturn {
+    // Submission state
     isSubmitting: boolean;
     isSubmitDisabled: boolean;
-    handleSubmit: () => void; // This will now trigger the modal or direct submission
+    submissionError: string | null;
+    submissionSuccess: boolean;
+
+    // UI control
     showConfirmationModal: boolean;
     setShowConfirmationModal: (show: boolean) => void;
-    confirmSubmit: () => Promise<void>; // This will perform the actual DB call
-    submissionError: string | null;
-    submissionMessage: string | null;
+
+    // Actions
+    handleSubmit: () => void;
+    confirmSubmit: () => Promise<void>;
     clearSubmissionMessage: () => void;
+    retrySubmission: () => void;
 }
 
 export const useTeamDecisionSubmission = ({
                                               sessionId,
                                               teamId,
                                               currentPhase,
-                                              decisionState // Added decisionState here
+                                              decisionState,
+                                              isValidSubmission
                                           }: UseTeamDecisionSubmissionProps): UseTeamDecisionSubmissionReturn => {
-    // UI state for submission process
-    const [isSubmittingInternal, setIsSubmittingInternal] = useState(false); // Renamed to avoid collision
-    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-    const [submissionErrorInternal, setSubmissionErrorInternal] = useState<string | null>(null); // To store local error
 
-    // Supabase mutation for decision persistence
+    // Local UI state
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const [submissionError, setSubmissionError] = useState<string | null>(null);
+    const [submissionSuccess, setSubmissionSuccess] = useState(false);
+
+    // Reset success state when phase changes
+    useEffect(() => {
+        if (currentPhase) {
+            setSubmissionSuccess(false);
+            setSubmissionError(null);
+        }
+    }, [currentPhase?.id]);
+
+    // Supabase mutation for decision submission
     const {
-        execute: submitDecisionExecute,
-        isLoading: isSupabaseMutating, // Renamed to avoid collision
-        error: supabaseMutationError // Renamed to avoid collision
+        execute: submitDecisionMutation,
+        isLoading: isMutationLoading,
+        error: mutationError
     } = useSupabaseMutation(
-        async (decisionPayload: any) => { // This now takes the full payload
+        async (payload: any) => {
             if (!sessionId || !teamId || !currentPhase) {
-                throw new Error('Missing required data for Supabase submission');
+                throw new Error('Missing required submission data');
             }
-            // The payload is already constructed by confirmSubmit, just ensure core IDs
-            const finalPayload = {
-                ...decisionPayload,
+
+            console.log('[useTeamDecisionSubmission] Submitting decision:', payload);
+
+            const submissionPayload = {
                 session_id: sessionId,
                 team_id: teamId,
                 phase_id: currentPhase.id,
                 round_number: currentPhase.round_number as 0 | 1 | 2 | 3,
                 submitted_at: new Date().toISOString(),
+                ...payload
             };
 
-            return db.decisions.create(finalPayload);
+            // Create or update the decision
+            const result = await db.decisions.create(submissionPayload);
+            console.log('[useTeamDecisionSubmission] Submission successful:', result);
+            return result;
         },
         {
             onSuccess: () => {
-                console.log('[useTeamDecisionSubmission] Supabase mutation successful');
-                setSubmissionErrorInternal(null); // Clear any previous error
+                console.log('[useTeamDecisionSubmission] Decision submitted successfully');
+                setSubmissionError(null);
+                setSubmissionSuccess(true);
+
+                // Auto-clear success message after 3 seconds
+                setTimeout(() => {
+                    setSubmissionSuccess(false);
+                }, 3000);
             },
             onError: (error) => {
-                console.error('[useTeamDecisionSubmission] Supabase mutation failed:', error);
-                setSubmissionErrorInternal(error);
+                console.error('[useTeamDecisionSubmission] Submission failed:', error);
+                setSubmissionError(error instanceof Error ? error.message : 'Submission failed');
+                setSubmissionSuccess(false);
             }
         }
     );
 
-    // Calculate if submit should be disabled (from old useDecisionSubmission)
+    // Calculate if submit should be disabled
     const isSubmitDisabled = useMemo(() => {
-        if (isSubmittingInternal || isSupabaseMutating) return true; // Disable if any part is submitting
+        return isMutationLoading ||
+            !isValidSubmission ||
+            !sessionId ||
+            !teamId ||
+            !currentPhase ||
+            submissionSuccess;
+    }, [isMutationLoading, isValidSubmission, sessionId, teamId, currentPhase, submissionSuccess]);
 
-        switch (currentPhase?.phase_type) {
+    // Build decision payload based on phase type
+    const buildDecisionPayload = useCallback(() => {
+        if (!currentPhase) throw new Error('No active phase');
+
+        const payload: any = {};
+
+        switch (currentPhase.phase_type) {
             case 'invest':
-                // Allow submitting zero investments if budget is zero, so always false here unless actively submitting
-                return false;
-            case 'choice':
-                return !decisionState.selectedChallengeOptionId;
-            case 'double-down-prompt':
-                // For double-down-prompt, we handle direct submission, so this button is always active if an option is selected.
-                return !decisionState.selectedChallengeOptionId;
-            case 'double-down-select':
-                return !decisionState.sacrificeInvestmentId || !decisionState.doubleDownOnInvestmentId;
-            default:
-                return true; // Default to disabled if no specific rules
-        }
-    }, [isSubmittingInternal, isSupabaseMutating, currentPhase?.phase_type, decisionState]);
+                payload.selected_investment_ids = decisionState.selectedInvestmentIds;
+                payload.total_spent_budget = decisionState.spentBudget;
+                break;
 
-    // Handles initial click on submit button (from old useDecisionSubmission)
-    const handleSubmit = useCallback(async () => {
-        setSubmissionErrorInternal(null); // Clear previous errors on new attempt
+            case 'choice':
+                if (!decisionState.selectedChallengeOptionId) {
+                    throw new Error('Please make a selection for the challenge');
+                }
+                payload.selected_challenge_option_id = decisionState.selectedChallengeOptionId;
+                break;
+
+            case 'double-down-prompt':
+                if (!decisionState.selectedChallengeOptionId) {
+                    throw new Error('Please select an option for the Double Down prompt');
+                }
+                payload.selected_challenge_option_id = decisionState.selectedChallengeOptionId;
+                payload.wants_to_double_down = decisionState.selectedChallengeOptionId === 'yes_dd';
+                break;
+
+            case 'double-down-select':
+                if (!decisionState.sacrificeInvestmentId || !decisionState.doubleDownOnInvestmentId) {
+                    throw new Error('Both sacrifice and double-down selections are required');
+                }
+                payload.double_down_decision = {
+                    investmentToSacrificeId: decisionState.sacrificeInvestmentId,
+                    investmentToDoubleDownId: decisionState.doubleDownOnInvestmentId
+                };
+                break;
+
+            default:
+                throw new Error(`Unknown phase type: ${currentPhase.phase_type}`);
+        }
+
+        return payload;
+    }, [currentPhase, decisionState]);
+
+    // Handle initial submit button click
+    const handleSubmit = useCallback(() => {
+        setSubmissionError(null);
 
         if (!currentPhase || !sessionId || !teamId) {
-            setSubmissionErrorInternal("Missing session or team ID, or no active phase for submission.");
+            setSubmissionError('Missing session or team information');
             return;
         }
 
-        // Special handling for 'double-down-prompt' phase: no confirmation modal needed, submit directly
+        if (!isValidSubmission) {
+            setSubmissionError('Please complete your selections before submitting');
+            return;
+        }
+
+        // For double-down-prompt, submit directly without confirmation
         if (currentPhase.phase_type === 'double-down-prompt') {
-            if (!decisionState.selectedChallengeOptionId) {
-                setSubmissionErrorInternal("Please select an option for the Double Down prompt.");
-                return;
-            }
-            setIsSubmittingInternal(true);
-            try {
-                await submitDecisionExecute({
-                    wantsToDoubleDown: decisionState.selectedChallengeOptionId === 'yes_dd'
-                });
-                console.log('[useTeamDecisionSubmission] Double-down prompt submitted directly.');
-            } catch (error) {
-                console.error('[useTeamDecisionSubmission] Double-down prompt submission failed:', error);
-            } finally {
-                setIsSubmittingInternal(false);
-            }
-            return; // Exit after direct submission
+            confirmSubmit();
+            return;
         }
 
         // For other phases, show confirmation modal
         setShowConfirmationModal(true);
-    }, [sessionId, teamId, currentPhase, decisionState, submitDecisionExecute]);
+    }, [sessionId, teamId, currentPhase, isValidSubmission]);
 
-
-    // Confirms submission after modal (from old useDecisionSubmission)
+    // Handle confirmed submission
     const confirmSubmit = useCallback(async () => {
-        setShowConfirmationModal(false); // Close the modal first
-        setSubmissionErrorInternal(null); // Clear previous errors
-
-        if (!currentPhase || !sessionId || !teamId) {
-            setSubmissionErrorInternal("Missing session or team ID, or no active phase.");
-            return;
-        }
-
-        setIsSubmittingInternal(true); // Indicate submission is in progress
+        setShowConfirmationModal(false);
+        setSubmissionError(null);
 
         try {
-            const decisionPayload: any = {};
-
-            switch (currentPhase.phase_type) {
-                case 'invest':
-                    decisionPayload.selected_investment_ids = decisionState.selectedInvestmentIds;
-                    decisionPayload.total_spent_budget = decisionState.spentBudget;
-                    break;
-
-                case 'choice':
-                    if (!decisionState.selectedChallengeOptionId) {
-                        throw new Error("Please make a selection for the challenge.");
-                    }
-                    decisionPayload.selected_challenge_option_id = decisionState.selectedChallengeOptionId;
-                    break;
-
-                case 'double-down-select':
-                    if (!decisionState.sacrificeInvestmentId || !decisionState.doubleDownOnInvestmentId) {
-                        throw new Error("Both sacrifice and double-down selections are required.");
-                    }
-                    decisionPayload.double_down_decision = {
-                        investmentToSacrificeId: decisionState.sacrificeInvestmentId,
-                        investmentToDoubleDownId: decisionState.doubleDownOnInvestmentId,
-                    };
-                    break;
-
-                default:
-                    throw new Error("Unknown decision type for submission.");
-            }
-
-            console.log('[useTeamDecisionSubmission] Attempting to submit decision payload:', decisionPayload);
-            await submitDecisionExecute(decisionPayload); // Pass the constructed payload
+            const payload = buildDecisionPayload();
+            await submitDecisionMutation(payload);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error('[useTeamDecisionSubmission] Submission failed inside confirmSubmit:', errorMessage);
-            setSubmissionErrorInternal(`Submission failed: ${errorMessage}`);
-        } finally {
-            setIsSubmittingInternal(false);
+            const errorMessage = error instanceof Error ? error.message : 'Submission failed';
+            console.error('[useTeamDecisionSubmission] Error in confirmSubmit:', errorMessage);
+            setSubmissionError(errorMessage);
         }
-    }, [sessionId, teamId, currentPhase, decisionState, submitDecisionExecute]);
+    }, [buildDecisionPayload, submitDecisionMutation]);
 
+    // Clear error messages
     const clearSubmissionMessage = useCallback(() => {
-        setSubmissionErrorInternal(null);
+        setSubmissionError(null);
+        setSubmissionSuccess(false);
     }, []);
 
+    // Retry failed submission
+    const retrySubmission = useCallback(() => {
+        setSubmissionError(null);
+        handleSubmit();
+    }, [handleSubmit]);
+
     return {
-        isSubmitting: isSubmittingInternal || isSupabaseMutating, // Combined loading state
+        // State
+        isSubmitting: isMutationLoading,
         isSubmitDisabled,
-        handleSubmit,
+        submissionError: submissionError || mutationError,
+        submissionSuccess,
+
+        // UI control
         showConfirmationModal,
         setShowConfirmationModal,
+
+        // Actions
+        handleSubmit,
         confirmSubmit,
-        submissionError: submissionErrorInternal || supabaseMutationError, // Combined error
-        submissionMessage: (submissionErrorInternal || supabaseMutationError) ? `Failed to submit: ${submissionErrorInternal || supabaseMutationError}` : null,
-        clearSubmissionMessage
+        clearSubmissionMessage,
+        retrySubmission
     };
 };
