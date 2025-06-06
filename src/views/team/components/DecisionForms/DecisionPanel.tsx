@@ -1,9 +1,9 @@
 // src/views/team/components/DecisionForms/DecisionPanel.tsx
 import React from 'react';
-import { InvestmentOption, ChallengeOption, GamePhaseNode } from '@shared/types/common';
-import { Hourglass } from 'lucide-react';
-import { useDecisionMaking } from '@views/team/hooks/useDecisionMaking';
-import { useTeamDecisionSubmission } from '@views/team/hooks/useTeamDecisionSubmission';
+import {InvestmentOption, ChallengeOption, Slide, GameStructure} from '@shared/types';
+import {Hourglass, CheckCircle2} from 'lucide-react';
+import {useDecisionMaking} from '@views/team/hooks/useDecisionMaking';
+import {useTeamDecisionSubmission} from '@views/team/hooks/useTeamDecisionSubmission';
 import DecisionHeader from './DecisionHeader';
 import DecisionContent from './DecisionContent';
 import DecisionFooter from './DecisionFooter';
@@ -13,54 +13,61 @@ import ConfirmationModal from './ConfirmationModal';
 interface DecisionPanelProps {
     sessionId: string | null;
     teamId: string | null;
-    currentPhase: GamePhaseNode | null;
+    currentSlide: Slide | null;
     investmentOptions?: InvestmentOption[];
     investUpToBudget?: number;
     challengeOptions?: ChallengeOption[];
     availableRd3Investments?: InvestmentOption[];
-    // Removed onDecisionSubmit from props as it's now handled internally
     isDecisionTime: boolean;
     timeRemainingSeconds?: number;
-    currentSpentBudgetForInvestments?: number;
-    onInvestmentSelectionChange?: (selectedIds: string[], totalCost: number) => void;
+    gameStructure?: GameStructure;
 }
 
 const DecisionPanel: React.FC<DecisionPanelProps> = ({
                                                          sessionId,
                                                          teamId,
-                                                         currentPhase,
+                                                         currentSlide,
                                                          investmentOptions = [],
                                                          investUpToBudget = 0,
                                                          challengeOptions = [],
                                                          availableRd3Investments = [],
                                                          isDecisionTime,
                                                          timeRemainingSeconds,
-                                                         onInvestmentSelectionChange,
+                                                         gameStructure,
                                                      }) => {
-    // Decision state logic
-    const decisionLogic = useDecisionMaking({ // Renamed hook
-        currentPhase,
-        investmentOptions,
-        challengeOptions,
-        investUpToBudget,
-        onInvestmentSelectionChange
+    const decisionLogic = useDecisionMaking({
+        currentSlide, investmentOptions, challengeOptions, investUpToBudget,
     });
 
-    // Submission logic - now passes decisionState
     const submission = useTeamDecisionSubmission({
-        sessionId,
-        teamId,
-        currentPhase,
-        decisionState: decisionLogic.state // Pass the decision state
+        sessionId, teamId, currentSlide,
+        decisionState: decisionLogic.state,
+        isValidSubmission: decisionLogic.isValidSubmission,
+        investmentOptions, challengeOptions, gameStructure
     });
 
-    // Show waiting state if not decision time
-    if (!isDecisionTime || !currentPhase) {
+    if (!isDecisionTime || !currentSlide) {
         return (
-            <div className="p-6 bg-gray-800 text-gray-400 text-center rounded-xl min-h-[200px] flex flex-col items-center justify-center">
+            <div
+                className="p-6 bg-gray-800 text-gray-400 text-center rounded-xl min-h-[200px] flex flex-col items-center justify-center">
                 <Hourglass size={32} className="mr-2 animate-pulse mb-3"/>
                 <p className="text-lg">Waiting for Decision Period</p>
-                {currentPhase && <p className="text-xs mt-1">Current Phase: {currentPhase.label}</p>}
+                {currentSlide && <p className="text-xs mt-1">Current Activity: {currentSlide.title}</p>}
+            </div>
+        );
+    }
+
+    if (submission.submissionSuccess || submission.hasExistingSubmission) {
+        const displaySummary = submission.existingSubmissionSummary || decisionLogic.submissionSummary;
+        return (
+            <div
+                className="p-6 bg-green-800/50 backdrop-blur-sm text-green-100 text-center rounded-xl min-h-[200px] flex flex-col items-center justify-center border border-green-600">
+                <CheckCircle2 size={48} className="mb-4 text-green-400"/>
+                <h3 className="text-xl font-semibold mb-2">Decision Submitted!</h3>
+                <div className="bg-green-900/50 rounded-lg p-4 max-w-md w-full">
+                    <p className="text-sm font-medium text-green-200">Summary:</p>
+                    <p className="text-sm text-green-100 mt-1">{displaySummary}</p>
+                </div>
             </div>
         );
     }
@@ -68,16 +75,16 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
     return (
         <div className="bg-gray-800/50 backdrop-blur-sm text-white rounded-xl shadow-2xl border border-gray-700">
             <div className="p-4 md:p-6">
-                {/* Header with phase info and budget */}
                 <DecisionHeader
-                    currentPhase={currentPhase}
-                    decisionState={decisionLogic.state}
+                    currentSlide={currentSlide}
+                    state={decisionLogic.state}
+                    remainingBudget={decisionLogic.remainingBudget}
+                    submissionSummary={decisionLogic.submissionSummary}
+                    isValidSubmission={decisionLogic.isValidSubmission}
                     investUpToBudget={investUpToBudget}
                 />
-
-                {/* Main decision content */}
                 <DecisionContent
-                    currentPhase={currentPhase}
+                    currentSlide={currentSlide}
                     decisionState={decisionLogic.state}
                     decisionActions={decisionLogic.actions}
                     investmentOptions={investmentOptions}
@@ -86,26 +93,24 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                     investUpToBudget={investUpToBudget}
                     isSubmitting={submission.isSubmitting}
                 />
-
-                {/* Error display */}
-                {/* Pass submission.submissionError to ErrorDisplay */}
-                <ErrorDisplay error={decisionLogic.state.error || submission.submissionError} />
+                <ErrorDisplay error={decisionLogic.state.error || submission.submissionError}/>
             </div>
-
-            {/* Footer with timer and submit */}
             <DecisionFooter
                 timeRemainingSeconds={timeRemainingSeconds}
                 isSubmitDisabled={submission.isSubmitDisabled}
                 isSubmitting={submission.isSubmitting}
                 onSubmit={submission.handleSubmit}
+                isValidSubmission={decisionLogic.isValidSubmission}
+                submissionSummary={decisionLogic.submissionSummary}
+                retrySubmission={submission.retrySubmission}
+                hasError={!!(decisionLogic.state.error || submission.submissionError)}
             />
-
-            {/* Confirmation modal */}
             <ConfirmationModal
                 isOpen={submission.showConfirmationModal}
                 onClose={() => submission.setShowConfirmationModal(false)}
                 onConfirm={submission.confirmSubmit}
-                currentPhase={currentPhase}
+                currentPhaseLabel={currentSlide.title || "Decision"}
+                submissionSummary={decisionLogic.submissionSummary}
             />
         </div>
     );

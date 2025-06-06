@@ -1,6 +1,6 @@
-// src/components/Game/DecisionPanel/components/DecisionContent.tsx
+// src/views/team/components/DecisionForms/DecisionContent.tsx
 import React from 'react';
-import {GamePhaseNode, InvestmentOption, ChallengeOption} from '@shared/types/common';
+import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
 import {DecisionState, DecisionActions} from '@views/team/hooks/useDecisionMaking';
 import InvestmentPanel from './InvestmentPanel';
 import ChoicePanel from './ChoicePanel';
@@ -8,7 +8,7 @@ import DoubleDownPromptPanel from './DoubleDownPrompt';
 import DoubleDownSelectPanel from './DoubleDownSelect';
 
 interface DecisionContentProps {
-    currentPhase: GamePhaseNode;
+    currentSlide: Slide;
     decisionState: DecisionState;
     decisionActions: DecisionActions;
     investmentOptions: InvestmentOption[];
@@ -19,7 +19,7 @@ interface DecisionContentProps {
 }
 
 const DecisionContent: React.FC<DecisionContentProps> = ({
-                                                             currentPhase,
+                                                             currentSlide,
                                                              decisionState,
                                                              decisionActions,
                                                              investmentOptions,
@@ -28,57 +28,31 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
                                                              investUpToBudget,
                                                              isSubmitting
                                                          }) => {
-    switch (currentPhase.phase_type) {
-        case 'invest':
-            return (
-                <InvestmentPanel
-                    investmentOptions={investmentOptions}
-                    selectedInvestmentIds={decisionState.selectedInvestmentIds}
-                    spentBudget={decisionState.spentBudget}
-                    investUpToBudget={investUpToBudget}
-                    onInvestmentToggle={decisionActions.handleInvestmentToggle}
-                    isSubmitting={isSubmitting}
-                />
-            );
-
-        case 'choice':
-            return (
-                <ChoicePanel
-                    challengeOptions={challengeOptions}
-                    selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
-                    onChallengeSelect={decisionActions.handleChallengeSelect}
-                    currentPhase={currentPhase}
-                    isSubmitting={isSubmitting}
-                />
-            );
-
-        case 'double-down-prompt':
-            return (
-                <DoubleDownPromptPanel
-                    challengeOptions={challengeOptions}
-                    selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
-                    onChallengeSelect={decisionActions.handleChallengeSelect}
-                />
-            );
-
-        case 'double-down-select':
-            return (
-                <DoubleDownSelectPanel
-                    availableRd3Investments={availableRd3Investments}
-                    sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
-                    doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
-                    onSacrificeChange={decisionActions.setSacrificeInvestmentId}
-                    onDoubleDownChange={decisionActions.setDoubleDownOnInvestmentId}
-                    isSubmitting={isSubmitting}
-                />
-            );
-
+    switch (currentSlide.type) {
+        case 'interactive_invest':
+            return <InvestmentPanel investmentOptions={investmentOptions}
+                                    selectedInvestmentIds={decisionState.selectedInvestmentIds}
+                                    spentBudget={decisionState.spentBudget} investUpToBudget={investUpToBudget}
+                                    onInvestmentToggle={decisionActions.handleInvestmentToggle}
+                                    isSubmitting={isSubmitting}/>;
+        case 'interactive_choice':
+            return <ChoicePanel challengeOptions={challengeOptions}
+                                selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
+                                onChallengeSelect={decisionActions.handleChallengeSelect} currentPhase={currentSlide}
+                                isSubmitting={isSubmitting}/>;
+        case 'interactive_double_down_prompt':
+            return <DoubleDownPromptPanel challengeOptions={challengeOptions}
+                                          selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
+                                          onChallengeSelect={decisionActions.handleChallengeSelect}/>;
+        case 'interactive_double_down_select':
+            return <DoubleDownSelectPanel availableRd3Investments={availableRd3Investments}
+                                          sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
+                                          doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
+                                          onSacrificeChange={decisionActions.setSacrificeInvestmentId}
+                                          onDoubleDownChange={decisionActions.setDoubleDownOnInvestmentId}
+                                          isSubmitting={isSubmitting}/>;
         default:
-            return (
-                <p className="text-gray-400 text-center py-8">
-                    Waiting for interactive phase instructions...
-                </p>
-            );
+            return <p className="text-gray-400 text-center py-8">Waiting for interactive instructions...</p>;
     }
 };
 

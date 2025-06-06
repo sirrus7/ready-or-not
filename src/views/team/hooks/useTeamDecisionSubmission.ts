@@ -1,194 +1,219 @@
-// src/views/team/hooks/useTeamDecisionSubmission.ts - Consolidated Decision submission logic and UI management
-import {useState, useCallback, useMemo} from 'react';
-import {useSupabaseMutation} from '@shared/hooks/supabase'; // Correct import
-import {db} from '@shared/services/supabase'; // Correct import
-import {GamePhaseNode} from '@shared/types'; // Correct import
-import {DecisionState} from '@views/team/hooks/useDecisionMaking'; // Correct import (from useDecisionLogic)
+// src/views/team/hooks/useTeamDecisionSubmission.ts
+import {useState, useCallback, useMemo, useEffect} from 'react';
+import {useSupabaseMutation, useSupabaseQuery} from '@shared/hooks/supabase';
+import {db} from '@shared/services/supabase';
+import {Slide, InvestmentOption, ChallengeOption, GameStructure} from '@shared/types';
+import {DecisionState} from './useDecisionMaking';
 
 interface UseTeamDecisionSubmissionProps {
     sessionId: string | null;
     teamId: string | null;
-    currentPhase: GamePhaseNode | null;
-    decisionState: DecisionState; // Now directly accepts DecisionState
+    currentSlide: Slide | null;
+    decisionState: DecisionState;
+    isValidSubmission: boolean;
+    investmentOptions?: InvestmentOption[];
+    challengeOptions?: ChallengeOption[];
+    gameStructure?: GameStructure;
 }
 
 export interface UseTeamDecisionSubmissionReturn {
     isSubmitting: boolean;
     isSubmitDisabled: boolean;
-    handleSubmit: () => void; // This will now trigger the modal or direct submission
+    submissionError: string | null;
+    submissionSuccess: boolean;
+    hasExistingSubmission: boolean;
+    existingSubmissionSummary: string | null;
     showConfirmationModal: boolean;
     setShowConfirmationModal: (show: boolean) => void;
-    confirmSubmit: () => Promise<void>; // This will perform the actual DB call
-    submissionError: string | null;
-    submissionMessage: string | null;
+    handleSubmit: () => void;
+    confirmSubmit: () => Promise<void>;
     clearSubmissionMessage: () => void;
+    retrySubmission: () => void;
 }
+
+const formatCurrency = (value: number): string => {
+    if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+    return `$${value.toFixed(0)}`;
+};
 
 export const useTeamDecisionSubmission = ({
                                               sessionId,
                                               teamId,
-                                              currentPhase,
-                                              decisionState // Added decisionState here
+                                              currentSlide,
+                                              decisionState,
+                                              isValidSubmission,
+                                              investmentOptions = [],
+                                              challengeOptions = [],
+                                              gameStructure
                                           }: UseTeamDecisionSubmissionProps): UseTeamDecisionSubmissionReturn => {
-    // UI state for submission process
-    const [isSubmittingInternal, setIsSubmittingInternal] = useState(false); // Renamed to avoid collision
+
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-    const [submissionErrorInternal, setSubmissionErrorInternal] = useState<string | null>(null); // To store local error
+    const [submissionError, setSubmissionError] = useState<string | null>(null);
+    const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
-    // Supabase mutation for decision persistence
+    const decisionKey = currentSlide?.interactive_data_key;
+
     const {
-        execute: submitDecisionExecute,
-        isLoading: isSupabaseMutating, // Renamed to avoid collision
-        error: supabaseMutationError // Renamed to avoid collision
-    } = useSupabaseMutation(
-        async (decisionPayload: any) => { // This now takes the full payload
-            if (!sessionId || !teamId || !currentPhase) {
-                throw new Error('Missing required data for Supabase submission');
-            }
-            // The payload is already constructed by confirmSubmit, just ensure core IDs
-            const finalPayload = {
-                ...decisionPayload,
-                session_id: sessionId,
-                team_id: teamId,
-                phase_id: currentPhase.id,
-                round_number: currentPhase.round_number as 0 | 1 | 2 | 3,
-                submitted_at: new Date().toISOString(),
-            };
+        data: existingDecision,
+        isLoading: isCheckingExisting,
+        refresh: checkForExistingDecision
+    } = useSupabaseQuery(
+        async () => {
+            if (!sessionId || !teamId || !decisionKey) return null;
+            return db.decisions.getForPhase(sessionId, teamId, decisionKey);
+        },
+        [sessionId, teamId, decisionKey],
+        {cacheKey: `decision-${sessionId}-${teamId}-${decisionKey}`, cacheTimeout: 5000, retryOnError: false}
+    );
 
-            return db.decisions.create(finalPayload);
+    const hasExistingSubmission = !!(existingDecision?.submitted_at);
+
+    const existingSubmissionSummary = useMemo(() => {
+        if (!existingDecision || !currentSlide || !gameStructure) return null;
+
+        switch (currentSlide.type) {
+            case 'interactive_invest':
+                const selectedIds = existingDecision.selected_investment_ids || [];
+                const totalSpent = existingDecision.total_spent_budget || 0;
+                const budget = gameStructure.investment_phase_budgets[currentSlide.interactive_data_key!] || 0;
+                const unspent = budget - totalSpent;
+
+                if (selectedIds.length === 0) return `No investments selected (${formatCurrency(unspent)} unspent)`;
+
+                const selectedNames = selectedIds.map(id => investmentOptions.find(opt => opt.id === id)?.name.split('.')[0] || `#${id.slice(-4)}`).join(', ');
+                return `${selectedIds.length} investments: ${selectedNames} (${formatCurrency(totalSpent)} spent, ${formatCurrency(unspent)} unspent)`;
+
+            case 'interactive_choice':
+                const option = challengeOptions.find(opt => opt.id === existingDecision.selected_challenge_option_id);
+                return option ? `Selected: ${option.id} - ${option.text.substring(0, 50)}...` : `Selected: ${existingDecision.selected_challenge_option_id}`;
+
+            case 'interactive_double_down_prompt':
+                const ddOption = challengeOptions.find(opt => opt.id === existingDecision.selected_challenge_option_id);
+                return ddOption ? `Double Down: ${ddOption.text}` : `Choice: ${existingDecision.selected_challenge_option_id}`;
+
+            case 'interactive_double_down_select':
+                const ddDecision = existingDecision.double_down_decision;
+                if (!ddDecision?.investmentToSacrificeId || !ddDecision?.investmentToDoubleDownId) return 'Incomplete double down selection';
+
+                const rd3Options = gameStructure.all_investment_options['rd3-invest'] || [];
+                const sacrificeOpt = rd3Options.find(opt => opt.id === ddDecision.investmentToSacrificeId);
+                const ddOnOpt = rd3Options.find(opt => opt.id === ddDecision.investmentToDoubleDownId);
+                return `Sacrifice: ${sacrificeOpt?.name || 'Unknown'}, Double: ${ddOnOpt?.name || 'Unknown'}`;
+
+            default:
+                return 'Decision submitted';
+        }
+    }, [existingDecision, currentSlide, investmentOptions, challengeOptions, gameStructure]);
+
+    useEffect(() => {
+        if (currentSlide) {
+            setSubmissionSuccess(false);
+            setSubmissionError(null);
+            checkForExistingDecision();
+        }
+    }, [currentSlide?.id, checkForExistingDecision]);
+
+    const {
+        execute: submitDecisionMutation,
+        isLoading: isMutationLoading,
+        error: mutationError
+    } = useSupabaseMutation(
+        async (payload: any) => {
+            if (!sessionId || !teamId || !currentSlide || !decisionKey) throw new Error('Missing submission data');
+            if (hasExistingSubmission) throw new Error('A decision has already been submitted.');
+
+            const submissionPayload = {
+                session_id: sessionId, team_id: teamId, phase_id: decisionKey,
+                round_number: currentSlide.round_number, submitted_at: new Date().toISOString(), ...payload
+            };
+            return db.decisions.create(submissionPayload);
         },
         {
             onSuccess: () => {
-                console.log('[useTeamDecisionSubmission] Supabase mutation successful');
-                setSubmissionErrorInternal(null); // Clear any previous error
+                setSubmissionError(null);
+                setSubmissionSuccess(true);
+                setTimeout(() => checkForExistingDecision(), 500);
+                setTimeout(() => setSubmissionSuccess(false), 3000);
             },
-            onError: (error) => {
-                console.error('[useTeamDecisionSubmission] Supabase mutation failed:', error);
-                setSubmissionErrorInternal(error);
-            }
+            onError: (error) => setSubmissionError(error instanceof Error ? error.message : 'Submission failed'),
         }
     );
 
-    // Calculate if submit should be disabled (from old useDecisionSubmission)
-    const isSubmitDisabled = useMemo(() => {
-        if (isSubmittingInternal || isSupabaseMutating) return true; // Disable if any part is submitting
+    const isSubmitDisabled = useMemo(() => isMutationLoading || isCheckingExisting || !isValidSubmission || !sessionId || !teamId || !currentSlide || hasExistingSubmission || submissionSuccess,
+        [isMutationLoading, isCheckingExisting, isValidSubmission, sessionId, teamId, currentSlide, hasExistingSubmission, submissionSuccess]);
 
-        switch (currentPhase?.phase_type) {
-            case 'invest':
-                // Allow submitting zero investments if budget is zero, so always false here unless actively submitting
-                return false;
-            case 'choice':
-                return !decisionState.selectedChallengeOptionId;
-            case 'double-down-prompt':
-                // For double-down-prompt, we handle direct submission, so this button is always active if an option is selected.
-                return !decisionState.selectedChallengeOptionId;
-            case 'double-down-select':
-                return !decisionState.sacrificeInvestmentId || !decisionState.doubleDownOnInvestmentId;
+    const buildDecisionPayload = useCallback(() => {
+        if (!currentSlide) throw new Error('No active slide');
+        const payload: any = {};
+        switch (currentSlide.type) {
+            case 'interactive_invest':
+                payload.selected_investment_ids = decisionState.selectedInvestmentIds;
+                payload.total_spent_budget = decisionState.spentBudget;
+                break;
+            case 'interactive_choice':
+            case 'interactive_double_down_prompt':
+                if (!decisionState.selectedChallengeOptionId) throw new Error('Please make a selection');
+                payload.selected_challenge_option_id = decisionState.selectedChallengeOptionId;
+                if (currentSlide.type === 'interactive_double_down_prompt') payload.wants_to_double_down = decisionState.selectedChallengeOptionId === 'yes_dd';
+                break;
+            case 'interactive_double_down_select':
+                if (!decisionState.sacrificeInvestmentId || !decisionState.doubleDownOnInvestmentId) throw new Error('Both selections are required');
+                payload.double_down_decision = {
+                    investmentToSacrificeId: decisionState.sacrificeInvestmentId,
+                    investmentToDoubleDownId: decisionState.doubleDownOnInvestmentId
+                };
+                break;
             default:
-                return true; // Default to disabled if no specific rules
+                throw new Error(`Unknown interactive slide type: ${currentSlide.type}`);
         }
-    }, [isSubmittingInternal, isSupabaseMutating, currentPhase?.phase_type, decisionState]);
+        return payload;
+    }, [currentSlide, decisionState]);
 
-    // Handles initial click on submit button (from old useDecisionSubmission)
-    const handleSubmit = useCallback(async () => {
-        setSubmissionErrorInternal(null); // Clear previous errors on new attempt
-
-        if (!currentPhase || !sessionId || !teamId) {
-            setSubmissionErrorInternal("Missing session or team ID, or no active phase for submission.");
-            return;
-        }
-
-        // Special handling for 'double-down-prompt' phase: no confirmation modal needed, submit directly
-        if (currentPhase.phase_type === 'double-down-prompt') {
-            if (!decisionState.selectedChallengeOptionId) {
-                setSubmissionErrorInternal("Please select an option for the Double Down prompt.");
-                return;
-            }
-            setIsSubmittingInternal(true);
-            try {
-                await submitDecisionExecute({
-                    wantsToDoubleDown: decisionState.selectedChallengeOptionId === 'yes_dd'
-                });
-                console.log('[useTeamDecisionSubmission] Double-down prompt submitted directly.');
-            } catch (error) {
-                console.error('[useTeamDecisionSubmission] Double-down prompt submission failed:', error);
-            } finally {
-                setIsSubmittingInternal(false);
-            }
-            return; // Exit after direct submission
-        }
-
-        // For other phases, show confirmation modal
-        setShowConfirmationModal(true);
-    }, [sessionId, teamId, currentPhase, decisionState, submitDecisionExecute]);
-
-
-    // Confirms submission after modal (from old useDecisionSubmission)
     const confirmSubmit = useCallback(async () => {
-        setShowConfirmationModal(false); // Close the modal first
-        setSubmissionErrorInternal(null); // Clear previous errors
-
-        if (!currentPhase || !sessionId || !teamId) {
-            setSubmissionErrorInternal("Missing session or team ID, or no active phase.");
-            return;
-        }
-
-        setIsSubmittingInternal(true); // Indicate submission is in progress
-
+        setShowConfirmationModal(false);
+        setSubmissionError(null);
+        if (hasExistingSubmission) return setSubmissionError('You have already submitted.');
         try {
-            const decisionPayload: any = {};
-
-            switch (currentPhase.phase_type) {
-                case 'invest':
-                    decisionPayload.selected_investment_ids = decisionState.selectedInvestmentIds;
-                    decisionPayload.total_spent_budget = decisionState.spentBudget;
-                    break;
-
-                case 'choice':
-                    if (!decisionState.selectedChallengeOptionId) {
-                        throw new Error("Please make a selection for the challenge.");
-                    }
-                    decisionPayload.selected_challenge_option_id = decisionState.selectedChallengeOptionId;
-                    break;
-
-                case 'double-down-select':
-                    if (!decisionState.sacrificeInvestmentId || !decisionState.doubleDownOnInvestmentId) {
-                        throw new Error("Both sacrifice and double-down selections are required.");
-                    }
-                    decisionPayload.double_down_decision = {
-                        investmentToSacrificeId: decisionState.sacrificeInvestmentId,
-                        investmentToDoubleDownId: decisionState.doubleDownOnInvestmentId,
-                    };
-                    break;
-
-                default:
-                    throw new Error("Unknown decision type for submission.");
-            }
-
-            console.log('[useTeamDecisionSubmission] Attempting to submit decision payload:', decisionPayload);
-            await submitDecisionExecute(decisionPayload); // Pass the constructed payload
+            const payload = buildDecisionPayload();
+            await submitDecisionMutation(payload);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error('[useTeamDecisionSubmission] Submission failed inside confirmSubmit:', errorMessage);
-            setSubmissionErrorInternal(`Submission failed: ${errorMessage}`);
-        } finally {
-            setIsSubmittingInternal(false);
+            setSubmissionError(error instanceof Error ? error.message : 'Submission failed');
         }
-    }, [sessionId, teamId, currentPhase, decisionState, submitDecisionExecute]);
+    }, [buildDecisionPayload, submitDecisionMutation, hasExistingSubmission]);
 
-    const clearSubmissionMessage = useCallback(() => {
-        setSubmissionErrorInternal(null);
-    }, []);
+    const handleSubmit = useCallback(() => {
+        setSubmissionError(null);
+        if (!currentSlide || !sessionId || !teamId) return setSubmissionError('Missing session or team information');
+        if (hasExistingSubmission) return setSubmissionError('You have already submitted a decision.');
+        if (!isValidSubmission) return setSubmissionError('Please complete your selections.');
+
+        if (currentSlide.type === 'interactive_double_down_prompt') {
+            confirmSubmit();
+        } else {
+            setShowConfirmationModal(true);
+        }
+    }, [currentSlide, sessionId, teamId, isValidSubmission, hasExistingSubmission, confirmSubmit]);
 
     return {
-        isSubmitting: isSubmittingInternal || isSupabaseMutating, // Combined loading state
+        isSubmitting: isMutationLoading,
         isSubmitDisabled,
-        handleSubmit,
+        submissionError: submissionError || mutationError,
+        submissionSuccess,
+        hasExistingSubmission,
+        existingSubmissionSummary,
         showConfirmationModal,
         setShowConfirmationModal,
+        handleSubmit,
         confirmSubmit,
-        submissionError: submissionErrorInternal || supabaseMutationError, // Combined error
-        submissionMessage: (submissionErrorInternal || supabaseMutationError) ? `Failed to submit: ${submissionErrorInternal || supabaseMutationError}` : null,
-        clearSubmissionMessage
+        clearSubmissionMessage: () => {
+            setSubmissionError(null);
+            setSubmissionSuccess(false);
+        },
+        retrySubmission: () => {
+            setSubmissionError(null);
+            checkForExistingDecision();
+            handleSubmit();
+        }
     };
 };

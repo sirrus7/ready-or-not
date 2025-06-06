@@ -1,4 +1,4 @@
-// src/shared/types/database.ts - Updated with new session fields
+// src/shared/types/database.ts
 import type {DoubleDownChoice, KpiKey} from './game';
 import type {NewGameData} from './ui';
 
@@ -9,13 +9,12 @@ export interface GameSession {
     game_version: '2.0_dd' | '1.5_dd';
     class_name?: string | null;
     grade_level?: string | null;
-    current_phase_id: string | null;
-    current_slide_id_in_phase: number | null;
+    current_slide_index: number | null;
     is_playing: boolean;
     is_complete: boolean;
     teacher_notes: Record<string, string> | null;
-    status: 'draft' | 'active' | 'completed'; // New field
-    wizard_state: Partial<NewGameData> | null; // New field
+    status: 'draft' | 'active' | 'completed';
+    wizard_state: Partial<NewGameData> | null;
     created_at: string;
     updated_at: string;
 }

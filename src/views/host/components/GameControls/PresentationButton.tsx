@@ -1,6 +1,6 @@
 // src/views/host/components/GameControls/PresentationButton.tsx - Simplified with master-slave pattern
 import React, {useState, useEffect, useRef} from 'react';
-import {ExternalLink, Monitor, Wifi, WifiOff} from 'lucide-react';
+import {ExternalLink, Wifi} from 'lucide-react';
 import {useGameContext} from '@app/providers/GameProvider';
 import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
 

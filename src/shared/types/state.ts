@@ -1,21 +1,17 @@
 // src/shared/types/state.ts
-// These types define the application state for different parts of the app
-
-// Use 'import type' for type-only imports
 import type {GameStructure, ChallengeOption, InvestmentOption, Slide} from './game';
 import type {Team, TeamDecision, TeamRoundData} from './database';
 
 export interface AppState {
     currentSessionId: string | null;
     gameStructure: GameStructure | null;
-    currentPhaseId: string | null;
-    currentSlideIdInPhase: number | null;
+    current_slide_index: number | null;
     hostNotes: Record<string, string>;
-    isPlaying: boolean; // Keep for backward compatibility but might be removed in future phases
+    isPlaying: boolean;
     teams: Team[];
-    teamDecisions: Record<string, Record<string, TeamDecision>>; // teamId -> phaseId -> Decision
-    teamRoundData: Record<string, Record<number, TeamRoundData>>; // teamId -> roundNumber -> RoundData
-    isPlayerWindowOpen: boolean; // Keep for backward compatibility but might be removed
+    teamDecisions: Record<string, Record<string, TeamDecision>>;
+    teamRoundData: Record<string, Record<number, TeamRoundData>>;
+    isPlayerWindowOpen: boolean; // Legacy field
     isLoading: boolean;
     error: string | null;
     currentHostAlert: { title: string, message: string } | null;
@@ -25,7 +21,6 @@ export interface PlayerPageState {
     teamId: string | null;
     teamName: string | null;
     currentSessionId: string | null;
-    activePhaseId: string | null;
     activeSlideData: Slide | null;
     currentKpis: TeamRoundData | null;
     availableChoices?: ChallengeOption[] | InvestmentOption[];

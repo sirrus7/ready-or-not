@@ -1,54 +1,59 @@
-// src/pages/TeamDisplayPage/components/DecisionModeContainer.tsx - Active decision UI
-import React from 'react';
+// src/views/team/components/InteractionPanel/DecisionContainer.tsx
+import React, {useMemo} from 'react';
 import DecisionPanel from '@views/team/components/DecisionForms/DecisionPanel';
-import {GamePhaseNode, GameStructure} from '@shared/types/common';
-import {UseTeamDecisionSubmissionReturn} from '@views/team/hooks/useTeamDecisionSubmission';
+import {Slide, GameStructure} from '@shared/types';
 
 interface DecisionModeContainerProps {
     sessionId: string;
     teamId: string;
-    currentPhase: GamePhaseNode | null;
+    currentSlide: Slide | null;
     timeRemainingSeconds: number | undefined;
-    submissionState: UseTeamDecisionSubmissionReturn;
     gameStructure: GameStructure;
-    decisionOptionsKey: string | undefined;
 }
 
 const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                                                                          sessionId,
                                                                          teamId,
-                                                                         currentPhase,
+                                                                         currentSlide,
                                                                          timeRemainingSeconds,
-                                                                         gameStructure,
-                                                                         decisionOptionsKey
+                                                                         gameStructure
                                                                      }) => {
-    if (!currentPhase) return null;
+    if (!currentSlide) {
+        return (
+            <div className="flex-1 p-3 md:p-4 flex items-center justify-center">
+                <div className="text-center text-gray-400">
+                    <p className="text-lg">No active decision</p>
+                    <p className="text-sm mt-1">Waiting for facilitator...</p>
+                </div>
+            </div>
+        );
+    }
 
-    // Compute options for current phase
-    const investmentOptions = currentPhase.phase_type === 'invest' && decisionOptionsKey ?
-        gameStructure.all_investment_options[decisionOptionsKey] || [] : [];
+    const phaseData = useMemo(() => {
+        const dataKey = currentSlide.interactive_data_key;
+        if (!dataKey) return {investmentOptions: [], challengeOptions: [], rd3Investments: [], budgetForPhase: 0};
 
-    const challengeOptions = (currentPhase.phase_type === 'choice' || currentPhase.phase_type === 'double-down-prompt') && decisionOptionsKey ?
-        gameStructure.all_challenge_options[decisionOptionsKey] || [] : [];
+        const investmentOptions = currentSlide.type === 'interactive_invest' ? gameStructure.all_investment_options[dataKey] || [] : [];
+        const challengeOptions = (currentSlide.type === 'interactive_choice' || currentSlide.type === 'interactive_double_down_prompt') ? gameStructure.all_challenge_options[dataKey] || [] : [];
+        const rd3Investments = currentSlide.type === 'interactive_double_down_select' ? gameStructure.all_investment_options['rd3-invest'] || [] : [];
+        const budgetForPhase = currentSlide.type === 'interactive_invest' ? gameStructure.investment_phase_budgets[dataKey] || 0 : 0;
 
-    const rd3Investments = currentPhase.phase_type === 'double-down-select' ?
-        gameStructure.all_investment_options['rd3-invest'] || [] : [];
-
-    const budgetForPhase = currentPhase.phase_type === 'invest' && decisionOptionsKey ?
-        gameStructure.investment_phase_budgets[decisionOptionsKey] || 0 : 0;
+        return {investmentOptions, challengeOptions, rd3Investments, budgetForPhase};
+    }, [currentSlide, gameStructure]);
 
     return (
         <div className="flex-1 p-3 md:p-4">
             <DecisionPanel
                 sessionId={sessionId}
                 teamId={teamId}
-                currentPhase={currentPhase}
-                investmentOptions={investmentOptions}
-                investUpToBudget={budgetForPhase}
-                challengeOptions={challengeOptions}
-                availableRd3Investments={rd3Investments}
+                currentSlide={currentSlide}
+                investmentOptions={phaseData.investmentOptions}
+                investUpToBudget={phaseData.budgetForPhase}
+                challengeOptions={phaseData.challengeOptions}
+                availableRd3Investments={phaseData.rd3Investments}
                 isDecisionTime={true}
                 timeRemainingSeconds={timeRemainingSeconds}
+                gameStructure={gameStructure}
             />
         </div>
     );

@@ -110,8 +110,15 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
     }, []);
 
     const resetTeamDecisionInDb = useCallback(async (sessionId: string, teamId: string, phaseId: string) => {
+        console.log(`[useTeamDataManager] resetTeamDecisionInDb called with:`, {
+            sessionId: sessionId || 'MISSING',
+            teamId: teamId || 'MISSING',
+            phaseId: phaseId || 'MISSING'
+        });
+
         if (!sessionId || !teamId || !phaseId) {
-            console.error("resetTeamDecisionInDb: Missing required IDs");
+            const errorMsg = `Missing required IDs for reset: sessionId=${!!sessionId}, teamId=${!!teamId}, phaseId=${!!phaseId}`;
+            console.error("[useTeamDataManager]", errorMsg);
             throw new Error("Missing session, team, or phase ID for reset.");
         }
 
@@ -157,10 +164,10 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
     useRealtimeSubscription(
         `team-decisions-${initialSessionId}`,
         {
-            table: 'team_decisions',
+            table: 'team_decisions', // Make sure this matches your actual table name
             filter: `session_id=eq.${initialSessionId}`,
             onchange: (payload) => {
-                console.log('useTeamDataManager: Team decision change received:', payload);
+                console.log('useTeamDataManager: Team decision change received:', payload.eventType, payload.new, payload.old);
                 const newDecision = payload.new as TeamDecision;
                 const oldDecision = payload.old as TeamDecision;
 
@@ -175,6 +182,36 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
                             delete updated[oldDecision.team_id][oldDecision.phase_id];
                             if (Object.keys(updated[oldDecision.team_id]).length === 0) delete updated[oldDecision.team_id];
                             console.log(`useTeamDataManager: Removed decision for team ${oldDecision.team_id}, phase ${oldDecision.phase_id}`);
+                        }
+                    }
+                    return updated;
+                });
+            }
+        },
+        !!initialSessionId && initialSessionId !== 'new'
+    );
+
+    // Real-time subscription for team KPI updates
+    useRealtimeSubscription(
+        `team-kpis-${initialSessionId}`,
+        {
+            table: 'team_round_data',
+            filter: `session_id=eq.${initialSessionId}`,
+            onchange: (payload) => {
+                console.log('useTeamDataManager: Team KPI change received:', payload.eventType, payload.new);
+                const newKpiData = payload.new as TeamRoundData;
+                const oldKpiData = payload.old as TeamRoundData;
+
+                setTeamRoundData(prev => {
+                    const updated = JSON.parse(JSON.stringify(prev));
+                    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                        if (!updated[newKpiData.team_id]) updated[newKpiData.team_id] = {};
+                        updated[newKpiData.team_id][newKpiData.round_number] = newKpiData;
+                        console.log(`useTeamDataManager: Updated KPIs for team ${newKpiData.team_id}, round ${newKpiData.round_number}`);
+                    } else if (payload.eventType === 'DELETE' && oldKpiData?.team_id && oldKpiData?.round_number) {
+                        if (updated[oldKpiData.team_id]) {
+                            delete updated[oldKpiData.team_id][oldKpiData.round_number];
+                            if (Object.keys(updated[oldKpiData.team_id]).length === 0) delete updated[oldKpiData.team_id];
                         }
                     }
                     return updated;
