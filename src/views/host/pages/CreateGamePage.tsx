@@ -371,9 +371,9 @@ const CreateGamePage: React.FC = () => {
 
             console.log("CreateGamePage: Game finalized successfully:", finalizedSession.id);
 
-            // Mark as intentional navigation since we're going to classroom
+            // Mark as intentional navigation since we're going to game
             isIntentionalNavigation.current = false; // Don't clean up since it's finalized
-            navigate(`/classroom/${finalizedSession.id}`);
+            navigate(`/game/${finalizedSession.id}`);
 
         } catch (error) {
             console.error("CreateGamePage: Error finalizing game:", error);

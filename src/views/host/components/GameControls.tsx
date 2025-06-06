@@ -14,7 +14,7 @@ const GameControls: React.FC = () => {
 
     // Modal states
     const [showNotes, setShowNotes] = useState(false);
-    const [isJoinCompanyModalOpen, setIsJoinCompanyModalOpen] = useState(false);
+    const [isJoinTeamModalOpen, setIsJoinTeamModalOpen] = useState(false);
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
     const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false);
 
@@ -34,7 +34,7 @@ const GameControls: React.FC = () => {
             <div className="p-3 md:p-4">
                 {/* Action Buttons */}
                 <ActionButtons
-                    onOpenJoinInfo={() => setIsJoinCompanyModalOpen(true)}
+                    onOpenJoinInfo={() => setIsJoinTeamModalOpen(true)}
                     onOpenTeamCodes={() => setIsTeamCodesModalOpen(true)}
                     onToggleNotes={handleNotesToggle}
                     onExitGame={() => setIsExitConfirmModalOpen(true)}
@@ -59,8 +59,8 @@ const GameControls: React.FC = () => {
             />
 
             <JoinInfoModal
-                isOpen={isJoinCompanyModalOpen}
-                onClose={() => setIsJoinCompanyModalOpen(false)}
+                isOpen={isJoinTeamModalOpen}
+                onClose={() => setIsJoinTeamModalOpen(false)}
                 sessionId={state.currentSessionId}
             />
 

@@ -1,21 +1,18 @@
 // src/components/Display/DisplayView.tsx - Fixed with Enhanced Video System
 import React from 'react';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
-import { Slide } from '@shared/types/common';
-import { Hourglass, Monitor, Video } from 'lucide-react';
-import { isVideo } from "@shared/utils/video/helpers";
+import {Slide} from '@shared/types';
+import {Hourglass, Monitor, Video} from 'lucide-react';
+import {isVideo} from "@shared/utils/video/helpers";
 
 interface DisplayViewProps {
     slide: Slide | null;
-    isPlayingTarget?: boolean; // Legacy - no longer used
-    videoTimeTarget?: number; // Legacy - no longer used
-    triggerSeekEvent?: boolean; // Legacy - no longer used
 }
 
-const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
+const DisplayView: React.FC<DisplayViewProps> = ({slide}) => {
     // Get session ID from current URL or context
-    const sessionId = window.location.pathname.includes('/classroom/')
-        ? window.location.pathname.split('/classroom/')[1]
+    const sessionId = window.location.pathname.includes('/game/')
+        ? window.location.pathname.split('/game/')[1]
         : null;
 
     // Check if current slide has a video
@@ -32,7 +29,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
         return (
             <div className="h-full flex items-center justify-center text-gray-400">
                 <div className="text-center">
-                    <Hourglass size={48} className="mx-auto mb-3 opacity-50" />
+                    <Hourglass size={48} className="mx-auto mb-3 opacity-50"/>
                     <p>Waiting for game content...</p>
                     <p className="text-sm text-gray-400 mt-2">(Host Preview)</p>
                 </div>
@@ -44,13 +41,14 @@ const DisplayView: React.FC<DisplayViewProps> = ({ slide }) => {
         <div className="h-full w-full overflow-hidden relative">
             {/* Development debug info */}
             {process.env.NODE_ENV === 'development' && (
-                <div className="absolute top-4 left-4 z-20 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs">
+                <div
+                    className="absolute top-4 left-4 z-20 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs">
                     <div className="flex items-center gap-2">
-                        <Monitor size={14} />
+                        <Monitor size={14}/>
                         <span>Host Preview Mode</span>
                         {isVideoSlide && (
                             <div className="ml-2 text-xs opacity-75 flex items-center gap-1">
-                                <Video size={12} />
+                                <Video size={12}/>
                                 Click to control
                             </div>
                         )}

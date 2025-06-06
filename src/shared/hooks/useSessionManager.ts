@@ -75,7 +75,7 @@ export const useSessionManager = (
 
                     console.log("useSessionManager: [NEW] Attempting to create new session...");
                     // Construct NewGameData payload for GameSessionManager.createSession
-                    // This is a minimal payload for initial creation via the classroom route
+                    // This is a minimal payload for initial creation via the game route
                     const newGameDataPayload: NewGameData = {
                         game_version: gameStructure.id as '2.0_dd' | '1.5_dd',
                         name: `New Game - ${new Date().toLocaleDateString()}`,
@@ -93,7 +93,7 @@ export const useSessionManager = (
                     );
 
                     console.log("useSessionManager: [NEW] Session CREATED, ID:", currentSession.id, ". Navigating now...");
-                    navigate(`/classroom/${currentSession.id}`, {replace: true});
+                    navigate(`/game/${currentSession.id}`, {replace: true});
 
                 } else {
                     // Existing session ID (UUID)
