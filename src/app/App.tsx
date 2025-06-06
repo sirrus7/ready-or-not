@@ -47,8 +47,8 @@ function App() {
         <ErrorBoundary>
             <BrowserRouter>
                 <Routes>
-                    {/* Publicly accessible student-facing routes - NO AUTH REQUIRED */}
-                    <Route path="/student-game/:sessionId" element={
+                    {/* Publicly accessible team-facing routes - NO AUTH REQUIRED */}
+                    <Route path="/team/:sessionId" element={
                         <ErrorBoundary>
                             <TeamApp/>
                         </ErrorBoundary>
@@ -61,7 +61,7 @@ function App() {
                     <Route path="/*" element={
                         <AuthProvider>
                             <Routes>
-                                {/* Teacher Login - Publicly accessible */}
+                                {/* Host Login - Publicly accessible */}
                                 <Route path="/login" element={
                                     <ErrorBoundary>
                                         <VideoSettingsProvider>
@@ -72,7 +72,7 @@ function App() {
                                     </ErrorBoundary>
                                 }/>
 
-                                {/* Teacher-only authenticated routes */}
+                                {/* Host-only authenticated routes */}
                                 <Route path="/dashboard" element={
                                     <AuthGuard>
                                         <ErrorBoundary>
@@ -95,7 +95,7 @@ function App() {
                                         </ErrorBoundary>
                                     </AuthGuard>
                                 }/>
-                                <Route path="/classroom/:sessionId" element={
+                                <Route path="/game/:sessionId" element={
                                     <AuthGuard>
                                         <ErrorBoundary>
                                             <SessionAwareProviders>
@@ -104,7 +104,7 @@ function App() {
                                         </ErrorBoundary>
                                     </AuthGuard>
                                 }/>
-                                <Route path="/classroom" element={
+                                <Route path="/game" element={
                                     <AuthGuard>
                                         <ErrorBoundary>
                                             <VideoSettingsProvider>

@@ -7,7 +7,7 @@ A comprehensive business simulation game designed for educational environments, 
 
 ## 🎯 Overview
 
-Ready or Not 2.0 is an interactive classroom simulation that teaches business fundamentals, strategic thinking, and decision-making under pressure. Teams manage virtual companies, making investment decisions, responding to market challenges, and competing for the highest net income.
+Ready or Not 2.0 is an interactive game simulation that teaches business fundamentals, strategic thinking, and decision-making under pressure. Teams manage virtual companies, making investment decisions, responding to market challenges, and competing for the highest net income.
 
 ### Key Features
 
@@ -70,7 +70,7 @@ src/
 
 - **Teacher Dashboard**: Game creation, session management, real-time monitoring
 - **Student Interface**: Team login, decision panels, KPI displays
-- **Projection Display**: Synchronized content for classroom screens
+- **Projection Display**: Synchronized content for game screens
 - **Real-time Engine**: Instant updates across all connected devices
 
 ## 🎮 Game Flow

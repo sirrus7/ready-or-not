@@ -12,8 +12,8 @@ interface JoinInfoModalProps {
 const JoinInfoModal: React.FC<JoinInfoModalProps> = ({ isOpen, onClose, sessionId }) => {
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
 
-    const CompanyDisplayBaseUrl = `${window.location.origin}/student-game`;
-    const studentJoinUrl = `${CompanyDisplayBaseUrl}/${sessionId}`;
+    const TeamDisplayBaseUrl = `${window.location.origin}/team`;
+    const studentJoinUrl = `${TeamDisplayBaseUrl}/${sessionId}`;
 
     // Generate QR code when modal opens
     useEffect(() => {
@@ -37,7 +37,7 @@ const JoinInfoModal: React.FC<JoinInfoModalProps> = ({ isOpen, onClose, sessionI
     }, [isOpen, studentJoinUrl, sessionId]);
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Company Join Information" size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title="Team Join Information" size="md">
             <div className="p-2 text-center">
                 <p className="text-sm text-gray-600 mb-2">Students join at:</p>
                 <div className="bg-gray-100 p-3 rounded-md mb-3">

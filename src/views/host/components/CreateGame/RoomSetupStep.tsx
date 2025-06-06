@@ -96,7 +96,7 @@ const RoomSetupStep: React.FC<RoomSetupStep> = ({gameData, onNext, onPrevious}) 
                 <div className="mt-3 text-center">
                     <img
                         src="https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_003.jpg?alt=media" // Example image
-                        alt="Example Classroom or Table Setup"
+                        alt="Example Game or Table Setup"
                         className="my-3 rounded-md border border-gray-300 shadow-sm max-w-full sm:max-w-md md:max-w-lg mx-auto"
                     />
                 </div>

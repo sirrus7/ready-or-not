@@ -136,7 +136,7 @@ const TeamSetupStep: React.FC<Step2Props> = ({
 
     // Enhanced print function with real QR codes
     const printLogins = async (multiplePerPage: boolean) => {
-        const baseUrl = `${window.location.origin}/student-game`;
+        const baseUrl = `${window.location.origin}/team`;
         const actualUrl = draftSessionId ? `${baseUrl}/${draftSessionId}` : `${baseUrl}/[SESSION_ID]`;
 
         let qrDataUrl: string | null = null;
@@ -199,7 +199,7 @@ const TeamSetupStep: React.FC<Step2Props> = ({
 
     const emailLogins = () => {
         const subject = `Team Logins for "Ready or Not" Game: ${gameData.name || 'New Game'}`;
-        const baseUrl = `${window.location.origin}/student-game`;
+        const baseUrl = `${window.location.origin}/team`;
         const actualUrl = draftSessionId ? `${baseUrl}/${draftSessionId}` : `${baseUrl}/[SESSION_ID]`;
 
         let body = `Hello Teams,\n\nPlease find your login details for the "Ready or Not" simulation: ${gameData.name || ''}.\n\n`;

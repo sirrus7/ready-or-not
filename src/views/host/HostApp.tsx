@@ -83,7 +83,7 @@ const HostApp: React.FC = () => {
                     className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center flex-shrink-0">
                     <div>
                         <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-800">
-                            {gameStructure?.name || 'Classroom Decision Simulator'}
+                            {gameStructure?.name || 'Game Decision Simulator'}
                         </h1>
                         <p className="text-gray-500 text-xs md:text-sm">
                             Facilitator Control Center (Session: {currentSessionId?.substring(0, 8)}...)

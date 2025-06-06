@@ -89,8 +89,8 @@ export const useDashboardActions = (
             // Completed games show report (not yet implemented)
             alert(`Navigating to report for completed game: ${sessionId} (Not yet implemented)`);
         } else {
-            // Active games go to classroom
-            navigate(`/classroom/${sessionId}`);
+            // Active games go to game
+            navigate(`/game/${sessionId}`);
         }
     }, [navigate]);
 
