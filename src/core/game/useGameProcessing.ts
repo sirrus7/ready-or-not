@@ -1,4 +1,4 @@
-// src/core/game/useGameProcessing.ts
+// src/core/game/useGameProcessing.ts - Enhanced with proper investment processing
 import {useCallback, useMemo} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {db} from '@shared/services/supabase';
@@ -10,7 +10,6 @@ import {
     GameStructure,
     GameSession,
     GamePhaseNode,
-    KpiEffect,
     Slide
 } from '@shared/types';
 import {KpiCalculations} from './ScoringEngine';
@@ -38,8 +37,7 @@ interface UseGameProcessingReturn {
 }
 
 /**
- * useGameProcessing orchestrates the application of game logic (payoffs, consequences, KPI finalization).
- * It instantiates and uses specialized "Engines" for specific processing tasks.
+ * Enhanced useGameProcessing with proper investment processing integration
  */
 export const useGameProcessing = ({
                                       currentDbSession,
@@ -100,90 +98,146 @@ export const useGameProcessing = ({
 
     // Process choice phase decisions (exposed via this hook to useGameController)
     const processChoicePhaseDecisions = useCallback(async (phaseId: string, associatedSlide: Slide | null) => {
-        // Delegate to the DecisionEngine
-        await decisionEngine.processChoicePhaseDecisions(phaseId, associatedSlide);
-    }, [decisionEngine]);
+        console.log('[useGameProcessing] Processing choice phase decisions for:', phaseId);
 
-    // Process investment payoffs (exposed via this hook to useGameController)
-    // Wrapped in useSupabaseMutation to manage its loading state
+        if (!currentDbSession?.id || !gameStructure || teams.length === 0) {
+            console.warn('[useGameProcessing] Skipping choice processing - insufficient data');
+            return;
+        }
+
+        try {
+            await decisionEngine.processChoicePhaseDecisions(phaseId, associatedSlide);
+            console.log('[useGameProcessing] Choice processing completed successfully');
+        } catch (error) {
+            console.error('[useGameProcessing] Choice processing failed:', error);
+            throw error;
+        }
+    }, [decisionEngine, currentDbSession, gameStructure, teams]);
+
+    // Enhanced investment payoff processing with better error handling and logging
     const {
         execute: processInvestmentPayoffsExecute,
-        isLoading: isProcessingPayoffs, // Now correctly defined here
+        isLoading: isProcessingPayoffs,
         error: payoffProcessingError
     } = useSupabaseMutation(
         async (data: { roundNumber: 1 | 2 | 3; currentPhaseId: string | null }) => {
-            // Delegate to the InvestmentEngine's method
+            console.log('[useGameProcessing] Starting investment payoff processing:', {
+                round: data.roundNumber,
+                phase: data.currentPhaseId,
+                teamsCount: teams.length
+            });
+
+            if (!currentDbSession?.id || !gameStructure || teams.length === 0) {
+                throw new Error('Insufficient data for investment processing');
+            }
+
+            // Log current team decisions for debugging
+            console.log('[useGameProcessing] Current team decisions:', {
+                sessionsWithDecisions: Object.keys(teamDecisions).length,
+                totalDecisions: Object.values(teamDecisions).reduce((sum, teamDecs) => sum + Object.keys(teamDecs).length, 0)
+            });
+
+            // Delegate to InvestmentEngine
             await investmentEngine.processInvestmentPayoffs(data.roundNumber, data.currentPhaseId);
+
+            console.log('[useGameProcessing] Investment payoffs processing completed');
         },
         {
-            onSuccess: () => {
-                console.log('[useGameProcessing] Investment payoffs processed successfully');
-                // fetchTeamRoundDataFromHook is already called by InvestmentEngine after processing
+            onSuccess: (_, data) => {
+                console.log('[useGameProcessing] Investment payoffs processed successfully for round', data.roundNumber);
+                // Data refresh is handled by InvestmentEngine
             },
-            onError: (error) => {
-                console.error('[useGameProcessing] Failed to process investment payoffs:', error);
+            onError: (error, data) => {
+                console.error('[useGameProcessing] Failed to process investment payoffs for round', data?.roundNumber, ':', error);
             }
         }
     );
 
+    // KPI finalization processing
     const {
         execute: calculateKPIsExecute,
         isLoading: isCalculatingKPIs,
         error: kpiCalculationError
     } = useSupabaseMutation(
         async (roundNumber: 1 | 2 | 3) => {
-            if (!currentDbSession?.id || !teams.length) return;
+            console.log('[useGameProcessing] Finalizing KPIs for round', roundNumber);
 
+            if (!currentDbSession?.id || !teams.length) {
+                throw new Error('Cannot finalize KPIs - missing session or teams');
+            }
+
+            let updatedCount = 0;
             for (const team of teams) {
                 const kpis = teamRoundData[team.id]?.[roundNumber];
                 if (kpis) {
                     const finalizedKpis = KpiCalculations.calculateFinalKpis(kpis);
                     await db.kpis.update(kpis.id, finalizedKpis);
+                    updatedCount++;
+                    console.log(`[useGameProcessing] Finalized KPIs for team ${team.name}`);
+                } else {
+                    console.warn(`[useGameProcessing] No KPI data found for team ${team.name} round ${roundNumber}`);
                 }
             }
 
             await fetchTeamRoundDataFromHook(currentDbSession.id);
+            console.log(`[useGameProcessing] KPI finalization complete - updated ${updatedCount} teams`);
         },
         {
-            onSuccess: () => {
-                console.log('[useGameProcessing] Round KPIs calculated successfully');
-                if (currentDbSession?.id) {
-                    fetchTeamRoundDataFromHook(currentDbSession.id);
-                }
+            onSuccess: (_, roundNumber) => {
+                console.log('[useGameProcessing] Round KPIs calculated successfully for round', roundNumber);
             },
-            onError: (error) => {
-                console.error('[useGameProcessing] Failed to calculate round KPIs:', error);
+            onError: (error, roundNumber) => {
+                console.error('[useGameProcessing] Failed to calculate round KPIs for round', roundNumber, ':', error);
             }
         }
     );
 
+    // Game reset processing
     const {
         execute: resetGameProgressExecute,
         isLoading: isResettingGame,
         error: gameResetError
     } = useSupabaseMutation(
         async () => {
-            if (!currentDbSession?.id || !gameStructure) return;
+            if (!currentDbSession?.id || !gameStructure) {
+                throw new Error('Cannot reset game - missing session or structure');
+            }
 
-            const confirmReset = window.confirm("Are you sure you want to reset all game progress?");
+            const confirmReset = window.confirm(
+                "Are you sure you want to reset all game progress? This will:\n\n" +
+                "• Clear all team decisions\n" +
+                "• Reset all KPI data\n" +
+                "• Remove all permanent adjustments\n" +
+                "• Return to the first slide\n\n" +
+                "This action cannot be undone."
+            );
+
             if (!confirmReset) return;
 
-            // TODO: This should ideally be moved to GameSessionManager (it already has a resetSessionProgress method, but it only resets session properties, not related tables data) or a dedicated GameResetManager
-            await db.adjustments.deleteBySession(currentDbSession.id);
-            await db.kpis.getBySession(currentDbSession.id).then(async (kpis) => {
-                for (const kpi of kpis) {
-                    const resetKpis = KpiCalculations.resetKpiData(kpi as TeamRoundData);
-                    await db.kpis.update(kpi.id, resetKpis);
-                }
-            });
-            await db.decisions.getBySession(currentDbSession.id).then(async (decisions) => {
-                for (const decision of decisions) {
-                    await db.decisions.delete(currentDbSession.id, decision.team_id, decision.phase_id);
-                }
-            });
+            console.log('[useGameProcessing] Starting game reset for session:', currentDbSession.id);
 
+            // Delete all related data
+            await db.adjustments.deleteBySession(currentDbSession.id);
+            console.log('[useGameProcessing] Cleared permanent adjustments');
+
+            // Reset KPI data
+            const allKpis = await db.kpis.getBySession(currentDbSession.id);
+            for (const kpi of allKpis) {
+                const resetKpis = KpiCalculations.resetKpiData(kpi as TeamRoundData);
+                await db.kpis.update(kpi.id, resetKpis);
+            }
+            console.log('[useGameProcessing] Reset KPI data');
+
+            // Delete all decisions
+            const allDecisions = await db.decisions.getBySession(currentDbSession.id);
+            for (const decision of allDecisions) {
+                await db.decisions.delete(currentDbSession.id, decision.team_id, decision.phase_id);
+            }
+            console.log('[useGameProcessing] Cleared all decisions');
+
+            // Reset session to initial state
             const initialPhase = gameStructure.allPhases[0];
-            await updateSessionInDb({ // This calls updateSessionInDb from useSessionManager
+            await updateSessionInDb({
                 current_phase_id: initialPhase?.id || null,
                 current_slide_id_in_phase: initialPhase ? 0 : null,
                 is_playing: false,
@@ -191,7 +245,8 @@ export const useGameProcessing = ({
                 teacher_notes: {}
             });
 
-            alert("Game progress has been reset.");
+            console.log('[useGameProcessing] Game reset completed');
+            alert("Game progress has been reset successfully.");
         },
         {
             onSuccess: () => {
@@ -204,12 +259,20 @@ export const useGameProcessing = ({
         }
     );
 
+    // Wrapper functions for external use
+    const processInvestmentPayoffs = useCallback((roundNumber: 1 | 2 | 3, currentPhaseId: string | null) => {
+        return processInvestmentPayoffsExecute({roundNumber, currentPhaseId});
+    }, [processInvestmentPayoffsExecute]);
+
+    const resetGameProgress = useCallback(() => {
+        return resetGameProgressExecute();
+    }, [resetGameProgressExecute]);
+
     return {
-        processInvestmentPayoffs: (roundNumber, currentPhaseId) =>
-            processInvestmentPayoffsExecute({roundNumber, currentPhaseId}),
+        processInvestmentPayoffs,
         calculateAndFinalizeRoundKPIs: calculateKPIsExecute,
-        resetGameProgress: () => resetGameProgressExecute(),
+        resetGameProgress,
         isLoadingProcessingDecisions: isProcessingPayoffs || isCalculatingKPIs || isResettingGame,
-        processChoicePhaseDecisions: processChoicePhaseDecisions
+        processChoicePhaseDecisions
     };
 };
