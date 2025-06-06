@@ -191,11 +191,23 @@ const TeamSubmissions: React.FC = () => {
 
     const confirmReset = async () => {
         if (!teamToReset || !currentSessionId || !currentPhaseIdFromNode) {
-            console.error("Cannot reset: Missing team, session, or phase information");
+            console.error("Cannot reset: Missing team, session, or phase information", {
+                teamToReset: !!teamToReset,
+                currentSessionId: !!currentSessionId,
+                currentPhaseIdFromNode: currentPhaseIdFromNode,
+                currentPhaseNode: currentPhaseNode?.label
+            });
             setIsResetModalOpen(false);
             setTeamToReset(null);
             return;
         }
+
+        console.log('[TeamMonitor] Attempting reset with:', {
+            teamId: teamToReset.id,
+            teamName: teamToReset.name,
+            phaseId: currentPhaseIdFromNode,
+            sessionId: currentSessionId
+        });
 
         await resetDecision({teamId: teamToReset.id, phaseId: currentPhaseIdFromNode});
         setIsResetModalOpen(false);
@@ -208,6 +220,11 @@ const TeamSubmissions: React.FC = () => {
             <div className="bg-gray-50 p-3 my-4 rounded-lg shadow-inner text-center text-gray-500 text-sm">
                 <Info size={18} className="inline mr-1.5 text-blue-500"/>
                 Team submissions are not active for the current phase ({currentPhaseNode?.label || 'N/A'}).
+                {/* Debug info */}
+                <div className="text-xs mt-2 text-gray-400">
+                    Phase ID: {currentPhaseIdFromNode || 'None'} |
+                    Interactive: {currentPhaseNode?.is_interactive_player_phase ? 'Yes' : 'No'}
+                </div>
             </div>
         );
     }
@@ -237,6 +254,7 @@ const TeamSubmissions: React.FC = () => {
                         <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
                             <span>Progress: {submissionStats.submitted}/{submissionStats.total}</span>
                             {currentPhaseNode && <span>Phase: {currentPhaseNode.id}</span>}
+                            {!currentPhaseIdFromNode && <span className="text-red-600">⚠ No Phase ID</span>}
                             {lastUpdateTime && <span>Updated: {lastUpdateTime}</span>}
                             {!connection.isConnected && <span className="text-red-600">⚠ Disconnected</span>}
                         </div>
@@ -393,7 +411,7 @@ const TeamSubmissions: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="px-3 py-2.5 whitespace-nowrap text-center">
-                                        {hasSubmitted && (
+                                        {hasSubmitted && currentPhaseIdFromNode && (
                                             <button
                                                 onClick={() => handleResetClick(team.id, team.name)}
                                                 disabled={isResetting}
@@ -406,6 +424,9 @@ const TeamSubmissions: React.FC = () => {
                                                     <XCircle size={18}/>
                                                 )}
                                             </button>
+                                        )}
+                                        {hasSubmitted && !currentPhaseIdFromNode && (
+                                            <span className="text-xs text-gray-500">Phase not loaded</span>
                                         )}
                                     </td>
                                 </tr>

@@ -110,8 +110,15 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
     }, []);
 
     const resetTeamDecisionInDb = useCallback(async (sessionId: string, teamId: string, phaseId: string) => {
+        console.log(`[useTeamDataManager] resetTeamDecisionInDb called with:`, {
+            sessionId: sessionId || 'MISSING',
+            teamId: teamId || 'MISSING',
+            phaseId: phaseId || 'MISSING'
+        });
+
         if (!sessionId || !teamId || !phaseId) {
-            console.error("resetTeamDecisionInDb: Missing required IDs");
+            const errorMsg = `Missing required IDs for reset: sessionId=${!!sessionId}, teamId=${!!teamId}, phaseId=${!!phaseId}`;
+            console.error("[useTeamDataManager]", errorMsg);
             throw new Error("Missing session, team, or phase ID for reset.");
         }
 
