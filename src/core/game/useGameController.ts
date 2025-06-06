@@ -130,27 +130,6 @@ export const useGameController = (
             return;
         }
 
-        // Check if we're advancing from the last slide of a payoff phase
-        const isLastSlideOfPayoffPhase = currentPhaseNode.phase_type === 'payoff' &&
-            dbSession.current_slide_id_in_phase === currentPhaseNode.slide_ids.length - 1;
-
-        // Process payoffs before advancing if needed
-        if (isLastSlideOfPayoffPhase) {
-            try {
-                const roundNumber = currentPhaseNode.round_number as 1 | 2 | 3;
-                console.log(`[useGameController] Auto-processing payoffs for round ${roundNumber}`);
-                await processChoicePhaseDecisionsFunction('payoff-processing', currentSlideData);
-                // Note: You'll need to create a separate payoff processing function or modify the existing one
-            } catch (error) {
-                console.error("[useGameController] Error processing payoffs:", error);
-                setCurrentHostAlertState({
-                    title: "Processing Error",
-                    message: error instanceof Error ? error.message : "Failed to process payoffs."
-                });
-                return; // Don't advance if processing failed
-            }
-        }
-
         // Now, advance the slide using PhaseManager
         try {
             console.log("[useGameController] Calling phaseManager.nextSlide");
@@ -170,7 +149,7 @@ export const useGameController = (
                 message: error instanceof Error ? error.message : "Failed to advance slide."
             });
         }
-    }, [dbSession, currentPhaseNode, currentSlideData, phaseManager, processChoicePhaseDecisionsFunction]);
+    }, [dbSession, currentPhaseNode, currentSlideData, phaseManager]);
 
     const previousSlide = useCallback(async () => {
         if (!dbSession?.id || !phaseManager) {

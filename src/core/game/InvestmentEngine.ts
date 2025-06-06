@@ -141,6 +141,22 @@ export class InvestmentEngine {
 
                 if (!investmentDecision) {
                     console.log(`[InvestmentEngine] No investment decision found for team ${team.name} in ${investPhaseId}`);
+                    // Still process unspent budget for teams with no investments
+                    if (roundNumber === 1) {
+                        const budget = this.gameStructure.investment_phase_budgets['rd1-invest'] || 0;
+                        if (budget > 0) {
+                            const unspentEffect: KpiEffect[] = [{
+                                kpi: 'cost',
+                                change_value: -budget,
+                                timing: 'immediate',
+                                description: 'RD-1 Unspent Budget Cost Reduction (No Investments)'
+                            }];
+
+                            const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, unspentEffect);
+                            await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
+                            console.log(`[InvestmentEngine] Team ${team.name}: Applied full budget ${budget} as cost reduction (no investments)`);
+                        }
+                    }
                     continue;
                 }
 
@@ -162,7 +178,7 @@ export class InvestmentEngine {
                 });
 
                 // Handle unspent budget for RD1 only
-                if (roundNumber === 1 && currentPhaseId === 'rd1-payoff') {
+                if (roundNumber === 1) {
                     const budget = this.gameStructure.investment_phase_budgets['rd1-invest'] || 0;
                     const spent = investmentDecision.total_spent_budget ?? 0;
                     const unspent = budget - spent;
@@ -185,6 +201,10 @@ export class InvestmentEngine {
                     // Apply effects to KPIs
                     const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, effectsToApply);
 
+                    // Calculate final KPIs (revenue, net income, net margin)
+                    const finalKpis = KpiCalculations.calculateFinalKpis(updatedKpis);
+                    const completeKpis = { ...updatedKpis, ...finalKpis };
+
                     // Store permanent adjustments for future rounds
                     await this.storePermanentAdjustments(
                         team.id,
@@ -194,10 +214,10 @@ export class InvestmentEngine {
                     );
 
                     // Update KPIs in database
-                    await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
+                    await db.kpis.upsert({...completeKpis, id: teamKpis.id});
 
                     totalEffectsApplied += effectsToApply.length;
-                    console.log(`[InvestmentEngine] Team ${team.name}: Successfully applied investment payoffs`);
+                    console.log(`[InvestmentEngine] Team ${team.name}: Successfully applied investment payoffs with final calculations`);
                 } else {
                     console.log(`[InvestmentEngine] Team ${team.name}: No investment effects to apply`);
                 }

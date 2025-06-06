@@ -116,6 +116,20 @@ const GamePanel: React.FC<HostPanelProps> = () => {
 
                 {/* Controls - Always at bottom */}
                 <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3">
+                    {/* Add manual payoff processing button for testing */}
+                    {currentPhaseNode?.phase_type === 'payoff' && (
+                        <div className="mb-3 p-2 bg-blue-50 rounded border border-blue-200">
+                            <button
+                                onClick={handlePayoffProcessing}
+                                className="w-full px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                            >
+                                Process RD-{currentPhaseNode.round_number} Investment Payoffs
+                            </button>
+                            <p className="text-xs text-blue-600 mt-1 text-center">
+                                Click to apply investment effects to all teams
+                            </p>
+                        </div>
+                    )}
                     <HostGameControls/>
                 </div>
             </div>
