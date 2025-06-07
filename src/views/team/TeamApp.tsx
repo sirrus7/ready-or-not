@@ -17,6 +17,10 @@ const TeamApp: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const connection = useSupabaseConnection();
 
+    useEffect(() => {
+        document.title = "Ready or Not - Team";
+    }, []);
+
     const [sessionStatus, setSessionStatus] = useState<SessionStatus>('loading');
     const [sessionError, setSessionError] = useState<string | null>(null);
     const [lastCheckTime, setLastCheckTime] = useState<number>(Date.now());

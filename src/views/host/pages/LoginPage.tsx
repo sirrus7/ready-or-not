@@ -13,6 +13,7 @@ const LoginPage: React.FC = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
+        document.title = "Ready or Not - Login";
         // Redirect if user is already logged in and auth is not loading
         if (!authLoading && user) {
             navigate('/dashboard', {replace: true});

@@ -17,6 +17,10 @@ const PresentationApp: React.FC = () => {
     const [connectionError, setConnectionError] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
+    useEffect(() => {
+        document.title = "Ready or Not - Presentation";
+    }, []);
+
     // New state for user interaction
     const [hasUserInteraction, setHasUserInteraction] = useState(false);
     const [showInteractionOverlay, setShowInteractionOverlay] = useState(false);
@@ -147,74 +151,71 @@ const PresentationApp: React.FC = () => {
         }
     };
 
-    // Show loading/error state if not connected or no slide
-    if (!isConnectedToHost || (!currentSlide && !connectionError)) {
-        return (
-            <div className="h-screen w-screen bg-gray-900 flex items-center justify-center relative">
-                <div className="text-center text-white p-8 max-w-md">
-                    {connectionError ? (
-                        // Connection error display
-                        <>
-                            <Monitor size={48} className="mx-auto mb-4 text-red-400"/>
-                            <h1 className="text-2xl font-bold mb-2 text-red-300">Connection Issue</h1>
-                            <p className="text-lg text-gray-300 mb-4">{statusMessage}</p>
-                            <div className="flex flex-col gap-3">
-                                <button
-                                    onClick={handleRetry}
-                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg mx-auto transition-colors"
-                                >
-                                    <RefreshCw size={16}/>
-                                    Retry Connection
-                                </button>
-                                <button
-                                    onClick={() => window.location.reload()}
-                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg mx-auto transition-colors"
-                                >
-                                    <RefreshCw size={16}/>
-                                    Reload Page
-                                </button>
-                            </div>
-                            <p className="text-xs text-gray-400 mt-4">
-                                Make sure the host dashboard is open and active
-                            </p>
-                        </>
-                    ) : (
-                        // Initial loading state
-                        <>
-                            <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse"/>
-                            <h1 className="text-2xl font-bold mb-2">Presentation Display</h1>
-                            <p className="text-lg text-gray-300 mb-2">{statusMessage}</p>
-                            {sessionId && (
-                                <p className="text-sm text-gray-500 mt-4">
-                                    Session ID: {sessionId}
-                                </p>
-                            )}
-                            <div className="mt-6 text-sm text-gray-400">
-                                <div className="flex items-center justify-center gap-2 mb-2">
-                                    <WifiOff size={16} className="text-red-400"/>
-                                    <span>Waiting for host connection</span>
-                                </div>
-                                <p className="text-xs">
-                                    Make sure the host dashboard is open and active
-                                </p>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
-        );
-    }
-
     // Render active presentation display
     return (
         <div className="h-screen w-screen overflow-hidden bg-black relative">
-            {/* SlideRenderer with video end callback */}
+            {/* SlideRenderer is always mounted to prevent flicker */}
             <SlideRenderer
                 slide={currentSlide}
                 sessionId={sessionId}
                 isHost={false}
                 onVideoEnd={handleVideoEnd}
             />
+
+            {/* OVERLAYS for status messages */}
+            {(!isConnectedToHost || (!currentSlide && !connectionError)) && (
+                <div className="absolute inset-0 bg-gray-900 z-40 flex items-center justify-center">
+                    <div className="text-center text-white p-8 max-w-md">
+                        {connectionError ? (
+                            <>
+                                <Monitor size={48} className="mx-auto mb-4 text-red-400"/>
+                                <h1 className="text-2xl font-bold mb-2 text-red-300">Connection Issue</h1>
+                                <p className="text-lg text-gray-300 mb-4">{statusMessage}</p>
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        onClick={handleRetry}
+                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg mx-auto transition-colors"
+                                    >
+                                        <RefreshCw size={16}/>
+                                        Retry Connection
+                                    </button>
+                                    <button
+                                        onClick={() => window.location.reload()}
+                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg mx-auto transition-colors"
+                                    >
+                                        <RefreshCw size={16}/>
+                                        Reload Page
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-4">
+                                    Make sure the host dashboard is open and active
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <Hourglass size={48} className="mx-auto mb-4 text-blue-400 animate-pulse"/>
+                                <h1 className="text-2xl font-bold mb-2">Presentation Display</h1>
+                                <p className="text-lg text-gray-300 mb-2">{statusMessage}</p>
+                                {sessionId && (
+                                    <p className="text-sm text-gray-500 mt-4">
+                                        Session ID: {sessionId}
+                                    </p>
+                                )}
+                                <div className="mt-6 text-sm text-gray-400">
+                                    <div className="flex items-center justify-center gap-2 mb-2">
+                                        <WifiOff size={16} className="text-red-400"/>
+                                        <span>Waiting for host connection</span>
+                                    </div>
+                                    <p className="text-xs">
+                                        Make sure the host dashboard is open and active
+                                    </p>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
 
             {/* User Interaction Overlay */}
             {showInteractionOverlay && (

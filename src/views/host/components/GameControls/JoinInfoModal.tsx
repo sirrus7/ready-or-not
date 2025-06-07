@@ -46,7 +46,7 @@ const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Team Join Information" size="md">
             <div className="p-2 text-center">
-                <p className="text-sm text-gray-600 mb-2">Students join at:</p>
+                <p className="text-sm text-gray-600 mb-2">Teams join at:</p>
                 <div className="bg-gray-100 p-3 rounded-md mb-3">
                     {isLoadingUrl ? (
                         <div className="h-7 animate-pulse bg-gray-300 rounded-md"></div>
@@ -80,7 +80,7 @@ const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId
                     </div>
                 )}
                 <p className="text-xs text-gray-500 mb-3">
-                    Students will also need their Team Name and Team Passcode.
+                    Players will also need their Team Name and Team Passcode.
                 </p>
                 <button
                     onClick={onClose}

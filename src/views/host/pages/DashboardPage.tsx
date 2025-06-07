@@ -17,6 +17,10 @@ const DashboardPage: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
+    useEffect(() => {
+        document.title = "Ready or Not - Dashboard";
+    }, []);
+
     // Check if we need to auto-refresh
     const shouldAutoRefresh = location.state?.forceRefresh === true;
     const autoRefreshHandled = useRef(false); // Prevent multiple auto-refreshes
