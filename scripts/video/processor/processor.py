@@ -7,7 +7,8 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union
+from enum import Enum
 
 import requests
 from supabase import create_client, Client
@@ -17,90 +18,49 @@ from utils.logging_utils import setup_logging
 from utils.stats import CompressionStats, StatsManager
 from utils.file_utils import get_file_extension
 
-
-def upload_to_supabase(self, file_path: Path, remote_filename: str, slide_id: str, 
-                          original_url: str = "", file_type: str = "", 
-                          stats: Optional[CompressionStats] = None) -> str:
-        """Upload file to Supabase storage."""
-        try:
-            remote_path = f"slide-media/{remote_filename}"
-            
-            # Check if file exists and delete it
-            self._delete_existing_file(remote_path, remote_filename)
-            
-            # Upload the file - SIMPLE VERSION THAT WAS WORKING
-            with open(file_path, 'rb') as f:
-                response = self.supabase.storage.from_(self.bucket_name).upload(
-                    remote_path,
-                    f.read()
-                )
-            
-            # Get the public URL
-            public_url = self.supabase.storage.from_(self.bucket_name).get_public_url(remote_path)
-            
-            # Log successful upload
-            self._log_successful_upload(remote_filename, slide_id, file_path, stats)
-            
-            return public_url
-            
-        except Exception as e:
-            error_msg = str(e)
-            self.logger.error(f"Upload failed for slide {slide_id}: {error_msg}")
-            
-            # Handle duplicate error specifically
-            if 'duplicate' in error_msg.lower() or '409' in error_msg:
-                print(f"⚠️  File already exists for slide {slide_id}, attempting to overwrite...")
-                try:
-                    # Force delete and retry upload
-                    self.supabase.storage.from_(self.bucket_name).remove([remote_path])
-                    with open(file_path, 'rb') as f:
-                        response = self.supabase.storage.from_(self.bucket_name).upload(
-                            remote_path,
-                            f.read()
-                        )
-                    public_url = self.supabase.storage.from_(self.bucket_name).get_public_url(remote_path)
-                    self._log_successful_upload(remote_filename, slide_id, file_path, stats)
-                    return public_url
-                except Exception as retry_error:
-                    print(f"✗ Could not overwrite existing file for slide {slide_id}: {retry_error}")
-                    return ""
-            
-            elif self.is_file_too_large_error(e):
-                print(f"⚠️  File too large for slide {slide_id}, will retry with higher compression")
-                return ""  # Signal for retry
-            else:
-                print(f"✗ Error uploading slide {slide_id}: {error_msg}")
-                return """""
-Main MediaProcessor class that orchestrates the download, compression, and upload workflow.
-"""
-
-import tempfile
-import threading
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
-
-import requests
-from supabase import create_client, Client
-
-from utils.compression import VideoCompressor, ImageCompressor
-from utils.logging_utils import setup_logging
-from utils.stats import CompressionStats, StatsManager
-from utils.file_utils import get_file_extension
-
+class UploadResult:
+    """Class to represent upload results with specific error types."""
+    
+    class ErrorType(Enum):
+        SUCCESS = "success"
+        FILE_TOO_LARGE = "file_too_large"
+        DUPLICATE = "duplicate"
+        OTHER_ERROR = "other_error"
+    
+    def __init__(self, success: bool, url: str = "", error_type: ErrorType = ErrorType.SUCCESS, error_message: str = ""):
+        self.success = success
+        self.url = url
+        self.error_type = error_type
+        self.error_message = error_message
+    
+    @classmethod
+    def success_result(cls, url: str):
+        return cls(True, url, cls.ErrorType.SUCCESS)
+    
+    @classmethod
+    def file_too_large_error(cls, error_message: str):
+        return cls(False, "", cls.ErrorType.FILE_TOO_LARGE, error_message)
+    
+    @classmethod
+    def duplicate_error(cls, error_message: str):
+        return cls(False, "", cls.ErrorType.DUPLICATE, error_message)
+    
+    @classmethod
+    def other_error(cls, error_message: str):
+        return cls(False, "", cls.ErrorType.OTHER_ERROR, error_message)
 
 class MediaProcessor:
     """Main processor for downloading, compressing, and uploading media files."""
     
     def __init__(self, supabase_url: str, supabase_key: str, bucket_name: str = "slide-media", 
-                 video_rf: int = 28, max_video_rf: int = 35, workers: int = 10):
+                 video_rf: int = 28, max_video_rf: int = 35, workers: int = 10, overwrite: bool = False):
         self.supabase: Client = create_client(supabase_url, supabase_key)
         self.bucket_name = bucket_name
         self.video_rf = video_rf
         self.max_video_rf = max_video_rf
         self.workers = workers
         self.base_temp_dir = tempfile.mkdtemp()
+        self.overwrite = overwrite
         
         # Set up logging
         self.logger = setup_logging()
@@ -161,7 +121,7 @@ class MediaProcessor:
                 
         return filepath
     
-    def is_file_too_large_error(self, error) -> bool:
+    def _is_file_too_large_error(self, error) -> bool:
         """Check if error indicates file is too large for Supabase."""
         error_str = str(error).lower()
         # Don't treat 409 Duplicate as file size error!
@@ -177,37 +137,27 @@ class MediaProcessor:
             '413'  # HTTP 413 status code
         ])
     
+    def _is_duplicate_error(self, error) -> bool:
+        """Check if error indicates duplicate file."""
+        error_str = str(error).lower()
+        return 'duplicate' in error_str and '409' in error_str
+    
     def upload_to_supabase(self, file_path: Path, remote_filename: str, slide_id: str, 
                           original_url: str = "", file_type: str = "", 
-                          stats: Optional[CompressionStats] = None) -> str:
-        """Upload file to Supabase storage with metadata."""
+                          stats: Optional[CompressionStats] = None) -> UploadResult:
+        """Upload file to Supabase storage and return detailed result."""
         try:
             remote_path = f"slide-media/{remote_filename}"
             
-            # Prepare metadata
-            file_metadata = {
-                "slide": slide_id,
-                "type": file_type or "unknown",
-                "original_filename": file_path.name,
-                "original_url": original_url,
-                "processed_at": time.strftime('%Y-%m-%d %H:%M:%S'),
-                "processor_version": "1.0",
-                "file_size_kb": file_path.stat().st_size // 1024
-            }
+            # Check if file exists and delete it if overwrite is enabled
+            if self.overwrite:
+                self._delete_existing_file(remote_path, remote_filename)
             
-            # Add compression stats if available
-            if stats:
-                file_metadata.update(stats.to_metadata_dict())
-            
-            # Check if file exists and delete it
-            self._delete_existing_file(remote_path, remote_filename)
-            
-            # Upload the new file with metadata
+            # Upload the file
             with open(file_path, 'rb') as f:
                 response = self.supabase.storage.from_(self.bucket_name).upload(
                     remote_path,
-                    f.read(),
-                    file_options={"metadata": file_metadata}
+                    f.read()
                 )
             
             # Get the public URL
@@ -216,18 +166,19 @@ class MediaProcessor:
             # Log successful upload
             self._log_successful_upload(remote_filename, slide_id, file_path, stats)
             
-            return public_url
+            return UploadResult.success_result(public_url)
             
         except Exception as e:
             error_msg = str(e)
             self.logger.error(f"Upload failed for slide {slide_id}: {error_msg}")
             
-            if self.is_file_too_large_error(e):
-                print(f"⚠️  File too large for slide {slide_id}, will retry with higher compression")
-                return ""  # Signal for retry
+            # Classify the error type
+            if self._is_duplicate_error(e):
+                return UploadResult.duplicate_error(error_msg)
+            elif self._is_file_too_large_error(e):
+                return UploadResult.file_too_large_error(error_msg)
             else:
-                print(f"✗ Error uploading slide {slide_id}: {error_msg}")
-                return ""
+                return UploadResult.other_error(error_msg)
     
     def _delete_existing_file(self, remote_path: str, remote_filename: str):
         """Delete existing file from Supabase storage."""
@@ -259,17 +210,57 @@ class MediaProcessor:
         # Try initial upload
         result = self.upload_to_supabase(file_path, remote_filename, slide_id, original_url, file_type, stats)
         
-        # Only retry for videos AND only if result is empty AND it was a size issue
-        if result or file_type != "video":
-            return result
+        # Handle different result types
+        if result.success:
+            return result.url
         
-        # Only start retry logic if we have a valid reason (file too large)
-        # The upload method returns "" only for size issues now
+        # Handle duplicate error
+        if result.error_type == UploadResult.ErrorType.DUPLICATE:
+            print(f"⚠️  File already exists for slide {slide_id}")
+            if self.overwrite:
+                print(f"⚠️ Attempting to overwrite slide {slide_id}")
+                try:
+                    # Force delete and retry upload
+                    remote_path = f"slide-media/{remote_filename}"
+                    self.supabase.storage.from_(self.bucket_name).remove([remote_path])
+                    
+                    # Retry upload after deletion
+                    retry_result = self.upload_to_supabase(file_path, remote_filename, slide_id, original_url, file_type, stats)
+                    if retry_result.success:
+                        return retry_result.url
+                    else:
+                        print(f"✗ Could not overwrite existing file for slide {slide_id}: {retry_result.error_message}")
+                        return ""
+                except Exception as retry_error:
+                    print(f"✗ Could not overwrite existing file for slide {slide_id}: {retry_error}")
+                    return ""
+            else:
+                print(f"⚠️  No overwrite: Skipping {slide_id}")
+                return ""
+        
+        # Handle file too large error (only for videos)
+        if result.error_type == UploadResult.ErrorType.FILE_TOO_LARGE and file_type == "video":
+            print(f"⚠️  File too large for slide {slide_id}, will retry with higher compression")
+            return self._retry_with_higher_compression(slide_id, stats, download_dir, compressed_dir, original_url, file_type)
+        
+        # Handle other errors
+        if result.error_type == UploadResult.ErrorType.FILE_TOO_LARGE:
+            print(f"✗ File too large for slide {slide_id} (non-video, cannot compress further)")
+        else:
+            print(f"✗ Error uploading slide {slide_id}: {result.error_message}")
+        
+        return ""
+    
+    def _retry_with_higher_compression(self, slide_id: str, stats: CompressionStats, 
+                                     download_dir: Path, compressed_dir: Path, 
+                                     original_url: str, file_type: str) -> str:
+        """Retry video compression with higher RF values."""
         current_rf = stats.final_rf if stats.final_rf else self.video_rf
         
         # Only proceed with retries if we haven't hit max RF
         if current_rf >= self.max_video_rf:
             self.logger.error(f"Cannot retry slide {slide_id} - already at max RF ({current_rf})")
+            print(f"❌ Cannot compress slide {slide_id} further (already at max RF={current_rf})")
             return ""
         
         while current_rf < self.max_video_rf:
@@ -296,12 +287,17 @@ class MediaProcessor:
                 print(f"   🔄 Retry compressed: {new_stats.original_size_kb}KB → {new_stats.compressed_size_kb}KB "
                       f"({new_stats.compression_ratio:.1f}% reduction, RF={retry_rf})")
                 
-                result = self.upload_to_supabase(retry_compressed_path, retry_filename, slide_id, 
-                                               original_url, file_type, new_stats)
+                # Try uploading the re-compressed file
+                retry_result = self.upload_to_supabase(retry_compressed_path, retry_filename, slide_id, 
+                                                     original_url, file_type, new_stats)
                 
-                if result:
+                if retry_result.success:
                     self.logger.info(f"Retry successful for slide {slide_id} with RF={retry_rf}")
-                    return result
+                    return retry_result.url
+                elif retry_result.error_type != UploadResult.ErrorType.FILE_TOO_LARGE:
+                    # If it's not a size error, don't continue retrying
+                    print(f"✗ Retry failed for slide {slide_id} due to non-size error: {retry_result.error_message}")
+                    break
             
             current_rf = retry_rf
         

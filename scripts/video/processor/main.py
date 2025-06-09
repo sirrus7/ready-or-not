@@ -69,6 +69,12 @@ Logging:
         metavar='MAX_RF', 
         help='Maximum video RF for retry attempts (default: 35)'
     )
+
+    parser.add_argument(
+        '--overwrite',
+        help='Overwrite files that already exist in bucket',
+        default=False,
+    )
     
     parser.add_argument(
         '--workers',
@@ -178,7 +184,8 @@ def main():
         bucket_name=args.bucket,
         video_rf=args.video_rf,
         max_video_rf=args.max_video_rf,
-        workers=args.workers
+        workers=args.workers,
+        overwrite=args.overwrite,
     )
     
     try:
