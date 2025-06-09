@@ -1,14 +1,26 @@
-// src/utils/kpiCalculations.ts
+// src/core/game/ScoringEngine.ts
 import {TeamRoundData, PermanentKpiAdjustment} from '@shared/types/database';
 import {KpiEffect, KpiKey} from '@shared/types/game';
 
 // Base starting values for the game
 const BASE_VALUES = {
     CAPACITY: 5000,
-    ORDERS: 6250,
-    COST: 1200000,
+    ORDERS: 6250, // This is now only a fallback for Round 1
+    COST: 1200000, // This is now only a fallback for Round 1
     ASP: 1000
 } as const;
+
+// NEW: Constants from the CSV game engine model
+const MATERIAL_COST_PER_BOARD = 470;
+const OVERHEAD_PERCENTAGE = 0.25;
+
+// NEW: Round-specific base values from the CSV
+const ROUND_BASE_VALUES = {
+    1: {cost: 1200000, orders: 6250},
+    2: {cost: 1260000, orders: 6750},
+    3: {cost: 1323000, orders: 7250},
+};
+
 
 export class KpiCalculations {
     /**
@@ -36,14 +48,28 @@ export class KpiCalculations {
     }
 
     /**
-     * Calculate final KPIs (revenue, net income, net margin)
+     * REFACTOR: Calculate final KPIs based on the CSV model.
+     * This now includes capacity constraints, variable material costs, and overhead.
      */
     static calculateFinalKpis(kpis: TeamRoundData): Partial<TeamRoundData> {
-        const revenue = kpis.current_orders * kpis.current_asp;
-        const netIncome = revenue - kpis.current_cost;
+        // CHANGED: Units sold are constrained by capacity.
+        const unitsSold = Math.min(kpis.current_capacity, kpis.current_orders);
+
+        // CHANGED: Revenue is based on unitsSold, not total orders.
+        const revenue = unitsSold * kpis.current_asp;
+
+        // CHANGED: Implement the full cost model from the CSV.
+        const variableMaterialCosts = unitsSold * MATERIAL_COST_PER_BOARD;
+        const overheadCosts = revenue * OVERHEAD_PERCENTAGE;
+        // 'kpis.current_cost' is now treated as the fixed "Production Cost" from the CSV.
+        const totalCost = kpis.current_cost + variableMaterialCosts + overheadCosts;
+
+        const netIncome = revenue - totalCost;
         const netMargin = revenue > 0 ? netIncome / revenue : 0;
 
+        // Note: We return the new total cost in the 'current_cost' field for reporting.
         return {
+            current_cost: Math.round(totalCost),
             revenue: Math.round(revenue),
             net_income: Math.round(netIncome),
             net_margin: parseFloat(netMargin.toFixed(4))
@@ -51,30 +77,21 @@ export class KpiCalculations {
     }
 
     /**
-     * Create new round data with proper starting values
+     * REFACTOR: Create new round data using the hardcoded base values from the CSV model for each round.
      */
     static async createNewRoundData(
         sessionId: string,
         teamId: string,
         roundNumber: 1 | 2 | 3,
-        existingTeamData?: Record<number, TeamRoundData>
     ): Promise<Omit<TeamRoundData, 'id'>> {
-        let start_capacity = BASE_VALUES.CAPACITY;
-        let start_orders = BASE_VALUES.ORDERS;
-        let start_cost = BASE_VALUES.COST;
-        let start_asp = BASE_VALUES.ASP;
 
-        // Use previous round's current values as starting values
-        if (roundNumber > 1 && existingTeamData) {
-            const prevRoundKey = (roundNumber - 1) as 1 | 2;
-            const prevRoundData = existingTeamData[prevRoundKey];
-            if (prevRoundData) {
-                start_capacity = prevRoundData.current_capacity;
-                start_orders = prevRoundData.current_orders;
-                start_cost = prevRoundData.current_cost;
-                start_asp = prevRoundData.current_asp;
-            }
-        }
+        // CHANGED: Use hardcoded base values per round from the CSV model.
+        const roundBases = ROUND_BASE_VALUES[roundNumber];
+
+        const start_capacity = BASE_VALUES.CAPACITY;
+        const start_orders = roundBases.orders;
+        const start_cost = roundBases.cost;
+        const start_asp = BASE_VALUES.ASP;
 
         return {
             session_id: sessionId,
@@ -173,14 +190,16 @@ export class KpiCalculations {
     /**
      * Reset KPI data to base values (for game reset)
      */
-    static resetKpiData(kpiData: TeamRoundData): Partial<TeamRoundData> {
+    static resetKpiData(): Partial<TeamRoundData> {
+        // Resets to the absolute start of the game (Round 1 bases)
+        const round1Bases = ROUND_BASE_VALUES[1];
         return {
             start_capacity: BASE_VALUES.CAPACITY,
             current_capacity: BASE_VALUES.CAPACITY,
-            start_orders: BASE_VALUES.ORDERS,
-            current_orders: BASE_VALUES.ORDERS,
-            start_cost: BASE_VALUES.COST,
-            current_cost: BASE_VALUES.COST,
+            start_orders: round1Bases.orders,
+            current_orders: round1Bases.orders,
+            start_cost: round1Bases.cost,
+            current_cost: round1Bases.cost,
             start_asp: BASE_VALUES.ASP,
             current_asp: BASE_VALUES.ASP,
             revenue: 0,
@@ -215,5 +234,3 @@ export class KpiCalculations {
         }
     }
 }
-
-// TODO: Extract KPI calculation logic into a class or set of functions within ScoringEngine.ts.
