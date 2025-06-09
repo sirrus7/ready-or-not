@@ -1,20 +1,30 @@
 // src/views/host/components/GamePanel.tsx
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import DecisionHistory from './DecisionHistory';
 import HostGameControls from './GameControls';
 import TeamSubmissions from './TeamMonitor';
 import DecisionReviewModal from './DecisionReviewModal';
 import {useGameContext} from '@app/providers/GameProvider';
-import {Layers, Info, AlertTriangle} from 'lucide-react';
+import {Layers, Info, AlertTriangle, History, ListChecks} from 'lucide-react';
 
 const GamePanel: React.FC = () => {
     const {state, currentSlideData, processInvestmentPayoffs, setCurrentHostAlertState} = useGameContext();
     const {gameStructure, currentSessionId, error: appError, isLoading} = state;
 
+    const [activeTab, setActiveTab] = useState<'timeline' | 'submissions'>('timeline');
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [reviewingDecisionKey, setReviewingDecisionKey] = useState<string | null>(null);
 
     const isInteractiveStudentSlide = !!currentSlideData?.interactive_data_key;
+
+    // Automatically switch tabs based on slide type
+    useEffect(() => {
+        if (isInteractiveStudentSlide) {
+            setActiveTab('submissions');
+        } else {
+            setActiveTab('timeline');
+        }
+    }, [isInteractiveStudentSlide]);
 
     const handleReviewDecision = (decisionKey: string) => {
         setReviewingDecisionKey(decisionKey);
@@ -27,15 +37,17 @@ const GamePanel: React.FC = () => {
     };
 
     if (isLoading && !currentSessionId) {
-        return <div className="bg-gray-100 p-6 ...">
-            <div className="animate-spin ..."></div>
+        return <div className="bg-gray-100 p-6 rounded-lg shadow-md flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
             Loading...</div>;
     }
     if (appError && !currentSessionId) {
-        return <div className="bg-red-50 p-6 ..."><AlertTriangle/>Error Loading Session</div>;
+        return <div className="bg-red-50 p-6 rounded-lg shadow-md flex items-center h-full text-red-700"><AlertTriangle
+            className="mr-3"/>Error Loading Session</div>;
     }
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
-        return <div className="bg-gray-100 p-6 ..."><Info/>No Active Game Session Loaded</div>;
+        return <div className="bg-gray-100 p-6 rounded-lg shadow-md flex items-center h-full text-gray-500"><Info
+            className="mr-3"/>No Active Game Session Loaded</div>;
     }
 
     const handlePayoffProcessing = async (roundNumber: 1 | 2 | 3) => {
@@ -49,9 +61,9 @@ const GamePanel: React.FC = () => {
 
     return (
         <>
-            <div className="bg-gray-50 h-full flex flex-col">
-                <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3">
-                    {/* REFACTOR: Restored the full header content here */}
+            <div className="bg-white h-full flex flex-col rounded-lg overflow-hidden shadow-lg border border-gray-200">
+                {/* Panel Header */}
+                <div className="flex-shrink-0 border-b border-gray-200 px-4 py-3">
                     <div className="flex items-center">
                         <Layers className="mr-2 text-blue-600" size={22}/>
                         <div className="min-w-0 flex-1">
@@ -61,29 +73,57 @@ const GamePanel: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                <div className="flex-1 min-h-0 flex flex-col">
-                    <div className="flex-1 min-h-0 p-3">
-                        <DecisionHistory onReviewDecision={handleReviewDecision}/>
-                    </div>
-                    {isInteractiveStudentSlide && (
-                        <div className="flex-shrink-0 border-t border-gray-200 bg-white">
-                            <div className="max-h-64 overflow-y-auto"><TeamSubmissions/></div>
+
+                {/* Tab Navigation */}
+                <div className="flex-shrink-0 border-b border-gray-200 flex">
+                    <button
+                        onClick={() => setActiveTab('timeline')}
+                        className={`flex-1 flex items-center justify-center gap-2 p-3 text-sm font-medium transition-colors ${
+                            activeTab === 'timeline' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                    >
+                        <History size={16}/>
+                        Timeline
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('submissions')}
+                        disabled={!isInteractiveStudentSlide}
+                        className={`flex-1 flex items-center justify-center gap-2 p-3 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            activeTab === 'submissions' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                    >
+                        <ListChecks size={16}/>
+                        Submissions
+                    </button>
+                </div>
+
+                {/* Tab Content */}
+                <div className="flex-1 min-h-0 overflow-y-auto bg-gray-50">
+                    {activeTab === 'timeline' && (
+                        <div className="p-3">
+                            <DecisionHistory onReviewDecision={handleReviewDecision}/>
                         </div>
                     )}
-                    <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3">
-                        {currentSlideData?.type === 'payoff_reveal' && currentSlideData.round_number > 0 && (
-                            <div className="mb-3 p-2 bg-blue-50 rounded border border-blue-200">
-                                <button
-                                    onClick={() => handlePayoffProcessing(currentSlideData.round_number as 1 | 2 | 3)}
-                                    className="w-full px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors">
-                                    Process RD-{currentSlideData.round_number} Investment Payoffs
-                                </button>
-                                <p className="text-xs text-blue-600 mt-1 text-center">Click to apply investment effects
-                                    to all teams</p>
-                            </div>
-                        )}
-                        <HostGameControls/>
-                    </div>
+                    {activeTab === 'submissions' && isInteractiveStudentSlide && (
+                        <TeamSubmissions/>
+                    )}
+                </div>
+
+                {/* Bottom Controls */}
+                <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3">
+                    {currentSlideData?.type === 'payoff_reveal' && currentSlideData.round_number > 0 && (
+                        <div className="mb-3 p-2 bg-blue-50 rounded border border-blue-200">
+                            <button
+                                onClick={() => handlePayoffProcessing(currentSlideData.round_number as 1 | 2 | 3)}
+                                className="w-full px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                            >
+                                Process RD-{currentSlideData.round_number} Investment Payoffs
+                            </button>
+                            <p className="text-xs text-blue-600 mt-1 text-center">Click to apply investment effects
+                                to all teams</p>
+                        </div>
+                    )}
+                    <HostGameControls/>
                 </div>
             </div>
 

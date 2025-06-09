@@ -46,6 +46,10 @@ const CreateGamePage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const resumeSessionId = searchParams.get('resume');
 
+    useEffect(() => {
+        document.title = "Ready or Not - Create Game";
+    }, []);
+
     // Track if user is intentionally leaving (not just refreshing or opening new tabs)
     const isIntentionalNavigation = useRef(false);
     const beforeUnloadHandled = useRef(false);

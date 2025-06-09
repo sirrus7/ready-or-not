@@ -50,8 +50,7 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
     };
 
     return (
-        <div
-            className="bg-gray-50 p-3 rounded-lg shadow-inner h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+        <div>
             <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-lg font-semibold text-gray-700">Decision History</h2>
                 <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-medium">

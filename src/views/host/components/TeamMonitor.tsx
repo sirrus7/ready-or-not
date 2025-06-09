@@ -100,7 +100,7 @@ const TeamMonitor: React.FC = () => {
 
     return (
         <>
-            <div className="bg-white p-3 md:p-4 rounded-lg shadow-md border border-gray-200 mt-4">
+            <div className="p-3 md:p-4">
                 <div className="flex justify-between items-center mb-3">
                     <div>
                         <h3 className="text-base md:text-lg font-semibold text-gray-800 flex items-center gap-2">
