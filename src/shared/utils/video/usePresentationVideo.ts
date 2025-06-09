@@ -62,8 +62,12 @@ export const usePresentationVideo = ({
                     break;
             }
         } catch (error) {
-            console.error(`[usePresentationVideo] Failed to execute ${command.action}:`, error);
-            onErrorRef.current?.();
+            if (error instanceof DOMException && error.name === 'NotAllowedError') {
+                console.warn('[usePresentationVideo] Play command blocked by browser. Waiting for user interaction.');
+            } else {
+                console.error(`[usePresentationVideo] Failed to execute ${command.action}:`, error);
+                onErrorRef.current?.();
+            }
         }
     }, []);
 
@@ -72,17 +76,24 @@ export const usePresentationVideo = ({
         if (!video) return;
 
         const handleEnded = () => onEndedRef.current?.();
-        const handleError = () => onErrorRef.current?.();
+        const handleError = (e: Event) => {
+            console.error('[usePresentationVideo] Video error event:', e);
+            if (video.error) {
+                console.error('[usePresentationVideo] Video error details:', video.error);
+            }
+            onErrorRef.current?.();
+        };
 
         if (isEnabled && sourceUrl) {
             if (video.currentSrc !== sourceUrl) {
                 video.src = sourceUrl;
                 video.load();
             }
-        } else if (!isEnabled && video.currentSrc) {
-            video.pause();
-            video.removeAttribute('src');
-            video.load();
+        } else {
+            // Not a video slide, just ensure it's paused. Do NOT remove src.
+            if (!video.paused) {
+                video.pause();
+            }
         }
 
         video.addEventListener('ended', handleEnded);
@@ -112,7 +123,7 @@ export const usePresentationVideo = ({
             ref: videoRef,
             playsInline: true,
             controls: false,
-            autoPlay: false,
+            autoPlay: true,
             muted: false,
             preload: 'auto',
             style: {width: '100%', height: '100%', objectFit: 'contain'}

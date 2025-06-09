@@ -71,8 +71,13 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
                 }
             }
         } catch (error) {
-            console.error(`[useHostVideo] Local ${action} failed:`, error);
-            onErrorRef.current?.();
+            if (error instanceof DOMException && error.name === 'NotAllowedError') {
+                console.warn('[useHostVideo] Autoplay was prevented by the browser. User must click play.');
+                isManuallyPaused.current = true; // Prevent retry loops
+            } else {
+                console.error(`[useHostVideo] Local ${action} failed:`, error);
+                onErrorRef.current?.();
+            }
         }
     }, [broadcastManager]);
 
@@ -86,7 +91,13 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
             }
         };
         const handleEnded = () => onEndedRef.current?.();
-        const handleError = () => onErrorRef.current?.();
+        const handleError = (e: Event) => {
+            console.error('[useHostVideo] Video error event:', e);
+            if (video.error) {
+                console.error('[useHostVideo] Video error details:', video.error);
+            }
+            onErrorRef.current?.();
+        };
 
         if (isEnabled && sourceUrl) {
             if (video.currentSrc !== sourceUrl) {
@@ -94,10 +105,11 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
                 video.src = sourceUrl;
                 video.load();
             }
-        } else if (!isEnabled && video.currentSrc) {
-            video.pause();
-            video.removeAttribute('src');
-            video.load();
+        } else {
+            // Not a video slide, just ensure it's paused. Do NOT remove src.
+            if (!video.paused) {
+                video.pause();
+            }
         }
 
         video.addEventListener('canplay', handleCanPlay);
@@ -109,8 +121,7 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sourceUrl, isEnabled]);
+    }, [sourceUrl, isEnabled, executeCommand]);
 
     const play = useCallback(async (time?: number) => {
         isManuallyPaused.current = false;
@@ -131,7 +142,7 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
             ref: videoRef,
             playsInline: true,
             controls: false,
-            autoPlay: false,
+            autoPlay: true,
             muted: isConnectedToPresentation,
             preload: 'auto',
             style: {width: '100%', height: '100%', objectFit: 'contain'}
