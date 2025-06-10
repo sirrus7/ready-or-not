@@ -194,11 +194,11 @@ def main():
         
         print("Starting media processing pipeline...")
         
-        # Process all slides
-        slide_mapping = processor.process_slides(slides_data)
+        # Process all slides - now returns both mapping and status inventory
+        slide_mapping, status_inventory = processor.process_slides(slides_data)
         
-        # Generate reports and cleanup
-        processor.finalize_processing(slide_mapping, len(slides_data))
+        # Generate reports and cleanup - now includes status inventory
+        processor.finalize_processing(slide_mapping, status_inventory, len(slides_data))
         
         return 0
         
