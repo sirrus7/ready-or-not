@@ -1,15 +1,15 @@
 // src/shared/utils/video/helpers.ts - Simplified basic utilities only
 
 /**
- * Simple video detection based on URL
+ * Simple video detection based on filename path
  */
-export const isVideo = (url?: string): boolean => {
-    if (!url) return false;
-    const lowerUrl = url.toLowerCase();
-    return lowerUrl.includes(".mp4") ||
-        lowerUrl.includes(".webm") ||
-        lowerUrl.includes(".ogg") ||
-        lowerUrl.includes(".mov");
+export const isVideo = (path?: string): boolean => {
+    if (!path) return false;
+    const lowerPath = path.toLowerCase();
+    return lowerPath.endsWith(".mp4") ||
+        lowerPath.endsWith(".webm") ||
+        lowerPath.endsWith(".ogg") ||
+        lowerPath.endsWith(".mov");
 };
 
 /**

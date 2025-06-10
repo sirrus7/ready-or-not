@@ -75,7 +75,7 @@ export interface Slide {
     title?: string;
     round_number: 0 | 1 | 2 | 3;
     type: SlideType;
-    source_url?: string;
+    source_path?: string;
     main_text?: string;
     sub_text?: string;
     bullet_points?: string[];

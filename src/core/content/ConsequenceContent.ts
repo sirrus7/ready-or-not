@@ -1,9 +1,8 @@
 // src/core/content/ConsequenceContent.ts - Consolidated Consequence Definitions
 
-import { Consequence } from '@shared/types/game';
+import {Consequence} from '@shared/types/game';
 
 export const allConsequencesData: Record<string, Consequence[]> = {
-    // --- Inlined from src/data/gameStructure/round1/consequences.ts ---
     'ch1-conseq': [
         {
             id: 'ch1_conseq_a',
@@ -190,7 +189,6 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             ]
         },
     ],
-    // --- Inlined from src/data/gameStructure/round2/consequences.ts ---
     'ch4-conseq': [
         {
             id: 'ch4_conseq_a',
@@ -198,7 +196,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Your quick action to find alternative suppliers maintained production levels, though at a higher cost.",
             details: ["+$100k Current Costs", "Production maintained"],
             effects: [
-                { kpi: 'cost', change_value: 100000, timing: 'immediate', description: 'Alternative supplier premium' }
+                {kpi: 'cost', change_value: 100000, timing: 'immediate', description: 'Alternative supplier premium'}
             ]
         },
         {
@@ -207,8 +205,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Negotiating with suppliers provided partial relief, but production capacity was still reduced.",
             details: ["-500 Current Capacity", "+$50k Current Costs"],
             effects: [
-                { kpi: 'capacity', change_value: -500, timing: 'immediate', description: 'Partial supply disruption' },
-                { kpi: 'cost', change_value: 50000, timing: 'immediate', description: 'Supplier negotiation costs' }
+                {kpi: 'capacity', change_value: -500, timing: 'immediate', description: 'Partial supply disruption'},
+                {kpi: 'cost', change_value: 50000, timing: 'immediate', description: 'Supplier negotiation costs'}
             ]
         },
         {
@@ -217,8 +215,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Halting production avoided additional costs but significantly impacted capacity and orders.",
             details: ["-1000 Current Capacity", "-500 Current Orders"],
             effects: [
-                { kpi: 'capacity', change_value: -1000, timing: 'immediate', description: 'Production halt' },
-                { kpi: 'orders', change_value: -500, timing: 'immediate', description: 'Lost orders due to halt' }
+                {kpi: 'capacity', change_value: -1000, timing: 'immediate', description: 'Production halt'},
+                {kpi: 'orders', change_value: -500, timing: 'immediate', description: 'Lost orders due to halt'}
             ]
         },
         {
@@ -227,9 +225,9 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Doing nothing resulted in severe supply chain disruptions affecting all aspects of production.",
             details: ["-1500 Current Capacity", "-1000 Current Orders", "+$75k Current Costs"],
             effects: [
-                { kpi: 'capacity', change_value: -1500, timing: 'immediate', description: 'Severe supply disruption' },
-                { kpi: 'orders', change_value: -1000, timing: 'immediate', description: 'Lost orders from disruption' },
-                { kpi: 'cost', change_value: 75000, timing: 'immediate', description: 'Emergency procurement costs' }
+                {kpi: 'capacity', change_value: -1500, timing: 'immediate', description: 'Severe supply disruption'},
+                {kpi: 'orders', change_value: -1000, timing: 'immediate', description: 'Lost orders from disruption'},
+                {kpi: 'cost', change_value: 75000, timing: 'immediate', description: 'Emergency procurement costs'}
             ]
         }
     ],
@@ -240,7 +238,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Meeting union demands resolved the strike quickly, maintaining production but increasing costs.",
             details: ["+$200k Current Costs", "Strike resolved, production maintained"],
             effects: [
-                { kpi: 'cost', change_value: 200000, timing: 'immediate', description: 'Union settlement costs' }
+                {kpi: 'cost', change_value: 200000, timing: 'immediate', description: 'Union settlement costs'}
             ]
         },
         {
@@ -249,8 +247,13 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Temporary workers partially maintained production, though at reduced efficiency and higher costs.",
             details: ["-750 Current Capacity", "+$150k Current Costs"],
             effects: [
-                { kpi: 'capacity', change_value: -750, timing: 'immediate', description: 'Reduced efficiency with temp workers' },
-                { kpi: 'cost', change_value: 150000, timing: 'immediate', description: 'Temporary worker premium' }
+                {
+                    kpi: 'capacity',
+                    change_value: -750,
+                    timing: 'immediate',
+                    description: 'Reduced efficiency with temp workers'
+                },
+                {kpi: 'cost', change_value: 150000, timing: 'immediate', description: 'Temporary worker premium'}
             ]
         },
         {
@@ -259,8 +262,13 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Closing operations avoided additional costs but severely impacted production and customer orders.",
             details: ["-1500 Current Capacity", "-1000 Current Orders"],
             effects: [
-                { kpi: 'capacity', change_value: -1500, timing: 'immediate', description: 'Complete production shutdown' },
-                { kpi: 'orders', change_value: -1000, timing: 'immediate', description: 'Lost orders during closure' }
+                {
+                    kpi: 'capacity',
+                    change_value: -1500,
+                    timing: 'immediate',
+                    description: 'Complete production shutdown'
+                },
+                {kpi: 'orders', change_value: -1000, timing: 'immediate', description: 'Lost orders during closure'}
             ]
         },
         {
@@ -269,9 +277,9 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Letting the strike continue resulted in extended shutdown and permanent loss of some customers.",
             details: ["-2000 Current Capacity", "-1500 Current Orders", "+$50k Current Costs"],
             effects: [
-                { kpi: 'capacity', change_value: -2000, timing: 'immediate', description: 'Extended strike impact' },
-                { kpi: 'orders', change_value: -1500, timing: 'immediate', description: 'Permanent customer loss' },
-                { kpi: 'cost', change_value: 50000, timing: 'immediate', description: 'Strike-related damages' }
+                {kpi: 'capacity', change_value: -2000, timing: 'immediate', description: 'Extended strike impact'},
+                {kpi: 'orders', change_value: -1500, timing: 'immediate', description: 'Permanent customer loss'},
+                {kpi: 'cost', change_value: 50000, timing: 'immediate', description: 'Strike-related damages'}
             ]
         }
     ],
@@ -282,8 +290,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Your quick pivot to meet market demands paid off with increased orders, though at development costs.",
             details: ["+500 Current Orders", "+$125k Current Costs"],
             effects: [
-                { kpi: 'orders', change_value: 500, timing: 'immediate', description: 'Market pivot success' },
-                { kpi: 'cost', change_value: 125000, timing: 'immediate', description: 'Product modification costs' }
+                {kpi: 'orders', change_value: 500, timing: 'immediate', description: 'Market pivot success'},
+                {kpi: 'cost', change_value: 125000, timing: 'immediate', description: 'Product modification costs'}
             ]
         },
         {
@@ -292,8 +300,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Increased marketing helped maintain some market position with moderate gains.",
             details: ["+250 Current Orders", "+$75k Current Costs"],
             effects: [
-                { kpi: 'orders', change_value: 250, timing: 'immediate', description: 'Marketing boost' },
-                { kpi: 'cost', change_value: 75000, timing: 'immediate', description: 'Additional marketing spend' }
+                {kpi: 'orders', change_value: 250, timing: 'immediate', description: 'Marketing boost'},
+                {kpi: 'cost', change_value: 75000, timing: 'immediate', description: 'Additional marketing spend'}
             ]
         },
         {
@@ -302,8 +310,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Reducing prices helped maintain competitiveness and gained some orders, but reduced profit margins.",
             details: ["-$50 Current ASP", "+300 Current Orders"],
             effects: [
-                { kpi: 'asp', change_value: -50, timing: 'immediate', description: 'Competitive price reduction' },
-                { kpi: 'orders', change_value: 300, timing: 'immediate', description: 'Price-driven demand increase' }
+                {kpi: 'asp', change_value: -50, timing: 'immediate', description: 'Competitive price reduction'},
+                {kpi: 'orders', change_value: 300, timing: 'immediate', description: 'Price-driven demand increase'}
             ]
         },
         {
@@ -312,7 +320,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Maintaining current strategy while competitors innovated resulted in significant market share and pricing power loss.",
             details: ["-750 Current Orders", "Market share erosion"],
             effects: [
-                { kpi: 'orders', change_value: -750, timing: 'immediate', description: 'Market share loss' }
+                {kpi: 'orders', change_value: -750, timing: 'immediate', description: 'Market share loss'}
             ]
         }
     ],
@@ -323,7 +331,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Full compliance implementation ensured smooth operations and avoided any regulatory penalties.",
             details: ["+$175k Current Costs", "Full regulatory compliance achieved"],
             effects: [
-                { kpi: 'cost', change_value: 175000, timing: 'immediate', description: 'Comprehensive compliance costs' }
+                {kpi: 'cost', change_value: 175000, timing: 'immediate', description: 'Comprehensive compliance costs'}
             ]
         },
         {
@@ -332,8 +340,13 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Minimal compliance met basic requirements but resulted in some operational inefficiencies.",
             details: ["+$100k Current Costs", "-250 Current Capacity"],
             effects: [
-                { kpi: 'cost', change_value: 100000, timing: 'immediate', description: 'Basic compliance costs' },
-                { kpi: 'capacity', change_value: -250, timing: 'immediate', description: 'Compliance-related inefficiencies' }
+                {kpi: 'cost', change_value: 100000, timing: 'immediate', description: 'Basic compliance costs'},
+                {
+                    kpi: 'capacity',
+                    change_value: -250,
+                    timing: 'immediate',
+                    description: 'Compliance-related inefficiencies'
+                }
             ]
         },
         {
@@ -342,7 +355,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Legal challenges bought time but created uncertainty and ongoing legal expenses.",
             details: ["+$75k Current Costs", "Regulatory uncertainty continues"],
             effects: [
-                { kpi: 'cost', change_value: 75000, timing: 'immediate', description: 'Legal challenge costs' }
+                {kpi: 'cost', change_value: 75000, timing: 'immediate', description: 'Legal challenge costs'}
             ]
         },
         {
@@ -351,13 +364,12 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Ignoring regulations resulted in immediate penalties and forced shutdown until compliance.",
             details: ["-2000 Current Capacity", "+$250k Current Costs", "-1000 Current Orders"],
             effects: [
-                { kpi: 'capacity', change_value: -2000, timing: 'immediate', description: 'Regulatory shutdown' },
-                { kpi: 'cost', change_value: 250000, timing: 'immediate', description: 'Regulatory fines and penalties' },
-                { kpi: 'orders', change_value: -1000, timing: 'immediate', description: 'Lost orders during shutdown' }
+                {kpi: 'capacity', change_value: -2000, timing: 'immediate', description: 'Regulatory shutdown'},
+                {kpi: 'cost', change_value: 250000, timing: 'immediate', description: 'Regulatory fines and penalties'},
+                {kpi: 'orders', change_value: -1000, timing: 'immediate', description: 'Lost orders during shutdown'}
             ]
         }
     ],
-    // --- Inlined from src/data/gameStructure/round3/consequences.ts ---
     'ch8-conseq': [
         {
             id: 'ch8_conseq_a',
@@ -365,8 +377,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Your immediate shutdown and expert response contained the damage effectively, though at significant cost and operational impact.",
             details: ["-1000 Current Capacity", "+$200k Current Costs", "Systems secured"],
             effects: [
-                { kpi: 'capacity', change_value: -1000, timing: 'immediate', description: 'System shutdown impact' },
-                { kpi: 'cost', change_value: 200000, timing: 'immediate', description: 'Cybersecurity expert costs' }
+                {kpi: 'capacity', change_value: -1000, timing: 'immediate', description: 'System shutdown impact'},
+                {kpi: 'cost', change_value: 200000, timing: 'immediate', description: 'Cybersecurity expert costs'}
             ]
         },
         {
@@ -375,8 +387,18 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Isolating critical systems allowed some operations to continue while you investigated the breach.",
             details: ["-500 Current Capacity", "+$100k Current Costs", "Partial operations maintained"],
             effects: [
-                { kpi: 'capacity', change_value: -500, timing: 'immediate', description: 'Limited operations during investigation' },
-                { kpi: 'cost', change_value: 100000, timing: 'immediate', description: 'Investigation and isolation costs' }
+                {
+                    kpi: 'capacity',
+                    change_value: -500,
+                    timing: 'immediate',
+                    description: 'Limited operations during investigation'
+                },
+                {
+                    kpi: 'cost',
+                    change_value: 100000,
+                    timing: 'immediate',
+                    description: 'Investigation and isolation costs'
+                }
             ]
         },
         {
@@ -385,7 +407,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Paying the ransom restored operations quickly, but you're now a known target for future attacks.",
             details: ["+$150k Current Costs", "Operations restored", "Future vulnerability"],
             effects: [
-                { kpi: 'cost', change_value: 150000, timing: 'immediate', description: 'Ransom payment' },
+                {kpi: 'cost', change_value: 150000, timing: 'immediate', description: 'Ransom payment'},
                 {
                     kpi: 'cost',
                     change_value: 50000,
@@ -401,9 +423,14 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Ignoring the attack resulted in massive data theft, system corruption, and complete operational shutdown.",
             details: ["-2500 Current Capacity", "+$300k Current Costs", "-1500 Current Orders"],
             effects: [
-                { kpi: 'capacity', change_value: -2500, timing: 'immediate', description: 'Complete system failure' },
-                { kpi: 'cost', change_value: 300000, timing: 'immediate', description: 'Emergency recovery and legal costs' },
-                { kpi: 'orders', change_value: -1500, timing: 'immediate', description: 'Lost customer trust and orders' }
+                {kpi: 'capacity', change_value: -2500, timing: 'immediate', description: 'Complete system failure'},
+                {
+                    kpi: 'cost',
+                    change_value: 300000,
+                    timing: 'immediate',
+                    description: 'Emergency recovery and legal costs'
+                },
+                {kpi: 'orders', change_value: -1500, timing: 'immediate', description: 'Lost customer trust and orders'}
             ]
         }
     ],
@@ -414,9 +441,19 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Your aggressive counter-offensive successfully differentiated your products and won back market share at premium pricing.",
             details: ["+750 Current Orders", "+$250k Current Costs", "+$30 Current ASP"],
             effects: [
-                { kpi: 'orders', change_value: 750, timing: 'immediate', description: 'Successful market counter-offensive' },
-                { kpi: 'cost', change_value: 250000, timing: 'immediate', description: 'Product development and marketing costs' },
-                { kpi: 'asp', change_value: 30, timing: 'immediate', description: 'Premium pricing success' }
+                {
+                    kpi: 'orders',
+                    change_value: 750,
+                    timing: 'immediate',
+                    description: 'Successful market counter-offensive'
+                },
+                {
+                    kpi: 'cost',
+                    change_value: 250000,
+                    timing: 'immediate',
+                    description: 'Product development and marketing costs'
+                },
+                {kpi: 'asp', change_value: 30, timing: 'immediate', description: 'Premium pricing success'}
             ]
         },
         {
@@ -425,8 +462,13 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Customer retention programs helped maintain loyalty and prevented further customer loss.",
             details: ["+400 Current Orders", "+$150k Current Costs"],
             effects: [
-                { kpi: 'orders', change_value: 400, timing: 'immediate', description: 'Customer retention success' },
-                { kpi: 'cost', change_value: 150000, timing: 'immediate', description: 'Loyalty program and service costs' }
+                {kpi: 'orders', change_value: 400, timing: 'immediate', description: 'Customer retention success'},
+                {
+                    kpi: 'cost',
+                    change_value: 150000,
+                    timing: 'immediate',
+                    description: 'Loyalty program and service costs'
+                }
             ]
         },
         {
@@ -435,9 +477,9 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Pivoting to niche markets provided a safe haven with premium pricing, though at smaller scale.",
             details: ["+200 Current Orders", "+$100k Current Costs", "+$20 Current ASP"],
             effects: [
-                { kpi: 'orders', change_value: 200, timing: 'immediate', description: 'Niche market success' },
-                { kpi: 'cost', change_value: 100000, timing: 'immediate', description: 'Market pivot costs' },
-                { kpi: 'asp', change_value: 20, timing: 'immediate', description: 'Niche premium pricing' }
+                {kpi: 'orders', change_value: 200, timing: 'immediate', description: 'Niche market success'},
+                {kpi: 'cost', change_value: 100000, timing: 'immediate', description: 'Market pivot costs'},
+                {kpi: 'asp', change_value: 20, timing: 'immediate', description: 'Niche premium pricing'}
             ]
         },
         {
@@ -446,8 +488,13 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Maintaining current strategy while competitors innovated resulted in significant market share and pricing power loss.",
             details: ["-1200 Current Orders", "-$75 Current ASP"],
             effects: [
-                { kpi: 'orders', change_value: -1200, timing: 'immediate', description: 'Market share loss to competitors' },
-                { kpi: 'asp', change_value: -75, timing: 'immediate', description: 'Pricing power erosion' }
+                {
+                    kpi: 'orders',
+                    change_value: -1200,
+                    timing: 'immediate',
+                    description: 'Market share loss to competitors'
+                },
+                {kpi: 'asp', change_value: -75, timing: 'immediate', description: 'Pricing power erosion'}
             ]
         }
     ]

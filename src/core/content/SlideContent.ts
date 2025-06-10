@@ -8,7 +8,7 @@ export const allGameSlides: Slide[] = [
         round_number: 0,
         title: "Welcome",
         type: 'image',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_001.jpg?alt=media',
+        source_path: 'Slide_001.jpg',
         background_css: 'bg-gray-900'
     },
     {
@@ -16,7 +16,7 @@ export const allGameSlides: Slide[] = [
         round_number: 0,
         title: "Table Setup 1",
         type: 'image',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_002.jpg?alt=media',
+        source_path: 'Slide_002.jpg',
         background_css: 'bg-gray-200'
     },
     {
@@ -24,7 +24,7 @@ export const allGameSlides: Slide[] = [
         round_number: 0,
         title: "Table Setup 2",
         type: 'image',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_003.jpg?alt=media',
+        source_path: 'Slide_003.jpg',
         background_css: 'bg-gray-200'
     },
     {
@@ -32,7 +32,7 @@ export const allGameSlides: Slide[] = [
         round_number: 0,
         title: "Ready Or Not",
         type: 'image',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_004.jpg?alt=media',
+        source_path: 'Slide_004.jpg',
         background_css: 'bg-green-700'
     },
     {
@@ -40,7 +40,7 @@ export const allGameSlides: Slide[] = [
         round_number: 0,
         title: "Game Introduction",
         type: 'video',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_005.mp4?alt=media',
+        source_path: 'Slide_005.mp4',
         auto_advance_after_video: true
     },
     {
@@ -48,7 +48,7 @@ export const allGameSlides: Slide[] = [
         round_number: 0,
         title: "Let's Get It On!",
         type: 'video',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_006.mp4?alt=media',
+        source_path: 'Slide_006.mp4',
         auto_advance_after_video: false,
         host_alert: {
             title: "Time's Up!",
@@ -60,7 +60,7 @@ export const allGameSlides: Slide[] = [
         round_number: 0,
         title: "What Are Investments?",
         type: 'video',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_007.mp4?alt=media',
+        source_path: 'Slide_007.mp4',
         auto_advance_after_video: false,
         host_alert: {
             title: "Game Host Action",
@@ -74,7 +74,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Investment Decision Period",
         type: 'interactive_invest',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_008.mp4?alt=media",
+        source_path: "Slide_008.mp4",
         interactive_data_key: 'rd1-invest',
         main_text: "RD-1 INVEST: TIMER ACTIVE",
         sub_text: "Make all investment decisions on your team device before the video ends.",
@@ -90,7 +90,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Overview: Years 1 & 2",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_009.mp4?alt=media",
+        source_path: "Slide_009.mp4",
         auto_advance_after_video: true
     },
     {
@@ -98,7 +98,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Start Year 1",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_010.mp4?alt=media",
+        source_path: "Slide_010.mp4",
         auto_advance_after_video: true
     },
     {
@@ -106,7 +106,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #1: Overview",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_011.mp4?alt=media",
+        source_path: "Slide_011.mp4",
         auto_advance_after_video: true,
     },
     {
@@ -114,7 +114,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #1: The Setup",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_012.mp4?alt=media",
+        source_path: "Slide_012.mp4",
         auto_advance_after_video: true
     },
     {
@@ -122,7 +122,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #1: Option A",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_013.mp4?alt=media",
+        source_path: "Slide_013.mp4",
         auto_advance_after_video: true
     },
     {
@@ -130,7 +130,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #1: Option B",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_014.mp4?alt=media",
+        source_path: "Slide_014.mp4",
         auto_advance_after_video: true
     },
     {
@@ -138,7 +138,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #1: Option C",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_015.mp4?alt=media",
+        source_path: "Slide_015.mp4",
         auto_advance_after_video: true
     },
     {
@@ -146,7 +146,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #1: Option D",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_016.mp4?alt=media",
+        source_path: "Slide_016.mp4",
         auto_advance_after_video: true
     },
     {
@@ -154,7 +154,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Team Phone Guru Instructions",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_017.mp4?alt=media",
+        source_path: "Slide_017.mp4",
         auto_advance_after_video: true
     },
     {
@@ -167,7 +167,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Teams: Discuss and select your response using your team device. Timer is on screen.",
         timer_duration_seconds: 3 * 60,
         background_css: 'bg-orange-800',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_018.mp4?alt=media",
+        source_path: "Slide_018.mp4",
         host_alert: {
             title: "Choice 1 Closed",
             message: "All teams submitted or time is up. Click OK to see consequences."
@@ -178,7 +178,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #1: Options Summary Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_019.mp4?alt=media",
+        source_path: "Slide_019.mp4",
         auto_advance_after_video: true
     },
     {
@@ -186,7 +186,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Consequences Overview Video Choice 1",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_020.mp4?alt=media",
+        source_path: "Slide_020.mp4",
         auto_advance_after_video: true
     },
     {
@@ -197,7 +197,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option A: Purchase CNC Machine",
         sub_text: "Initial Impact: -250 Capacity, +$50k Costs. Long-term: Permanent KPI Card for +500 Capacity in future rounds.",
         details: ["-250 Current Capacity", "+$50k Current Costs", "Permanent KPI Card: +500 Capacity (Future Rounds)"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_021.mp4?alt=media',
+        source_path: 'Slide_021.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -208,7 +208,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option B: Replacement Die Cast",
         sub_text: "Quick installation, minimal disruption. Initial Impact: +$25k Costs.",
         details: ["-250 Current Capacity (from spreadsheet 'Equip Fail Event')", "+$25k Current Costs"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_022.mp4?alt=media',
+        source_path: 'Slide_022.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -219,7 +219,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option C: Outsource Fins",
         sub_text: "Flexible capacity, lower initial costs, but less control. Initial Impact: +250 Capacity (net gain), +$25k Costs.",
         details: ["+250 Current Capacity (compared to doing nothing/broken state)", "+$25k Current Costs"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_023.mp4?alt=media',
+        source_path: 'Slide_023.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -230,7 +230,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option D: Do Nothing",
         sub_text: "Production slowdowns, increased repairs, and cancelled orders. Initial Impact: -500 Capacity, +$75k Costs, -200 Orders.",
         details: ["-500 Current Capacity", "+$75k Current Costs", "-200 Current Orders (from spreadsheet)"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_024.mp4?alt=media',
+        source_path: 'Slide_024.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -238,7 +238,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Choice 1 Career Insight Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_025.mp4?alt=media",
+        source_path: "Slide_025.mp4",
         auto_advance_after_video: true,
     },
     {
@@ -246,7 +246,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Choice 1 Transition Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_026.mp4?alt=media",
+        source_path: "Slide_026.mp4",
         auto_advance_after_video: true
     },
     {
@@ -254,7 +254,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #2: Overview",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_027.mp4?alt=media",
+        source_path: "Slide_027.mp4",
         auto_advance_after_video: true
     },
     {
@@ -262,7 +262,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #2: Setup Video (New Tax)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_028.mp4?alt=media",
+        source_path: "Slide_028.mp4",
         auto_advance_after_video: true
     },
     {
@@ -270,7 +270,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #2: Option A Video (Raise Prices)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_029.mp4?alt=media",
+        source_path: "Slide_029.mp4",
         auto_advance_after_video: true
     },
     {
@@ -278,7 +278,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #2: Option B Video (Increase Marketing)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_030.mp4?alt=media",
+        source_path: "Slide_030.mp4",
         auto_advance_after_video: true
     },
     {
@@ -286,7 +286,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #2: Option C Video (Cost Cutting)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_031.mp4?alt=media",
+        source_path: "Slide_031.mp4",
         auto_advance_after_video: true
     },
     {
@@ -294,7 +294,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #2: Option D Video (Do Nothing)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_032.mp4?alt=media",
+        source_path: "Slide_032.mp4",
         auto_advance_after_video: true
     },
     {
@@ -307,7 +307,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Teams: Discuss and select your response using your team device. Timer is on screen.",
         timer_duration_seconds: 3 * 60,
         background_css: 'bg-indigo-800',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_033.mp4?alt=media",
+        source_path: "Slide_033.mp4",
         host_alert: {
             title: "Choice 2 Closed",
             message: "All teams submitted or time is up. Click OK to see consequences."
@@ -318,7 +318,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #2: Options Summary Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_034.mp4?alt=media",
+        source_path: "Slide_034.mp4",
         auto_advance_after_video: false
     },
     {
@@ -326,7 +326,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Consequences Overview Video CH2",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_035.mp4?alt=media",
+        source_path: "Slide_035.mp4",
         auto_advance_after_video: true
     },
     {
@@ -337,7 +337,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option A (Raise Prices)",
         sub_text: "ASP increases by $20. Demand stable.",
         details: ["+$20 ASP", "-250 Orders (per spreadsheet)"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_036.mp4?alt=media',
+        source_path: 'Slide_036.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -348,7 +348,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option B (Increase Marketing)",
         sub_text: "Orders increase by 500, Marketing Costs increase by $25k.",
         details: ["+500 Orders", "+$25k Costs"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_037.mp4?alt=media',
+        source_path: 'Slide_037.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -359,7 +359,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option C (Cost Cutting)",
         sub_text: "Costs decrease by $25k, but Capacity drops by 250 due to morale/service cuts.",
         details: ["-250 Capacity", "-$25k Costs"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_038.mp4?alt=media',
+        source_path: 'Slide_038.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -370,7 +370,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option D (Do Nothing - New Tax)",
         sub_text: "Operational costs increase by $50k due to absorbing the new tax.",
         details: ["+$50k Costs (New Tax)"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_039.mp4?alt=media',
+        source_path: 'Slide_039.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -378,7 +378,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "CH2 Career Insight Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_040.mp4?alt=media",
+        source_path: "Slide_040.mp4",
         auto_advance_after_video: false,
         host_alert: {title: "Impact Event #2 Complete", message: "Prepare for Impact Event #3. Click OK to proceed."}
     },
@@ -387,7 +387,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Transition to later in Year 2 Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_041.mp4?alt=media",
+        source_path: "Slide_041.mp4",
         auto_advance_after_video: true
     },
     {
@@ -395,7 +395,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "News Broadcast Video (Mid Year 2 - Recession)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_042.mp4?alt=media",
+        source_path: "Slide_042.mp4",
         auto_advance_after_video: true
     },
     {
@@ -403,7 +403,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #3: Setup Video (Recession)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_043.mp4?alt=media",
+        source_path: "Slide_043.mp4",
         auto_advance_after_video: true
     },
     {
@@ -411,7 +411,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #3: Option A Video (Layoffs)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_044.mp4?alt=media",
+        source_path: "Slide_044.mp4",
         auto_advance_after_video: true
     },
     {
@@ -419,7 +419,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #3: Option B Video (Furlough/Workshare)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_045.mp4?alt=media",
+        source_path: "Slide_045.mp4",
         auto_advance_after_video: true
     },
     {
@@ -427,7 +427,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #3: Option C Video (Maintain/Cut OT)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_046.mp4?alt=media",
+        source_path: "Slide_046.mp4",
         auto_advance_after_video: true
     },
     {
@@ -435,7 +435,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #3: Option D Video (Do Nothing)",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_047.mp4?alt=media",
+        source_path: "Slide_047.mp4",
         auto_advance_after_video: true
     },
     {
@@ -448,7 +448,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Teams: Discuss and select your response using your team device. Timer is on screen.",
         timer_duration_seconds: 3 * 60,
         background_css: 'bg-teal-800',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_048.mp4?alt=media",
+        source_path: "Slide_048.mp4",
         host_alert: {
             title: "Choice 3 Closed",
             message: "All teams submitted or time is up. Click OK to see consequences."
@@ -459,7 +459,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Impact Event #3: Options Summary Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_049.mp4?alt=media",
+        source_path: "Slide_049.mp4",
         auto_advance_after_video: false
     },
     {
@@ -467,7 +467,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "Consequences Overview Video CH3",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_050.mp4?alt=media",
+        source_path: "Slide_050.mp4",
         auto_advance_after_video: true
     },
     {
@@ -478,7 +478,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option A (Layoffs)",
         sub_text: "Significant cost reduction and capacity decrease. Future capacity also impacted.",
         details: ["-1250 Current Capacity", "-$300k Current Costs", "Permanent KPI Card: -1000 Capacity (Future - per spreadsheet)"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_051.mp4?alt=media',
+        source_path: 'Slide_051.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -489,7 +489,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option B (Furlough/Workshare)",
         sub_text: "Reduces costs and capacity, but less severely than full layoffs.",
         details: ["-1000 Current Capacity", "-$200k Current Costs"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_052.mp4?alt=media',
+        source_path: 'Slide_052.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -500,7 +500,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option C (Maintain/Cut OT)",
         sub_text: "Moderate cost savings with a smaller capacity hit.",
         details: ["-500 Current Capacity", "-$100k Current Costs"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_053.mp4?alt=media',
+        source_path: 'Slide_053.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -511,7 +511,7 @@ export const allGameSlides: Slide[] = [
         main_text: "Consequence for Option D (Do Nothing - Recession)",
         sub_text: "Demand drops significantly, and unchanged fixed costs hurt margins. Morale issues reduce capacity.",
         details: ["-1000 Current Orders (Demand Drop)", "-1000 Current Capacity (Morale/Quits)", "+$25k Current Costs (Inefficiency/Admin)"],
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_054.mp4?alt=media",
+        source_path: "Slide_054.mp4",
         background_css: 'bg-gray-700'
     },
     {
@@ -519,7 +519,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "CH3 Career Insight Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_055.mp4?alt=media",
+        source_path: "Slide_055.mp4",
         auto_advance_after_video: false,
         host_alert: {
             title: "Impact Event #3 Complete",
@@ -531,7 +531,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Investment Payoff Intro Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_056.mp4?alt=media",
+        source_path: "Slide_056.mp4",
         auto_advance_after_video: true
     },
     {
@@ -542,7 +542,7 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-1 Payoff: Business Growth Strategy",
         sub_text: "Impact: Capacity: +250, Orders: +250, ASP: +$20",
         details: ["+250 Capacity", "+250 Orders", "+$20 ASP"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_057.mp4?alt=media'
+        source_path: 'Slide_057.mp4'
     },
     {
         id: 57,
@@ -552,7 +552,7 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-1 Payoff: Production Efficiency",
         sub_text: "Impact: Capacity: +1500",
         details: ["+1500 Capacity"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_058.mp4?alt=media'
+        source_path: 'Slide_058.mp4'
     },
     {
         id: 58,
@@ -562,7 +562,7 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-1 Payoff: Add 2nd Shift",
         sub_text: "Impact: Capacity: +1500, Costs: +$300k",
         details: ["+1500 Capacity", "+$300k Costs"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_059.mp4?alt=media'
+        source_path: 'Slide_059.mp4'
     },
     {
         id: 59,
@@ -572,7 +572,7 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-1 Payoff: Supply Chain Optimization",
         sub_text: "Impact: Capacity: +250, Costs: -$100k",
         details: ["+250 Capacity", "-$100k Costs"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_060.mp4?alt=media'
+        source_path: 'Slide_060.mp4'
     },
     {
         id: 60,
@@ -582,7 +582,7 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-1 Payoff: Employee Development",
         sub_text: "Impact: Capacity: +250, Costs: -$25k",
         details: ["+250 Capacity", "-$25k Costs"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_061.mp4?alt=media'
+        source_path: 'Slide_061.mp4'
     },
     {
         id: 61,
@@ -592,7 +592,7 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-1 Payoff: Maximize Sales (Boutique)",
         sub_text: "Impact: Orders: +500, ASP: +$20",
         details: ["+500 Orders", "+$20 ASP"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_062.mp4?alt=media',
+        source_path: 'Slide_062.mp4',
         host_alert: {
             title: "RD-1 Payoffs Complete",
             message: "All investment payoffs for Round 1 have been revealed. Click OK to review End of Round KPIs."
@@ -605,7 +605,7 @@ export const allGameSlides: Slide[] = [
         type: 'kpi_summary_instructional',
         main_text: "END OF ROUND 1 KPIs",
         sub_text: "CFOs: Review your team's final KPIs on your device and record them on your Team Summary Sheet. The facilitator will display the leaderboard next.",
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_063.mp4?alt=media',
+        source_path: 'Slide_063.mp4',
         host_alert: {
             title: "KPI Review",
             message: "Ensure teams have reviewed their KPIs. Click OK to display the Leaderboard."
@@ -616,7 +616,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Leaderboard Intro Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_064.mp4?alt=media",
+        source_path: "Slide_064.mp4",
         auto_advance_after_video: true
     },
     {
@@ -689,11 +689,11 @@ export const allGameSlides: Slide[] = [
 
     // --- Round 2 ---
     {
-        id: 100,
+        id: 64,
         round_number: 2,
         title: "Round 2 Introduction Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_065.mp4?alt=media",
+        source_path: "Slide_065.mp4",
         auto_advance_after_video: false,
         host_alert: {
             title: "Begin RD-2 Investments",
@@ -701,11 +701,11 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 101,
+        id: 65,
         round_number: 2,
         title: "RD-2 Investment Decision Period",
         type: 'interactive_invest',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_070.mp4?alt=media",
+        source_path: "Slide_070.mp4",
         interactive_data_key: 'rd2-invest',
         main_text: "RD-2 INVEST: TIMER ACTIVE",
         sub_text: "Video timer active. Make your RD-2 investment decisions on your team device.",
@@ -716,15 +716,15 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 102,
+        id: 66,
         round_number: 2,
         title: "RD-2 CH4 Intro Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_071.mp4?alt=media",
+        source_path: "Slide_071.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 103,
+        id: 67,
         round_number: 2,
         title: "CH4: Supply Chain Disruption - Make Your Choice",
         type: 'interactive_choice',
@@ -733,48 +733,48 @@ export const allGameSlides: Slide[] = [
         sub_text: "Teams: Discuss and select your response using your team device.",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-800',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_072.mp4?alt=media",
+        source_path: "Slide_072.mp4",
         host_alert: {
             title: "CH4 Closed",
             message: "CH4 Decisions are in. Click OK for consequences."
         }
     },
     {
-        id: 104,
+        id: 68,
         round_number: 2,
         title: "CH4 Consequences Overview Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_073.mp4?alt=media",
+        source_path: "Slide_073.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 105,
+        id: 69,
         round_number: 2,
         title: "CH4 Consequences: Option A Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option A",
         sub_text: "Supply chain consequence A details",
         details: ["Placeholder consequence details"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_074.mp4?alt=media',
+        source_path: 'Slide_074.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 106,
+        id: 70,
         round_number: 2,
         title: "CH4 Consequences: Option B Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option B",
         sub_text: "Supply chain consequence B details",
         details: ["Placeholder consequence details"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_075.mp4?alt=media',
+        source_path: 'Slide_075.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 107,
+        id: 71,
         round_number: 2,
         title: "CH4 Career Insight Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_076.mp4?alt=media",
+        source_path: "Slide_076.mp4",
         auto_advance_after_video: false,
         host_alert: {
             title: "CH4 Complete",
@@ -782,15 +782,15 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 108,
+        id: 72,
         round_number: 2,
         title: "CH5 Intro Video - Labor Strike",
         type: 'video',
-        source_url: "placeholder_ch5_intro.mp4",
+        source_path: "placeholder_ch5_intro.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 109,
+        id: 73,
         round_number: 2,
         title: "CH5: Labor Strike - Make Your Choice",
         type: 'interactive_choice',
@@ -799,80 +799,80 @@ export const allGameSlides: Slide[] = [
         sub_text: "Teams: Discuss and select your response.",
         timer_duration_seconds: 180,
         background_css: 'bg-red-800',
-        source_url: "placeholder_ch5_interactive.mp4",
+        source_path: "placeholder_ch5_interactive.mp4",
         host_alert: {title: "CH5 Closed", message: "CH5 Decisions are in. Click OK for consequences."}
     },
     {
-        id: 110,
+        id: 74,
         round_number: 2,
         title: "CH5 Consequences Overview Video",
         type: 'video',
-        source_url: "placeholder_ch5_consequences.mp4",
+        source_path: "placeholder_ch5_consequences.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 111,
+        id: 75,
         round_number: 2,
         title: "CH5 Consequences: Option A Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option A",
         sub_text: "Labor strike response A consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch5_conseq_a.mp4',
+        source_path: 'placeholder_ch5_conseq_a.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 112,
+        id: 76,
         round_number: 2,
         title: "CH5 Consequences: Option B Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option B",
         sub_text: "Labor strike response B consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch5_conseq_b.mp4',
+        source_path: 'placeholder_ch5_conseq_b.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 113,
+        id: 77,
         round_number: 2,
         title: "CH5 Consequences: Option C Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option C",
         sub_text: "Labor strike response C consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch5_conseq_c.mp4',
+        source_path: 'placeholder_ch5_conseq_c.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 114,
+        id: 78,
         round_number: 2,
         title: "CH5 Consequences: Option D Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option D",
         sub_text: "Labor strike response D consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch5_conseq_d.mp4',
+        source_path: 'placeholder_ch5_conseq_d.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 115,
+        id: 79,
         round_number: 2,
         title: "CH5 Career Insight Video",
         type: 'video',
-        source_url: "placeholder_ch5_career.mp4",
+        source_path: "placeholder_ch5_career.mp4",
         auto_advance_after_video: false,
         host_alert: {title: "CH5 Complete", message: "Prepare for next challenge. Click OK to proceed."}
     },
     {
-        id: 116,
+        id: 80,
         round_number: 2,
         title: "CH6 Intro Video - Market Shift",
         type: 'video',
-        source_url: "placeholder_ch6_intro.mp4",
+        source_path: "placeholder_ch6_intro.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 117,
+        id: 81,
         round_number: 2,
         title: "CH6: Market Shift - Make Your Choice",
         type: 'interactive_choice',
@@ -881,80 +881,80 @@ export const allGameSlides: Slide[] = [
         sub_text: "Teams: Discuss and select your response.",
         timer_duration_seconds: 180,
         background_css: 'bg-blue-800',
-        source_url: "placeholder_ch6_interactive.mp4",
+        source_path: "placeholder_ch6_interactive.mp4",
         host_alert: {title: "CH6 Closed", message: "CH6 Decisions are in. Click OK for consequences."}
     },
     {
-        id: 118,
+        id: 82,
         round_number: 2,
         title: "CH6 Consequences Overview Video",
         type: 'video',
-        source_url: "placeholder_ch6_consequences.mp4",
+        source_path: "placeholder_ch6_consequences.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 119,
+        id: 83,
         round_number: 2,
         title: "CH6 Consequences: Option A Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option A",
         sub_text: "Market shift response A consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch6_conseq_a.mp4',
+        source_path: 'placeholder_ch6_conseq_a.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 120,
+        id: 84,
         round_number: 2,
         title: "CH6 Consequences: Option B Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option B",
         sub_text: "Market shift response B consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch6_conseq_b.mp4',
+        source_path: 'placeholder_ch6_conseq_b.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 121,
+        id: 85,
         round_number: 2,
         title: "CH6 Consequences: Option C Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option C",
         sub_text: "Market shift response C consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch6_conseq_c.mp4',
+        source_path: 'placeholder_ch6_conseq_c.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 122,
+        id: 86,
         round_number: 2,
         title: "CH6 Consequences: Option D Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option D",
         sub_text: "Market shift response D consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch6_conseq_d.mp4',
+        source_path: 'placeholder_ch6_conseq_d.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 123,
+        id: 87,
         round_number: 2,
         title: "CH6 Career Insight Video",
         type: 'video',
-        source_url: "placeholder_ch6_career.mp4",
+        source_path: "placeholder_ch6_career.mp4",
         auto_advance_after_video: false,
         host_alert: {title: "CH6 Complete", message: "Prepare for next challenge. Click OK to proceed."}
     },
     {
-        id: 124,
+        id: 88,
         round_number: 2,
         title: "CH7 Intro Video - Regulation",
         type: 'video',
-        source_url: "placeholder_ch7_intro.mp4",
+        source_path: "placeholder_ch7_intro.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 125,
+        id: 89,
         round_number: 2,
         title: "CH7: Regulation - Make Your Choice",
         type: 'interactive_choice',
@@ -963,115 +963,115 @@ export const allGameSlides: Slide[] = [
         sub_text: "Teams: Discuss and select your response.",
         timer_duration_seconds: 180,
         background_css: 'bg-green-800',
-        source_url: "placeholder_ch7_interactive.mp4",
+        source_path: "placeholder_ch7_interactive.mp4",
         host_alert: {title: "CH7 Closed", message: "CH7 Decisions are in. Click OK for consequences."}
     },
     {
-        id: 126,
+        id: 90,
         round_number: 2,
         title: "CH7 Consequences Overview Video",
         type: 'video',
-        source_url: "placeholder_ch7_consequences.mp4",
+        source_path: "placeholder_ch7_consequences.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 127,
+        id: 91,
         round_number: 2,
         title: "CH7 Consequences: Option A Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option A",
         sub_text: "Regulation response A consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch7_conseq_a.mp4',
+        source_path: 'placeholder_ch7_conseq_a.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 128,
+        id: 92,
         round_number: 2,
         title: "CH7 Consequences: Option B Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option B",
         sub_text: "Regulation response B consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch7_conseq_b.mp4',
+        source_path: 'placeholder_ch7_conseq_b.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 129,
+        id: 93,
         round_number: 2,
         title: "CH7 Consequences: Option C Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option C",
         sub_text: "Regulation response C consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch7_conseq_c.mp4',
+        source_path: 'placeholder_ch7_conseq_c.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 130,
+        id: 94,
         round_number: 2,
         title: "CH7 Consequences: Option D Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option D",
         sub_text: "Regulation response D consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'placeholder_ch7_conseq_d.mp4',
+        source_path: 'placeholder_ch7_conseq_d.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 131,
+        id: 95,
         round_number: 2,
         title: "CH7 Career Insight Video",
         type: 'video',
-        source_url: "placeholder_ch7_career.mp4",
+        source_path: "placeholder_ch7_career.mp4",
         auto_advance_after_video: false,
         host_alert: {title: "CH7 Complete", message: "Prepare for RD-2 Investment Payoffs. Click OK to proceed."}
     },
     {
-        id: 132,
+        id: 96,
         round_number: 2,
         title: "RD-2 Investment Payoff Intro Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_077.mp4?alt=media",
+        source_path: "Slide_077.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 133,
+        id: 97,
         round_number: 2,
         title: "RD-2 Payoffs Reveal",
         type: 'payoff_reveal',
         main_text: "RD-2 Investment Payoffs",
         sub_text: "Your Round 2 investments are now paying off",
         details: ["Investment payoffs will be calculated based on your selections"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_078.mp4?alt=media',
+        source_path: 'Slide_078.mp4',
         host_alert: {
             title: "RD-2 Payoffs Complete",
             message: "All investment payoffs for Round 2 have been revealed. Click OK to review KPIs."
         }
     },
     {
-        id: 134,
+        id: 98,
         round_number: 2,
         title: "End of Round 2 KPIs",
         type: 'kpi_summary_instructional',
         main_text: "END OF ROUND 2 KPIs",
         sub_text: "CFOs: Review your team's final KPIs on your device and record them on your Team Summary Sheet.",
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_079.mp4?alt=media',
+        source_path: 'Slide_079.mp4',
         host_alert: {
             title: "RD-2 KPI Review",
             message: "Ensure teams have reviewed their KPIs. Click OK to display the Leaderboard."
         }
     },
     {
-        id: 135,
+        id: 99,
         round_number: 2,
         title: "RD-2 Leaderboard Intro Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_080.mp4?alt=media",
+        source_path: "Slide_080.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 136,
+        id: 99.1,
         round_number: 2,
         title: "Leaderboard: RD-2 Capacity & Orders",
         type: 'leaderboard_chart',
@@ -1080,7 +1080,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Team comparison of production capability and market demand after Round 2."
     },
     {
-        id: 137,
+        id: 99.2,
         round_number: 2,
         title: "Leaderboard: RD-2 Cost Per Board",
         type: 'leaderboard_chart',
@@ -1089,7 +1089,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Comparing efficiency in production costs among teams after Round 2."
     },
     {
-        id: 138,
+        id: 99.3,
         round_number: 2,
         title: "Leaderboard: RD-2 Total Costs",
         type: 'leaderboard_chart',
@@ -1098,7 +1098,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Overall spending by each team in Round 2."
     },
     {
-        id: 139,
+        id: 99.4,
         round_number: 2,
         title: "Leaderboard: RD-2 ASP",
         type: 'leaderboard_chart',
@@ -1107,7 +1107,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Team pricing power and strategy after Round 2."
     },
     {
-        id: 140,
+        id: 99.5,
         round_number: 2,
         title: "Leaderboard: RD-2 Revenue",
         type: 'leaderboard_chart',
@@ -1116,7 +1116,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Comparing total income generated from sales in Round 2."
     },
     {
-        id: 141,
+        id: 99.6,
         round_number: 2,
         title: "Leaderboard: RD-2 Net Margin",
         type: 'leaderboard_chart',
@@ -1125,7 +1125,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Profitability as a percentage of revenue for each team."
     },
     {
-        id: 142,
+        id: 99.7,
         round_number: 2,
         title: "Leaderboard: RD-2 Net Income (RANKED)",
         type: 'leaderboard_chart',
@@ -1140,11 +1140,11 @@ export const allGameSlides: Slide[] = [
 
     // --- Round 3 ---
     {
-        id: 200,
+        id: 100,
         round_number: 3,
         title: "Round 3 Introduction Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_081.mp4?alt=media",
+        source_path: "Slide_081.mp4",
         auto_advance_after_video: false,
         host_alert: {
             title: "Begin RD-3 Investments",
@@ -1152,11 +1152,11 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 201,
+        id: 101,
         round_number: 3,
         title: "RD-3 Investment Decision Period",
         type: 'interactive_invest',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_082.mp4?alt=media",
+        source_path: "Slide_082.mp4",
         interactive_data_key: 'rd3-invest',
         main_text: "RD-3 INVEST: TIMER ACTIVE",
         sub_text: "Video timer active. Make your RD-3 investment decisions.",
@@ -1167,7 +1167,7 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 202,
+        id: 102,
         round_number: 3,
         title: "Double Down Opportunity Decision",
         type: 'interactive_double_down_prompt',
@@ -1176,14 +1176,14 @@ export const allGameSlides: Slide[] = [
         sub_text: "Decide if your team wants to take the Double Down risk/reward. Timer on screen.",
         timer_duration_seconds: 3 * 60,
         background_css: 'bg-red-700',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_083.mp4?alt=media',
+        source_path: 'Slide_083.mp4',
         host_alert: {
             title: "Double Down Decision Closed",
             message: "Teams have made their Double Down choice. Click OK for selection or to skip to CH8."
         }
     },
     {
-        id: 203,
+        id: 103,
         round_number: 3,
         title: "Select Double Down Investments",
         type: 'interactive_double_down_select',
@@ -1191,22 +1191,22 @@ export const allGameSlides: Slide[] = [
         main_text: "CHOOSE YOUR DOUBLE DOWN",
         sub_text: "If you opted-in: Sacrifice one RD-3 investment and Double Down on another.",
         background_css: 'bg-red-800',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_084.mp4?alt=media',
+        source_path: 'Slide_084.mp4',
         host_alert: {
             title: "Double Down Selections Made",
             message: "Double Down selections are complete (if applicable). Click OK to proceed to CH8."
         }
     },
     {
-        id: 210,
+        id: 104,
         round_number: 3,
         title: "CH8 Intro Video - Cyber Attack",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_085.mp4?alt=media",
+        source_path: "Slide_085.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 211,
+        id: 105,
         round_number: 3,
         title: "CH8: Cyber Attack - Make Your Choice",
         type: 'interactive_choice',
@@ -1215,48 +1215,48 @@ export const allGameSlides: Slide[] = [
         sub_text: "Teams: Your systems have been compromised. Select your response.",
         timer_duration_seconds: 180,
         background_css: 'bg-red-900',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_086.mp4?alt=media',
+        source_path: 'Slide_086.mp4',
         host_alert: {
             title: "CH8 Closed",
             message: "CH8 Decisions are in. Click OK for consequences."
         }
     },
     {
-        id: 212,
+        id: 106,
         round_number: 3,
         title: "CH8 Consequences Overview Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_087.mp4?alt=media",
+        source_path: "Slide_087.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 213,
+        id: 107,
         round_number: 3,
         title: "CH8 Consequences: Option A Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option A",
         sub_text: "Cyber attack response A consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_088.mp4?alt=media',
+        source_path: 'Slide_088.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 214,
+        id: 108,
         round_number: 3,
         title: "CH8 Consequences: Option B Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option B",
         sub_text: "Cyber attack response B consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_089.mp4?alt=media',
+        source_path: 'Slide_089.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 215,
+        id: 109,
         round_number: 3,
         title: "CH8 Career Insight Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_090.mp4?alt=media",
+        source_path: "Slide_090.mp4",
         auto_advance_after_video: false,
         host_alert: {
             title: "CH8 Complete",
@@ -1264,15 +1264,15 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 220,
+        id: 110,
         round_number: 3,
         title: "CH9 Intro Video - Market Disruption",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_091.mp4?alt=media",
+        source_path: "Slide_091.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 221,
+        id: 111,
         round_number: 3,
         title: "CH9: Market Disruption - Make Your Choice",
         type: 'interactive_choice',
@@ -1281,48 +1281,48 @@ export const allGameSlides: Slide[] = [
         sub_text: "Teams: A major competitor has disrupted the market. How do you respond?",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_092.mp4?alt=media',
+        source_path: 'Slide_092.mp4',
         host_alert: {
             title: "CH9 Closed",
             message: "Final challenge decisions are in. Click OK for consequences."
         }
     },
     {
-        id: 222,
+        id: 112,
         round_number: 3,
         title: "CH9 Consequences Overview Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_093.mp4?alt=media",
+        source_path: "Slide_093.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 223,
+        id: 113,
         round_number: 3,
         title: "CH9 Consequences: Option A Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option A",
         sub_text: "Market disruption response A consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_094.mp4?alt=media',
+        source_path: 'Slide_094.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 224,
+        id: 114,
         round_number: 3,
         title: "CH9 Consequences: Option B Details",
         type: 'consequence_reveal',
         main_text: "Consequence for Option B",
         sub_text: "Market disruption response B consequences",
         details: ["Placeholder consequence details"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_095.mp4?alt=media',
+        source_path: 'Slide_095.mp4',
         background_css: 'bg-gray-700'
     },
     {
-        id: 225,
+        id: 115,
         round_number: 3,
         title: "CH9 Career Insight Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_096.mp4?alt=media",
+        source_path: "Slide_096.mp4",
         auto_advance_after_video: false,
         host_alert: {
             title: "CH9 Complete",
@@ -1330,74 +1330,74 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 230,
+        id: 116,
         round_number: 3,
         title: "RD-3 Investment Payoff Intro Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_097.mp4?alt=media",
+        source_path: "Slide_097.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 231,
+        id: 117,
         round_number: 3,
         title: "RD-3 Investment Payoffs Reveal",
         type: 'payoff_reveal',
         main_text: "RD-3 Investment Payoffs",
         sub_text: "Your final round investments are now paying off",
         details: ["Investment payoffs will be calculated based on your selections"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_098.mp4?alt=media',
+        source_path: 'Slide_098.mp4',
         host_alert: {
             title: "RD-3 Payoffs Complete",
             message: "RD-3 investment payoffs revealed. Prepare for Double Down results."
         }
     },
     {
-        id: 240,
+        id: 118,
         round_number: 3,
         title: "Double Down Dice Roll Video",
         type: 'double_down_dice_roll',
         main_text: "DOUBLE DOWN DICE ROLL!",
         sub_text: "Let's see how your Double Down gamble paid off...",
         background_css: 'bg-red-700',
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_099.mp4?alt=media'
+        source_path: 'Slide_099.mp4'
     },
     {
-        id: 241,
+        id: 119,
         round_number: 3,
         title: "Double Down Results Reveal",
         type: 'payoff_reveal',
         main_text: "Double Down Results",
         sub_text: "The dice have determined your fate!",
         details: ["Double Down results will be calculated based on dice roll"],
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_100.mp4?alt=media',
+        source_path: 'Slide_100.mp4',
         host_alert: {
             title: "Double Down Complete",
             message: "Double Down results revealed. Prepare for final KPIs."
         }
     },
     {
-        id: 250,
+        id: 120,
         round_number: 3,
         title: "End of Round 3 KPIs",
         type: 'kpi_summary_instructional',
         main_text: "END OF ROUND 3 KPIs",
         sub_text: "CFOs: Review your team's final KPIs on your device. This is the end of the simulation!",
-        source_url: 'https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_101.mp4?alt=media',
+        source_path: 'Slide_101.mp4',
         host_alert: {
             title: "Final KPI Review",
             message: "Ensure teams have reviewed their final KPIs. Click OK for Final Leaderboard."
         }
     },
     {
-        id: 251,
+        id: 121,
         round_number: 3,
         title: "Final Leaderboard Intro Video",
         type: 'video',
-        source_url: "https://firebasestorage.googleapis.com/v0/b/ron-2-b9828.firebasestorage.app/o/academia%2FSlide_102.mp4?alt=media",
+        source_path: "Slide_102.mp4",
         auto_advance_after_video: true
     },
     {
-        id: 252,
+        id: 121.1,
         round_number: 3,
         title: "Final Leaderboard: Capacity & Orders",
         type: 'leaderboard_chart',
@@ -1406,7 +1406,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final comparison of production capability and market demand."
     },
     {
-        id: 253,
+        id: 121.2,
         round_number: 3,
         title: "Final Leaderboard: Cost Per Board",
         type: 'leaderboard_chart',
@@ -1415,7 +1415,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final efficiency comparison among all teams."
     },
     {
-        id: 254,
+        id: 121.3,
         round_number: 3,
         title: "Final Leaderboard: Total Costs",
         type: 'leaderboard_chart',
@@ -1424,7 +1424,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Overall spending by each team in Round 3."
     },
     {
-        id: 255,
+        id: 121.4,
         round_number: 3,
         title: "Final Leaderboard: ASP",
         type: 'leaderboard_chart',
@@ -1433,7 +1433,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final pricing strategy results."
     },
     {
-        id: 256,
+        id: 121.5,
         round_number: 3,
         title: "Final Leaderboard: Revenue",
         type: 'leaderboard_chart',
@@ -1442,7 +1442,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final revenue generation comparison."
     },
     {
-        id: 257,
+        id: 121.6,
         round_number: 3,
         title: "Final Leaderboard: Net Margin",
         type: 'leaderboard_chart',
@@ -1451,7 +1451,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final profitability percentage comparison."
     },
     {
-        id: 258,
+        id: 121.7,
         round_number: 3,
         title: "FINAL LEADERBOARD: Net Income (WINNERS!)",
         type: 'leaderboard_chart',
