@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 
 from processor import MediaProcessor
-from utils.logging_utils import setup_logging
 from utils.file_utils import load_slides_data
 
 
