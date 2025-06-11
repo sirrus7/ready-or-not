@@ -4,7 +4,7 @@ import {useParams} from 'react-router-dom';
 import {Slide} from '@shared/types/game';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize, Play} from 'lucide-react';
-import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
+import {SimpleBroadcastManager, HostCommand} from '@core/sync/SimpleBroadcastManager';
 
 /**
  * Simplified presentation app that immediately displays content from the host.
@@ -55,7 +55,7 @@ const PresentationApp: React.FC = () => {
     useEffect(() => {
         if (!broadcastManager) return;
 
-        console.log('[PresentationApp] Setting up slide listener');
+        console.log('[PresentationApp] Setting up slide and command listeners');
 
         const unsubscribeSlides = broadcastManager.onSlideUpdate((slide: Slide) => {
             console.log('[PresentationApp] Received slide update:', slide.id, slide.title);
@@ -65,9 +65,19 @@ const PresentationApp: React.FC = () => {
             setConnectionError(false);
         });
 
+        const handleHostCommand = (command: HostCommand) => {
+            if (command.action === 'close_presentation') {
+                console.log('[PresentationApp] Received close_presentation command from host. Closing window.');
+                window.close();
+            }
+        };
+
+        const unsubscribeCommands = broadcastManager.onHostCommand(handleHostCommand);
+
         return () => {
-            console.log('[PresentationApp] Cleaning up slide listener');
+            console.log('[PresentationApp] Cleaning up listeners');
             unsubscribeSlides();
+            unsubscribeCommands();
         };
     }, [broadcastManager]);
 
@@ -139,7 +149,7 @@ const PresentationApp: React.FC = () => {
                                     </button>
                                     <button
                                         onClick={() => window.location.reload()}
-                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg mx-auto transition-colors"
+                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg mx-auto transition-colors"
                                     >
                                         <RefreshCw size={16}/>
                                         Reload Page

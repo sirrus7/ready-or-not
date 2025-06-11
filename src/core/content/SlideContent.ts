@@ -6,15 +6,15 @@ export const allGameSlides: Slide[] = [
     {
         id: 0,
         round_number: 0,
-        title: "Welcome",
+        title: "Host Guide",
         type: 'image',
         source_path: 'Slide_001.jpg',
-        background_css: 'bg-gray-900'
+        background_css: 'bg-gray-200'
     },
     {
         id: 1,
         round_number: 0,
-        title: "Table Setup 1",
+        title: "Table Setup - 8 Players",
         type: 'image',
         source_path: 'Slide_002.jpg',
         background_css: 'bg-gray-200'
@@ -22,7 +22,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 2,
         round_number: 0,
-        title: "Table Setup 2",
+        title: "Table Setup - 4 Players",
         type: 'image',
         source_path: 'Slide_003.jpg',
         background_css: 'bg-gray-200'
@@ -30,7 +30,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 3,
         round_number: 0,
-        title: "Ready Or Not",
+        title: "Welcome to Ready Or Not",
         type: 'image',
         source_path: 'Slide_004.jpg',
         background_css: 'bg-green-700'
@@ -38,7 +38,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 4,
         round_number: 0,
-        title: "Game Introduction",
+        title: "Game Introduction Video",
         type: 'video',
         source_path: 'Slide_005.mp4',
         auto_advance_after_video: true
@@ -46,19 +46,19 @@ export const allGameSlides: Slide[] = [
     {
         id: 5,
         round_number: 0,
-        title: "Let's Get It On!",
+        title: "Let's Get It On - SWOT Analysis",
         type: 'video',
         source_path: 'Slide_006.mp4',
         auto_advance_after_video: false,
         host_alert: {
-            title: "Time's Up!",
-            message: "Time's Up. When you're ready, click Next to proceed."
+            title: "15 Minutes for SWOT Analysis",
+            message: "Teams have 15 minutes to read materials and complete SWOT analysis. Click Next when ready to proceed."
         }
     },
     {
         id: 6,
         round_number: 0,
-        title: "What Are Investments?",
+        title: "Round 1 Investments Introduction",
         type: 'video',
         source_path: 'Slide_007.mp4',
         auto_advance_after_video: false,
@@ -88,430 +88,425 @@ export const allGameSlides: Slide[] = [
     {
         id: 8,
         round_number: 1,
-        title: "Overview: Years 1 & 2",
+        title: "Entering Round 1",
         type: 'video',
-        source_path: "Slide_009.mp4",
+        source_path: 'Slide_009.mp4',
         auto_advance_after_video: true
     },
     {
         id: 9,
         round_number: 1,
-        title: "Start Year 1",
+        title: "Year One Introduction",
         type: 'video',
-        source_path: "Slide_010.mp4",
+        source_path: 'Slide_010.mp4',
         auto_advance_after_video: true
     },
     {
         id: 10,
         round_number: 1,
-        title: "Impact Event #1: Overview",
+        title: "Production Line Problem",
         type: 'video',
-        source_path: "Slide_011.mp4",
-        auto_advance_after_video: true,
+        source_path: 'Slide_011.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 11,
         round_number: 1,
-        title: "Impact Event #1: The Setup",
+        title: "CH1: Viral Fitness Challenge",
         type: 'video',
-        source_path: "Slide_012.mp4",
+        source_path: 'Slide_012.mp4',
         auto_advance_after_video: true
     },
     {
         id: 12,
         round_number: 1,
-        title: "Impact Event #1: Option A",
+        title: "CH1 Options A & B",
         type: 'video',
-        source_path: "Slide_013.mp4",
+        source_path: 'Slide_013.mp4',
         auto_advance_after_video: true
     },
     {
         id: 13,
         round_number: 1,
-        title: "Impact Event #1: Option B",
+        title: "CH1 Options C & D",
         type: 'video',
-        source_path: "Slide_014.mp4",
+        source_path: 'Slide_014.mp4',
         auto_advance_after_video: true
     },
     {
         id: 14,
         round_number: 1,
-        title: "Impact Event #1: Option C",
-        type: 'video',
-        source_path: "Slide_015.mp4",
-        auto_advance_after_video: true
+        title: "CH1 Decision Timer",
+        type: 'interactive_challenge',
+        source_path: 'Slide_015.mp4',
+        interactive_data_key: 'rd1-ch1',
+        main_text: "CHALLENGE 1: Social Media Response",
+        sub_text: "How will your company respond to this viral social media trend?",
+        timer_duration_seconds: 180,
+        background_css: 'bg-purple-900',
+        host_alert: {
+            title: "CH1 Closed",
+            message: "Challenge 1 decisions are in. Click OK for results."
+        }
     },
     {
         id: 15,
         round_number: 1,
-        title: "Impact Event #1: Option D",
+        title: "CH1 Results Collection",
         type: 'video',
-        source_path: "Slide_016.mp4",
+        source_path: 'Slide_016.mp4',
         auto_advance_after_video: true
     },
     {
         id: 16,
         round_number: 1,
-        title: "Team Phone Guru Instructions",
+        title: "CH1 Consequences Introduction",
         type: 'video',
-        source_path: "Slide_017.mp4",
+        source_path: 'Slide_017.mp4',
         auto_advance_after_video: true
     },
     {
         id: 17,
         round_number: 1,
-        title: "CH1: Machinery Failure - Make Your Choice",
-        type: 'interactive_choice',
-        interactive_data_key: 'ch1',
-        main_text: "Challenge #1: MACHINERY FAILURE",
-        sub_text: "Teams: Discuss and select your response using your team device. Timer is on screen.",
-        timer_duration_seconds: 3 * 60,
-        background_css: 'bg-orange-800',
-        source_path: "Slide_018.mp4",
-        host_alert: {
-            title: "Choice 1 Closed",
-            message: "All teams submitted or time is up. Click OK to see consequences."
-        }
+        title: "CH1 Immunity Check",
+        type: 'video',
+        source_path: 'Slide_018.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 18,
         round_number: 1,
-        title: "Impact Event #1: Options Summary Video",
-        type: 'video',
-        source_path: "Slide_019.mp4",
-        auto_advance_after_video: true
+        title: "CH1 Option A Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option A",
+        sub_text: "Impact: -100 Orders, +$50 ASP",
+        details: ["-100 Current Orders", "+$50 Average Selling Price"],
+        source_path: 'Slide_019.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 19,
         round_number: 1,
-        title: "Consequences Overview Video Choice 1",
-        type: 'video',
-        source_path: "Slide_020.mp4",
-        auto_advance_after_video: true
+        title: "CH1 Option B Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option B",
+        sub_text: "Impact: +200 Orders, +$50k Costs",
+        details: ["+200 Current Orders", "+$50k Current Costs"],
+        source_path: 'Slide_020.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 20,
         round_number: 1,
-        title: "Choice 1 Consequences: Option A Details",
+        title: "CH1 Option C Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option A: Purchase CNC Machine",
-        sub_text: "Initial Impact: -250 Capacity, +$50k Costs. Long-term: Permanent KPI Card for +500 Capacity in future rounds.",
-        details: ["-250 Current Capacity", "+$50k Current Costs", "Permanent KPI Card: +500 Capacity (Future Rounds)"],
+        main_text: "Consequence for Option C",
+        sub_text: "Impact: +500 Orders, -250 Capacity, +$25k Costs",
+        details: ["+500 Current Orders", "-250 Current Capacity", "+$25k Current Costs"],
         source_path: 'Slide_021.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 21,
         round_number: 1,
-        title: "Choice 1 Consequences: Option B Details",
+        title: "CH1 Option D Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option B: Replacement Die Cast",
-        sub_text: "Quick installation, minimal disruption. Initial Impact: +$25k Costs.",
-        details: ["-250 Current Capacity (from spreadsheet 'Equip Fail Event')", "+$25k Current Costs"],
+        main_text: "Consequence for Option D",
+        sub_text: "Impact: +100 Orders, +$10 ASP",
+        details: ["+100 Current Orders", "+$10 Average Selling Price"],
         source_path: 'Slide_022.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 22,
         round_number: 1,
-        title: "Choice 1 Consequences: Option C Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option C: Outsource Fins",
-        sub_text: "Flexible capacity, lower initial costs, but less control. Initial Impact: +250 Capacity (net gain), +$25k Costs.",
-        details: ["+250 Current Capacity (compared to doing nothing/broken state)", "+$25k Current Costs"],
+        title: "CH1 Career Insight",
+        type: 'video',
         source_path: 'Slide_023.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: false
     },
     {
         id: 23,
         round_number: 1,
-        title: "Choice 1 Consequences: Option D Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option D: Do Nothing",
-        sub_text: "Production slowdowns, increased repairs, and cancelled orders. Initial Impact: -500 Capacity, +$75k Costs, -200 Orders.",
-        details: ["-500 Current Capacity", "+$75k Current Costs", "-200 Current Orders (from spreadsheet)"],
+        title: "Let's See What's Next",
+        type: 'video',
         source_path: 'Slide_024.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 24,
         round_number: 1,
-        title: "Choice 1 Career Insight Video",
+        title: "Channel 4 Breaking News 2",
         type: 'video',
-        source_path: "Slide_025.mp4",
-        auto_advance_after_video: true,
+        source_path: 'Slide_025.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 25,
         round_number: 1,
-        title: "Choice 1 Transition Video",
+        title: "CH2: Competitor Acquisition",
         type: 'video',
-        source_path: "Slide_026.mp4",
+        source_path: 'Slide_026.mp4',
         auto_advance_after_video: true
     },
     {
         id: 26,
         round_number: 1,
-        title: "Impact Event #2: Overview",
+        title: "CH2 Options",
         type: 'video',
-        source_path: "Slide_027.mp4",
+        source_path: 'Slide_027.mp4',
         auto_advance_after_video: true
     },
     {
         id: 27,
         round_number: 1,
-        title: "Impact Event #2: Setup Video (New Tax)",
-        type: 'video',
-        source_path: "Slide_028.mp4",
-        auto_advance_after_video: true
+        title: "CH2 Decision Timer",
+        type: 'interactive_challenge',
+        source_path: 'Slide_028.mp4',
+        interactive_data_key: 'rd1-ch2',
+        main_text: "CHALLENGE 2: Competitor Acquisition Response",
+        sub_text: "How will you respond to Karit Co's acquisition?",
+        timer_duration_seconds: 180,
+        background_css: 'bg-purple-900',
+        host_alert: {
+            title: "CH2 Closed",
+            message: "Challenge 2 decisions are in. Click OK for results."
+        }
     },
     {
         id: 28,
         round_number: 1,
-        title: "Impact Event #2: Option A Video (Raise Prices)",
+        title: "CH2 Results Collection",
         type: 'video',
-        source_path: "Slide_029.mp4",
+        source_path: 'Slide_029.mp4',
         auto_advance_after_video: true
     },
     {
         id: 29,
         round_number: 1,
-        title: "Impact Event #2: Option B Video (Increase Marketing)",
+        title: "CH2 Consequences Introduction",
         type: 'video',
-        source_path: "Slide_030.mp4",
+        source_path: 'Slide_030.mp4',
         auto_advance_after_video: true
     },
     {
         id: 30,
         round_number: 1,
-        title: "Impact Event #2: Option C Video (Cost Cutting)",
+        title: "CH2 Immunity Check",
         type: 'video',
-        source_path: "Slide_031.mp4",
+        source_path: 'Slide_031.mp4',
         auto_advance_after_video: true
     },
     {
         id: 31,
         round_number: 1,
-        title: "Impact Event #2: Option D Video (Do Nothing)",
-        type: 'video',
-        source_path: "Slide_032.mp4",
-        auto_advance_after_video: true
+        title: "CH2 Option A Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option A",
+        sub_text: "Impact: +500 Orders, -$20 ASP",
+        details: ["+500 Current Orders", "-$20 Average Selling Price"],
+        source_path: 'Slide_032.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 32,
         round_number: 1,
-        title: "CH2: New Tax - Make Your Choice",
-        type: 'interactive_choice',
-        interactive_data_key: 'ch2',
-        main_text: "Challenge #2: NEW TAX",
-        sub_text: "Teams: Discuss and select your response using your team device. Timer is on screen.",
-        timer_duration_seconds: 3 * 60,
-        background_css: 'bg-indigo-800',
-        source_path: "Slide_033.mp4",
-        host_alert: {
-            title: "Choice 2 Closed",
-            message: "All teams submitted or time is up. Click OK to see consequences."
-        }
+        title: "CH2 Option B Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option B",
+        sub_text: "Impact: +200 Orders, +$50k Costs",
+        details: ["+200 Current Orders", "+$50k Current Costs"],
+        source_path: 'Slide_033.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 33,
         round_number: 1,
-        title: "Impact Event #2: Options Summary Video",
-        type: 'video',
-        source_path: "Slide_034.mp4",
-        auto_advance_after_video: false
+        title: "CH2 Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option C",
+        sub_text: "Impact: -200 Orders",
+        details: ["-200 Current Orders"],
+        source_path: 'Slide_034.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 34,
         round_number: 1,
-        title: "Consequences Overview Video CH2",
+        title: "CH2 Career Insight",
         type: 'video',
-        source_path: "Slide_035.mp4",
-        auto_advance_after_video: true
+        source_path: 'Slide_035.mp4',
+        auto_advance_after_video: false
     },
     {
         id: 35,
         round_number: 1,
-        title: "CH2 Consequences: Option A Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A (Raise Prices)",
-        sub_text: "ASP increases by $20. Demand stable.",
-        details: ["+$20 ASP", "-250 Orders (per spreadsheet)"],
+        title: "Check Your Cash Flow",
+        type: 'video',
         source_path: 'Slide_036.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 36,
         round_number: 1,
-        title: "CH2 Consequences: Option B Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B (Increase Marketing)",
-        sub_text: "Orders increase by 500, Marketing Costs increase by $25k.",
-        details: ["+500 Orders", "+$25k Costs"],
+        title: "Profitable?",
+        type: 'video',
         source_path: 'Slide_037.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 37,
         round_number: 1,
-        title: "CH2 Consequences: Option C Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option C (Cost Cutting)",
-        sub_text: "Costs decrease by $25k, but Capacity drops by 250 due to morale/service cuts.",
-        details: ["-250 Capacity", "-$25k Costs"],
+        title: "CH3: CNC Machine Decision",
+        type: 'video',
         source_path: 'Slide_038.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 38,
         round_number: 1,
-        title: "CH2 Consequences: Option D Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option D (Do Nothing - New Tax)",
-        sub_text: "Operational costs increase by $50k due to absorbing the new tax.",
-        details: ["+$50k Costs (New Tax)"],
+        title: "CH3 CNC Purchase Details",
+        type: 'video',
         source_path: 'Slide_039.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 39,
         round_number: 1,
-        title: "CH2 Career Insight Video",
+        title: "CH3 Options",
         type: 'video',
-        source_path: "Slide_040.mp4",
-        auto_advance_after_video: false,
-        host_alert: {title: "Impact Event #2 Complete", message: "Prepare for Impact Event #3. Click OK to proceed."}
+        source_path: 'Slide_040.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 40,
         round_number: 1,
-        title: "Transition to later in Year 2 Video",
-        type: 'video',
-        source_path: "Slide_041.mp4",
-        auto_advance_after_video: true
+        title: "CH3 Decision Timer",
+        type: 'interactive_challenge',
+        source_path: 'Slide_041.mp4',
+        interactive_data_key: 'rd1-ch3',
+        main_text: "CHALLENGE 3: CNC Machine Purchase",
+        sub_text: "Will you invest in the CNC machine?",
+        timer_duration_seconds: 120,
+        background_css: 'bg-purple-900'
     },
     {
         id: 41,
         round_number: 1,
-        title: "News Broadcast Video (Mid Year 2 - Recession)",
+        title: "CH3 Results Collection",
         type: 'video',
-        source_path: "Slide_042.mp4",
+        source_path: 'Slide_042.mp4',
         auto_advance_after_video: true
     },
     {
         id: 42,
         round_number: 1,
-        title: "Impact Event #3: Setup Video (Recession)",
+        title: "CH3 Consequences Introduction",
         type: 'video',
-        source_path: "Slide_043.mp4",
+        source_path: 'Slide_043.mp4',
         auto_advance_after_video: true
     },
     {
         id: 43,
         round_number: 1,
-        title: "Impact Event #3: Option A Video (Layoffs)",
+        title: "CH3 Immunity Check",
         type: 'video',
-        source_path: "Slide_044.mp4",
+        source_path: 'Slide_044.mp4',
         auto_advance_after_video: true
     },
     {
         id: 44,
         round_number: 1,
-        title: "Impact Event #3: Option B Video (Furlough/Workshare)",
-        type: 'video',
-        source_path: "Slide_045.mp4",
-        auto_advance_after_video: true
+        title: "CH3 Option A Consequences (Buy New)",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option A: Buy New CNC",
+        sub_text: "Impact: Capacity increases, costs rise significantly",
+        details: ["Placeholder consequence details"],
+        source_path: 'Slide_045.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 45,
         round_number: 1,
-        title: "Impact Event #3: Option C Video (Maintain/Cut OT)",
-        type: 'video',
-        source_path: "Slide_046.mp4",
-        auto_advance_after_video: true
+        title: "CH3 Option B Consequences (Buy Used)",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option B: Buy Used CNC",
+        sub_text: "Impact: Moderate capacity increase, moderate costs",
+        details: ["Placeholder consequence details"],
+        source_path: 'Slide_046.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 46,
         round_number: 1,
-        title: "Impact Event #3: Option D Video (Do Nothing)",
-        type: 'video',
-        source_path: "Slide_047.mp4",
-        auto_advance_after_video: true
+        title: "CH3 Option C Consequences (Co-buy)",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option C: Co-buy CNC",
+        sub_text: "Impact: Shared capacity increase, shared costs",
+        details: ["Placeholder consequence details"],
+        source_path: 'Slide_047.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 47,
         round_number: 1,
-        title: "CH3: Recession - Make Your Choice",
-        type: 'interactive_choice',
-        interactive_data_key: 'ch3',
-        main_text: "Challenge #3: RECESSION",
-        sub_text: "Teams: Discuss and select your response using your team device. Timer is on screen.",
-        timer_duration_seconds: 3 * 60,
-        background_css: 'bg-teal-800',
-        source_path: "Slide_048.mp4",
-        host_alert: {
-            title: "Choice 3 Closed",
-            message: "All teams submitted or time is up. Click OK to see consequences."
-        }
+        title: "CH3 Option D Consequences (Don't Buy)",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option D: Don't Buy",
+        sub_text: "Impact: No immediate changes",
+        details: ["No immediate impact to KPIs"],
+        source_path: 'Slide_048.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 48,
         round_number: 1,
-        title: "Impact Event #3: Options Summary Video",
+        title: "Permanent KPI Impact Card Instructions",
         type: 'video',
-        source_path: "Slide_049.mp4",
+        source_path: 'Slide_049.mp4',
         auto_advance_after_video: false
     },
     {
         id: 49,
         round_number: 1,
-        title: "Consequences Overview Video CH3",
+        title: "Impact Event #3",
         type: 'video',
-        source_path: "Slide_050.mp4",
+        source_path: 'Slide_050.mp4',
         auto_advance_after_video: true
     },
     {
         id: 50,
         round_number: 1,
-        title: "CH3 Consequences: Option A Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A (Layoffs)",
-        sub_text: "Significant cost reduction and capacity decrease. Future capacity also impacted.",
-        details: ["-1250 Current Capacity", "-$300k Current Costs", "Permanent KPI Card: -1000 Capacity (Future - per spreadsheet)"],
+        title: "Impact Event #3 Intro",
+        type: 'video',
         source_path: 'Slide_051.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 51,
         round_number: 1,
-        title: "CH3 Consequences: Option B Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B (Furlough/Workshare)",
-        sub_text: "Reduces costs and capacity, but less severely than full layoffs.",
-        details: ["-1000 Current Capacity", "-$200k Current Costs"],
+        title: "Impact Event #3 Requirements",
+        type: 'video',
         source_path: 'Slide_052.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 52,
         round_number: 1,
-        title: "CH3 Consequences: Option C Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option C (Maintain/Cut OT)",
-        sub_text: "Moderate cost savings with a smaller capacity hit.",
-        details: ["-500 Current Capacity", "-$100k Current Costs"],
+        title: "Impact Event #3 Consequences",
+        type: 'video',
         source_path: 'Slide_053.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 53,
         round_number: 1,
-        title: "CH3 Consequences: Option D Details",
+        title: "Impact Event #3 KPI Impacts",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option D (Do Nothing - Recession)",
-        sub_text: "Demand drops significantly, and unchanged fixed costs hurt margins. Morale issues reduce capacity.",
+        main_text: "Impact Event #3: Position Requirements",
+        sub_text: "Impacts: -1000 Orders, -1000 Capacity, +$25k Costs",
         details: ["-1000 Current Orders (Demand Drop)", "-1000 Current Capacity (Morale/Quits)", "+$25k Current Costs (Inefficiency/Admin)"],
-        source_path: "Slide_054.mp4",
+        source_path: 'Slide_054.mp4',
         background_css: 'bg-gray-700'
     },
     {
@@ -519,7 +514,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "CH3 Career Insight Video",
         type: 'video',
-        source_path: "Slide_055.mp4",
+        source_path: 'Slide_055.mp4',
         auto_advance_after_video: false,
         host_alert: {
             title: "Impact Event #3 Complete",
@@ -531,7 +526,7 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Investment Payoff Intro Video",
         type: 'video',
-        source_path: "Slide_056.mp4",
+        source_path: 'Slide_056.mp4',
         auto_advance_after_video: true
     },
     {
@@ -602,802 +597,1430 @@ export const allGameSlides: Slide[] = [
         id: 62,
         round_number: 1,
         title: "End of Round 1 KPIs",
-        type: 'kpi_summary_instructional',
-        main_text: "END OF ROUND 1 KPIs",
-        sub_text: "CFOs: Review your team's final KPIs on your device and record them on your Team Summary Sheet. The facilitator will display the leaderboard next.",
+        type: 'video',
         source_path: 'Slide_063.mp4',
+        auto_advance_after_video: false,
         host_alert: {
-            title: "KPI Review",
-            message: "Ensure teams have reviewed their KPIs. Click OK to display the Leaderboard."
+            title: "End of Round 1",
+            message: "CFOs should write KPIs from board on team summary sheets. Collect sheets before proceeding."
         }
     },
     {
         id: 63,
         round_number: 1,
-        title: "RD-1 Leaderboard Intro Video",
+        title: "RD-1 Leaderboard",
         type: 'video',
-        source_path: "Slide_064.mp4",
-        auto_advance_after_video: true
+        source_path: 'Slide_064.mp4',
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Show Leaderboard",
+            message: "Display the Round 1 leaderboard to teams."
+        }
     },
+    // Add decimal slides for Round 1 leaderboards
     {
         id: 63.1,
         round_number: 1,
-        title: "Leaderboard: RD-1 Capacity & Orders",
+        title: "RD-1 Leaderboard: Capacity & Orders",
         type: 'leaderboard_chart',
         interactive_data_key: 'rd1_leaderboard_cap_ord',
-        main_text: "RD-1 Leaderboard: Capacity & Orders",
-        sub_text: "Team comparison of production capability and market demand generated."
+        main_text: "Round 1 Leaderboard: Capacity & Orders",
+        sub_text: "Comparison of production capability and market demand."
     },
     {
         id: 63.2,
         round_number: 1,
-        title: "Leaderboard: RD-1 Cost Per Board",
+        title: "RD-1 Leaderboard: Cost Per Board",
         type: 'leaderboard_chart',
         interactive_data_key: 'rd1_leaderboard_cpb',
-        main_text: "RD-1 Leaderboard: Cost Per Board",
-        sub_text: "Comparing efficiency in production costs among teams."
+        main_text: "Round 1 Leaderboard: Cost Per Board",
+        sub_text: "Efficiency comparison among teams."
     },
     {
         id: 63.3,
         round_number: 1,
-        title: "Leaderboard: RD-1 Total Costs",
+        title: "RD-1 Leaderboard: Total Costs",
         type: 'leaderboard_chart',
         interactive_data_key: 'rd1_leaderboard_costs',
-        main_text: "RD-1 Leaderboard: Total Operational Costs",
-        sub_text: "Overall spending by each team in Round 1."
+        main_text: "Round 1 Leaderboard: Total Operational Costs",
+        sub_text: "Overall spending by each team."
     },
     {
         id: 63.4,
         round_number: 1,
-        title: "Leaderboard: RD-1 ASP",
+        title: "RD-1 Leaderboard: ASP",
         type: 'leaderboard_chart',
         interactive_data_key: 'rd1_leaderboard_asp',
-        main_text: "RD-1 Leaderboard: Average Selling Price (ASP)",
-        sub_text: "Team pricing power and strategy in the market."
+        main_text: "Round 1 Leaderboard: Average Selling Price",
+        sub_text: "Pricing strategy comparison."
     },
     {
         id: 63.5,
         round_number: 1,
-        title: "Leaderboard: RD-1 Revenue",
+        title: "RD-1 Leaderboard: Revenue",
         type: 'leaderboard_chart',
         interactive_data_key: 'rd1_leaderboard_revenue',
-        main_text: "RD-1 Leaderboard: Total Revenue",
-        sub_text: "Comparing total income generated from sales."
+        main_text: "Round 1 Leaderboard: Total Revenue",
+        sub_text: "Revenue generation comparison."
     },
     {
         id: 63.6,
         round_number: 1,
-        title: "Leaderboard: RD-1 Net Margin",
+        title: "RD-1 Leaderboard: Net Margin",
         type: 'leaderboard_chart',
         interactive_data_key: 'rd1_leaderboard_margin',
-        main_text: "RD-1 Leaderboard: Net Profit Margin",
-        sub_text: "Profitability as a percentage of revenue for each team."
+        main_text: "Round 1 Leaderboard: Net Profit Margin",
+        sub_text: "Profitability percentage comparison."
     },
     {
         id: 63.7,
         round_number: 1,
-        title: "Leaderboard: RD-1 Net Income (RANKED)",
+        title: "RD-1 Leaderboard: Net Income",
         type: 'leaderboard_chart',
         interactive_data_key: 'rd1_leaderboard_income',
-        main_text: "🏆 FINAL RANKINGS 🏆",
-        sub_text: "Final profit ranking for Round 1. Click OK to proceed to Round 2 setup.",
-        host_alert: {
-            title: "Round 1 Complete!",
-            message: "Round 1 is concluded. Click OK to prepare for Round 2."
-        }
+        main_text: "Round 1 Leaderboard: Net Income",
+        sub_text: "Overall profitability ranking after Round 1."
     },
 
     // --- Round 2 ---
     {
         id: 64,
         round_number: 2,
-        title: "Round 2 Introduction Video",
+        title: "Heading to Round 2",
         type: 'video',
-        source_path: "Slide_065.mp4",
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "Begin RD-2 Investments",
-            message: "The RD-2 Investment overview video will play next, followed by the investment period. Ensure teams are ready."
-        }
+        source_path: 'Slide_065.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 65,
         round_number: 2,
-        title: "RD-2 Investment Decision Period",
-        type: 'interactive_invest',
-        source_path: "Slide_070.mp4",
-        interactive_data_key: 'rd2-invest',
-        main_text: "RD-2 INVEST: TIMER ACTIVE",
-        sub_text: "Video timer active. Make your RD-2 investment decisions on your team device.",
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "RD-2 Investment Period Ended",
-            message: "RD-2 investments are closed. Click OK to proceed."
-        }
+        title: "Round Progress Reminder",
+        type: 'video',
+        source_path: 'Slide_066.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 66,
         round_number: 2,
-        title: "RD-2 CH4 Intro Video",
+        title: "RD-2 KPI Reset",
         type: 'video',
-        source_path: "Slide_071.mp4",
+        source_path: 'Slide_067.mp4',
         auto_advance_after_video: true
     },
     {
         id: 67,
         round_number: 2,
-        title: "CH4: Supply Chain Disruption - Make Your Choice",
-        type: 'interactive_choice',
-        interactive_data_key: 'ch4',
-        main_text: "Challenge #4: SUPPLY CHAIN DISRUPTION",
-        sub_text: "Teams: Discuss and select your response using your team device.",
-        timer_duration_seconds: 180,
-        background_css: 'bg-purple-800',
-        source_path: "Slide_072.mp4",
-        host_alert: {
-            title: "CH4 Closed",
-            message: "CH4 Decisions are in. Click OK for consequences."
-        }
+        title: "KPI Reset Example",
+        type: 'video',
+        source_path: 'Slide_068.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 68,
         round_number: 2,
-        title: "CH4 Consequences Overview Video",
+        title: "RD-2 Starting KPIs",
         type: 'video',
-        source_path: "Slide_073.mp4",
-        auto_advance_after_video: true
+        source_path: 'Slide_069.mp4',
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Reset KPIs",
+            message: "Ensure all teams have reset their KPIs to starting values before proceeding."
+        }
     },
     {
         id: 69,
         round_number: 2,
-        title: "CH4 Consequences: Option A Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Supply chain consequence A details",
-        details: ["Placeholder consequence details"],
-        source_path: 'Slide_074.mp4',
-        background_css: 'bg-gray-700'
+        title: "RD-2 Investment Period",
+        type: 'video',
+        source_path: 'Slide_070.mp4',
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Hand Out RD-2 Materials",
+            message: "Distribute RD-2 Investment Cards and Position Updates to all teams."
+        }
     },
     {
         id: 70,
         round_number: 2,
-        title: "CH4 Consequences: Option B Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Supply chain consequence B details",
-        details: ["Placeholder consequence details"],
-        source_path: 'Slide_075.mp4',
-        background_css: 'bg-gray-700'
+        title: "RD-2 Investment Decision Period",
+        type: 'interactive_invest',
+        source_path: 'Slide_071.mp4',
+        interactive_data_key: 'rd2-invest',
+        main_text: "RD-2 INVEST: TIMER ACTIVE",
+        sub_text: "You have $500K to invest. Submit decisions before time expires.",
+        auto_advance_after_video: false,
+        background_css: 'bg-slate-800',
+        host_alert: {
+            title: "Investment Period Complete",
+            message: "Confirm all teams have submitted their RD-2 investments."
+        }
     },
     {
         id: 71,
         round_number: 2,
-        title: "CH4 Career Insight Video",
+        title: "Team Summary Sheets RD-2",
         type: 'video',
-        source_path: "Slide_076.mp4",
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "CH4 Complete",
-            message: "Prepare for next challenge. Click OK to proceed."
-        }
+        source_path: 'Slide_072.mp4',
+        auto_advance_after_video: false
     },
     {
         id: 72,
         round_number: 2,
-        title: "CH5 Intro Video - Labor Strike",
+        title: "Year 3 Introduction",
         type: 'video',
-        source_path: "placeholder_ch5_intro.mp4",
+        source_path: 'Slide_073.mp4',
         auto_advance_after_video: true
     },
     {
         id: 73,
         round_number: 2,
-        title: "CH5: Labor Strike - Make Your Choice",
-        type: 'interactive_choice',
-        interactive_data_key: 'ch5',
-        main_text: "Challenge #5: LABOR STRIKE",
-        sub_text: "Teams: Discuss and select your response.",
-        timer_duration_seconds: 180,
-        background_css: 'bg-red-800',
-        source_path: "placeholder_ch5_interactive.mp4",
-        host_alert: {title: "CH5 Closed", message: "CH5 Decisions are in. Click OK for consequences."}
+        title: "CH4: Supply Chain Crisis",
+        type: 'video',
+        source_path: 'Slide_074.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 74,
         round_number: 2,
-        title: "CH5 Consequences Overview Video",
+        title: "CH4 Supply Crisis Details",
         type: 'video',
-        source_path: "placeholder_ch5_consequences.mp4",
+        source_path: 'Slide_075.mp4',
         auto_advance_after_video: true
     },
     {
         id: 75,
         round_number: 2,
-        title: "CH5 Consequences: Option A Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Labor strike response A consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch5_conseq_a.mp4',
-        background_css: 'bg-gray-700'
+        title: "CH4 Option A",
+        type: 'video',
+        source_path: 'Slide_076.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 76,
         round_number: 2,
-        title: "CH5 Consequences: Option B Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Labor strike response B consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch5_conseq_b.mp4',
-        background_css: 'bg-gray-700'
+        title: "CH4 Option B",
+        type: 'video',
+        source_path: 'Slide_077.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 77,
         round_number: 2,
-        title: "CH5 Consequences: Option C Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option C",
-        sub_text: "Labor strike response C consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch5_conseq_c.mp4',
-        background_css: 'bg-gray-700'
+        title: "CH4 Option C",
+        type: 'video',
+        source_path: 'Slide_078.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 78,
         round_number: 2,
-        title: "CH5 Consequences: Option D Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option D",
-        sub_text: "Labor strike response D consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch5_conseq_d.mp4',
-        background_css: 'bg-gray-700'
+        title: "CH4 Decision Timer",
+        type: 'interactive_challenge',
+        source_path: 'Slide_079.mp4',
+        interactive_data_key: 'rd2-ch4',
+        main_text: "CHALLENGE 4: Supply Chain Crisis",
+        sub_text: "How will you handle the supply chain disruption?",
+        timer_duration_seconds: 180,
+        background_css: 'bg-purple-900',
+        host_alert: {
+            title: "CH4 Closed",
+            message: "Challenge 4 decisions are in. Click OK for results."
+        }
     },
     {
         id: 79,
         round_number: 2,
-        title: "CH5 Career Insight Video",
+        title: "CH4 Results",
         type: 'video',
-        source_path: "placeholder_ch5_career.mp4",
-        auto_advance_after_video: false,
-        host_alert: {title: "CH5 Complete", message: "Prepare for next challenge. Click OK to proceed."}
+        source_path: 'Slide_080.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 80,
         round_number: 2,
-        title: "CH6 Intro Video - Market Shift",
+        title: "CH4 Consequences Intro",
         type: 'video',
-        source_path: "placeholder_ch6_intro.mp4",
+        source_path: 'Slide_081.mp4',
         auto_advance_after_video: true
     },
     {
         id: 81,
         round_number: 2,
-        title: "CH6: Market Shift - Make Your Choice",
-        type: 'interactive_choice',
-        interactive_data_key: 'ch6',
-        main_text: "Challenge #6: MARKET SHIFT",
-        sub_text: "Teams: Discuss and select your response.",
-        timer_duration_seconds: 180,
-        background_css: 'bg-blue-800',
-        source_path: "placeholder_ch6_interactive.mp4",
-        host_alert: {title: "CH6 Closed", message: "CH6 Decisions are in. Click OK for consequences."}
+        title: "CH4 Immunity Check",
+        type: 'video',
+        source_path: 'Slide_082.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 82,
         round_number: 2,
-        title: "CH6 Consequences Overview Video",
-        type: 'video',
-        source_path: "placeholder_ch6_consequences.mp4",
-        auto_advance_after_video: true
+        title: "CH4 Option A Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option A",
+        sub_text: "New suppliers reduce costs but cause production issues",
+        details: ["-250 Capacity", "+$50k Costs"],
+        source_path: 'Slide_083.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 83,
         round_number: 2,
-        title: "CH6 Consequences: Option A Details",
+        title: "CH4 Option B Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Market shift response A consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch6_conseq_a.mp4',
+        main_text: "Consequence for Option B",
+        sub_text: "Stockpiling helps but ties up capital",
+        details: ["+$150k Costs"],
+        source_path: 'Slide_084.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 84,
         round_number: 2,
-        title: "CH6 Consequences: Option B Details",
+        title: "CH4 Option C Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Market shift response B consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch6_conseq_b.mp4',
+        main_text: "Consequence for Option C",
+        sub_text: "Production delays impact capacity and orders",
+        details: ["-750 Capacity", "-500 Orders"],
+        source_path: 'Slide_085.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 85,
         round_number: 2,
-        title: "CH6 Consequences: Option C Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option C",
-        sub_text: "Market shift response C consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch6_conseq_c.mp4',
-        background_css: 'bg-gray-700'
+        title: "CH4 Career Insight",
+        type: 'video',
+        source_path: 'Slide_086.mp4',
+        auto_advance_after_video: false
     },
     {
         id: 86,
         round_number: 2,
-        title: "CH6 Consequences: Option D Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option D",
-        sub_text: "Market shift response D consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch6_conseq_d.mp4',
-        background_css: 'bg-gray-700'
+        title: "CH5 Introduction",
+        type: 'video',
+        source_path: 'Slide_087.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 87,
         round_number: 2,
-        title: "CH6 Career Insight Video",
+        title: "CH5: Sales Team Crisis",
         type: 'video',
-        source_path: "placeholder_ch6_career.mp4",
-        auto_advance_after_video: false,
-        host_alert: {title: "CH6 Complete", message: "Prepare for next challenge. Click OK to proceed."}
+        source_path: 'Slide_088.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 88,
         round_number: 2,
-        title: "CH7 Intro Video - Regulation",
+        title: "CH5 Sales Crisis Details",
         type: 'video',
-        source_path: "placeholder_ch7_intro.mp4",
+        source_path: 'Slide_089.mp4',
         auto_advance_after_video: true
     },
     {
         id: 89,
         round_number: 2,
-        title: "CH7: Regulation - Make Your Choice",
-        type: 'interactive_choice',
-        interactive_data_key: 'ch7',
-        main_text: "Challenge #7: REGULATION",
-        sub_text: "Teams: Discuss and select your response.",
-        timer_duration_seconds: 180,
-        background_css: 'bg-green-800',
-        source_path: "placeholder_ch7_interactive.mp4",
-        host_alert: {title: "CH7 Closed", message: "CH7 Decisions are in. Click OK for consequences."}
+        title: "CH5 Options",
+        type: 'video',
+        source_path: 'Slide_090.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 90,
         round_number: 2,
-        title: "CH7 Consequences Overview Video",
-        type: 'video',
-        source_path: "placeholder_ch7_consequences.mp4",
-        auto_advance_after_video: true
+        title: "CH5 Decision Timer",
+        type: 'interactive_challenge',
+        source_path: 'Slide_091.mp4',
+        interactive_data_key: 'rd2-ch5',
+        main_text: "CHALLENGE 5: Sales Team Crisis",
+        sub_text: "How will you handle the sales team situation?",
+        timer_duration_seconds: 180,
+        background_css: 'bg-purple-900',
+        host_alert: {
+            title: "CH5 Closed",
+            message: "Challenge 5 decisions are in. Click OK for results."
+        }
     },
     {
         id: 91,
         round_number: 2,
-        title: "CH7 Consequences: Option A Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Regulation response A consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch7_conseq_a.mp4',
-        background_css: 'bg-gray-700'
+        title: "CH5 Results",
+        type: 'video',
+        source_path: 'Slide_092.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 92,
         round_number: 2,
-        title: "CH7 Consequences: Option B Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Regulation response B consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch7_conseq_b.mp4',
-        background_css: 'bg-gray-700'
+        title: "CH5 Consequences Intro",
+        type: 'video',
+        source_path: 'Slide_093.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 93,
         round_number: 2,
-        title: "CH7 Consequences: Option C Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option C",
-        sub_text: "Regulation response C consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch7_conseq_c.mp4',
-        background_css: 'bg-gray-700'
+        title: "CH5 Immunity Check",
+        type: 'video',
+        source_path: 'Slide_094.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 94,
         round_number: 2,
-        title: "CH7 Consequences: Option D Details",
+        title: "CH5 Option A Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option D",
-        sub_text: "Regulation response D consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'placeholder_ch7_conseq_d.mp4',
+        main_text: "Consequence for Option A",
+        sub_text: "Fire and hire new team",
+        details: ["-500 Orders", "+$100k Costs"],
+        source_path: 'Slide_095.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 95,
         round_number: 2,
-        title: "CH7 Career Insight Video",
-        type: 'video',
-        source_path: "placeholder_ch7_career.mp4",
-        auto_advance_after_video: false,
-        host_alert: {title: "CH7 Complete", message: "Prepare for RD-2 Investment Payoffs. Click OK to proceed."}
+        title: "CH5 Option B Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option B",
+        sub_text: "Increase commission rates",
+        details: ["+$75k Costs"],
+        source_path: 'Slide_096.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 96,
         round_number: 2,
-        title: "RD-2 Investment Payoff Intro Video",
-        type: 'video',
-        source_path: "Slide_077.mp4",
-        auto_advance_after_video: true
+        title: "CH5 Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option C",
+        sub_text: "Do nothing and lose team",
+        details: ["-750 Orders"],
+        source_path: 'Slide_097.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 97,
         round_number: 2,
-        title: "RD-2 Payoffs Reveal",
-        type: 'payoff_reveal',
-        main_text: "RD-2 Investment Payoffs",
-        sub_text: "Your Round 2 investments are now paying off",
-        details: ["Investment payoffs will be calculated based on your selections"],
-        source_path: 'Slide_078.mp4',
-        host_alert: {
-            title: "RD-2 Payoffs Complete",
-            message: "All investment payoffs for Round 2 have been revealed. Click OK to review KPIs."
-        }
+        title: "CH5 Career Insight",
+        type: 'video',
+        source_path: 'Slide_098.mp4',
+        auto_advance_after_video: false
     },
     {
         id: 98,
         round_number: 2,
-        title: "End of Round 2 KPIs",
-        type: 'kpi_summary_instructional',
-        main_text: "END OF ROUND 2 KPIs",
-        sub_text: "CFOs: Review your team's final KPIs on your device and record them on your Team Summary Sheet.",
-        source_path: 'Slide_079.mp4',
-        host_alert: {
-            title: "RD-2 KPI Review",
-            message: "Ensure teams have reviewed their KPIs. Click OK to display the Leaderboard."
-        }
+        title: "Impact Event #4",
+        type: 'video',
+        source_path: 'Slide_099.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 99,
         round_number: 2,
-        title: "RD-2 Leaderboard Intro Video",
+        title: "Impact Event #4 Details",
         type: 'video',
-        source_path: "Slide_080.mp4",
+        source_path: 'Slide_100.mp4',
         auto_advance_after_video: true
     },
     {
-        id: 99.1,
-        round_number: 2,
-        title: "Leaderboard: RD-2 Capacity & Orders",
-        type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_cap_ord',
-        main_text: "RD-2 Leaderboard: Capacity & Orders",
-        sub_text: "Team comparison of production capability and market demand after Round 2."
-    },
-    {
-        id: 99.2,
-        round_number: 2,
-        title: "Leaderboard: RD-2 Cost Per Board",
-        type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_cpb',
-        main_text: "RD-2 Leaderboard: Cost Per Board",
-        sub_text: "Comparing efficiency in production costs among teams after Round 2."
-    },
-    {
-        id: 99.3,
-        round_number: 2,
-        title: "Leaderboard: RD-2 Total Costs",
-        type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_costs',
-        main_text: "RD-2 Leaderboard: Total Operational Costs",
-        sub_text: "Overall spending by each team in Round 2."
-    },
-    {
-        id: 99.4,
-        round_number: 2,
-        title: "Leaderboard: RD-2 ASP",
-        type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_asp',
-        main_text: "RD-2 Leaderboard: Average Selling Price (ASP)",
-        sub_text: "Team pricing power and strategy after Round 2."
-    },
-    {
-        id: 99.5,
-        round_number: 2,
-        title: "Leaderboard: RD-2 Revenue",
-        type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_revenue',
-        main_text: "RD-2 Leaderboard: Total Revenue",
-        sub_text: "Comparing total income generated from sales in Round 2."
-    },
-    {
-        id: 99.6,
-        round_number: 2,
-        title: "Leaderboard: RD-2 Net Margin",
-        type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_margin',
-        main_text: "RD-2 Leaderboard: Net Profit Margin",
-        sub_text: "Profitability as a percentage of revenue for each team."
-    },
-    {
-        id: 99.7,
-        round_number: 2,
-        title: "Leaderboard: RD-2 Net Income (RANKED)",
-        type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_income',
-        main_text: "RD-2 Leaderboard: Net Income (Overall Ranking)",
-        sub_text: "Final profit ranking for Round 2. Click OK to proceed to Round 3 setup.",
-        host_alert: {
-            title: "Round 2 Complete!",
-            message: "Round 2 is concluded. Click OK to prepare for Round 3."
-        }
-    },
-
-    // --- Round 3 ---
-    {
         id: 100,
-        round_number: 3,
-        title: "Round 3 Introduction Video",
+        round_number: 2,
+        title: "Impact Event #4 Choice A",
         type: 'video',
-        source_path: "Slide_081.mp4",
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "Begin RD-3 Investments",
-            message: "Teams will now make RD-3 Investments. The timer video will begin."
-        }
+        source_path: 'Slide_101.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 101,
-        round_number: 3,
-        title: "RD-3 Investment Decision Period",
-        type: 'interactive_invest',
-        source_path: "Slide_082.mp4",
-        interactive_data_key: 'rd3-invest',
-        main_text: "RD-3 INVEST: TIMER ACTIVE",
-        sub_text: "Video timer active. Make your RD-3 investment decisions.",
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "RD-3 Investments Closed",
-            message: "RD-3 investments are closed. Prepare for Double Down. Click OK."
-        }
+        round_number: 2,
+        title: "Impact Event #4 Choice B",
+        type: 'video',
+        source_path: 'Slide_102.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 102,
-        round_number: 3,
-        title: "Double Down Opportunity Decision",
-        type: 'interactive_double_down_prompt',
-        interactive_data_key: 'ch-dd-prompt',
-        main_text: "DOUBLE DOWN OPPORTUNITY!",
-        sub_text: "Decide if your team wants to take the Double Down risk/reward. Timer on screen.",
-        timer_duration_seconds: 3 * 60,
-        background_css: 'bg-red-700',
-        source_path: 'Slide_083.mp4',
-        host_alert: {
-            title: "Double Down Decision Closed",
-            message: "Teams have made their Double Down choice. Click OK for selection or to skip to CH8."
-        }
+        round_number: 2,
+        title: "Impact Event #4 Decision Timer",
+        type: 'interactive_challenge',
+        source_path: 'Slide_103.mp4',
+        interactive_data_key: 'rd2-impact4',
+        main_text: "Impact Event #4: Quality Decision",
+        sub_text: "Choose your quality control approach",
+        timer_duration_seconds: 120,
+        background_css: 'bg-purple-900'
     },
     {
         id: 103,
-        round_number: 3,
-        title: "Select Double Down Investments",
-        type: 'interactive_double_down_select',
-        interactive_data_key: 'ch-dd-select',
-        main_text: "CHOOSE YOUR DOUBLE DOWN",
-        sub_text: "If you opted-in: Sacrifice one RD-3 investment and Double Down on another.",
-        background_css: 'bg-red-800',
-        source_path: 'Slide_084.mp4',
-        host_alert: {
-            title: "Double Down Selections Made",
-            message: "Double Down selections are complete (if applicable). Click OK to proceed to CH8."
-        }
+        round_number: 2,
+        title: "Impact Event #4 Results",
+        type: 'video',
+        source_path: 'Slide_104.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 104,
-        round_number: 3,
-        title: "CH8 Intro Video - Cyber Attack",
-        type: 'video',
-        source_path: "Slide_085.mp4",
-        auto_advance_after_video: true
+        round_number: 2,
+        title: "Impact Event #4 Choice A Result",
+        type: 'consequence_reveal',
+        main_text: "Choice A: Full Inspection",
+        sub_text: "Higher costs but better quality",
+        details: ["+$100k Costs", "+$20 ASP"],
+        source_path: 'Slide_105.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 105,
-        round_number: 3,
-        title: "CH8: Cyber Attack - Make Your Choice",
-        type: 'interactive_choice',
-        interactive_data_key: 'ch8',
-        main_text: "Challenge #8: CYBER ATTACK",
-        sub_text: "Teams: Your systems have been compromised. Select your response.",
-        timer_duration_seconds: 180,
-        background_css: 'bg-red-900',
-        source_path: 'Slide_086.mp4',
-        host_alert: {
-            title: "CH8 Closed",
-            message: "CH8 Decisions are in. Click OK for consequences."
-        }
+        round_number: 2,
+        title: "Impact Event #4 Choice B Result",
+        type: 'consequence_reveal',
+        main_text: "Choice B: Spot Checks",
+        sub_text: "Lower costs but quality risks",
+        details: ["-250 Orders", "-$10 ASP"],
+        source_path: 'Slide_106.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 106,
-        round_number: 3,
-        title: "CH8 Consequences Overview Video",
+        round_number: 2,
+        title: "Impact Event #4 Career Insight",
         type: 'video',
-        source_path: "Slide_087.mp4",
-        auto_advance_after_video: true
+        source_path: 'Slide_107.mp4',
+        auto_advance_after_video: false
     },
     {
         id: 107,
-        round_number: 3,
-        title: "CH8 Consequences: Option A Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Cyber attack response A consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'Slide_088.mp4',
-        background_css: 'bg-gray-700'
+        round_number: 2,
+        title: "Year 4 Introduction",
+        type: 'video',
+        source_path: 'Slide_108.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 108,
-        round_number: 3,
-        title: "CH8 Consequences: Option B Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Cyber attack response B consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'Slide_089.mp4',
-        background_css: 'bg-gray-700'
+        round_number: 2,
+        title: "CH6: Finance Discovery",
+        type: 'video',
+        source_path: 'Slide_109.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 109,
-        round_number: 3,
-        title: "CH8 Career Insight Video",
+        round_number: 2,
+        title: "CH6 Financial Crisis Details",
         type: 'video',
-        source_path: "Slide_090.mp4",
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "CH8 Complete",
-            message: "Prepare for CH9. Click OK to proceed."
-        }
+        source_path: 'Slide_110.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 110,
-        round_number: 3,
-        title: "CH9 Intro Video - Market Disruption",
+        round_number: 2,
+        title: "CH6 Options",
         type: 'video',
-        source_path: "Slide_091.mp4",
+        source_path: 'Slide_111.mp4',
         auto_advance_after_video: true
     },
     {
         id: 111,
-        round_number: 3,
-        title: "CH9: Market Disruption - Make Your Choice",
-        type: 'interactive_choice',
-        interactive_data_key: 'ch9',
-        main_text: "Challenge #9: MARKET DISRUPTION",
-        sub_text: "Teams: A major competitor has disrupted the market. How do you respond?",
+        round_number: 2,
+        title: "CH6 Decision Timer",
+        type: 'interactive_challenge',
+        source_path: 'Slide_112.mp4',
+        interactive_data_key: 'rd2-ch6',
+        main_text: "CHALLENGE 6: Financial Crisis",
+        sub_text: "How will you handle the financial situation?",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
-        source_path: 'Slide_092.mp4',
         host_alert: {
-            title: "CH9 Closed",
-            message: "Final challenge decisions are in. Click OK for consequences."
+            title: "CH6 Closed",
+            message: "Challenge 6 decisions are in. Click OK for results."
         }
     },
     {
         id: 112,
-        round_number: 3,
-        title: "CH9 Consequences Overview Video",
+        round_number: 2,
+        title: "CH6 Results",
         type: 'video',
-        source_path: "Slide_093.mp4",
+        source_path: 'Slide_113.mp4',
         auto_advance_after_video: true
     },
     {
         id: 113,
-        round_number: 3,
-        title: "CH9 Consequences: Option A Details",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Market disruption response A consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'Slide_094.mp4',
-        background_css: 'bg-gray-700'
+        round_number: 2,
+        title: "CH6 Consequences Intro",
+        type: 'video',
+        source_path: 'Slide_114.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 114,
-        round_number: 3,
-        title: "CH9 Consequences: Option B Details",
+        round_number: 2,
+        title: "CH6 Option A Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Market disruption response B consequences",
-        details: ["Placeholder consequence details"],
-        source_path: 'Slide_095.mp4',
+        main_text: "Consequence for Option A",
+        sub_text: "Immediate layoffs impact",
+        details: ["-750 Capacity", "-250 Orders", "-$50k Costs"],
+        source_path: 'Slide_115.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 115,
-        round_number: 3,
-        title: "CH9 Career Insight Video",
-        type: 'video',
-        source_path: "Slide_096.mp4",
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "CH9 Complete",
-            message: "Prepare for RD-3 Investment Payoffs. Click OK to proceed."
-        }
+        round_number: 2,
+        title: "CH6 Option B Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option B",
+        sub_text: "Restructure with costs",
+        details: ["-250 Capacity", "+$50k Costs"],
+        source_path: 'Slide_116.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 116,
-        round_number: 3,
-        title: "RD-3 Investment Payoff Intro Video",
-        type: 'video',
-        source_path: "Slide_097.mp4",
-        auto_advance_after_video: true
+        round_number: 2,
+        title: "CH6 Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option C",
+        sub_text: "No action consequences",
+        details: ["No immediate impact"],
+        source_path: 'Slide_117.mp4',
+        background_css: 'bg-gray-700'
     },
     {
         id: 117,
-        round_number: 3,
-        title: "RD-3 Investment Payoffs Reveal",
-        type: 'payoff_reveal',
-        main_text: "RD-3 Investment Payoffs",
-        sub_text: "Your final round investments are now paying off",
-        details: ["Investment payoffs will be calculated based on your selections"],
-        source_path: 'Slide_098.mp4',
-        host_alert: {
-            title: "RD-3 Payoffs Complete",
-            message: "RD-3 investment payoffs revealed. Prepare for Double Down results."
-        }
+        round_number: 2,
+        title: "CH6 Career Insight",
+        type: 'video',
+        source_path: 'Slide_118.mp4',
+        auto_advance_after_video: false
     },
     {
         id: 118,
-        round_number: 3,
-        title: "Double Down Dice Roll Video",
-        type: 'double_down_dice_roll',
-        main_text: "DOUBLE DOWN DICE ROLL!",
-        sub_text: "Let's see how your Double Down gamble paid off...",
-        background_css: 'bg-red-700',
-        source_path: 'Slide_099.mp4'
-    },
-    {
-        id: 119,
-        round_number: 3,
-        title: "Double Down Results Reveal",
-        type: 'payoff_reveal',
-        main_text: "Double Down Results",
-        sub_text: "The dice have determined your fate!",
-        details: ["Double Down results will be calculated based on dice roll"],
-        source_path: 'Slide_100.mp4',
-        host_alert: {
-            title: "Double Down Complete",
-            message: "Double Down results revealed. Prepare for final KPIs."
-        }
-    },
-    {
-        id: 120,
-        round_number: 3,
-        title: "End of Round 3 KPIs",
-        type: 'kpi_summary_instructional',
-        main_text: "END OF ROUND 3 KPIs",
-        sub_text: "CFOs: Review your team's final KPIs on your device. This is the end of the simulation!",
-        source_path: 'Slide_101.mp4',
-        host_alert: {
-            title: "Final KPI Review",
-            message: "Ensure teams have reviewed their final KPIs. Click OK for Final Leaderboard."
-        }
-    },
-    {
-        id: 121,
-        round_number: 3,
-        title: "Final Leaderboard Intro Video",
+        round_number: 2,
+        title: "CH7: Competition Challenge",
         type: 'video',
-        source_path: "Slide_102.mp4",
+        source_path: 'Slide_119.mp4',
         auto_advance_after_video: true
     },
     {
-        id: 121.1,
+        id: 119,
+        round_number: 2,
+        title: "CH7 Competition Details",
+        type: 'video',
+        source_path: 'Slide_120.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 120,
+        round_number: 2,
+        title: "CH7 Option A Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option A",
+        sub_text: "Price reduction impact",
+        details: ["-250 Orders", "-$20 ASP"],
+        source_path: 'Slide_121.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 121,
+        round_number: 2,
+        title: "CH7 Option B Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option B",
+        sub_text: "Marketing increase impact",
+        details: ["-250 Orders", "+$25k Costs"],
+        source_path: 'Slide_122.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 122,
+        round_number: 2,
+        title: "CH7 Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option C",
+        sub_text: "Customization impact",
+        details: ["-500 Capacity", "+$25k Costs", "+$10 ASP"],
+        source_path: 'Slide_123.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 123,
+        round_number: 2,
+        title: "CH7 Option D Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option D",
+        sub_text: "No action impact",
+        details: ["-500 Orders"],
+        source_path: 'Slide_124.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 124,
+        round_number: 2,
+        title: "CH7 Career Insight",
+        type: 'video',
+        source_path: 'Slide_125.mp4',
+        auto_advance_after_video: false
+    },
+    {
+        id: 125,
+        round_number: 2,
+        title: "RD-2 Investment Payoffs Intro",
+        type: 'video',
+        source_path: 'Slide_126.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 126,
+        round_number: 2,
+        title: "Payoff: #1 Business Growth",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: Business Growth Strategy",
+        sub_text: "Impact: +250 Capacity, +250 Orders, +$20 ASP",
+        details: ["+250 Capacity", "+250 Orders", "+$20 ASP"],
+        source_path: 'Slide_127.mp4'
+    },
+    {
+        id: 127,
+        round_number: 2,
+        title: "Payoff: #2 Production Efficiency",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: Production Efficiency",
+        sub_text: "Impact: +2000 Capacity, +$50k Costs",
+        details: ["+2000 Capacity", "+$50k Costs"],
+        source_path: 'Slide_128.mp4'
+    },
+    {
+        id: 128,
+        round_number: 2,
+        title: "Payoff: #3 2nd Shift Expansion",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: 2nd Shift Expansion",
+        sub_text: "Impact: +3000 Capacity, +$575k Costs",
+        details: ["+3000 Capacity", "+$575k Costs"],
+        source_path: 'Slide_129.mp4'
+    },
+    {
+        id: 129,
+        round_number: 2,
+        title: "Payoff: #4 Supply Chain",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: Supply Chain Optimization",
+        sub_text: "Impact: +500 Capacity, -$200k Costs",
+        details: ["+500 Capacity", "-$200k Costs"],
+        source_path: 'Slide_130.mp4'
+    },
+    {
+        id: 130,
+        round_number: 2,
+        title: "Payoff: #5 Employee Development",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: Employee Development",
+        sub_text: "Impact: +500 Capacity, -$25k Costs",
+        details: ["+500 Capacity", "-$25k Costs"],
+        source_path: 'Slide_131.mp4'
+    },
+    {
+        id: 131,
+        round_number: 2,
+        title: "Payoff: #6 Maximize Boutique",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: Maximize Boutique Sales",
+        sub_text: "Impact: +1000 Orders, +$40 ASP",
+        details: ["+1000 Orders", "+$40 ASP"],
+        source_path: 'Slide_132.mp4'
+    },
+    {
+        id: 132,
+        round_number: 2,
+        title: "Payoff: #7 Big Box Expansion",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: Big Box Expansion",
+        sub_text: "Impact: +1500 Orders, +$50k Costs",
+        details: ["+1500 Orders", "+$50k Costs"],
+        source_path: 'Slide_133.mp4'
+    },
+    {
+        id: 133,
+        round_number: 2,
+        title: "Payoff: #8 ERP",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: Enterprise Resource Planning",
+        sub_text: "Impact: +250 Capacity, +250 Orders, +$25k Costs, +$10 ASP",
+        details: ["+250 Capacity", "+250 Orders", "+$25k Costs", "+$10 ASP"],
+        source_path: 'Slide_134.mp4'
+    },
+    {
+        id: 134,
+        round_number: 2,
+        title: "Payoff: #9 IT Security",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: IT & Cyber Security",
+        sub_text: "No immediate impact",
+        details: ["No KPI changes this round"],
+        source_path: 'Slide_135.mp4'
+    },
+    {
+        id: 135,
+        round_number: 2,
+        title: "Payoff: #10 Product Line",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: Product Line Expansion",
+        sub_text: "Impact: +1000 Capacity, +1000 Orders, +$50k Costs, -$20 ASP",
+        details: ["+1000 Capacity", "+1000 Orders", "+$50k Costs", "-$20 ASP"],
+        source_path: 'Slide_136.mp4'
+    },
+    {
+        id: 136,
+        round_number: 2,
+        title: "Payoff: #11 Automation",
+        type: 'payoff_reveal',
+        main_text: "RD-2 Payoff: Automation & Co-bots",
+        sub_text: "Impact: +750 Capacity, -$100k Costs",
+        details: ["+750 Capacity", "-$100k Costs"],
+        source_path: 'Slide_137.mp4'
+    },
+    {
+        id: 137,
+        round_number: 2,
+        title: "Big Box Combined Bonus",
+        type: 'video',
+        source_path: 'Slide_138.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 138,
+        round_number: 2,
+        title: "Big Box Bonus Impact",
+        type: 'payoff_reveal',
+        main_text: "Big Box Supply Chain Bonus",
+        sub_text: "If you invested in both Supply Chain & Big Box",
+        details: ["+1000 Orders", "-$50k Costs (penalty savings)"],
+        source_path: 'Slide_139.mp4'
+    },
+    {
+        id: 139,
+        round_number: 2,
+        title: "End of Round 2 KPIs",
+        type: 'video',
+        source_path: 'Slide_140.mp4',
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "End of Round 2",
+            message: "CFOs should write KPIs from board on team summary sheets."
+        }
+    },
+    {
+        id: 140,
+        round_number: 2,
+        title: "RD-2 Leaderboard",
+        type: 'video',
+        source_path: 'Slide_141.mp4',
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Show Leaderboard",
+            message: "Display the Round 2 leaderboard to teams."
+        }
+    },
+    // Add decimal slides for Round 2 leaderboards
+    {
+        id: 140.1,
+        round_number: 2,
+        title: "RD-2 Leaderboard: Capacity & Orders",
+        type: 'leaderboard_chart',
+        interactive_data_key: 'rd2_leaderboard_cap_ord',
+        main_text: "Round 2 Leaderboard: Capacity & Orders",
+        sub_text: "Production capability and market demand after Round 2."
+    },
+    {
+        id: 140.2,
+        round_number: 2,
+        title: "RD-2 Leaderboard: Cost Per Board",
+        type: 'leaderboard_chart',
+        interactive_data_key: 'rd2_leaderboard_cpb',
+        main_text: "Round 2 Leaderboard: Cost Per Board",
+        sub_text: "Efficiency comparison after Round 2."
+    },
+    {
+        id: 140.3,
+        round_number: 2,
+        title: "RD-2 Leaderboard: Total Costs",
+        type: 'leaderboard_chart',
+        interactive_data_key: 'rd2_leaderboard_costs',
+        main_text: "Round 2 Leaderboard: Total Operational Costs",
+        sub_text: "Overall spending by each team in Round 2."
+    },
+    {
+        id: 140.4,
+        round_number: 2,
+        title: "RD-2 Leaderboard: ASP",
+        type: 'leaderboard_chart',
+        interactive_data_key: 'rd2_leaderboard_asp',
+        main_text: "Round 2 Leaderboard: Average Selling Price",
+        sub_text: "Pricing strategy results after Round 2."
+    },
+    {
+        id: 140.5,
+        round_number: 2,
+        title: "RD-2 Leaderboard: Revenue",
+        type: 'leaderboard_chart',
+        interactive_data_key: 'rd2_leaderboard_revenue',
+        main_text: "Round 2 Leaderboard: Total Revenue",
+        sub_text: "Revenue generation comparison after Round 2."
+    },
+    {
+        id: 140.6,
+        round_number: 2,
+        title: "RD-2 Leaderboard: Net Margin",
+        type: 'leaderboard_chart',
+        interactive_data_key: 'rd2_leaderboard_margin',
+        main_text: "Round 2 Leaderboard: Net Profit Margin",
+        sub_text: "Profitability percentage after Round 2."
+    },
+    {
+        id: 140.7,
+        round_number: 2,
+        title: "RD-2 Leaderboard: Cumulative Net Income",
+        type: 'leaderboard_chart',
+        interactive_data_key: 'rd2_leaderboard_income',
+        main_text: "Round 2 Leaderboard: Cumulative Net Income",
+        sub_text: "Total profitability ranking after Rounds 1 & 2."
+    },
+
+    // --- Round 3 ---
+    {
+        id: 141,
+        round_number: 3,
+        title: "Welcome to Round 3",
+        type: 'video',
+        source_path: 'Slide_142.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 142,
+        round_number: 3,
+        title: "RD-3 KPI Reset",
+        type: 'video',
+        source_path: 'Slide_143.mp4',
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Reset KPIs for Round 3",
+            message: "Ensure all teams reset to: Cap: 5000, Orders: 7250, Costs: $1.35M, ASP: $1000"
+        }
+    },
+    {
+        id: 143,
+        round_number: 3,
+        title: "RD-3 Investment Period",
+        type: 'interactive_invest',
+        source_path: 'Slide_144.mp4',
+        interactive_data_key: 'rd3-invest',
+        main_text: "RD-3 INVEST: $600K Budget",
+        sub_text: "Final investment round. Some options require RD-2 prerequisites.",
+        auto_advance_after_video: false,
+        background_css: 'bg-slate-800',
+        host_alert: {
+            title: "Hand Out RD-3 Materials",
+            message: "Distribute RD-3 Investment Cards. Note: No position updates this round."
+        }
+    },
+    {
+        id: 144,
+        round_number: 3,
+        title: "Double Down Introduction",
+        type: 'video',
+        source_path: 'Slide_145.mp4',
+        auto_advance_after_video: false
+    },
+    {
+        id: 145,
+        round_number: 3,
+        title: "Year 5 Introduction",
+        type: 'video',
+        source_path: 'Slide_146.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 146,
+        round_number: 3,
+        title: "Moon Olympics News",
+        type: 'video',
+        source_path: 'Slide_147.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 147,
+        round_number: 3,
+        title: "CH8: Sports Licensing",
+        type: 'video',
+        source_path: 'Slide_148.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 148,
+        round_number: 3,
+        title: "CH8 Licensing Details",
+        type: 'video',
+        source_path: 'Slide_149.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 149,
+        round_number: 3,
+        title: "CH8 Options",
+        type: 'video',
+        source_path: 'Slide_150.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 150,
+        round_number: 3,
+        title: "CH8 Decision Timer",
+        type: 'interactive_challenge',
+        source_path: 'Slide_151.mp4',
+        interactive_data_key: 'rd3-ch8',
+        main_text: "CHALLENGE 8: Olympic Licensing Opportunity",
+        sub_text: "Will you pursue the licensing deal?",
+        timer_duration_seconds: 180,
+        background_css: 'bg-purple-900',
+        host_alert: {
+            title: "CH8 Closed",
+            message: "Challenge 8 decisions are in. Click OK for results."
+        }
+    },
+    {
+        id: 151,
+        round_number: 3,
+        title: "CH8 Results",
+        type: 'video',
+        source_path: 'Slide_152.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 152,
+        round_number: 3,
+        title: "CH8 Consequences Intro",
+        type: 'video',
+        source_path: 'Slide_153.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 153,
+        round_number: 3,
+        title: "CH8 Option A Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option A",
+        sub_text: "Full licensing deal impact",
+        details: ["+2000 Orders", "+$150k Costs", "+$40 ASP"],
+        source_path: 'Slide_154.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 154,
+        round_number: 3,
+        title: "CH8 Option B Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option B",
+        sub_text: "Partial licensing impact",
+        details: ["+1000 Orders", "+$75k Costs", "+$20 ASP"],
+        source_path: 'Slide_155.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 155,
+        round_number: 3,
+        title: "CH8 Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option C",
+        sub_text: "No licensing impact",
+        details: ["No impact to KPIs"],
+        source_path: 'Slide_156.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 156,
+        round_number: 3,
+        title: "CH8 Career Insight",
+        type: 'video',
+        source_path: 'Slide_157.mp4',
+        auto_advance_after_video: false
+    },
+    {
+        id: 157,
+        round_number: 3,
+        title: "Impact Event #5",
+        type: 'video',
+        source_path: 'Slide_158.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 158,
+        round_number: 3,
+        title: "Impact Event #5: System Failure",
+        type: 'video',
+        source_path: 'Slide_159.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 159,
+        round_number: 3,
+        title: "Impact Event #5 Details",
+        type: 'video',
+        source_path: 'Slide_160.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 160,
+        round_number: 3,
+        title: "Impact Event #5 Option A",
+        type: 'video',
+        source_path: 'Slide_161.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 161,
+        round_number: 3,
+        title: "Impact Event #5 Option B",
+        type: 'video',
+        source_path: 'Slide_162.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 162,
+        round_number: 3,
+        title: "Impact Event #5 Option C",
+        type: 'video',
+        source_path: 'Slide_163.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 163,
+        round_number: 3,
+        title: "Impact Event #5 Decision Timer",
+        type: 'interactive_challenge',
+        source_path: 'Slide_164.mp4',
+        interactive_data_key: 'rd3-impact5',
+        main_text: "Impact Event #5: ERP System Crisis",
+        sub_text: "How will you handle the system failure?",
+        timer_duration_seconds: 180,
+        background_css: 'bg-purple-900'
+    },
+    {
+        id: 164,
+        round_number: 3,
+        title: "Impact Event #5 Results",
+        type: 'video',
+        source_path: 'Slide_165.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 165,
+        round_number: 3,
+        title: "Impact Event #5 Option A Result",
+        type: 'consequence_reveal',
+        main_text: "Option A: Emergency ERP Implementation",
+        sub_text: "High cost but prevents disaster",
+        details: ["+$150k Costs"],
+        source_path: 'Slide_166.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 166,
+        round_number: 3,
+        title: "Impact Event #5 Option B Result",
+        type: 'consequence_reveal',
+        main_text: "Option B: Manual Systems",
+        sub_text: "Moderate cost with efficiency loss",
+        details: ["-500 Capacity", "+$50k Costs"],
+        source_path: 'Slide_167.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 167,
+        round_number: 3,
+        title: "Impact Event #5 Option C Result",
+        type: 'consequence_reveal',
+        main_text: "Option C: ERP Investment Protection",
+        sub_text: "Your foresight paid off!",
+        details: ["No impact - ERP investment protected you"],
+        source_path: 'Slide_168.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 168,
+        round_number: 3,
+        title: "Impact Event #5 Career Insight",
+        type: 'video',
+        source_path: 'Slide_169.mp4',
+        auto_advance_after_video: false
+    },
+    {
+        id: 169,
+        round_number: 3,
+        title: "RD-3 Investment Payoffs Intro",
+        type: 'video',
+        source_path: 'Slide_170.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 170,
+        round_number: 3,
+        title: "Payoff: #1 Business Growth (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Business Growth Strategy",
+        sub_text: "Final round business growth impact",
+        details: ["+250 Capacity", "+250 Orders", "+$20 ASP"],
+        source_path: 'Slide_171.mp4'
+    },
+    {
+        id: 171,
+        round_number: 3,
+        title: "Payoff: #2 Production Efficiency (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Production Efficiency",
+        sub_text: "Maximum efficiency gains",
+        details: ["+3000 Capacity", "+$100k Costs"],
+        source_path: 'Slide_172.mp4'
+    },
+    {
+        id: 172,
+        round_number: 3,
+        title: "Payoff: #3 Expanded 2nd Shift",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Expanded 2nd Shift",
+        sub_text: "Massive capacity expansion",
+        details: ["+4250 Capacity", "+$750k Costs"],
+        source_path: 'Slide_173.mp4'
+    },
+    {
+        id: 173,
+        round_number: 3,
+        title: "Payoff: #4 Supply Chain (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Supply Chain Optimization",
+        sub_text: "Peak supply chain efficiency",
+        details: ["+750 Capacity", "-$300k Costs"],
+        source_path: 'Slide_174.mp4'
+    },
+    {
+        id: 174,
+        round_number: 3,
+        title: "Payoff: #5 Employee Dev (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Employee Development",
+        sub_text: "Maximized workforce potential",
+        details: ["+1500 Capacity"],
+        source_path: 'Slide_175.mp4'
+    },
+    {
+        id: 175,
+        round_number: 3,
+        title: "Payoff: #6 Boutique Sales (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Maximize Boutique Sales",
+        sub_text: "Premium market dominance",
+        details: ["+3000 Orders", "+$80 ASP"],
+        source_path: 'Slide_176.mp4'
+    },
+    {
+        id: 176,
+        round_number: 3,
+        title: "Payoff: #7 Big Box (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Big Box Expansion",
+        sub_text: "Mass market penetration",
+        details: ["+4000 Orders", "+$100k Costs", "-$40 ASP"],
+        source_path: 'Slide_177.mp4'
+    },
+    {
+        id: 177,
+        round_number: 3,
+        title: "Payoff: #8 ERP (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Enterprise Resource Planning",
+        sub_text: "System integration benefits",
+        details: ["+250 Capacity", "+250 Orders", "+$25k Costs", "+$10 ASP"],
+        source_path: 'Slide_178.mp4'
+    },
+    {
+        id: 178,
+        round_number: 3,
+        title: "Payoff: #9 IT Security (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: IT & Cyber Security",
+        sub_text: "Protected from cyber threats",
+        details: ["Protection from future cyber attacks"],
+        source_path: 'Slide_179.mp4'
+    },
+    {
+        id: 179,
+        round_number: 3,
+        title: "Payoff: #10 Product Line (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Product Line Expansion",
+        sub_text: "Diversified product portfolio",
+        details: ["+2000 Capacity", "+2000 Orders", "+$100k Costs", "-$40 ASP"],
+        source_path: 'Slide_180.mp4'
+    },
+    {
+        id: 180,
+        round_number: 3,
+        title: "Payoff: #11 Automation (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Payoff: Automation & Co-bots",
+        sub_text: "Full automation benefits",
+        details: ["+1500 Capacity", "-$200k Costs"],
+        source_path: 'Slide_181.mp4'
+    },
+    {
+        id: 181,
+        round_number: 3,
+        title: "Double Down Decision",
+        type: 'interactive_challenge',
+        source_path: 'Slide_182.mp4',
+        interactive_data_key: 'rd3-double-down',
+        main_text: "DOUBLE DOWN DECISION",
+        sub_text: "Will you risk it all for double rewards?",
+        timer_duration_seconds: 300,
+        background_css: 'bg-red-700',
+        host_alert: {
+            title: "Double Down Period",
+            message: "Teams have 5 minutes to decide on Double Down strategy."
+        }
+    },
+    {
+        id: 182,
+        round_number: 3,
+        title: "Double Down Dice Roll",
+        type: 'video',
+        source_path: 'Slide_183.mp4',
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Roll the Dice!",
+            message: "Have teams who chose Double Down roll their dice now."
+        }
+    },
+    {
+        id: 183,
+        round_number: 3,
+        title: "Double Down Results",
+        type: 'video',
+        source_path: 'Slide_184.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 184,
+        round_number: 3,
+        title: "Investment Bonus Slides Intro",
+        type: 'video',
+        source_path: 'Slide_185.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 185,
+        round_number: 3,
+        title: "Bonus: Production Efficiency",
+        type: 'image',
+        source_path: 'Slide_186.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 186,
+        round_number: 3,
+        title: "Bonus: Expanded 2nd Shift",
+        type: 'image',
+        source_path: 'Slide_187.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 187,
+        round_number: 3,
+        title: "Bonus: Supply Chain",
+        type: 'image',
+        source_path: 'Slide_188.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 188,
+        round_number: 3,
+        title: "Bonus: Employee Development",
+        type: 'image',
+        source_path: 'Slide_189.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 189,
+        round_number: 3,
+        title: "Bonus: Maximize Boutique",
+        type: 'image',
+        source_path: 'Slide_190.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 190,
+        round_number: 3,
+        title: "Bonus: Big Box Expansion",
+        type: 'image',
+        source_path: 'Slide_191.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 191,
+        round_number: 3,
+        title: "Bonus: ERP",
+        type: 'image',
+        source_path: 'Slide_192.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 192,
+        round_number: 3,
+        title: "Bonus: IT Security",
+        type: 'image',
+        source_path: 'Slide_193.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 193,
+        round_number: 3,
+        title: "Bonus: Product Line",
+        type: 'image',
+        source_path: 'Slide_194.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 194,
+        round_number: 3,
+        title: "Bonus: Automation",
+        type: 'image',
+        source_path: 'Slide_195.jpg',
+        background_css: 'bg-gray-200'
+    },
+    {
+        id: 195,
+        round_number: 3,
+        title: "End of Round 3 KPIs",
+        type: 'video',
+        source_path: 'Slide_196.mp4',
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Final KPIs",
+            message: "CFOs write final KPIs on team summary sheets. This is the end of the simulation!"
+        }
+    },
+    {
+        id: 196,
+        round_number: 3,
+        title: "Final Leaderboard",
+        type: 'video',
+        source_path: 'Slide_197.mp4',
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Show Final Results",
+            message: "Display the final leaderboard and declare the winners!"
+        }
+    },
+    // Add decimal slides for Round 3 final leaderboards
+    {
+        id: 196.1,
         round_number: 3,
         title: "Final Leaderboard: Capacity & Orders",
         type: 'leaderboard_chart',
@@ -1406,7 +2029,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final comparison of production capability and market demand."
     },
     {
-        id: 121.2,
+        id: 196.2,
         round_number: 3,
         title: "Final Leaderboard: Cost Per Board",
         type: 'leaderboard_chart',
@@ -1415,7 +2038,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final efficiency comparison among all teams."
     },
     {
-        id: 121.3,
+        id: 196.3,
         round_number: 3,
         title: "Final Leaderboard: Total Costs",
         type: 'leaderboard_chart',
@@ -1424,7 +2047,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Overall spending by each team in Round 3."
     },
     {
-        id: 121.4,
+        id: 196.4,
         round_number: 3,
         title: "Final Leaderboard: ASP",
         type: 'leaderboard_chart',
@@ -1433,7 +2056,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final pricing strategy results."
     },
     {
-        id: 121.5,
+        id: 196.5,
         round_number: 3,
         title: "Final Leaderboard: Revenue",
         type: 'leaderboard_chart',
@@ -1442,7 +2065,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final revenue generation comparison."
     },
     {
-        id: 121.6,
+        id: 196.6,
         round_number: 3,
         title: "Final Leaderboard: Net Margin",
         type: 'leaderboard_chart',
@@ -1451,7 +2074,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Final profitability percentage comparison."
     },
     {
-        id: 121.7,
+        id: 196.7,
         round_number: 3,
         title: "FINAL LEADERBOARD: Net Income (WINNERS!)",
         type: 'leaderboard_chart',
@@ -1460,7 +2083,15 @@ export const allGameSlides: Slide[] = [
         sub_text: "The ultimate winners of Ready or Not 2.0! Congratulations to all teams!",
         host_alert: {
             title: "Game Complete!",
-            message: "The simulation is finished! Click OK for final celebration."
+            message: "The simulation is finished! Congratulations to all teams!"
         }
+    },
+    {
+        id: 197,
+        round_number: 3,
+        title: "Thanks for Playing",
+        type: 'video',
+        source_path: 'Slide_198.mp4',
+        auto_advance_after_video: false
     }
 ];

@@ -2,6 +2,8 @@
 import React from 'react';
 import {useNavigate} from 'react-router-dom';
 import Modal from '@shared/components/UI/Modal';
+import {useGameContext} from '@app/providers/GameProvider';
+import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 interface ExitGameModalProps {
     isOpen: boolean;
@@ -10,18 +12,26 @@ interface ExitGameModalProps {
 
 /**
  * `ExitGameModal` is a confirmation modal for the host to exit the current game session.
- * When confirmed, it navigates the host back to the dashboard.
+ * When confirmed, it broadcasts a close command and navigates the host back to the dashboard.
  */
 const ExitGameModal: React.FC<ExitGameModalProps> = ({isOpen, onClose}) => {
     // Consume `state` from `GameContext` to get the current session ID.
+    const {state} = useGameContext();
     const navigate = useNavigate(); // Hook for navigation.
 
 
     /**
      * Handles the confirmation of exiting the game.
-     * It navigates to the dashboard.
+     * It broadcasts a command to close the presentation display and navigates to the dashboard.
      */
     const confirmExitGame = () => {
+        // Send a command to close the presentation window if a session is active
+        if (state.currentSessionId) {
+            console.log('[ExitModal] Sending close_presentation command.');
+            const broadcastManager = SimpleBroadcastManager.getInstance(state.currentSessionId, 'host');
+            broadcastManager.sendCommand('close_presentation');
+        }
+
         onClose(); // Close the modal.
         navigate('/dashboard');
     };
@@ -38,7 +48,7 @@ const ExitGameModal: React.FC<ExitGameModalProps> = ({isOpen, onClose}) => {
                     Are you sure you want to exit this game session and return to the dashboard?
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                    Your current game progress is saved.
+                    Your current game progress is saved. This will also close the presentation display if it's open.
                 </p>
                 <div className="mt-5 sm:mt-6 flex flex-row-reverse gap-3">
                     <button

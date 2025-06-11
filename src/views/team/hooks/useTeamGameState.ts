@@ -48,29 +48,42 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         {cacheKey: `team-kpis-${sessionId}-${loggedInTeamId}-${currentActiveSlide?.round_number}`, cacheTimeout: 30000}
     );
 
-    // REFACTOR: The realtime subscription for KPIs was incorrect. Let's fix it.
     useRealtimeSubscription(
         `team-kpis-${sessionId}-${loggedInTeamId}`,
         {
             table: 'team_round_data',
             filter: `session_id=eq.${sessionId}.and.team_id=eq.${loggedInTeamId}`,
+            onchange: (payload) => {
+                console.log('[useTeamGameState] KPI data updated via real-time:', payload);
+                refetchKpis();
+            }
         },
-        !!(sessionId && loggedInTeamId),
-        (payload) => {
-            console.log('[useTeamGameState] KPI data updated via real-time:', payload);
-            refetchKpis();
-        }
+        !!(sessionId && loggedInTeamId)
     );
 
     useEffect(() => {
         if (!sessionId) return;
 
-        const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'presentation'); // Team acts like a presentation client
+        const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'team');
         setConnectionStatus('connecting');
+
+        // Host connection check
+        let connectionTimeout: NodeJS.Timeout | null = null;
+        const setConnected = () => {
+            if (connectionStatus !== 'connected') {
+                setConnectionStatus('connected');
+            }
+            if (connectionTimeout) clearTimeout(connectionTimeout);
+            connectionTimeout = setTimeout(() => {
+                setConnectionStatus('disconnected');
+                console.warn('[useTeamGameState] Host connection timed out.');
+            }, 15000); // 15s timeout
+        };
 
         const unsubscribeSlideUpdates = broadcastManager.onSlideUpdate((slide: Slide) => {
             console.log('[useTeamGameState] Received slide update from host:', slide);
             setCurrentActiveSlide(slide);
+            setConnected();
 
             const isInteractive = slide.type.startsWith('interactive_') && !!slide.interactive_data_key;
             console.log(`[useTeamGameState] Slide ${slide.id} is interactive: ${isInteractive}`);
@@ -85,18 +98,17 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             }
         });
 
-        const unsubscribeStatus = broadcastManager.onPresentationStatus((status) => {
-            setConnectionStatus(status);
-            if (status === 'connected') {
-                broadcastManager.sendStatus('ready');
-            }
+        // Also listen for host video commands to keep the connection alive
+        const unsubscribeCommands = broadcastManager.onHostCommand(() => {
+            setConnected();
         });
 
         return () => {
+            if (connectionTimeout) clearTimeout(connectionTimeout);
             unsubscribeSlideUpdates();
-            unsubscribeStatus();
+            unsubscribeCommands();
         };
-    }, [sessionId]);
+    }, [sessionId, connectionStatus]);
 
     useEffect(() => {
         let timerInterval: NodeJS.Timeout | undefined;
@@ -107,7 +119,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
                 if (remaining <= 0) {
                     setIsDecisionTime(false);
                     setDecisionPhaseTimerEndTime(undefined);
-                    clearInterval(timerInterval);
+                    if (timerInterval) clearInterval(timerInterval);
                 }
             };
             updateTimer();

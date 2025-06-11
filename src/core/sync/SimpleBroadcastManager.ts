@@ -12,7 +12,7 @@ export class SimpleBroadcastManager {
     private static instances: Map<string, SimpleBroadcastManager> = new Map();
     private channel: BroadcastChannel;
     private sessionId: string;
-    private mode: 'host' | 'presentation';
+    private mode: 'host' | 'presentation' | 'team';
 
     // Connection tracking
     private connectionStatus: ConnectionStatus = 'disconnected';
@@ -27,7 +27,7 @@ export class SimpleBroadcastManager {
     // Track if this instance has been destroyed
     private isDestroyed: boolean = false;
 
-    private constructor(sessionId: string, mode: 'host' | 'presentation') {
+    private constructor(sessionId: string, mode: 'host' | 'presentation' | 'team') {
         this.sessionId = sessionId;
         this.mode = mode;
         this.channel = new BroadcastChannel(`game-session-${sessionId}`);
@@ -38,7 +38,7 @@ export class SimpleBroadcastManager {
         console.log(`[SimpleBroadcastManager] Initialized for session ${sessionId} in ${mode} mode`);
     }
 
-    static getInstance(sessionId: string, mode: 'host' | 'presentation'): SimpleBroadcastManager {
+    static getInstance(sessionId: string, mode: 'host' | 'presentation' | 'team'): SimpleBroadcastManager {
         const key = `${sessionId}-${mode}`;
 
         // Check if existing instance is destroyed and clean it up
@@ -64,7 +64,7 @@ export class SimpleBroadcastManager {
 
             switch (message.type) {
                 case 'HOST_COMMAND':
-                    if (this.mode === 'presentation') {
+                    if (this.mode === 'presentation' || this.mode === 'team') {
                         this.commandHandlers.forEach(handler => handler(message as HostCommand));
                         // Send acknowledgment
                         this.sendMessage({
@@ -77,8 +77,8 @@ export class SimpleBroadcastManager {
                     break;
 
                 case 'SLIDE_UPDATE':
-                    if (this.mode === 'presentation') {
-                        console.log('[SimpleBroadcastManager] Received slide update for presentation:', message.slide.id);
+                    if (this.mode === 'presentation' || this.mode === 'team') {
+                        console.log(`[SimpleBroadcastManager] Received slide update for ${this.mode}:`, message.slide.id);
                         this.slideHandlers.forEach(handler => handler(message.slide));
                     }
                     break;
@@ -129,12 +129,14 @@ export class SimpleBroadcastManager {
                 }
             }, 5000);
         } else {
-            // Presentation announces ready after a short delay
-            setTimeout(() => {
-                if (!this.isDestroyed) {
-                    this.sendStatus('ready');
-                }
-            }, 100);
+            // ONLY Presentation announces ready after a short delay
+            if (this.mode === 'presentation') {
+                setTimeout(() => {
+                    if (!this.isDestroyed) {
+                        this.sendStatus('ready');
+                    }
+                }, 100);
+            }
         }
     }
 
@@ -171,7 +173,7 @@ export class SimpleBroadcastManager {
 
     // HOST METHODS
 
-    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset', time?: number): void {
+    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation', time?: number): void {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const command: HostCommand = {

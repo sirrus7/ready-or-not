@@ -1,6 +1,6 @@
 // src/utils/supabase/realtime.ts - Realtime subscriptions
-import { supabase } from './client';
-import { useEffect, useRef } from 'react';
+import {supabase} from './client';
+import {useEffect, useRef} from 'react';
 
 export interface RealtimeSubscriptionConfig {
     table: string;
@@ -34,7 +34,7 @@ export const useRealtimeSubscription = (
                 event: config.event || '*',
                 schema: config.schema || 'public',
                 table: config.table,
-                ...(config.filter && { filter: config.filter })
+                ...(config.filter && {filter: config.filter})
             }, config.onchange)
             .subscribe((status: string) => {
                 console.log(`[Supabase Realtime] ${channelName} status: ${status}`);
@@ -47,7 +47,7 @@ export const useRealtimeSubscription = (
                 channelRef.current = null;
             }
         };
-    }, [channelName, config.table, config.event, config.filter, enabled]);
+    }, [channelName, config.table, config.event, config.filter, enabled, config.onchange]);
 
     return channelRef.current;
 };
