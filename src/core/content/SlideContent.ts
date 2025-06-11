@@ -112,7 +112,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 11,
         round_number: 1,
-        title: "CH1: Viral Fitness Challenge",
+        title: "CH1: Machinery Failure Setup",
         type: 'video',
         source_path: 'Slide_012.mp4',
         auto_advance_after_video: true
@@ -120,7 +120,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 12,
         round_number: 1,
-        title: "CH1 Options A & B",
+        title: "CH1 Option A: CNC Machine",
         type: 'video',
         source_path: 'Slide_013.mp4',
         auto_advance_after_video: true
@@ -128,7 +128,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 13,
         round_number: 1,
-        title: "CH1 Options C & D",
+        title: "CH1 Option B: Replacement Equipment",
         type: 'video',
         source_path: 'Slide_014.mp4',
         auto_advance_after_video: true
@@ -136,12 +136,36 @@ export const allGameSlides: Slide[] = [
     {
         id: 14,
         round_number: 1,
+        title: "CH1 Option C: Outsource",
+        type: 'video',
+        source_path: 'Slide_015.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 15,
+        round_number: 1,
+        title: "CH1 Option D: Do Nothing",
+        type: 'video',
+        source_path: 'Slide_016.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 16,
+        round_number: 1,
+        title: "Team Phone Guru Instructions",
+        type: 'video',
+        source_path: 'Slide_017.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 17,
+        round_number: 1,
         title: "CH1 Decision Timer",
         type: 'interactive_challenge',
-        source_path: 'Slide_015.mp4',
+        source_path: 'Slide_018.mp4',
         interactive_data_key: 'rd1-ch1',
-        main_text: "CHALLENGE 1: Social Media Response",
-        sub_text: "How will your company respond to this viral social media trend?",
+        main_text: "CHALLENGE 1: Machinery Failure",
+        sub_text: "How will you respond to the equipment failure?",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
         host_alert: {
@@ -150,101 +174,77 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 15,
+        id: 18,
         round_number: 1,
         title: "CH1 Results Collection",
         type: 'video',
-        source_path: 'Slide_016.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 16,
-        round_number: 1,
-        title: "CH1 Consequences Introduction",
-        type: 'video',
-        source_path: 'Slide_017.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 17,
-        round_number: 1,
-        title: "CH1 Immunity Check",
-        type: 'video',
-        source_path: 'Slide_018.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 18,
-        round_number: 1,
-        title: "CH1 Option A Consequences",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Impact: -100 Orders, +$50 ASP",
-        details: ["-100 Current Orders", "+$50 Average Selling Price"],
         source_path: 'Slide_019.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 19,
         round_number: 1,
-        title: "CH1 Option B Consequences",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Impact: +200 Orders, +$50k Costs",
-        details: ["+200 Current Orders", "+$50k Current Costs"],
+        title: "Consequences Introduction",
+        type: 'video',
         source_path: 'Slide_020.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 20,
         round_number: 1,
-        title: "CH1 Option C Consequences",
+        title: "CH1 Option A Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option C",
-        sub_text: "Impact: +500 Orders, -250 Capacity, +$25k Costs",
-        details: ["+500 Current Orders", "-250 Current Capacity", "+$25k Current Costs"],
+        main_text: "Consequence for Option A: CNC Machine",
+        sub_text: "The complex CNC machine takes longer than expected",
+        details: ["-200 Capacity", "+$50k Costs", "Future customization capability"],
         source_path: 'Slide_021.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 21,
         round_number: 1,
-        title: "CH1 Option D Consequences",
+        title: "CH1 Option B Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option D",
-        sub_text: "Impact: +100 Orders, +$10 ASP",
-        details: ["+100 Current Orders", "+$10 Average Selling Price"],
+        main_text: "Consequence for Option B: Replacement Equipment",
+        sub_text: "Quick fix but missed opportunity",
+        details: ["-250 Capacity", "+$50k Costs"],
         source_path: 'Slide_022.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 22,
         round_number: 1,
-        title: "CH1 Career Insight",
-        type: 'video',
+        title: "CH1 Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option C: Outsource",
+        sub_text: "Flexible solution with quick recovery",
+        details: ["+250 Capacity", "+$25k Costs"],
         source_path: 'Slide_023.mp4',
-        auto_advance_after_video: false
+        background_css: 'bg-gray-700'
     },
     {
         id: 23,
         round_number: 1,
-        title: "Let's See What's Next",
-        type: 'video',
+        title: "CH1 Option D Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option D: Do Nothing",
+        sub_text: "Significant delays and production issues",
+        details: ["-500 Capacity", "+$75k Costs", "-200 Orders"],
         source_path: 'Slide_024.mp4',
-        auto_advance_after_video: true
+        background_css: 'bg-gray-700'
     },
     {
         id: 24,
         round_number: 1,
-        title: "Channel 4 Breaking News 2",
+        title: "CH1 Career Insight - Production Manager",
         type: 'video',
         source_path: 'Slide_025.mp4',
-        auto_advance_after_video: true
+        auto_advance_after_video: false
     },
     {
         id: 25,
         round_number: 1,
-        title: "CH2: Competitor Acquisition",
+        title: "Transition to Next Challenge",
         type: 'video',
         source_path: 'Slide_026.mp4',
         auto_advance_after_video: true
@@ -252,7 +252,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 26,
         round_number: 1,
-        title: "CH2 Options",
+        title: "KMEP Nightly News",
         type: 'video',
         source_path: 'Slide_027.mp4',
         auto_advance_after_video: true
@@ -260,12 +260,52 @@ export const allGameSlides: Slide[] = [
     {
         id: 27,
         round_number: 1,
+        title: "CH2: New Tax Setup",
+        type: 'video',
+        source_path: 'Slide_028.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 28,
+        round_number: 1,
+        title: "CH2 Option A: Raise Prices",
+        type: 'video',
+        source_path: 'Slide_029.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 29,
+        round_number: 1,
+        title: "CH2 Option B: Increase Marketing",
+        type: 'video',
+        source_path: 'Slide_030.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 30,
+        round_number: 1,
+        title: "CH2 Option C: Cost Cutting",
+        type: 'video',
+        source_path: 'Slide_031.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 31,
+        round_number: 1,
+        title: "CH2 Option D: Do Nothing",
+        type: 'video',
+        source_path: 'Slide_032.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 32,
+        round_number: 1,
         title: "CH2 Decision Timer",
         type: 'interactive_challenge',
-        source_path: 'Slide_028.mp4',
+        source_path: 'Slide_033.mp4',
         interactive_data_key: 'rd1-ch2',
-        main_text: "CHALLENGE 2: Competitor Acquisition Response",
-        sub_text: "How will you respond to Karit Co's acquisition?",
+        main_text: "CHALLENGE 2: Corporate Activities Tax",
+        sub_text: "How will you respond to the new tax?",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
         host_alert: {
@@ -274,126 +314,81 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 28,
+        id: 33,
         round_number: 1,
         title: "CH2 Results Collection",
         type: 'video',
-        source_path: 'Slide_029.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 29,
-        round_number: 1,
-        title: "CH2 Consequences Introduction",
-        type: 'video',
-        source_path: 'Slide_030.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 30,
-        round_number: 1,
-        title: "CH2 Immunity Check",
-        type: 'video',
-        source_path: 'Slide_031.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 31,
-        round_number: 1,
-        title: "CH2 Option A Consequences",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Impact: +500 Orders, -$20 ASP",
-        details: ["+500 Current Orders", "-$20 Average Selling Price"],
-        source_path: 'Slide_032.mp4',
-        background_css: 'bg-gray-700'
-    },
-    {
-        id: 32,
-        round_number: 1,
-        title: "CH2 Option B Consequences",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Impact: +200 Orders, +$50k Costs",
-        details: ["+200 Current Orders", "+$50k Current Costs"],
-        source_path: 'Slide_033.mp4',
-        background_css: 'bg-gray-700'
-    },
-    {
-        id: 33,
-        round_number: 1,
-        title: "CH2 Option C Consequences",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option C",
-        sub_text: "Impact: -200 Orders",
-        details: ["-200 Current Orders"],
         source_path: 'Slide_034.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 34,
         round_number: 1,
-        title: "CH2 Career Insight",
+        title: "CH2 Consequences Introduction",
         type: 'video',
         source_path: 'Slide_035.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 35,
         round_number: 1,
-        title: "Check Your Cash Flow",
-        type: 'video',
+        title: "CH2 Option A Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option A: Raise Prices",
+        sub_text: "$1000+ price point not a barrier",
+        details: ["+$20 ASP"],
         source_path: 'Slide_036.mp4',
-        auto_advance_after_video: true
+        background_css: 'bg-gray-700'
     },
     {
         id: 36,
         round_number: 1,
-        title: "Profitable?",
-        type: 'video',
+        title: "CH2 Option B Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option B: Increase Marketing",
+        sub_text: "Marketing efforts pay off",
+        details: ["+500 Orders", "+$25k Costs"],
         source_path: 'Slide_037.mp4',
-        auto_advance_after_video: true
+        background_css: 'bg-gray-700'
     },
     {
         id: 37,
         round_number: 1,
-        title: "CH3: CNC Machine Decision",
-        type: 'video',
+        title: "CH2 Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option C: Cost Cutting",
+        sub_text: "Cost cutting backfires - morale issues",
+        details: ["-250 Capacity", "-$25k Costs"],
         source_path: 'Slide_038.mp4',
-        auto_advance_after_video: true
+        background_css: 'bg-gray-700'
     },
     {
         id: 38,
         round_number: 1,
-        title: "CH3 CNC Purchase Details",
-        type: 'video',
+        title: "CH2 Option D Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option D: Do Nothing",
+        sub_text: "Tax will impact profits",
+        details: ["Tax decreases profits at end of round"],
         source_path: 'Slide_039.mp4',
-        auto_advance_after_video: true
+        background_css: 'bg-gray-700'
     },
     {
         id: 39,
         round_number: 1,
-        title: "CH3 Options",
+        title: "CH2 Career Insight - Finance",
         type: 'video',
         source_path: 'Slide_040.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 40,
-        round_number: 1,
-        title: "CH3 Decision Timer",
-        type: 'interactive_challenge',
-        source_path: 'Slide_041.mp4',
-        interactive_data_key: 'rd1-ch3',
-        main_text: "CHALLENGE 3: CNC Machine Purchase",
-        sub_text: "Will you invest in the CNC machine?",
-        timer_duration_seconds: 120,
-        background_css: 'bg-purple-900'
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Challenge 2 Complete",
+            message: "Prepare for next segment. Click OK to proceed."
+        }
     },
     {
         id: 41,
         round_number: 1,
-        title: "CH3 Results Collection",
+        title: "Transition to Year 2",
         type: 'video',
         source_path: 'Slide_042.mp4',
         auto_advance_after_video: true
@@ -401,7 +396,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 42,
         round_number: 1,
-        title: "CH3 Consequences Introduction",
+        title: "Year 2 News - Recession",
         type: 'video',
         source_path: 'Slide_043.mp4',
         auto_advance_after_video: true
@@ -409,7 +404,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 43,
         round_number: 1,
-        title: "CH3 Immunity Check",
+        title: "CH3: Recession Setup",
         type: 'video',
         source_path: 'Slide_044.mp4',
         auto_advance_after_video: true
@@ -417,59 +412,55 @@ export const allGameSlides: Slide[] = [
     {
         id: 44,
         round_number: 1,
-        title: "CH3 Option A Consequences (Buy New)",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A: Buy New CNC",
-        sub_text: "Impact: Capacity increases, costs rise significantly",
-        details: ["Placeholder consequence details"],
+        title: "CH3 Option A: Layoffs",
+        type: 'video',
         source_path: 'Slide_045.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 45,
         round_number: 1,
-        title: "CH3 Option B Consequences (Buy Used)",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B: Buy Used CNC",
-        sub_text: "Impact: Moderate capacity increase, moderate costs",
-        details: ["Placeholder consequence details"],
+        title: "CH3 Option B: Furlough/Workshare",
+        type: 'video',
         source_path: 'Slide_046.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 46,
         round_number: 1,
-        title: "CH3 Option C Consequences (Co-buy)",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option C: Co-buy CNC",
-        sub_text: "Impact: Shared capacity increase, shared costs",
-        details: ["Placeholder consequence details"],
+        title: "CH3 Option C: Cut OT/Temps",
+        type: 'video',
         source_path: 'Slide_047.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 47,
         round_number: 1,
-        title: "CH3 Option D Consequences (Don't Buy)",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option D: Don't Buy",
-        sub_text: "Impact: No immediate changes",
-        details: ["No immediate impact to KPIs"],
+        title: "CH3 Option D: Do Nothing",
+        type: 'video',
         source_path: 'Slide_048.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 48,
         round_number: 1,
-        title: "Permanent KPI Impact Card Instructions",
-        type: 'video',
+        title: "CH3 Decision Timer",
+        type: 'interactive_challenge',
         source_path: 'Slide_049.mp4',
-        auto_advance_after_video: false
+        interactive_data_key: 'rd1-ch3',
+        main_text: "CHALLENGE 3: Recession Response",
+        sub_text: "How will you handle the economic downturn?",
+        timer_duration_seconds: 180,
+        background_css: 'bg-purple-900',
+        host_alert: {
+            title: "CH3 Closed",
+            message: "Challenge 3 decisions are in. Click OK for results."
+        }
     },
     {
         id: 49,
         round_number: 1,
-        title: "Impact Event #3",
+        title: "CH3 Results Collection",
         type: 'video',
         source_path: 'Slide_050.mp4',
         auto_advance_after_video: true
@@ -477,7 +468,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 50,
         round_number: 1,
-        title: "Impact Event #3 Intro",
+        title: "CH3 Consequences Introduction",
         type: 'video',
         source_path: 'Slide_051.mp4',
         auto_advance_after_video: true
@@ -485,98 +476,101 @@ export const allGameSlides: Slide[] = [
     {
         id: 51,
         round_number: 1,
-        title: "Impact Event #3 Requirements",
-        type: 'video',
+        title: "CH3 Option A Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option A: Layoffs",
+        sub_text: "Major workforce reduction with permanent impact",
+        details: ["-1250 Capacity", "-$300k Costs", "Permanent KPI Impact Card"],
         source_path: 'Slide_052.mp4',
-        auto_advance_after_video: true
+        background_css: 'bg-gray-700'
     },
     {
         id: 52,
         round_number: 1,
-        title: "Impact Event #3 Consequences",
-        type: 'video',
+        title: "CH3 Option B Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option B: Furlough/Workshare",
+        sub_text: "Temporary workforce reduction",
+        details: ["-1000 Capacity", "-$200k Costs"],
         source_path: 'Slide_053.mp4',
-        auto_advance_after_video: true
+        background_css: 'bg-gray-700'
     },
     {
         id: 53,
         round_number: 1,
-        title: "Impact Event #3 KPI Impacts",
+        title: "CH3 Option C Consequences",
         type: 'consequence_reveal',
-        main_text: "Impact Event #3: Position Requirements",
-        sub_text: "Impacts: -1000 Orders, -1000 Capacity, +$25k Costs",
-        details: ["-1000 Current Orders (Demand Drop)", "-1000 Current Capacity (Morale/Quits)", "+$25k Current Costs (Inefficiency/Admin)"],
+        main_text: "Consequence for Option C: Cut OT/Temps",
+        sub_text: "Moderate adjustment to workforce",
+        details: ["-500 Capacity", "-$100k Costs"],
         source_path: 'Slide_054.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 54,
         round_number: 1,
-        title: "CH3 Career Insight Video",
-        type: 'video',
+        title: "CH3 Option D Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option D: Do Nothing",
+        sub_text: "Cash flow crisis leads to multiple problems",
+        details: ["-1000 Capacity", "-1000 Orders"],
         source_path: 'Slide_055.mp4',
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "Impact Event #3 Complete",
-            message: "Prepare for RD-1 Investment Payoffs. Click OK to proceed."
-        }
+        background_css: 'bg-gray-700'
     },
     {
         id: 55,
         round_number: 1,
-        title: "RD-1 Investment Payoff Intro Video",
+        title: "CH3 Career Insight - HR Manager",
         type: 'video',
         source_path: 'Slide_056.mp4',
-        auto_advance_after_video: true
+        auto_advance_after_video: false
     },
     {
         id: 56,
         round_number: 1,
-        title: "Payoff: #1 Biz Growth Strategy",
-        type: 'payoff_reveal',
-        main_text: "RD-1 Payoff: Business Growth Strategy",
-        sub_text: "Impact: Capacity: +250, Orders: +250, ASP: +$20",
-        details: ["+250 Capacity", "+250 Orders", "+$20 ASP"],
-        source_path: 'Slide_057.mp4'
+        title: "Investment Payoffs Introduction",
+        type: 'video',
+        source_path: 'Slide_057.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 57,
         round_number: 1,
-        title: "Payoff: #2 Production Efficiency",
+        title: "Payoff: #1 Business Growth Strategy",
         type: 'payoff_reveal',
-        main_text: "RD-1 Payoff: Production Efficiency",
-        sub_text: "Impact: Capacity: +1500",
-        details: ["+1500 Capacity"],
+        main_text: "RD-1 Payoff: Business Growth Strategy",
+        sub_text: "Strategic insights pay off",
+        details: ["+250 Capacity", "+250 Orders", "+$20 ASP"],
         source_path: 'Slide_058.mp4'
     },
     {
         id: 58,
         round_number: 1,
-        title: "Payoff: #3 Add 2nd Shift",
+        title: "Payoff: #2 Production Efficiency",
         type: 'payoff_reveal',
-        main_text: "RD-1 Payoff: Add 2nd Shift",
-        sub_text: "Impact: Capacity: +1500, Costs: +$300k",
-        details: ["+1500 Capacity", "+$300k Costs"],
+        main_text: "RD-1 Payoff: Production Efficiency",
+        sub_text: "Major capacity increase",
+        details: ["+1500 Capacity"],
         source_path: 'Slide_059.mp4'
     },
     {
         id: 59,
         round_number: 1,
-        title: "Payoff: #4 Supply Chain Optimization",
+        title: "Payoff: #3 Add 2nd Shift",
         type: 'payoff_reveal',
-        main_text: "RD-1 Payoff: Supply Chain Optimization",
-        sub_text: "Impact: Capacity: +250, Costs: -$100k",
-        details: ["+250 Capacity", "-$100k Costs"],
+        main_text: "RD-1 Payoff: Add 2nd Shift",
+        sub_text: "Capacity boost with added labor costs",
+        details: ["+1500 Capacity", "+$300k Costs"],
         source_path: 'Slide_060.mp4'
     },
     {
         id: 60,
         round_number: 1,
-        title: "Payoff: #5 Employee Development",
+        title: "Payoff: #4 Supply Chain Optimization",
         type: 'payoff_reveal',
-        main_text: "RD-1 Payoff: Employee Development",
-        sub_text: "Impact: Capacity: +250, Costs: -$25k",
-        details: ["+250 Capacity", "-$25k Costs"],
+        main_text: "RD-1 Payoff: Supply Chain Optimization",
+        sub_text: "Efficiency gains and cost reduction",
+        details: ["+250 Capacity", "-$100k Costs"],
         source_path: 'Slide_061.mp4'
     },
     {
