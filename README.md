@@ -1,6 +1,6 @@
 # Ready or Not 2.0 🎮
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/edbb4c8d-c47b-4b43-8e2b-3338b45228b8/deploy-status)](https://app.netlify.com/projects/ron2/deploys)  
+![Cloudflare Pages Badge](https://img.shields.io/badge/Cloudflare%20Pages-F38020?logo=cloudflarepages&logoColor=fff&style=for-the-badge)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 
 A comprehensive business simulation game designed for educational environments, where teams compete to maximize their company's net income through strategic decision-making across multiple rounds.
@@ -22,7 +22,7 @@ Ready or Not 2.0 is an interactive game simulation that teaches business fundame
 
 ### For Hosts/Facilitators
 
-1. **Create an Account**: Sign up at [ron2.netlify.app](https://ron2.netlify.app/)
+1. **Create an Account**: Sign up at [ready-or-not.pages.dev](https://ready-or-not.pages.dev/)
 2. **Set Up a New Game**:
     - Click "Create Game" from your dashboard
     - Configure team sizes and game parameters
@@ -45,7 +45,7 @@ Ready or Not 2.0 is an interactive game simulation that teaches business fundame
 - **Frontend**: React 18 + TypeScript + Vite
 - **Styling**: Tailwind CSS
 - **Backend**: Supabase (PostgreSQL + Real-time subscriptions)
-- **Hosting**: Netlify
+- **Hosting**: Cloudflare Pages
 - **State Management**: React Context API
 - **Real-time Sync**: BroadcastChannel API + Supabase Realtime
 
@@ -92,7 +92,6 @@ src/
 - Node.js 18+
 - npm or yarn
 - Supabase account
-- Netlify account (for deployment)
 
 ### Local Development
 
@@ -141,15 +140,6 @@ npm run dev
 - Automatic reconnection handling
 
 ## 🚀 Deployment
-
-### Netlify Deployment
-
-1. Connect your GitHub repository to Netlify
-2. Configure build settings:
-    - Build command: `npm run build`
-    - Publish directory: `dist`
-3. Set environment variables in Netlify dashboard
-4. Deploy!
 
 ### Supabase Setup
 
