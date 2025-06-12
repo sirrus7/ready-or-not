@@ -1,10 +1,11 @@
-// src/shared/components/Video/SlideRenderer.tsx - FINAL: Corrected host/presentation logic
+// src/shared/components/Video/SlideRenderer.tsx
 import React, {useState, useEffect} from 'react';
 import {Slide} from '@shared/types/game';
-import {AlertCircle, ListChecks, RefreshCw} from 'lucide-react';
+import {AlertCircle, ListChecks, RefreshCw, Film} from 'lucide-react';
 import LeaderboardChartDisplay from '@shared/components/UI/LeaderboardChart';
 import {isVideo, useHostVideo, usePresentationVideo} from '@shared/utils/video';
 import HostVideoControls from '@shared/components/Video/HostVideoControls';
+import {useSignedMediaUrl} from '@shared/hooks/useSignedMediaUrl';
 
 interface SlideRendererProps {
     slide: Slide | null;
@@ -13,13 +14,17 @@ interface SlideRendererProps {
     onVideoEnd?: () => void;
 }
 
-const SlideContent: React.FC<{ slide: Slide, className?: string }> = ({slide, className}) => {
+const SlideContent: React.FC<{ slide: Slide, sourceUrl: string, className?: string }> = ({
+                                                                                             slide,
+                                                                                             sourceUrl,
+                                                                                             className
+                                                                                         }) => {
     switch (slide.type) {
         case 'image':
             return (
                 <div className={`w-full h-full flex items-center justify-center p-2 ${className}`}>
                     <img
-                        src={slide.source_url}
+                        src={sourceUrl}
                         alt={slide.title || 'Slide Image'}
                         className="max-w-full max-h-full object-contain"
                     />
@@ -46,20 +51,28 @@ const SlideContent: React.FC<{ slide: Slide, className?: string }> = ({slide, cl
     }
 };
 
+const MediaLoadingIndicator: React.FC = () => (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-10">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-400 mb-3"></div>
+        <p className="text-white text-sm">Loading Media...</p>
+    </div>
+);
+
 const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, onVideoEnd}) => {
     const [videoError, setVideoError] = useState(false);
 
-    const isVideoSlide = slide ? isVideo(slide.source_url) : false;
+    // Use the new hook to get the signed URL for the current slide's media
+    const {url: sourceUrl, isLoading: isUrlLoading, error: urlError} = useSignedMediaUrl(slide?.source_path);
 
-    const hostVideo = isHost ? useHostVideo({sessionId, sourceUrl: slide?.source_url, isEnabled: isVideoSlide}) : null;
+    const isVideoSlide = isVideo(slide?.source_path);
+
+    const hostVideo = isHost ? useHostVideo({sessionId, sourceUrl, isEnabled: isVideoSlide}) : null;
     const presentationVideo = !isHost ? usePresentationVideo({
         sessionId,
-        sourceUrl: slide?.source_url,
+        sourceUrl,
         isEnabled: isVideoSlide
     }) : null;
 
-    // *** THE CORE FIX IS HERE ***
-    // We now correctly select the props and ref from the appropriate hook based on `isHost`.
     const videoProps = isHost
         ? hostVideo?.getVideoProps(onVideoEnd, () => setVideoError(true))
         : presentationVideo?.getVideoProps(onVideoEnd, () => setVideoError(true));
@@ -72,19 +85,19 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
         if (!slide) {
             return (
                 <div className="h-full flex flex-col items-center justify-center text-white p-8">
-                    <div
-                        className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-400 mb-4"></div>
-                    <p className="text-xl">Loading Content</p>
+                    <Film size={48} className="text-gray-600 mb-4"/>
+                    <p className="text-xl text-gray-400">Waiting for Host</p>
                 </div>
             );
         }
 
-        if (videoError) {
+        if (urlError) {
             return (
                 <div
                     className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-red-900/40 backdrop-blur-sm p-8">
                     <AlertCircle size={48} className="text-red-400 mb-4"/>
-                    <h3 className="text-xl font-semibold text-red-300 mb-2">Video Load Error</h3>
+                    <h3 className="text-xl font-semibold text-red-300 mb-2">Media Load Error</h3>
+                    <p className="text-sm text-red-200 mb-4">{urlError}</p>
                     <button onClick={() => window.location.reload()}
                             className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
                         <RefreshCw size={16}/> Reload Page
@@ -93,30 +106,40 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
             );
         }
 
-        if (isVideo(slide.source_url)) {
-            return null; // Video is handled by the base element, no overlay needed.
+        if (isVideoSlide) {
+            // For video, the <video> tag handles display. No extra content needed unless loading.
+            return null;
         }
 
-        return <SlideContent slide={slide} className="animate-fade-in"/>;
+        // For non-video content, render it if the URL is ready.
+        if (sourceUrl) {
+            return <SlideContent slide={slide} sourceUrl={sourceUrl} className="animate-fade-in"/>;
+        }
+
+        // This case handles non-video slides that are currently loading their URL.
+        return null;
     };
 
     return (
         <div className="w-full h-full relative flex items-center justify-center bg-black animate-fade-in">
-            {/* Stable Video Player - always in the DOM */}
+            {/* Localized loading indicator for the media element */}
+            {isUrlLoading && <MediaLoadingIndicator/>}
+
+            {/* Stable Video Player - always in the DOM, gets its src updated */}
             <video
                 key="stable-video-player"
                 {...videoProps}
-                className={`transition-opacity duration-300 w-full h-full object-contain ${isVideoSlide ? 'opacity-100' : 'opacity-0'}`}
+                className={`transition-opacity duration-300 w-full h-full object-contain ${isVideoSlide && sourceUrl ? 'opacity-100' : 'opacity-0'}`}
             />
 
             {/* Overlay for Non-Video Content */}
             <div
-                className={`absolute inset-0 transition-opacity duration-300 flex items-center justify-center ${!isVideoSlide ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                className={`absolute inset-0 transition-opacity duration-300 flex items-center justify-center ${!isVideoSlide && sourceUrl ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                 {renderContent()}
             </div>
 
-            {/* Host Controls - only show on host for video slides */}
-            {isHost && hostVideo && isVideoSlide && (
+            {/* Host Controls - only show on host for video slides with a valid URL */}
+            {isHost && hostVideo && isVideoSlide && sourceUrl && (
                 <div className="absolute inset-0 z-20 pointer-events-none">
                     <div className="relative w-full h-full pointer-events-auto">
                         <HostVideoControls

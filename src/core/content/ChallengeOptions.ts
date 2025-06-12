@@ -3,7 +3,6 @@
 import {ChallengeOption} from '@shared/types/game';
 
 export const allChallengeOptionsData: Record<string, ChallengeOption[]> = {
-    // --- Inlined from src/data/gameStructure/round1/challenges.ts ---
     'ch1': [
         {
             id: "A",
@@ -90,8 +89,6 @@ export const allChallengeOptionsData: Record<string, ChallengeOption[]> = {
             is_default_choice: true
         },
     ],
-
-    // --- Inlined from src/data/gameStructure/round2/challenges.ts ---
     'ch4': [
         {
             id: "A",
@@ -211,9 +208,7 @@ export const allChallengeOptionsData: Record<string, ChallengeOption[]> = {
             immediate_kpi_impact_preview: "Risk of shutdown and heavy fines",
             is_default_choice: true
         }
-    ]
-    ,
-    // --- Inlined from src/data/gameStructure/round3/challenges.ts ---
+    ],
     'ch-dd-prompt': [
         {
             id: "yes_dd",

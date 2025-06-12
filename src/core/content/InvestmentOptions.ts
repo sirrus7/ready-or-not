@@ -3,7 +3,6 @@
 import {InvestmentOption} from '@shared/types/game';
 
 export const allInvestmentOptionsData: Record<string, InvestmentOption[]> = {
-    // --- Inlined from src/data/gameStructure/round1/investments.ts ---
     'rd1-invest': [
         {
             id: 'rd1_inv_biz_growth',
@@ -42,8 +41,6 @@ export const allInvestmentOptionsData: Record<string, InvestmentOption[]> = {
             description: "Open a small boutique retail store to directly reach customers, increasing orders and ASP."
         },
     ],
-
-    // --- Inlined from src/data/gameStructure/round2/investments.ts ---
     'rd2-invest': [
         {
             id: 'rd2_inv_strategic_plan',
@@ -118,8 +115,6 @@ export const allInvestmentOptionsData: Record<string, InvestmentOption[]> = {
             description: "Aggressive marketing campaign to capture market share."
         }
     ],
-
-    // --- Inlined from src/data/gameStructure/round3/investments.ts ---
     'rd3-invest': [
         {
             id: 'rd3_inv_strategic_plan_2',
