@@ -1,15 +1,16 @@
 // src/utils/supabase/services/decisionService.ts - Decision operations
-import { supabase } from '../client';
-import { withRetry, callRPC } from '../database';
+import {supabase} from '../client';
+import {withRetry, callRPC} from '../database';
+import {TeamDecision} from '@shared/types';
 
 export const decisionService = {
     async getBySession(sessionId: string) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('team_decisions')
                 .select('*')
                 .eq('session_id', sessionId)
-                .order('submitted_at', { ascending: false });
+                .order('submitted_at', {ascending: false});
             if (error) throw error;
             return data || [];
         }, 3, 1000, `Fetch decisions for session ${sessionId.substring(0, 8)}`);
@@ -17,7 +18,7 @@ export const decisionService = {
 
     async delete(sessionId: string, teamId: string, phaseId: string) {
         return withRetry(async () => {
-            const { error } = await supabase
+            const {error} = await supabase
                 .from('team_decisions')
                 .delete()
                 .eq('session_id', sessionId)
@@ -39,9 +40,9 @@ export const decisionService = {
         });
     },
 
-    async create(decisionData: any) {
+    async create(decisionData: Omit<TeamDecision, 'id' | 'created_at'>) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('team_decisions')
                 .insert({
                     ...decisionData,
@@ -54,9 +55,31 @@ export const decisionService = {
         }, 2, 1000, `Create decision for team ${decisionData.team_id?.substring(0, 8)} phase ${decisionData.phase_id}`);
     },
 
-    async update(decisionId: string, updates: any) {
+    // NEW UPSERT METHOD TO PREVENT RACE CONDITIONS
+    async upsert(decisionData: Omit<TeamDecision, 'id' | 'created_at'>) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const payload = {
+                ...decisionData,
+                submitted_at: decisionData.submitted_at || new Date().toISOString()
+            };
+
+            const {data, error} = await supabase
+                .from('team_decisions')
+                .upsert(payload, {
+                    // A team can only have one decision per phase in a session.
+                    onConflict: 'session_id, team_id, phase_id'
+                })
+                .select()
+                .single(); // Expect one row back
+
+            if (error) throw error;
+            return data;
+        }, 2, 1000, `Upsert decision for team ${decisionData.team_id?.substring(0, 8)} phase ${decisionData.phase_id}`);
+    },
+
+    async update(decisionId: string, updates: Partial<TeamDecision>) {
+        return withRetry(async () => {
+            const {data, error} = await supabase
                 .from('team_decisions')
                 .update(updates)
                 .eq('id', decisionId)

@@ -163,7 +163,7 @@ export const allGameSlides: Slide[] = [
         title: "CH1 Decision Timer",
         type: 'interactive_choice',
         source_path: 'Slide_018.mp4',
-        interactive_data_key: 'rd1-ch1',
+        interactive_data_key: 'ch1',
         main_text: "CHALLENGE 1: Machinery Failure",
         sub_text: "How will you respond to the equipment failure?",
         timer_duration_seconds: 180,
@@ -196,7 +196,7 @@ export const allGameSlides: Slide[] = [
         type: 'consequence_reveal',
         main_text: "Consequence for Option A: CNC Machine",
         sub_text: "The complex CNC machine takes longer than expected",
-        details: ["-200 Capacity", "+$50k Costs", "Future customization capability"],
+        details: ["-250 Capacity", "+$50k Costs", "Future customization capability"],
         source_path: 'Slide_021.mp4',
         background_css: 'bg-gray-700'
     },
@@ -236,7 +236,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 24,
         round_number: 1,
-        title: "CH1 Career Insight - Production Manager",
+        title: "CH1 Career Insight - CNC Operator",
         type: 'video',
         source_path: 'Slide_025.mp4',
         auto_advance_after_video: false
@@ -303,7 +303,7 @@ export const allGameSlides: Slide[] = [
         title: "CH2 Decision Timer",
         type: 'interactive_choice',
         source_path: 'Slide_033.mp4',
-        interactive_data_key: 'rd1-ch2',
+        interactive_data_key: 'ch2',
         main_text: "CHALLENGE 2: Corporate Activities Tax",
         sub_text: "How will you respond to the new tax?",
         timer_duration_seconds: 180,
@@ -386,6 +386,14 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
+        id: 40,
+        round_number: 1,
+        title: "Year 2 Introduction",
+        type: 'video',
+        source_path: 'Slide_041.mp4',
+        auto_advance_after_video: true
+    },
+    {
         id: 41,
         round_number: 1,
         title: "Year 2 News - Recession",
@@ -439,7 +447,7 @@ export const allGameSlides: Slide[] = [
         title: "CH3 Decision Timer",
         type: 'interactive_choice',
         source_path: 'Slide_048.mp4',
-        interactive_data_key: 'rd1-ch3',
+        interactive_data_key: 'ch3',
         main_text: "CHALLENGE 3: Recession Response",
         sub_text: "How will you handle the economic downturn?",
         timer_duration_seconds: 180,
@@ -571,8 +579,7 @@ export const allGameSlides: Slide[] = [
         title: "Payoff: #5 Employee Development",
         type: 'payoff_reveal',
         main_text: "RD-1 Payoff: Employee Development",
-        // TODO: What should this sub_text be?
-        sub_text: "Impact: Orders: +500, ASP: +$20",
+        sub_text: "Training boosts efficiency and cuts waste",
         details: ["+250 Capacity", "-$25k Costs"],
         source_path: 'Slide_061.mp4',
     },
@@ -582,7 +589,7 @@ export const allGameSlides: Slide[] = [
         title: "Payoff: #6 Maximize Sales (Boutique)",
         type: 'payoff_reveal',
         main_text: "RD-1 Payoff: Maximize Sales (Boutique)",
-        sub_text: "Impact: Orders: +500, ASP: +$20",
+        sub_text: "Direct-to-consumer sales boom",
         details: ["+500 Orders", "+$20 ASP"],
         source_path: 'Slide_062.mp4',
         host_alert: {
@@ -610,13 +617,12 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_064.mp4',
         auto_advance_after_video: false,
     },
-    // Add decimal slides for Round 1 leaderboards
     {
         id: 63.1,
         round_number: 1,
         title: "RD-1 Leaderboard: Capacity & Orders",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd1_leaderboard_cap_ord',
+        interactive_data_key: 'rd1_leaderboard_capord',
         main_text: "Round 1 Leaderboard: Capacity & Orders",
         sub_text: "Comparison of production capability and market demand."
     },
@@ -695,7 +701,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 66,
         round_number: 2,
-        title: "RD-2 KPI Reset",
+        title: "RD-2 KPI Reset Explanation",
         type: 'video',
         source_path: 'Slide_067.mp4',
         auto_advance_after_video: true
@@ -723,7 +729,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 69,
         round_number: 2,
-        title: "RD-2 Investment Period",
+        title: "RD-2 Investment Period Intro",
         type: 'video',
         source_path: 'Slide_070.mp4',
         auto_advance_after_video: false,
@@ -767,7 +773,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 73,
         round_number: 2,
-        title: "CH4: Supply Chain Crisis",
+        title: "CH4: News - Supply Chain Crisis",
         type: 'video',
         source_path: 'Slide_074.mp4',
         auto_advance_after_video: true
@@ -775,7 +781,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 74,
         round_number: 2,
-        title: "CH4 Supply Crisis Details",
+        title: "CH4: Supply Crisis Details",
         type: 'video',
         source_path: 'Slide_075.mp4',
         auto_advance_after_video: true
@@ -783,7 +789,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 75,
         round_number: 2,
-        title: "CH4 Option A",
+        title: "CH4: Option A",
         type: 'video',
         source_path: 'Slide_076.mp4',
         auto_advance_after_video: true
@@ -791,7 +797,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 76,
         round_number: 2,
-        title: "CH4 Option B",
+        title: "CH4: Option B",
         type: 'video',
         source_path: 'Slide_077.mp4',
         auto_advance_after_video: true
@@ -799,7 +805,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 77,
         round_number: 2,
-        title: "CH4 Option C",
+        title: "CH4: Option C",
         type: 'video',
         source_path: 'Slide_078.mp4',
         auto_advance_after_video: true
@@ -807,10 +813,10 @@ export const allGameSlides: Slide[] = [
     {
         id: 78,
         round_number: 2,
-        title: "CH4 Decision Timer",
+        title: "CH4: Decision Timer",
         type: 'interactive_choice',
         source_path: 'Slide_079.mp4',
-        interactive_data_key: 'rd2-ch4',
+        interactive_data_key: 'ch4',
         main_text: "CHALLENGE 4: Supply Chain Crisis",
         sub_text: "How will you handle the supply chain disruption?",
         timer_duration_seconds: 180,
@@ -850,7 +856,7 @@ export const allGameSlides: Slide[] = [
         title: "CH4 Option A Consequences",
         type: 'consequence_reveal',
         main_text: "Consequence for Option A",
-        sub_text: "New suppliers reduce costs but cause production issues",
+        sub_text: "New suppliers cause production issues",
         details: ["-250 Capacity", "+$50k Costs"],
         source_path: 'Slide_083.mp4',
         background_css: 'bg-gray-700'
@@ -861,8 +867,8 @@ export const allGameSlides: Slide[] = [
         title: "CH4 Option B Consequences",
         type: 'consequence_reveal',
         main_text: "Consequence for Option B",
-        sub_text: "Stockpiling helps but ties up capital",
-        details: ["+$150k Costs"],
+        sub_text: "Renegotiation helps, but costs still increase",
+        details: ["+$50k Costs"],
         source_path: 'Slide_084.mp4',
         background_css: 'bg-gray-700'
     },
@@ -872,8 +878,8 @@ export const allGameSlides: Slide[] = [
         title: "CH4 Option C Consequences",
         type: 'consequence_reveal',
         main_text: "Consequence for Option C",
-        sub_text: "Production delays impact capacity and orders",
-        details: ["-750 Capacity", "-500 Orders"],
+        sub_text: "Delays disrupt manufacturing",
+        details: ["-500 Capacity", "+$75k Costs"],
         source_path: 'Slide_085.mp4',
         background_css: 'bg-gray-700'
     },
@@ -888,7 +894,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 86,
         round_number: 2,
-        title: "CH5 Introduction",
+        title: "CH5: Capacity Crisis Intro",
         type: 'video',
         source_path: 'Slide_087.mp4',
         auto_advance_after_video: true
@@ -896,7 +902,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 87,
         round_number: 2,
-        title: "CH5: Sales Team Crisis",
+        title: "CH5: Capacity Crisis Setup",
         type: 'video',
         source_path: 'Slide_088.mp4',
         auto_advance_after_video: true
@@ -904,7 +910,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 88,
         round_number: 2,
-        title: "CH5 Sales Crisis Details",
+        title: "CH5: Option A",
         type: 'video',
         source_path: 'Slide_089.mp4',
         auto_advance_after_video: true
@@ -912,7 +918,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 89,
         round_number: 2,
-        title: "CH5 Options",
+        title: "CH5: Option B/C/D",
         type: 'video',
         source_path: 'Slide_090.mp4',
         auto_advance_after_video: true
@@ -923,9 +929,9 @@ export const allGameSlides: Slide[] = [
         title: "CH5 Decision Timer",
         type: 'interactive_choice',
         source_path: 'Slide_091.mp4',
-        interactive_data_key: 'rd2-ch5',
-        main_text: "CHALLENGE 5: Sales Team Crisis",
-        sub_text: "How will you handle the sales team situation?",
+        interactive_data_key: 'ch5',
+        main_text: "CHALLENGE 5: Capacity Crisis",
+        sub_text: "How will you meet the increased demand?",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
         host_alert: {
@@ -952,41 +958,44 @@ export const allGameSlides: Slide[] = [
     {
         id: 93,
         round_number: 2,
-        title: "CH5 Immunity Check",
-        type: 'video',
+        title: "CH5: Option A Consequences",
+        type: 'consequence_reveal',
+        main_text: "Consequence for Option A: Hire Staff",
+        sub_text: "New hires increase capacity and costs",
+        details: ["+1000 Capacity", "+$400k Costs", "Bonus: +500 Cap if invested in Employee Dev"],
         source_path: 'Slide_094.mp4',
-        auto_advance_after_video: true
+        background_css: 'bg-gray-700'
     },
     {
         id: 94,
         round_number: 2,
-        title: "CH5 Option A Consequences",
+        title: "CH5: Option B Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Fire and hire new team",
-        details: ["-500 Orders", "+$100k Costs"],
+        main_text: "Consequence for Option B: Hire Temps",
+        sub_text: "Temps are effective but costly short-term solution",
+        details: ["+1000 Capacity", "+$200k Costs", "Bonus: +500 Cap if invested in Employee Dev"],
         source_path: 'Slide_095.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 95,
         round_number: 2,
-        title: "CH5 Option B Consequences",
+        title: "CH5: Option C Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Increase commission rates",
-        details: ["+$75k Costs"],
+        main_text: "Consequence for Option C: Raise Prices",
+        sub_text: "Price increase impacts some orders",
+        details: ["+$50 ASP", "-250 Orders"],
         source_path: 'Slide_096.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 96,
         round_number: 2,
-        title: "CH5 Option C Consequences",
+        title: "CH5: Option D Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option C",
-        sub_text: "Do nothing and lose team",
-        details: ["-750 Orders"],
+        main_text: "Consequence for Option D: Do Nothing",
+        sub_text: "No changes to KPIs",
+        details: ["No impact to KPIs"],
         source_path: 'Slide_097.mp4',
         background_css: 'bg-gray-700'
     },
@@ -1001,7 +1010,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 98,
         round_number: 2,
-        title: "Impact Event #4",
+        title: "Year 4 Introduction",
         type: 'video',
         source_path: 'Slide_099.mp4',
         auto_advance_after_video: true
@@ -1009,7 +1018,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 99,
         round_number: 2,
-        title: "Impact Event #4 Details",
+        title: "CH6: News - Quality Crisis",
         type: 'video',
         source_path: 'Slide_100.mp4',
         auto_advance_after_video: true
@@ -1017,7 +1026,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 100,
         round_number: 2,
-        title: "Impact Event #4 Choice A",
+        title: "CH6: Quality Crisis Setup",
         type: 'video',
         source_path: 'Slide_101.mp4',
         auto_advance_after_video: true
@@ -1025,7 +1034,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 101,
         round_number: 2,
-        title: "Impact Event #4 Choice B",
+        title: "CH6: Option A",
         type: 'video',
         source_path: 'Slide_102.mp4',
         auto_advance_after_video: true
@@ -1033,19 +1042,15 @@ export const allGameSlides: Slide[] = [
     {
         id: 102,
         round_number: 2,
-        title: "Impact Event #4 Decision Timer",
-        type: 'interactive_choice',
+        title: "CH6: Option B",
+        type: 'video',
         source_path: 'Slide_103.mp4',
-        interactive_data_key: 'rd2-impact4',
-        main_text: "Impact Event #4: Quality Decision",
-        sub_text: "Choose your quality control approach",
-        timer_duration_seconds: 120,
-        background_css: 'bg-purple-900'
+        auto_advance_after_video: true
     },
     {
         id: 103,
         round_number: 2,
-        title: "Impact Event #4 Results",
+        title: "CH6: Option C",
         type: 'video',
         source_path: 'Slide_104.mp4',
         auto_advance_after_video: true
@@ -1053,74 +1058,20 @@ export const allGameSlides: Slide[] = [
     {
         id: 104,
         round_number: 2,
-        title: "Impact Event #4 Choice A Result",
-        type: 'consequence_reveal',
-        main_text: "Choice A: Full Inspection",
-        sub_text: "Higher costs but better quality",
-        details: ["+$100k Costs", "+$20 ASP"],
+        title: "CH6: Option D",
+        type: 'video',
         source_path: 'Slide_105.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 105,
         round_number: 2,
-        title: "Impact Event #4 Choice B Result",
-        type: 'consequence_reveal',
-        main_text: "Choice B: Spot Checks",
-        sub_text: "Lower costs but quality risks",
-        details: ["-250 Orders", "-$10 ASP"],
-        source_path: 'Slide_106.mp4',
-        background_css: 'bg-gray-700'
-    },
-    {
-        id: 106,
-        round_number: 2,
-        title: "Impact Event #4 Career Insight",
-        type: 'video',
-        source_path: 'Slide_107.mp4',
-        auto_advance_after_video: false
-    },
-    {
-        id: 107,
-        round_number: 2,
-        title: "Year 4 Introduction",
-        type: 'video',
-        source_path: 'Slide_108.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 108,
-        round_number: 2,
-        title: "CH6: Finance Discovery",
-        type: 'video',
-        source_path: 'Slide_109.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 109,
-        round_number: 2,
-        title: "CH6 Financial Crisis Details",
-        type: 'video',
-        source_path: 'Slide_110.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 110,
-        round_number: 2,
-        title: "CH6 Options",
-        type: 'video',
-        source_path: 'Slide_111.mp4',
-        auto_advance_after_video: true
-    },
-    {
-        id: 111,
-        round_number: 2,
-        title: "CH6 Decision Timer",
+        title: "CH6: Decision Timer",
         type: 'interactive_choice',
-        source_path: 'Slide_112.mp4',
-        interactive_data_key: 'rd2-ch6',
-        main_text: "CHALLENGE 6: Financial Crisis",
-        sub_text: "How will you handle the financial situation?",
+        source_path: 'Slide_106.mp4',
+        interactive_data_key: 'ch6',
+        main_text: "CHALLENGE 6: Quality Crisis",
+        sub_text: "How will you handle the defective products?",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
         host_alert: {
@@ -1129,17 +1080,77 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 112,
+        id: 106,
         round_number: 2,
         title: "CH6 Results",
         type: 'video',
-        source_path: 'Slide_113.mp4',
+        source_path: 'Slide_107.mp4',
         auto_advance_after_video: true
+    },
+    {
+        id: 107,
+        round_number: 2,
+        title: "CH6 Immunity Check",
+        type: 'video',
+        source_path: 'Slide_108.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 108,
+        round_number: 2,
+        title: "CH6: Option A Consequences",
+        type: 'consequence_reveal',
+        main_text: "Option A: Hire QC Expert",
+        sub_text: "Reactive hire is costly and slow",
+        details: ["-250 Capacity", "-250 Orders", "+$100k Costs", "-$30 ASP"],
+        source_path: 'Slide_109.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 109,
+        round_number: 2,
+        title: "CH6: Option B Consequences",
+        type: 'consequence_reveal',
+        main_text: "Option B: Engage PR",
+        sub_text: "Problem continues, brand damage worsens",
+        details: ["-250 Capacity", "-500 Orders", "+$150k Costs", "-$30 ASP"],
+        source_path: 'Slide_110.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 110,
+        round_number: 2,
+        title: "CH6: Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Option C: Do Both",
+        sub_text: "Effective but expensive solution",
+        details: ["-250 Capacity", "+250 Orders", "+$125k Costs"],
+        source_path: 'Slide_111.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 111,
+        round_number: 2,
+        title: "CH6: Option D Consequences",
+        type: 'consequence_reveal',
+        main_text: "Option D: Do Nothing",
+        sub_text: "Brand reputation is severely damaged",
+        details: ["-250 Capacity", "-750 Orders", "+$75k Costs", "-$50 ASP"],
+        source_path: 'Slide_112.mp4',
+        background_css: 'bg-gray-700'
+    },
+    {
+        id: 112,
+        round_number: 2,
+        title: "CH6 Career Insight",
+        type: 'video',
+        source_path: 'Slide_113.mp4',
+        auto_advance_after_video: false
     },
     {
         id: 113,
         round_number: 2,
-        title: "CH6 Consequences Intro",
+        title: "CH7: Competition Challenge Setup",
         type: 'video',
         source_path: 'Slide_114.mp4',
         auto_advance_after_video: true
@@ -1147,56 +1158,55 @@ export const allGameSlides: Slide[] = [
     {
         id: 114,
         round_number: 2,
-        title: "CH6 Option A Consequences",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Immediate layoffs impact",
-        details: ["-750 Capacity", "-250 Orders", "-$50k Costs"],
+        title: "CH7: Option A",
+        type: 'video',
         source_path: 'Slide_115.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 115,
         round_number: 2,
-        title: "CH6 Option B Consequences",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Restructure with costs",
-        details: ["-250 Capacity", "+$50k Costs"],
+        title: "CH7: Option B",
+        type: 'video',
         source_path: 'Slide_116.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 116,
         round_number: 2,
-        title: "CH6 Option C Consequences",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option C",
-        sub_text: "No action consequences",
-        details: ["No immediate impact"],
+        title: "CH7: Option C",
+        type: 'video',
         source_path: 'Slide_117.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 117,
         round_number: 2,
-        title: "CH6 Career Insight",
+        title: "CH7: Option D",
         type: 'video',
         source_path: 'Slide_118.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 118,
         round_number: 2,
-        title: "CH7: Competition Challenge",
-        type: 'video',
+        title: "CH7: Decision Timer",
+        type: 'interactive_choice',
         source_path: 'Slide_119.mp4',
-        auto_advance_after_video: true
+        interactive_data_key: 'ch7',
+        main_text: "CHALLENGE 7: Competition from Karit Co.",
+        sub_text: "How will you respond to the new competitor?",
+        timer_duration_seconds: 180,
+        background_css: 'bg-purple-900',
+        host_alert: {
+            title: "CH7 Closed",
+            message: "Challenge 7 decisions are in. Click OK for results."
+        }
     },
     {
         id: 119,
         round_number: 2,
-        title: "CH7 Competition Details",
+        title: "CH7 Results",
         type: 'video',
         source_path: 'Slide_120.mp4',
         auto_advance_after_video: true
@@ -1204,10 +1214,10 @@ export const allGameSlides: Slide[] = [
     {
         id: 120,
         round_number: 2,
-        title: "CH7 Option A Consequences",
+        title: "CH7: Option A Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Price reduction impact",
+        main_text: "Option A: Drop Prices",
+        sub_text: "Helps protect some orders but hurts margins",
         details: ["-250 Orders", "-$20 ASP"],
         source_path: 'Slide_121.mp4',
         background_css: 'bg-gray-700'
@@ -1215,10 +1225,10 @@ export const allGameSlides: Slide[] = [
     {
         id: 121,
         round_number: 2,
-        title: "CH7 Option B Consequences",
+        title: "CH7: Option B Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Marketing increase impact",
+        main_text: "Option B: Increase Marketing",
+        sub_text: "Maintains some orders but increases costs",
         details: ["-250 Orders", "+$25k Costs"],
         source_path: 'Slide_122.mp4',
         background_css: 'bg-gray-700'
@@ -1226,10 +1236,10 @@ export const allGameSlides: Slide[] = [
     {
         id: 122,
         round_number: 2,
-        title: "CH7 Option C Consequences",
+        title: "CH7: Option C Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option C",
-        sub_text: "Customization impact",
+        main_text: "Option C: Add Customization",
+        sub_text: "Adds value but slows production",
         details: ["-500 Capacity", "+$25k Costs", "+$10 ASP"],
         source_path: 'Slide_123.mp4',
         background_css: 'bg-gray-700'
@@ -1237,10 +1247,10 @@ export const allGameSlides: Slide[] = [
     {
         id: 123,
         round_number: 2,
-        title: "CH7 Option D Consequences",
+        title: "CH7: Option D Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option D",
-        sub_text: "No action impact",
+        main_text: "Option D: Do Nothing",
+        sub_text: "Demand takes a big hit",
         details: ["-500 Orders"],
         source_path: 'Slide_124.mp4',
         background_css: 'bg-gray-700'
@@ -1317,8 +1327,8 @@ export const allGameSlides: Slide[] = [
         title: "Payoff: #6 Maximize Boutique",
         type: 'payoff_reveal',
         main_text: "RD-2 Payoff: Maximize Boutique Sales",
-        sub_text: "Impact: +1000 Orders, +$40 ASP",
-        details: ["+1000 Orders", "+$40 ASP"],
+        sub_text: "Impact: +2000 Orders, +$40 ASP",
+        details: ["+2000 Orders", "+$40 ASP"],
         source_path: 'Slide_132.mp4'
     },
     {
@@ -1367,14 +1377,14 @@ export const allGameSlides: Slide[] = [
         title: "Payoff: #11 Automation",
         type: 'payoff_reveal',
         main_text: "RD-2 Payoff: Automation & Co-bots",
-        sub_text: "Impact: +750 Capacity, -$100k Costs",
-        details: ["+750 Capacity", "-$100k Costs"],
+        sub_text: "Impact: +1500 Capacity, +$150k Costs",
+        details: ["+1500 Capacity", "+$150k Costs"],
         source_path: 'Slide_137.mp4'
     },
     {
         id: 137,
         round_number: 2,
-        title: "Big Box Combined Bonus",
+        title: "Production Efficiency Bonus",
         type: 'video',
         source_path: 'Slide_138.mp4',
         auto_advance_after_video: true
@@ -1382,12 +1392,10 @@ export const allGameSlides: Slide[] = [
     {
         id: 138,
         round_number: 2,
-        title: "Big Box Bonus Impact",
-        type: 'payoff_reveal',
-        main_text: "Big Box Supply Chain Bonus",
-        sub_text: "If you invested in both Supply Chain & Big Box",
-        details: ["+1000 Orders", "-$50k Costs (penalty savings)"],
-        source_path: 'Slide_139.mp4'
+        title: "Supply Chain Bonus Impact",
+        type: 'video',
+        source_path: 'Slide_139.mp4',
+        auto_advance_after_video: true,
     },
     {
         id: 139,
@@ -1413,13 +1421,12 @@ export const allGameSlides: Slide[] = [
             message: "Display the Round 2 leaderboard to teams."
         }
     },
-    // Add decimal slides for Round 2 leaderboards
     {
         id: 140.1,
         round_number: 2,
         title: "RD-2 Leaderboard: Capacity & Orders",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_cap_ord',
+        interactive_data_key: 'rd2_leaderboard_capord',
         main_text: "Round 2 Leaderboard: Capacity & Orders",
         sub_text: "Production capability and market demand after Round 2."
     },
@@ -1521,7 +1528,11 @@ export const allGameSlides: Slide[] = [
         title: "Double Down Introduction",
         type: 'video',
         source_path: 'Slide_145.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Double Down Decision",
+            message: "Teams have 5 minutes to decide on their Double Down strategy. This is their only chance."
+        }
     },
     {
         id: 145,
@@ -1534,7 +1545,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 146,
         round_number: 3,
-        title: "Moon Olympics News",
+        title: "CH8: News - Cyber Attack",
         type: 'video',
         source_path: 'Slide_147.mp4',
         auto_advance_after_video: true
@@ -1542,7 +1553,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 147,
         round_number: 3,
-        title: "CH8: Sports Licensing",
+        title: "CH8: Cyber Attack Setup",
         type: 'video',
         source_path: 'Slide_148.mp4',
         auto_advance_after_video: true
@@ -1550,7 +1561,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 148,
         round_number: 3,
-        title: "CH8 Licensing Details",
+        title: "CH8: Option A",
         type: 'video',
         source_path: 'Slide_149.mp4',
         auto_advance_after_video: true
@@ -1558,7 +1569,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 149,
         round_number: 3,
-        title: "CH8 Options",
+        title: "CH8: Option B",
         type: 'video',
         source_path: 'Slide_150.mp4',
         auto_advance_after_video: true
@@ -1566,12 +1577,20 @@ export const allGameSlides: Slide[] = [
     {
         id: 150,
         round_number: 3,
-        title: "CH8 Decision Timer",
-        type: 'interactive_choice',
+        title: "CH8: Option C",
+        type: 'video',
         source_path: 'Slide_151.mp4',
-        interactive_data_key: 'rd3-ch8',
-        main_text: "CHALLENGE 8: Olympic Licensing Opportunity",
-        sub_text: "Will you pursue the licensing deal?",
+        auto_advance_after_video: true
+    },
+    {
+        id: 151,
+        round_number: 3,
+        title: "CH8: Decision Timer",
+        type: 'interactive_choice',
+        source_path: 'Slide_152.mp4',
+        interactive_data_key: 'ch8',
+        main_text: "CHALLENGE 8: Cyber Attack",
+        sub_text: "How will you respond to the ransomware attack?",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
         host_alert: {
@@ -1580,17 +1599,9 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 151,
-        round_number: 3,
-        title: "CH8 Results",
-        type: 'video',
-        source_path: 'Slide_152.mp4',
-        auto_advance_after_video: true
-    },
-    {
         id: 152,
         round_number: 3,
-        title: "CH8 Consequences Intro",
+        title: "CH8 Results & Consequences Intro",
         type: 'video',
         source_path: 'Slide_153.mp4',
         auto_advance_after_video: true
@@ -1598,56 +1609,56 @@ export const allGameSlides: Slide[] = [
     {
         id: 153,
         round_number: 3,
-        title: "CH8 Option A Consequences",
-        type: 'consequence_reveal',
-        main_text: "Consequence for Option A",
-        sub_text: "Full licensing deal impact",
-        details: ["+2000 Orders", "+$150k Costs", "+$40 ASP"],
+        title: "CH8 Immunity Check",
+        type: 'video',
         source_path: 'Slide_154.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 154,
         round_number: 3,
-        title: "CH8 Option B Consequences",
+        title: "CH8: Option A Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option B",
-        sub_text: "Partial licensing impact",
-        details: ["+1000 Orders", "+$75k Costs", "+$20 ASP"],
+        main_text: "Option A: Pay, Don't Inform",
+        sub_text: "Systems restored, but you dodged a bullet...",
+        details: ["-250 Capacity", "+$100k Costs", "+1M SHAME"],
         source_path: 'Slide_155.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 155,
         round_number: 3,
-        title: "CH8 Option C Consequences",
+        title: "CH8: Option B Consequences",
         type: 'consequence_reveal',
-        main_text: "Consequence for Option C",
-        sub_text: "No licensing impact",
-        details: ["No impact to KPIs"],
+        main_text: "Option B: Pay & Inform",
+        sub_text: "Customers appreciate honesty, systems restored",
+        details: ["-250 Capacity", "+$100k Costs"],
         source_path: 'Slide_156.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 156,
         round_number: 3,
-        title: "CH8 Career Insight",
-        type: 'video',
+        title: "CH8: Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Option C: Don't Pay, Rebuild",
+        sub_text: "Rebuilding is slow and customers are furious",
+        details: ["-500 Capacity", "-500 Orders", "+$75k Costs"],
         source_path: 'Slide_157.mp4',
-        auto_advance_after_video: false
+        background_css: 'bg-gray-700'
     },
     {
         id: 157,
         round_number: 3,
-        title: "Impact Event #5",
+        title: "CH8 Career Insight",
         type: 'video',
         source_path: 'Slide_158.mp4',
-        auto_advance_after_video: true
+        auto_advance_after_video: false
     },
     {
         id: 158,
         round_number: 3,
-        title: "Impact Event #5: System Failure",
+        title: "Year 6 Introduction & Challenge Setup",
         type: 'video',
         source_path: 'Slide_159.mp4',
         auto_advance_after_video: true
@@ -1655,7 +1666,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 159,
         round_number: 3,
-        title: "Impact Event #5 Details",
+        title: "CH9: ERP Crisis Details",
         type: 'video',
         source_path: 'Slide_160.mp4',
         auto_advance_after_video: true
@@ -1663,7 +1674,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 160,
         round_number: 3,
-        title: "Impact Event #5 Option A",
+        title: "CH9: Option A",
         type: 'video',
         source_path: 'Slide_161.mp4',
         auto_advance_after_video: true
@@ -1671,7 +1682,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 161,
         round_number: 3,
-        title: "Impact Event #5 Option B",
+        title: "CH9: Option B",
         type: 'video',
         source_path: 'Slide_162.mp4',
         auto_advance_after_video: true
@@ -1679,7 +1690,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 162,
         round_number: 3,
-        title: "Impact Event #5 Option C",
+        title: "CH9: Option C",
         type: 'video',
         source_path: 'Slide_163.mp4',
         auto_advance_after_video: true
@@ -1687,19 +1698,23 @@ export const allGameSlides: Slide[] = [
     {
         id: 163,
         round_number: 3,
-        title: "Impact Event #5 Decision Timer",
+        title: "CH9: Decision Timer",
         type: 'interactive_choice',
         source_path: 'Slide_164.mp4',
-        interactive_data_key: 'rd3-impact5',
-        main_text: "Impact Event #5: ERP System Crisis",
-        sub_text: "How will you handle the system failure?",
+        interactive_data_key: 'ch9',
+        main_text: "CHALLENGE 9: ERP System Crisis",
+        sub_text: "How will you handle the system failures?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900'
+        background_css: 'bg-purple-900',
+        host_alert: {
+            title: "CH9 Closed",
+            message: "Challenge 9 decisions are in. Click OK for results."
+        }
     },
     {
         id: 164,
         round_number: 3,
-        title: "Impact Event #5 Results",
+        title: "CH9 Results",
         type: 'video',
         source_path: 'Slide_165.mp4',
         auto_advance_after_video: true
@@ -1707,40 +1722,40 @@ export const allGameSlides: Slide[] = [
     {
         id: 165,
         round_number: 3,
-        title: "Impact Event #5 Option A Result",
+        title: "CH9: Option A Consequences",
         type: 'consequence_reveal',
         main_text: "Option A: Emergency ERP Implementation",
-        sub_text: "High cost but prevents disaster",
-        details: ["+$150k Costs"],
+        sub_text: "Rushed implementation costs orders & capacity",
+        details: ["-250 Capacity", "+$150k Costs"],
         source_path: 'Slide_166.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 166,
         round_number: 3,
-        title: "Impact Event #5 Option B Result",
+        title: "CH9: Option B Consequences",
         type: 'consequence_reveal',
-        main_text: "Option B: Manual Systems",
-        sub_text: "Moderate cost with efficiency loss",
-        details: ["-500 Capacity", "+$50k Costs"],
+        main_text: "Option B: Rely on Spreadsheets",
+        sub_text: "Firefighting is expensive and you lose orders",
+        details: ["-1000 Orders", "+$50k Costs"],
         source_path: 'Slide_167.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 167,
         round_number: 3,
-        title: "Impact Event #5 Option C Result",
+        title: "CH9: Option C Consequences",
         type: 'consequence_reveal',
-        main_text: "Option C: ERP Investment Protection",
+        main_text: "Option C: ERP Investment Immunity",
         sub_text: "Your foresight paid off!",
-        details: ["No impact - ERP investment protected you"],
+        details: ["+500 Orders (from competitors' failures)"],
         source_path: 'Slide_168.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 168,
         round_number: 3,
-        title: "Impact Event #5 Career Insight",
+        title: "CH9 Career Insight",
         type: 'video',
         source_path: 'Slide_169.mp4',
         auto_advance_after_video: false
@@ -1850,7 +1865,7 @@ export const allGameSlides: Slide[] = [
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Product Line Expansion",
         sub_text: "Diversified product portfolio",
-        details: ["+2000 Capacity", "+2000 Orders", "+$100k Costs", "-$40 ASP"],
+        details: ["+4000 Capacity", "+4000 Orders", "+$200k Costs", "-$80 ASP"],
         source_path: 'Slide_180.mp4'
     },
     {
@@ -1860,44 +1875,36 @@ export const allGameSlides: Slide[] = [
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Automation & Co-bots",
         sub_text: "Full automation benefits",
-        details: ["+1500 Capacity", "-$200k Costs"],
+        details: ["+3750 Capacity", "+$150k Costs"],
         source_path: 'Slide_181.mp4'
     },
     {
         id: 181,
         round_number: 3,
-        title: "Double Down Decision",
-        type: 'interactive_double_down_select',
+        title: "Production Efficiency Bonus (RD3)",
+        type: 'video',
         source_path: 'Slide_182.mp4',
-        interactive_data_key: 'rd3-double-down',
-        main_text: "DOUBLE DOWN DECISION",
-        sub_text: "Will you risk it all for double rewards?",
-        timer_duration_seconds: 300,
-        background_css: 'bg-red-700',
-        host_alert: {
-            title: "Double Down Period",
-            message: "Teams have 5 minutes to decide on Double Down strategy."
-        }
+        auto_advance_after_video: true
     },
     {
         id: 182,
         round_number: 3,
-        title: "Double Down Dice Roll",
+        title: "Supply Chain Bonus Impact (RD3)",
         type: 'video',
         source_path: 'Slide_183.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 183,
+        round_number: 3,
+        title: "Double Down Payoff",
+        type: 'video',
+        source_path: 'Slide_184.mp4',
         auto_advance_after_video: false,
         host_alert: {
             title: "Roll the Dice!",
             message: "Have teams who chose Double Down roll their dice now."
         }
-    },
-    {
-        id: 183,
-        round_number: 3,
-        title: "Double Down Results",
-        type: 'video',
-        source_path: 'Slide_184.mp4',
-        auto_advance_after_video: true
     },
     {
         id: 184,
@@ -2011,13 +2018,12 @@ export const allGameSlides: Slide[] = [
             message: "Display the final leaderboard and declare the winners!"
         }
     },
-    // Add decimal slides for Round 3 final leaderboards
     {
         id: 196.1,
         round_number: 3,
         title: "Final Leaderboard: Capacity & Orders",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd3_leaderboard_cap_ord',
+        interactive_data_key: 'rd3_leaderboard_capord',
         main_text: "Final Leaderboard: Capacity & Orders",
         sub_text: "Final comparison of production capability and market demand."
     },

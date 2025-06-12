@@ -2,20 +2,17 @@
 import React, {useState, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
 import {AlertTriangle, Smartphone, Clock, RefreshCw, CheckCircle, Bug} from 'lucide-react';
-import {useSupabaseConnection} from '@shared/services/supabase';
 import {GameSessionManager} from '@core/game/GameSessionManager';
 import {useTeamGameState} from './hooks/useTeamGameState';
 import TeamLogin from './components/TeamLogin/TeamLogin';
 import TeamLogout from './components/TeamLogin/TeamLogout';
 import TeamStatusDisplay from './components/GameStatus/TeamStatus';
 import DecisionModeContainer from './components/InteractionPanel/DecisionContainer';
-import ConnectionStatus from './components/GameStatus/ConnectionStatus';
 
 type SessionStatus = 'loading' | 'draft' | 'active' | 'notfound' | 'error';
 
 const TeamApp: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
-    const connection = useSupabaseConnection();
 
     useEffect(() => {
         document.title = "Ready or Not - Team";
@@ -78,33 +75,13 @@ const TeamApp: React.FC = () => {
     };
 
     const handleLogout = () => {
+        if (sessionId) {
+            localStorage.removeItem(`ron_teamId_${sessionId}`);
+            localStorage.removeItem(`ron_teamName_${sessionId}`);
+        }
         setLoggedInTeamId(null);
         setLoggedInTeamName(null);
     };
-
-    if (connection.status === 'error' && !connection.isConnected) {
-        return (
-            <div className="min-h-screen bg-red-900 text-white flex flex-col items-center justify-center p-4">
-                <AlertTriangle size={48} className="mb-4 text-yellow-300"/>
-                <h1 className="text-2xl font-bold mb-2 text-center">Connection Problem</h1>
-                <p className="text-center mb-4 px-4">{connection.error}</p>
-                <div className="flex gap-3">
-                    <button
-                        onClick={connection.forceReconnect}
-                        className="px-6 py-3 bg-yellow-400 text-red-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors"
-                    >
-                        Reconnect
-                    </button>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-500 transition-colors"
-                    >
-                        Reload Page
-                    </button>
-                </div>
-            </div>
-        );
-    }
 
     if (sessionStatus === 'notfound') {
         return (
@@ -214,7 +191,6 @@ const TeamApp: React.FC = () => {
                         <div>Current Slide ID: {teamGameState.currentActiveSlide?.id || 'None'}</div>
                         <div>Slide Type: {teamGameState.currentActiveSlide?.type || 'None'}</div>
                         <div>Is Decision Time: {teamGameState.isDecisionTime ? 'YES' : 'NO'}</div>
-                        <div>Timer: {teamGameState.timeRemainingSeconds ?? 'N/A'}</div>
                     </div>
                 </div>
             )}
@@ -225,7 +201,6 @@ const TeamApp: React.FC = () => {
                 {teamGameState.isDecisionTime ? (
                     <DecisionModeContainer sessionId={sessionId!} teamId={loggedInTeamId}
                                            currentSlide={teamGameState.currentActiveSlide}
-                                           timeRemainingSeconds={teamGameState.timeRemainingSeconds}
                                            gameStructure={teamGameState.gameStructure}/>
                 ) : (
                     <div className="h-full overflow-y-auto">
@@ -251,7 +226,6 @@ const TeamApp: React.FC = () => {
                     </div>
                 )}
             </div>
-            <ConnectionStatus connection={connection}/>
         </div>
     );
 };

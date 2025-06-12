@@ -1,4 +1,4 @@
-// src/views/team/hooks/useTeamGameState.ts - REFACTOR: Simplified to rely on slide data
+// src/views/team/hooks/useTeamGameState.ts
 import {useState, useEffect, useMemo} from 'react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {useRealtimeSubscription} from '@shared/services/supabase';
@@ -16,8 +16,6 @@ interface useTeamGameStateProps {
 interface useTeamGameStateReturn {
     currentActiveSlide: Slide | null;
     isDecisionTime: boolean;
-    decisionPhaseTimerEndTime: number | undefined;
-    timeRemainingSeconds: number | undefined;
     currentTeamKpis: TeamRoundData | null;
     isLoadingKpis: boolean;
     gameStructure: GameStructure;
@@ -27,8 +25,6 @@ interface useTeamGameStateReturn {
 export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStateProps): useTeamGameStateReturn => {
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
     const [isDecisionTime, setIsDecisionTime] = useState<boolean>(false);
-    const [decisionPhaseTimerEndTime, setDecisionPhaseTimerEndTime] = useState<number | undefined>(undefined);
-    const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | undefined>(undefined);
     const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
@@ -67,7 +63,6 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'team');
         setConnectionStatus('connecting');
 
-        // Host connection check
         let connectionTimeout: NodeJS.Timeout | null = null;
         const setConnected = () => {
             if (connectionStatus !== 'connected') {
@@ -77,7 +72,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             connectionTimeout = setTimeout(() => {
                 setConnectionStatus('disconnected');
                 console.warn('[useTeamGameState] Host connection timed out.');
-            }, 15000); // 15s timeout
+            }, 15000);
         };
 
         const unsubscribeSlideUpdates = broadcastManager.onSlideUpdate((slide: Slide) => {
@@ -86,19 +81,9 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             setConnected();
 
             const isInteractive = slide.type.startsWith('interactive_') && !!slide.interactive_data_key;
-            console.log(`[useTeamGameState] Slide ${slide.id} is interactive: ${isInteractive}`);
             setIsDecisionTime(isInteractive);
-
-            if (isInteractive && slide.timer_duration_seconds) {
-                const newEndTime = Date.now() + slide.timer_duration_seconds * 1000;
-                setDecisionPhaseTimerEndTime(newEndTime);
-                console.log(`[useTeamGameState] Timer set for ${slide.timer_duration_seconds}s. Ends at: ${new Date(newEndTime).toLocaleTimeString()}`);
-            } else {
-                setDecisionPhaseTimerEndTime(undefined);
-            }
         });
 
-        // Also listen for host video commands to keep the connection alive
         const unsubscribeCommands = broadcastManager.onHostCommand(() => {
             setConnected();
         });
@@ -110,31 +95,9 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         };
     }, [sessionId, connectionStatus]);
 
-    useEffect(() => {
-        let timerInterval: NodeJS.Timeout | undefined;
-        if (isDecisionTime && decisionPhaseTimerEndTime && decisionPhaseTimerEndTime > Date.now()) {
-            const updateTimer = () => {
-                const remaining = Math.round((decisionPhaseTimerEndTime - Date.now()) / 1000);
-                setTimeRemainingSeconds(Math.max(0, remaining));
-                if (remaining <= 0) {
-                    setIsDecisionTime(false);
-                    setDecisionPhaseTimerEndTime(undefined);
-                    if (timerInterval) clearInterval(timerInterval);
-                }
-            };
-            updateTimer();
-            timerInterval = setInterval(updateTimer, 1000);
-        } else {
-            setTimeRemainingSeconds(undefined);
-        }
-        return () => clearInterval(timerInterval);
-    }, [isDecisionTime, decisionPhaseTimerEndTime]);
-
     return {
         currentActiveSlide,
         isDecisionTime,
-        decisionPhaseTimerEndTime,
-        timeRemainingSeconds,
         currentTeamKpis,
         isLoadingKpis,
         gameStructure,

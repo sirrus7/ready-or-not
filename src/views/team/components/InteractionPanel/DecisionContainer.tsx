@@ -7,7 +7,6 @@ interface DecisionModeContainerProps {
     sessionId: string;
     teamId: string;
     currentSlide: Slide | null;
-    timeRemainingSeconds: number | undefined;
     gameStructure: GameStructure;
 }
 
@@ -15,7 +14,6 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                                                                          sessionId,
                                                                          teamId,
                                                                          currentSlide,
-                                                                         timeRemainingSeconds,
                                                                          gameStructure
                                                                      }) => {
     if (!currentSlide) {
@@ -52,7 +50,6 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                 challengeOptions={phaseData.challengeOptions}
                 availableRd3Investments={phaseData.rd3Investments}
                 isDecisionTime={true}
-                timeRemainingSeconds={timeRemainingSeconds}
                 gameStructure={gameStructure}
             />
         </div>
