@@ -1,45 +1,34 @@
-// src/views/host/components/TeamMonitor.tsx - REFACTOR: Removed redundant real-time logic and unused variables.
+// src/views/host/components/TeamMonitor.tsx
 import React, {useState, useMemo, useEffect} from 'react';
 import {useGameContext} from '@app/providers/GameProvider.tsx';
 import {TeamDecision} from '@shared/types';
 import {CheckCircle2, Hourglass, XCircle, RotateCcw, Info, Clock} from 'lucide-react';
-import {useSupabaseConnection} from '@shared/services/supabase';
 import {useSupabaseMutation} from '@shared/hooks/supabase';
 import Modal from '@shared/components/UI/Modal';
 
 const formatCurrency = (value: number): string => {
-    if (Math.abs(value) >= 1_000_000) {
-        return `$${(value / 1_000_000).toFixed(1)}M`;
-    }
-    if (Math.abs(value) >= 1_000) {
-        return `$${(value / 1_000).toFixed(0)}K`;
-    }
+    if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
     return `$${value.toFixed(0)}`;
 };
 
 const TeamMonitor: React.FC = () => {
-    const {
-        state,
-        currentSlideData,
-        resetTeamDecision,
-        setAllTeamsSubmittedCurrentInteractivePhase
-    } = useGameContext();
+    const {state, currentSlideData, resetTeamDecision, setAllTeamsSubmittedCurrentInteractivePhase} = useGameContext();
     const {teams, teamDecisions, gameStructure} = state;
     const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
     const [teamToReset, setTeamToReset] = useState<{ id: string, name: string } | null>(null);
-    const connection = useSupabaseConnection();
+
     const decisionKey = currentSlideData?.interactive_data_key;
+
     const submissionStats = useMemo(() => {
         if (!decisionKey || teams.length === 0) {
-            return {submitted: 0, total: teams.length, allSubmitted: false, submittedTeams: []};
+            return {submitted: 0, total: teams.length, allSubmitted: false};
         }
-        const submittedTeams = teams.filter(team => teamDecisions[team.id]?.[decisionKey]?.submitted_at);
-        const allSubmitted = submittedTeams.length === teams.length && teams.length > 0;
+        const submittedCount = teams.filter(team => teamDecisions[team.id]?.[decisionKey]?.submitted_at).length;
         return {
-            submitted: submittedTeams.length,
+            submitted: submittedCount,
             total: teams.length,
-            allSubmitted,
-            submittedTeams: submittedTeams.map(t => t.name)
+            allSubmitted: submittedCount === teams.length && teams.length > 0,
         };
     }, [teams, teamDecisions, decisionKey]);
 
@@ -49,7 +38,6 @@ const TeamMonitor: React.FC = () => {
 
     const formatSelection = (decision?: TeamDecision): string => {
         if (!decision || !currentSlideData || !gameStructure || !decisionKey) return 'Pending...';
-
         switch (currentSlideData.type) {
             case 'interactive_invest':
                 const selectedIds = decision.selected_investment_ids || [];
@@ -71,8 +59,6 @@ const TeamMonitor: React.FC = () => {
 
     const {execute: executeReset, isLoading: isResetting, error: resetError} = useSupabaseMutation(
         async (data: { teamId: string, decisionKey: string }) => {
-            // REFACTOR: This now just calls the function from the context.
-            // The context handles the DB call and the data refetch.
             await resetTeamDecision(data.teamId, data.decisionKey);
         }
     );
@@ -101,17 +87,10 @@ const TeamMonitor: React.FC = () => {
     return (
         <>
             <div className="p-3 md:p-4">
-                <div className="flex justify-between items-center mb-3">
-                    <div>
-                        <h3 className="text-base md:text-lg font-semibold text-gray-800 flex items-center gap-2">
-                            Team Submissions: <span className="text-blue-600">{currentSlideData.title}</span>
-                        </h3>
-                        {/* REFACTOR: Removed lastUpdateTime and redundant phase info */}
-                        <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
-                            {!connection.isConnected &&
-                                <span className="text-red-600 font-semibold">⚠ Disconnected</span>}
-                        </div>
-                    </div>
+                <div className="flex justify-between items-start mb-3">
+                    <h3 className="text-base md:text-lg font-semibold text-gray-800 flex items-center gap-2">
+                        Team Submissions: <span className="text-blue-600">{currentSlideData.title}</span>
+                    </h3>
                     <div className="text-right">
                         <div
                             className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${submissionStats.allSubmitted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>

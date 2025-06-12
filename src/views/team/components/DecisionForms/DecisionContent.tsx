@@ -38,7 +38,8 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
         case 'interactive_choice':
             return <ChoicePanel challengeOptions={challengeOptions}
                                 selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
-                                onChallengeSelect={decisionActions.handleChallengeSelect} currentPhase={currentSlide}
+                                onChallengeSelect={decisionActions.handleChallengeSelect}
+                                currentSlide={currentSlide}
                                 isSubmitting={isSubmitting}/>;
         case 'interactive_double_down_prompt':
             return <DoubleDownPromptPanel challengeOptions={challengeOptions}

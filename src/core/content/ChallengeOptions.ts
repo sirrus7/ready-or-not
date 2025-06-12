@@ -32,181 +32,170 @@ export const allChallengeOptionsData: Record<string, ChallengeOption[]> = {
     'ch2': [
         {
             id: "A",
-            text: "Raise prices 2% to pass the entire tax thru to customers. This would raise ASP by $20 (from $1000 to $1020).",
+            text: "Raise prices 2% to pass the entire tax thru to customers. This would raise ASP by $20, but also push average prices of ALU boards over $1,000.",
             estimated_cost: 0,
-            immediate_kpi_impact_preview: "+$20 ASP, -250 Orders",
             is_default_choice: false
         },
         {
             id: "B",
             text: "Increase annual marketing budget by $25K to increase demand. If successful, this could result in 500 more Orders each year.",
             estimated_cost: 25000,
-            immediate_kpi_impact_preview: "+500 Orders, +$25k Costs",
             is_default_choice: false
         },
         {
             id: "C",
-            text: "Enact cost cutting measures like ending free coffee and snacks, etc. Estimated savings are $25,000.",
-            estimated_cost: -25000,
-            immediate_kpi_impact_preview: "-$25k Costs, -250 Capacity",
+            text: "Enact cost cutting measures like ending free coffee and snacks, etc. Estimated savings are $50,000.",
+            estimated_cost: -50000,
             is_default_choice: false
         },
         {
             id: "D",
-            text: "Do Nothing. Maintain prices and current marketing budget and absorb the tax.",
+            text: "Do Nothing. Maintain prices and current marketing budget and take the margin hit.",
             estimated_cost: 0,
-            immediate_kpi_impact_preview: "+$50k Costs (Tax)",
             is_default_choice: true
         },
     ],
     'ch3': [
         {
             id: "A",
-            text: "Lay-off 2 salaried, 4 hourly. Reduce CAP by 1250, Costs by $300K.",
+            text: "Lay-off 2 salaried, 4 hourly employees and cut overtime and temporary workers to reduce payroll costs. This should reduce COSTS by -$300K and CAP by 1250.",
             estimated_cost: -300000,
-            immediate_kpi_impact_preview: "-1250 CAP, -$300k Costs",
             is_default_choice: false
         },
         {
             id: "B",
-            text: "Furlough/Workshare. Reduce CAP by 1000, Costs by $200K.",
+            text: "Furlough/Workshare. Eliminate temp & overtime work, cut salaries by 10% & apply to the State Employment Dept’s Workshare Program. This should reduce COSTS by -$200K and CAP by -1000.",
             estimated_cost: -200000,
-            immediate_kpi_impact_preview: "-1000 CAP, -$200k Costs",
             is_default_choice: false
         },
         {
             id: "C",
-            text: "Maintain headcount, cut OT/Temps. Reduce CAP by 500, Costs by $100K.",
+            text: "Maintain current headcount but cut overtime and temp workers. This should reduce COSTS by -$100K and CAP by -500.",
             estimated_cost: -100000,
-            immediate_kpi_impact_preview: "-500 CAP, -$100k Costs",
             is_default_choice: false
         },
         {
             id: "D",
-            text: "Do Nothing. Lose 1000 Orders and 1000 Capacity. Costs increase $25k.",
-            estimated_cost: 25000,
-            immediate_kpi_impact_preview: "-1000 Orders, -1000 CAP, +$25k Costs",
+            text: "Do Nothing. The cash flow crisis will resolve itself but not without consequences.",
+            estimated_cost: 0,
             is_default_choice: true
         },
     ],
     'ch4': [
         {
             id: "A",
-            text: "Find alternative suppliers quickly at higher cost to maintain production.",
-            estimated_cost: 100000,
-            immediate_kpi_impact_preview: "+$100k Costs, Maintain Production",
+            text: "Find more reliable international and domestic suppliers from companies with lower prices. This is expected to increase your materials cost by only 5-10% and avoid impacts to CAP.",
             is_default_choice: false
         },
         {
             id: "B",
-            text: "Negotiate with existing suppliers for partial delivery and adjust production schedule.",
-            estimated_cost: 50000,
-            immediate_kpi_impact_preview: "-500 Capacity, +$50k Costs",
+            text: "Attempt to renegotiate prices and payment terms with current suppliers, offering to continue buying from them at 10% higher prices in exchange for 45-day payment terms and smaller, more frequent deliveries.",
             is_default_choice: false
         },
         {
             id: "C",
-            text: "Temporarily halt production and wait for supply chain to normalize.",
-            estimated_cost: 0,
-            immediate_kpi_impact_preview: "-1000 Capacity, -500 Orders",
-            is_default_choice: false
-        },
-        {
-            id: "D",
-            text: "Do nothing and hope the disruption resolves quickly.",
-            estimated_cost: 0,
-            immediate_kpi_impact_preview: "Severe capacity and order impacts",
+            text: "Stick to your current supply chain plan and ride out the short-term disruptions.",
             is_default_choice: true
-        }
+        },
     ],
     'ch5': [
         {
             id: "A",
-            text: "Negotiate with union representatives and meet their demands.",
-            estimated_cost: 200000,
-            immediate_kpi_impact_preview: "+$200k Costs, Resolve Strike",
+            text: "Hire a manager, 5 additional hourly employees, and increase overtime. Estimated impact: +$350k COST, +1,000 to +1,500 CAP.",
             is_default_choice: false
         },
         {
             id: "B",
-            text: "Hire temporary replacement workers during the strike.",
-            estimated_cost: 150000,
-            immediate_kpi_impact_preview: "-750 Capacity, +$150k Costs",
+            text: "Hire Temporary Workers and increase overtime. Estimated impact: +$150K COST, +1,000 CAP.",
             is_default_choice: false
         },
         {
             id: "C",
-            text: "Close operations temporarily until strike is resolved.",
-            estimated_cost: 0,
-            immediate_kpi_impact_preview: "-1500 Capacity, -1000 Orders",
+            text: "BONUS OPTION: Take advantage of the supply-demand imbalance and increase prices. Can be combined with A or B. Estimated impact: +$50 ASP.",
             is_default_choice: false
         },
         {
             id: "D",
-            text: "Do nothing and let the strike continue.",
-            estimated_cost: 0,
-            immediate_kpi_impact_preview: "Extended production shutdown",
+            text: "Do nothing.",
             is_default_choice: true
         }
     ],
     'ch6': [
         {
             id: "A",
-            text: "Pivot quickly to meet new market demands with product modifications.",
-            estimated_cost: 125000,
-            immediate_kpi_impact_preview: "+500 Orders, +$125k Costs",
+            text: "Hire a Quality Control expert to build a system that increases in-process inspection, reduces defects and escapes. Put out messages on social media and your website to explain you've fixed the problem. Cost: $75K.",
             is_default_choice: false
         },
         {
             id: "B",
-            text: "Increase marketing to maintain current market position.",
-            estimated_cost: 75000,
-            immediate_kpi_impact_preview: "+250 Orders, +$75k Costs",
+            text: "Invest in active damage control. Engage a PR firm to launch a PR campaign, improve customer service, and repair damaged relationships over the next six months. Cost: $50K.",
             is_default_choice: false
         },
         {
             id: "C",
-            text: "Reduce prices to stay competitive in changing market.",
-            estimated_cost: 0,
-            immediate_kpi_impact_preview: "-$50 ASP, +300 Orders",
+            text: "Do options A & B. Cost: $125K.",
             is_default_choice: false
         },
         {
             id: "D",
-            text: "Maintain current strategy and hope market stabilizes.",
-            estimated_cost: 0,
-            immediate_kpi_impact_preview: "-750 Orders, Market share loss",
+            text: "Do Nothing.",
             is_default_choice: true
         }
     ],
     'ch7': [
         {
             id: "A",
-            text: "Implement comprehensive compliance program immediately.",
-            estimated_cost: 175000,
-            immediate_kpi_impact_preview: "+$175k Costs, Full Compliance",
+            text: "Drop prices -$20 to be more competitive in the market.",
             is_default_choice: false
         },
         {
             id: "B",
-            text: "Implement minimal compliance to meet basic requirements.",
-            estimated_cost: 100000,
-            immediate_kpi_impact_preview: "+$100k Costs, -250 Capacity",
+            text: "Increase your marketing and PR budget by $25K to maintain orders.",
             is_default_choice: false
         },
         {
             id: "C",
-            text: "Challenge the regulation through legal channels while delaying compliance.",
-            estimated_cost: 75000,
-            immediate_kpi_impact_preview: "+$75k Legal Costs, Risk of Penalties",
+            text: "Offer additional customization options with board colors and fin designs to be more competitive.",
             is_default_choice: false
         },
         {
             id: "D",
-            text: "Ignore the regulation and continue current operations.",
-            estimated_cost: 0,
-            immediate_kpi_impact_preview: "Risk of shutdown and heavy fines",
+            text: "Do nothing.",
             is_default_choice: true
+        }
+    ],
+    'ch8': [
+        {
+            id: "A",
+            text: "Pay the hackers. Once hackers unlock your systems, invest in Cyber Security to prevent being hacked again. Don’t inform customers. Estimated cost: $100K",
+            is_default_choice: false
+        },
+        {
+            id: "B",
+            text: "Pay the hackers. Once they unlock your systems, invest in Cyber Security to prevent being hacked again. Inform customers. Estimated cost: $100K",
+            is_default_choice: false
+        },
+        {
+            id: "C",
+            text: "Don’t pay. Scrap your old system and buy new servers, computers and software with the latest Cyber Security protection. Inform your customers. Estimated cost: $75K",
+            is_default_choice: true
+        }
+    ],
+    'ch9': [
+        {
+            id: "A",
+            text: "Attempt to rebuild your failing systems by contracting with an an ERP consultant to have them implement an ERP system and software as quickly as possible. Estimated COST is $150K",
+            is_default_choice: false
+        },
+        {
+            id: "B",
+            text: "We don’t need no stinkin’ ERP. Count on your spreadsheets, firefighting expertise and expeditors to solve problems as they arise. Estimated Cost is $25,000 - $50,000",
+            is_default_choice: true
+        },
+        {
+            id: "C",
+            text: "If you invested in Enterprise Resource Planning in RD-3, select this option",
+            is_default_choice: false
         }
     ],
     'ch-dd-prompt': [
@@ -222,66 +211,6 @@ export const allChallengeOptionsData: Record<string, ChallengeOption[]> = {
             text: "No, I'll stick with my current RD-3 investments.",
             estimated_cost: 0,
             immediate_kpi_impact_preview: "Keep all RD-3 investments as planned",
-            is_default_choice: true
-        }
-    ],
-    'ch8': [
-        {
-            id: "A",
-            text: "Immediately shut down all systems and hire cybersecurity experts to assess damage.",
-            estimated_cost: 200000,
-            immediate_kpi_impact_preview: "-1000 Capacity, +$200k Costs",
-            is_default_choice: false
-        },
-        {
-            id: "B",
-            text: "Isolate critical systems and continue limited operations while investigating.",
-            estimated_cost: 100000,
-            immediate_kpi_impact_preview: "-500 Capacity, +$100k Costs",
-            is_default_choice: false
-        },
-        {
-            id: "C",
-            text: "Pay the ransom demand to quickly restore operations.",
-            estimated_cost: 150000,
-            immediate_kpi_impact_preview: "+$150k Costs, Risk of repeat attacks",
-            is_default_choice: false
-        },
-        {
-            id: "D",
-            text: "Do nothing and hope the attack wasn't serious.",
-            estimated_cost: 0,
-            immediate_kpi_impact_preview: "Severe operational and data risks",
-            is_default_choice: true
-        }
-    ],
-    'ch9': [
-        {
-            id: "A",
-            text: "Launch aggressive counter-offensive with new product features and pricing.",
-            estimated_cost: 250000,
-            immediate_kpi_impact_preview: "+750 Orders, +$250k Costs, +$30 ASP",
-            is_default_choice: false
-        },
-        {
-            id: "B",
-            text: "Focus on customer retention with loyalty programs and service improvements.",
-            estimated_cost: 150000,
-            immediate_kpi_impact_preview: "+400 Orders, +$150k Costs",
-            is_default_choice: false
-        },
-        {
-            id: "C",
-            text: "Pivot to niche markets where the competitor has less presence.",
-            estimated_cost: 100000,
-            immediate_kpi_impact_preview: "+200 Orders, +$100k Costs, +$20 ASP",
-            is_default_choice: false
-        },
-        {
-            id: "D",
-            text: "Continue current strategy and wait for market to stabilize.",
-            estimated_cost: 0,
-            immediate_kpi_impact_preview: "-1200 Orders, -$75 ASP",
             is_default_choice: true
         }
     ]

@@ -1,11 +1,12 @@
 // src/app/providers/AuthProvider.tsx
 import React, {createContext, useContext, useEffect, useState} from 'react';
 import {User} from '@supabase/supabase-js';
-import { auth } from '@shared/services/supabase';
+import {auth, useSupabaseConnection, ConnectionStatus} from '@shared/services/supabase';
 
 interface AuthContextType {
     user: User | null;
     loading: boolean;
+    connectionStatus: ConnectionStatus; // <-- ADD THIS
     signIn: (email: string, password: string) => Promise<void>;
     signUp: (email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
@@ -25,41 +26,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        console.log("AuthContext: useEffect for getSession and onAuthStateChange running");
+    // ADD THE HOOK HERE - one central place
+    const connectionStatus = useSupabaseConnection();
 
-        // Get initial session
+    useEffect(() => {
         const initializeAuth = async () => {
             try {
-                const session = await auth.getSession();
-                console.log("AuthContext: Initial session data:", session);
+                const {data: {session}} = await auth.getSession();
                 setUser(session?.user ?? null);
-                setLoading(false);
             } catch (err) {
                 console.error("AuthContext: Exception getting session:", err);
                 setUser(null);
+            } finally {
                 setLoading(false);
             }
         };
 
         initializeAuth();
 
-        // Listen for auth changes
-        const { data: { subscription } } = auth.onAuthStateChange((event, session) => {
-            console.log("AuthContext: onAuthStateChange event:", event, "session:", session);
+        const {data: {subscription}} = auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
-
-            if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
-                setLoading(false);
-            }
-            if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setLoading(false);
-            }
+            setLoading(false);
         });
 
         return () => {
-            console.log("AuthContext: Unsubscribing from onAuthStateChange");
             subscription?.unsubscribe();
         };
     }, []);
@@ -73,14 +63,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
     };
 
     const signOut = async () => {
-        console.log("AuthContext: signOut called");
         setLoading(true);
         await auth.signOut();
-        console.log("AuthContext: signOut completed successfully.");
+    };
+
+    const value = {
+        user,
+        loading,
+        connectionStatus, // <-- EXPOSE IT VIA CONTEXT
+        signIn,
+        signUp,
+        signOut
     };
 
     return (
-        <AuthContext.Provider value={{user, loading, signIn, signUp, signOut}}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );

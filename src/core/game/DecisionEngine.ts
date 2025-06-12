@@ -61,9 +61,10 @@ export class DecisionEngine {
     }
 
     private async storePermanentAdjustments(teamId: string, sessionId: string, effects: KpiEffect[], sourceLabel: string) {
-        const adjustmentsToInsert = KpiCalculations.createPermanentAdjustments(effects, sessionId, teamId, sourceLabel);
-        if (adjustmentsToInsert.length > 0) {
-            await db.adjustments.create(adjustmentsToInsert);
+        const adjustmentsToUpsert = KpiCalculations.createPermanentAdjustments(effects, sessionId, teamId, sourceLabel);
+        if (adjustmentsToUpsert.length > 0) {
+            // Use the new idempotent upsert method
+            await db.adjustments.upsert(adjustmentsToUpsert);
         }
     }
 

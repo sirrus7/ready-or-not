@@ -8,7 +8,6 @@ import DecisionHeader from './DecisionHeader';
 import DecisionContent from './DecisionContent';
 import DecisionFooter from './DecisionFooter';
 import ErrorDisplay from './ErrorDisplay';
-import ConfirmationModal from './ConfirmationModal';
 
 interface DecisionPanelProps {
     sessionId: string | null;
@@ -19,7 +18,6 @@ interface DecisionPanelProps {
     challengeOptions?: ChallengeOption[];
     availableRd3Investments?: InvestmentOption[];
     isDecisionTime: boolean;
-    timeRemainingSeconds?: number;
     gameStructure?: GameStructure;
 }
 
@@ -32,7 +30,6 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                                                          challengeOptions = [],
                                                          availableRd3Investments = [],
                                                          isDecisionTime,
-                                                         timeRemainingSeconds,
                                                          gameStructure,
                                                      }) => {
     const decisionLogic = useDecisionMaking({
@@ -57,16 +54,15 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
         );
     }
 
-    if (submission.submissionSuccess || submission.hasExistingSubmission) {
-        const displaySummary = submission.existingSubmissionSummary || decisionLogic.submissionSummary;
+    if (submission.hasExistingSubmission) {
         return (
             <div
                 className="p-6 bg-green-800/50 backdrop-blur-sm text-green-100 text-center rounded-xl min-h-[200px] flex flex-col items-center justify-center border border-green-600">
                 <CheckCircle2 size={48} className="mb-4 text-green-400"/>
                 <h3 className="text-xl font-semibold mb-2">Decision Submitted!</h3>
                 <div className="bg-green-900/50 rounded-lg p-4 max-w-md w-full">
-                    <p className="text-sm font-medium text-green-200">Summary:</p>
-                    <p className="text-sm text-green-100 mt-1">{displaySummary}</p>
+                    <p className="text-sm font-medium text-green-200">Your Submission:</p>
+                    <p className="text-sm text-green-100 mt-1">{submission.existingSubmissionSummary}</p>
                 </div>
             </div>
         );
@@ -96,21 +92,12 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                 <ErrorDisplay error={decisionLogic.state.error || submission.submissionError}/>
             </div>
             <DecisionFooter
-                timeRemainingSeconds={timeRemainingSeconds}
                 isSubmitDisabled={submission.isSubmitDisabled}
                 isSubmitting={submission.isSubmitting}
-                onSubmit={submission.handleSubmit}
+                onSubmit={submission.onSubmit}
                 isValidSubmission={decisionLogic.isValidSubmission}
                 submissionSummary={decisionLogic.submissionSummary}
-                retrySubmission={submission.retrySubmission}
                 hasError={!!(decisionLogic.state.error || submission.submissionError)}
-            />
-            <ConfirmationModal
-                isOpen={submission.showConfirmationModal}
-                onClose={() => submission.setShowConfirmationModal(false)}
-                onConfirm={submission.confirmSubmit}
-                currentPhaseLabel={currentSlide.title || "Decision"}
-                submissionSummary={decisionLogic.submissionSummary}
             />
         </div>
     );
