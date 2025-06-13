@@ -1,7 +1,6 @@
 // src/views/host/components/CreateGame/PrintHandoutsStep.tsx
 import React, {useState, useMemo} from 'react';
-import {NewGameData} from '@shared/types';
-
+import {PrintHandoutsStepProps} from './types';
 import {
     ArrowLeft,
     ArrowRight,
@@ -17,14 +16,12 @@ import {
 import {usePDFGeneration} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
 import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
 
-interface Step4Props {
-    gameData: NewGameData;
-    onNext: () => void;
-    onPrevious: () => void;
-    draftSessionId: string;
-}
-
-const PrintHandoutsStep: React.FC<Step4Props> = ({gameData, onNext, onPrevious, draftSessionId}) => {
+const PrintHandoutsStep: React.FC<PrintHandoutsStepProps> = ({
+                                                                 gameData,
+                                                                 onNext,
+                                                                 onPrevious,
+                                                                 draftSessionId
+                                                             }) => {
     const {
         generatePDF: generateTeamCardPDF,
         isGenerating: isGeneratingTeamCardPDF

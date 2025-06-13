@@ -1,18 +1,14 @@
-// src/components/Host/CreateGameWizard/Step5_Finalize.tsx
+// src/views/host/components/CreateGame/FinalizeStep.tsx
 import React from 'react';
-import {NewGameData} from '@shared/types/ui';
+import {FinalizeStepProps} from './types';
 import {ArrowLeft, Rocket, AlertTriangle, UsersIcon} from 'lucide-react';
 
-interface Step5Props {
-    gameData: NewGameData;
-    onFinalize: () => void; // This will trigger handleFinalizeGame in CreateGamePage
-    onPrevious: () => void;
-    isSubmitting: boolean; // To show loading state on the button
-    // Optional: A function to jump back to a specific step for editing
-    // onEditStep?: (stepNumber: number) => void;
-}
-
-const FinalizeStep: React.FC<Step5Props> = ({gameData, onFinalize, onPrevious, isSubmitting /*, onEditStep */}) => {
+const FinalizeStep: React.FC<FinalizeStepProps> = ({
+                                                       gameData,
+                                                       onNext, // This is now the finalize function
+                                                       onPrevious,
+                                                       isSubmitting,
+                                                   }) => {
     return (
         <div className="space-y-6 text-gray-700">
             <div className="p-6 bg-green-50 border-l-4 border-green-500 rounded-md text-center shadow">
@@ -20,22 +16,13 @@ const FinalizeStep: React.FC<Step5Props> = ({gameData, onFinalize, onPrevious, i
                 <h3 className="text-2xl font-bold text-green-700 mb-1">Almost There!</h3>
                 <p className="text-gray-600 text-sm">
                     Please review your game session details below. Clicking "Finalize & Start Game" will create the
-                    session,
-                    generate team access, and take you to the facilitator control panel.
+                    session, generate team access, and take you to the facilitator control panel.
                 </p>
             </div>
 
             <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-md">
                 <div className="flex justify-between items-center mb-4 pb-3 border-b">
                     <h4 className="font-semibold text-gray-800 text-lg">Game Configuration Summary</h4>
-                    {/* Optional: Edit button to go back to Step 1 - requires onEditStep prop and logic in CreateGamePage
-            <button
-                onClick={() => onEditStep && onEditStep(1)}
-                className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
-            >
-                <Edit3 size={14} className="mr-1"/> Edit Details
-            </button>
-            */}
                 </div>
 
                 <dl className="space-y-2.5 text-sm">
@@ -46,7 +33,8 @@ const FinalizeStep: React.FC<Step5Props> = ({gameData, onFinalize, onPrevious, i
                         },
                         {
                             label: "Game Version",
-                            value: gameData.game_version === '2.0_dd' ? '2.0 with Double Down' : '1.5 with Double Down'
+                            value: gameData.game_version === '2.0_dd' ?
+                                '2.0 with Double Down' : '1.5 with Double Down'
                         },
                         {
                             label: "Class / Group",
@@ -84,13 +72,14 @@ const FinalizeStep: React.FC<Step5Props> = ({gameData, onFinalize, onPrevious, i
             </div>
 
             <div className="mt-3 p-4 bg-sky-50 border border-sky-200 rounded-lg text-sm text-sky-700">
-                <h5 className="font-semibold mb-1 flex items-center"><UsersIcon size={16} className="mr-2"/> Team Setup
-                    Summary</h5>
+                <h5 className="font-semibold mb-1 flex items-center">
+                    <UsersIcon size={16} className="mr-2"/> Team Setup Summary
+                </h5>
                 {gameData.teams_config && gameData.teams_config.length > 0 ? (
                     <p>
                         You have configured <strong
                         className="font-medium">{gameData.teams_config.length} teams</strong>.
-                        Team names and passcodes were set up in Step 3.
+                        Team names and passcodes were set up in Step 2.
                     </p>
                 ) : gameData.num_teams > 0 ? (
                     <p>
@@ -118,7 +107,7 @@ const FinalizeStep: React.FC<Step5Props> = ({gameData, onFinalize, onPrevious, i
                 </button>
                 <button
                     type="button"
-                    onClick={onFinalize}
+                    onClick={onNext} // Now uses onNext instead of onFinalize
                     disabled={isSubmitting || !gameData.name || gameData.num_players < 2 || gameData.num_teams < 1}
                     className="flex items-center justify-center gap-2 bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[230px]"
                 >
