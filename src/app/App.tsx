@@ -1,4 +1,4 @@
-// src/app/App.tsx
+// src/app/App.tsx - Updated to include RONBotWidget only on authenticated host pages
 import React from 'react';
 import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from '@app/providers/AuthProvider';
@@ -26,7 +26,7 @@ const SessionAwareProviders: React.FC<{ children: React.ReactNode }> = ({childre
     );
 };
 
-// Special wrapper for PresentationApp that handles auth gracefully
+// Special wrapper for PresentationApp that handles auth gracefully (NO RONBotWidget)
 const DisplayWrapper: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string | undefined }>();
 
@@ -43,13 +43,23 @@ const DisplayWrapper: React.FC = () => {
     );
 };
 
+const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = ({children}) => {
+    return (
+        <AuthGuard>
+            <ErrorBoundary>
+                {children}
+            </ErrorBoundary>
+        </AuthGuard>
+    );
+};
+
 function App() {
     return (
         <ErrorBoundary>
             <PDFGenerationProvider>
                 <BrowserRouter>
                     <Routes>
-                        {/* Publicly accessible team-facing routes - NO AUTH REQUIRED */}
+                        {/* Publicly accessible team-facing routes - NO AUTH REQUIRED*/}
                         <Route path="/team/:sessionId" element={
                             <ErrorBoundary>
                                 <TeamApp/>
@@ -66,76 +76,60 @@ function App() {
                                     {/* Host Login - Publicly accessible */}
                                     <Route path="/login" element={
                                         <ErrorBoundary>
-                                            <VideoSettingsProvider>
-                                                <SessionAwareProviders>
-                                                    <LoginPage/>
-                                                </SessionAwareProviders>
-                                            </VideoSettingsProvider>
+                                            <LoginPage/>
                                         </ErrorBoundary>
                                     }/>
 
                                     {/* Host-only authenticated routes */}
                                     <Route path="/dashboard" element={
-                                        <AuthGuard>
-                                            <ErrorBoundary>
-                                                <VideoSettingsProvider>
-                                                    <SessionAwareProviders>
-                                                        <DashboardPage/>
-                                                    </SessionAwareProviders>
-                                                </VideoSettingsProvider>
-                                            </ErrorBoundary>
-                                        </AuthGuard>
+                                        <AuthenticatedPage>
+                                            <VideoSettingsProvider>
+                                                <GameProvider>
+                                                    <DashboardPage/>
+                                                </GameProvider>
+                                            </VideoSettingsProvider>
+                                        </AuthenticatedPage>
                                     }/>
+
                                     <Route path="/create-game" element={
-                                        <AuthGuard>
-                                            <ErrorBoundary>
-                                                <VideoSettingsProvider>
-                                                    <SessionAwareProviders>
-                                                        <CreateGamePage/>
-                                                    </SessionAwareProviders>
-                                                </VideoSettingsProvider>
-                                            </ErrorBoundary>
-                                        </AuthGuard>
-                                    }/>
-                                    <Route path="/game/:sessionId" element={
-                                        <AuthGuard>
-                                            <ErrorBoundary>
+                                        <AuthenticatedPage>
+                                            <VideoSettingsProvider>
                                                 <SessionAwareProviders>
-                                                    <HostApp/>
+                                                    <CreateGamePage/>
                                                 </SessionAwareProviders>
-                                            </ErrorBoundary>
-                                        </AuthGuard>
+                                            </VideoSettingsProvider>
+                                        </AuthenticatedPage>
                                     }/>
+
+                                    <Route path="/game/:sessionId" element={
+                                        <AuthenticatedPage>
+                                            <SessionAwareProviders>
+                                                <HostApp/>
+                                            </SessionAwareProviders>
+                                        </AuthenticatedPage>
+                                    }/>
+
                                     <Route path="/game" element={
-                                        <AuthGuard>
-                                            <ErrorBoundary>
-                                                <VideoSettingsProvider>
-                                                    <GameProvider passedSessionId="new">
-                                                        <HostApp/>
-                                                    </GameProvider>
-                                                </VideoSettingsProvider>
-                                            </ErrorBoundary>
-                                        </AuthGuard>
+                                        <AuthenticatedPage>
+                                            <VideoSettingsProvider>
+                                                <GameProvider passedSessionId="new">
+                                                    <HostApp/>
+                                                </GameProvider>
+                                            </VideoSettingsProvider>
+                                        </AuthenticatedPage>
                                     }/>
 
                                     {/* Default authenticated route */}
                                     <Route path="/" element={
                                         <AuthGuard>
-                                            <VideoSettingsProvider>
-                                                <GameProvider>
-                                                    <Navigate to="/dashboard" replace/>
-                                                </GameProvider>
-                                            </VideoSettingsProvider>
+                                            <Navigate to="/dashboard" replace/>
                                         </AuthGuard>
                                     }/>
+
                                     {/* Fallback for any other authenticated paths */}
                                     <Route path="*" element={
                                         <AuthGuard>
-                                            <VideoSettingsProvider>
-                                                <GameProvider>
-                                                    <Navigate to="/dashboard" replace/>
-                                                </GameProvider>
-                                            </VideoSettingsProvider>
+                                            <Navigate to="/dashboard" replace/>
                                         </AuthGuard>
                                     }/>
                                 </Routes>

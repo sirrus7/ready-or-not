@@ -2,6 +2,7 @@
 import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {GameSession, GameStructure, Slide} from '@shared/types';
 import {GameSessionManager} from './GameSessionManager';
+import {useSlidePreCaching} from '@shared/hooks/useSlidePreCaching';
 
 export interface GameControllerOutput {
     currentSlideIndex: number | null;
@@ -39,10 +40,9 @@ export const useGameController = (
         setDbSession(initialDbSession);
     }, [initialDbSession]);
 
-    // REFACTOR: The PhaseManager is gone. All logic is now based on the flat slide list.
     const sessionManager = useMemo(() => GameSessionManager.getInstance(), []);
 
-    // REFACTOR: Get current slide index and data directly from session and game structure.
+    // Get current slide index and data directly from session and game structure.
     const currentSlideIndex = useMemo(() => dbSession?.current_slide_index ?? null, [dbSession]);
     const currentSlideData = useMemo(() => {
         if (gameStructure && currentSlideIndex !== null) {
@@ -50,6 +50,16 @@ export const useGameController = (
         }
         return null;
     }, [gameStructure, currentSlideIndex]);
+
+    // Add slide precaching - this will automatically precache the next 3 slides
+    useSlidePreCaching(
+        gameStructure?.slides ?? null,
+        currentSlideIndex,
+        {
+            precacheCount: 3, // You can adjust this number based on your needs
+            enabled: true // You could make this configurable via settings
+        }
+    );
 
     useEffect(() => {
         if (dbSession) setHostNotesState(dbSession.teacher_notes || {});
@@ -80,7 +90,7 @@ export const useGameController = (
         }
     }, [allTeamsSubmittedCurrentInteractivePhaseState, currentHostAlertState?.title]);
 
-    // REFACTOR: Navigation actions are now much simpler.
+    // Navigation actions
     const navigateToSlide = useCallback(async (newIndex: number) => {
         if (!dbSession?.id || !gameStructure) return;
         if (newIndex < 0 || newIndex >= gameStructure.slides.length) return;
@@ -104,7 +114,7 @@ export const useGameController = (
     const nextSlide = useCallback(async () => {
         if (currentSlideIndex === null || !currentSlideData) return;
 
-        // REFACTOR: Process the completed slide *before* navigating to the next one.
+        // Process the completed slide *before* navigating to the next one.
         if (currentSlideData.interactive_data_key) {
             await processInteractiveSlide(currentSlideData);
         }

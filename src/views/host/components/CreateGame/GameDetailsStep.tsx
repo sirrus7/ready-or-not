@@ -5,14 +5,13 @@ import {ArrowRight, AlertCircle} from 'lucide-react';
 import GameDetailsForm from './GameDetailsForm';
 import TeamRecommendationDisplay from './TeamRecommendation';
 import {useTeamRecommendations} from '@views/host/hooks/useTeamRecommendations';
+import {GameDetailsStepProps} from './types';
 
-interface Step1Props {
-    gameData: NewGameData;
-    onDataChange: (field: keyof NewGameData, value: any) => void;
-    onNext: (dataFromStep: Partial<NewGameData>) => void;
-}
-
-const GameDetailsStep: React.FC<Step1Props> = ({gameData, onDataChange, onNext}) => {
+const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
+                                                             gameData,
+                                                             onDataChange,
+                                                             onNext
+                                                         }) => {
     const [error, setError] = useState<string | null>(null);
     const formRef = useRef<HTMLFormElement>(null);
 

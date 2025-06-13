@@ -1,6 +1,7 @@
 // src/views/host/components/CreateGame/TeamSetupStep.tsx - Cleaned up version
 import React, {useState, useEffect} from 'react';
 import {NewGameData, TeamConfig as AppTeamConfig} from '@shared/types';
+import {TeamSetupStepProps} from './types';
 import {
     ArrowLeft,
     ArrowRight,
@@ -44,21 +45,13 @@ const getDefaultTeamName = (index: number): string => {
 // Maximum team name length for printing compatibility
 const MAX_TEAM_NAME_LENGTH = 15;
 
-interface Step2Props {
-    gameData: NewGameData;
-    onDataChange: (field: keyof NewGameData, value: AppTeamConfig[]) => void;
-    onNext: (dataFromStep: Partial<NewGameData>) => void;
-    onPrevious: () => void;
-    draftSessionId: string | null;
-}
-
-const TeamSetupStep: React.FC<Step2Props> = ({
-                                                 gameData,
-                                                 onDataChange,
-                                                 onNext,
-                                                 onPrevious,
-                                                 draftSessionId
-                                             }) => {
+const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
+                                                         gameData,
+                                                         onDataChange,
+                                                         onNext,
+                                                         onPrevious,
+                                                         draftSessionId
+                                                     }) => {
     const [isPrinting, setIsPrinting] = useState(false);
     const [isEmailing, setIsEmailing] = useState(false);
     const [localTeams, setLocalTeams] = useState<LocalTeamConfig[]>([]);

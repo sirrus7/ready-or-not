@@ -1,7 +1,8 @@
-// src/pages/DashboardPage/components/DashboardHeader.tsx - Header component
+// src/views/host/components/Dashboard/DashboardHeader.tsx - Updated with RONBot
 import React from 'react';
 import {LogOut, RefreshCw} from 'lucide-react';
 import {User} from '@shared/types';
+import HeaderRONBot from '@shared/components/HeaderRONBot';
 
 interface DashboardHeaderProps {
     user: User | null;
@@ -33,6 +34,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 </p>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-3 mt-3 sm:mt-0">
+                <HeaderRONBot/>
                 <button
                     onClick={onRefresh}
                     disabled={isLoadingGames}

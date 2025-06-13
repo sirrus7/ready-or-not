@@ -3,7 +3,7 @@ import React, {useEffect, useRef} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
 import {
     PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, RefreshCw, LogOut,
-    FileText, Download, Mail, HelpCircle, BookOpen, Users, TrendingUp
+    FileText, Download, BookOpen, Users, TrendingUp
 } from 'lucide-react';
 import {useAuth} from '@app/providers/AuthProvider';
 import {useDashboardData} from '@views/host/hooks/useDashboardData';
@@ -11,6 +11,7 @@ import {useDashboardActions} from '@views/host/hooks/useDashboardActions';
 import NotificationBanner from '@views/host/components/Dashboard/NotificationBanner';
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
 import {GameSession} from '@shared/types';
+import RonBotWidget from '@shared/components/RonBotWidget.tsx';
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
@@ -499,46 +500,6 @@ const DashboardPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Support */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
-                            <div className="p-6 border-b border-gray-100">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <HelpCircle size={20} className="text-indigo-600"/>
-                                    Need Help?
-                                </h3>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <a
-                                    href="mailto:support@readyornot.com?subject=Ready or Not Support Request"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
-                                >
-                                    <div className="bg-red-100 p-2 rounded-lg group-hover:bg-red-200 transition-colors">
-                                        <Mail size={16} className="text-red-600"/>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-medium text-gray-900">Contact Support</div>
-                                        <div className="text-sm text-gray-500">Get help with setup or gameplay</div>
-                                    </div>
-                                </a>
-
-                                <a
-                                    href="/support/faq"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
-                                >
-                                    <div
-                                        className="bg-purple-100 p-2 rounded-lg group-hover:bg-purple-200 transition-colors">
-                                        <HelpCircle size={16} className="text-purple-600"/>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-medium text-gray-900">FAQ & Troubleshooting</div>
-                                        <div className="text-sm text-gray-500">Common questions and solutions</div>
-                                    </div>
-                                </a>
-                            </div>
-                        </div>
-
                         {/* Quick Stats */}
                         <div
                             className="bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-2xl shadow-lg">
@@ -566,6 +527,7 @@ const DashboardPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+                <RonBotWidget/>
             </div>
 
             {/* Delete Confirmation Modal */}
