@@ -527,6 +527,7 @@ const DashboardPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+                <RonBotWidget/>
             </div>
 
             {/* Delete Confirmation Modal */}
