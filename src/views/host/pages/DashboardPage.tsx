@@ -11,7 +11,7 @@ import {useDashboardActions} from '@views/host/hooks/useDashboardActions';
 import NotificationBanner from '@views/host/components/Dashboard/NotificationBanner';
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
 import {GameSession} from '@shared/types';
-import RONBotWidget from '@shared/components/RONBotWidget';
+import RonBotWidget from '@shared/components/RonBotWidget.tsx';
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
@@ -527,7 +527,6 @@ const DashboardPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                <RONBotWidget/>
             </div>
 
             {/* Delete Confirmation Modal */}

@@ -1,4 +1,4 @@
-// src/app/App.tsx
+// src/app/App.tsx - Updated to include RONBotWidget only on authenticated host pages
 import React from 'react';
 import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from '@app/providers/AuthProvider';
@@ -11,8 +11,8 @@ import HostApp from '@views/host/HostApp';
 import PresentationApp from '@views/presentation/PresentationApp';
 import DashboardPage from '@views/host/pages/DashboardPage';
 import CreateGamePage from '@views/host/pages/CreateGamePage';
-import FAQChatPage from '@views/host/pages/FAQChatPage';
 import TeamApp from '@views/team/TeamApp';
+import AuthenticatedHostWrapper from '@views/host/components/AuthenticatedHostWrapper';
 import {PDFGenerationProvider} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
 
 // Wrapper component to extract sessionId and pass it to providers
@@ -27,7 +27,7 @@ const SessionAwareProviders: React.FC<{ children: React.ReactNode }> = ({childre
     );
 };
 
-// Special wrapper for PresentationApp that handles auth gracefully
+// Special wrapper for PresentationApp that handles auth gracefully (NO RONBotWidget)
 const DisplayWrapper: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string | undefined }>();
 
@@ -44,12 +44,14 @@ const DisplayWrapper: React.FC = () => {
     );
 };
 
-// Simplified wrapper for authenticated pages
+// Enhanced AuthenticatedPage wrapper that includes RONBotWidget
 const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = ({children}) => {
     return (
         <AuthGuard>
             <ErrorBoundary>
-                {children}
+                <AuthenticatedHostWrapper>
+                    {children}
+                </AuthenticatedHostWrapper>
             </ErrorBoundary>
         </AuthGuard>
     );
@@ -61,28 +63,28 @@ function App() {
             <PDFGenerationProvider>
                 <BrowserRouter>
                     <Routes>
-                        {/* Publicly accessible team-facing routes - NO AUTH REQUIRED */}
+                        {/* Publicly accessible team-facing routes - NO AUTH REQUIRED, NO RONBotWidget */}
                         <Route path="/team/:sessionId" element={
                             <ErrorBoundary>
                                 <TeamApp/>
                             </ErrorBoundary>
                         }/>
 
-                        {/* Student Display - Special handling for same-browser different tab */}
+                        {/* Student Display - Special handling for same-browser different tab, NO RONBotWidget */}
                         <Route path="/student-display/:sessionId" element={<DisplayWrapper/>}/>
 
                         {/* All other routes wrapped in AuthProvider */}
                         <Route path="/*" element={
                             <AuthProvider>
                                 <Routes>
-                                    {/* Host Login - Publicly accessible */}
+                                    {/* Host Login - Publicly accessible, NO RONBotWidget */}
                                     <Route path="/login" element={
                                         <ErrorBoundary>
                                             <LoginPage/>
                                         </ErrorBoundary>
                                     }/>
 
-                                    {/* Host-only authenticated routes */}
+                                    {/* Host-only authenticated routes - ALL INCLUDE RONBotWidget */}
                                     <Route path="/dashboard" element={
                                         <AuthenticatedPage>
                                             <VideoSettingsProvider>
