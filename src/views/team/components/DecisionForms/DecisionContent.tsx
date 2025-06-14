@@ -1,4 +1,6 @@
 // src/views/team/components/DecisionForms/DecisionContent.tsx
+// Update your existing DecisionContent to pass the new props
+
 import React from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
 import {DecisionState, DecisionActions} from '@views/team/hooks/useDecisionMaking';
@@ -30,30 +32,55 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
                                                          }) => {
     switch (currentSlide.type) {
         case 'interactive_invest':
-            return <InvestmentPanel investmentOptions={investmentOptions}
-                                    selectedInvestmentIds={decisionState.selectedInvestmentIds}
-                                    spentBudget={decisionState.spentBudget} investUpToBudget={investUpToBudget}
-                                    onInvestmentToggle={decisionActions.handleInvestmentToggle}
-                                    isSubmitting={isSubmitting}/>;
+            return (
+                <InvestmentPanel
+                    investmentOptions={investmentOptions}
+                    selectedInvestmentIds={decisionState.selectedInvestmentIds}
+                    spentBudget={decisionState.spentBudget}
+                    investUpToBudget={investUpToBudget}
+                    onInvestmentToggle={decisionActions.handleInvestmentToggle}
+                    onImmediatePurchase={decisionActions.handleImmediatePurchase}
+                    isSubmitting={isSubmitting}
+                    immediatePurchases={decisionState.immediatePurchases}
+                />
+            );
         case 'interactive_choice':
-            return <ChoicePanel challengeOptions={challengeOptions}
-                                selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
-                                onChallengeSelect={decisionActions.handleChallengeSelect}
-                                currentSlide={currentSlide}
-                                isSubmitting={isSubmitting}/>;
+            return (
+                <ChoicePanel
+                    challengeOptions={challengeOptions}
+                    selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
+                    onChallengeSelect={decisionActions.handleChallengeSelect}
+                    currentSlide={currentSlide}
+                    isSubmitting={isSubmitting}
+                />
+            );
         case 'interactive_double_down_prompt':
-            return <DoubleDownPromptPanel challengeOptions={challengeOptions}
-                                          selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
-                                          onChallengeSelect={decisionActions.handleChallengeSelect}/>;
+            return (
+                <DoubleDownPromptPanel
+                    challengeOptions={challengeOptions}
+                    selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
+                    onChallengeSelect={decisionActions.handleChallengeSelect}
+                    currentSlide={currentSlide}
+                    isSubmitting={isSubmitting}
+                />
+            );
         case 'interactive_double_down_select':
-            return <DoubleDownSelectPanel availableRd3Investments={availableRd3Investments}
-                                          sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
-                                          doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
-                                          onSacrificeChange={decisionActions.setSacrificeInvestmentId}
-                                          onDoubleDownChange={decisionActions.setDoubleDownOnInvestmentId}
-                                          isSubmitting={isSubmitting}/>;
+            return (
+                <DoubleDownSelectPanel
+                    availableRd3Investments={availableRd3Investments}
+                    sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
+                    doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
+                    onSacrificeSelect={decisionActions.handleSacrificeSelect}
+                    onDoubleDownSelect={decisionActions.handleDoubleDownSelect}
+                    isSubmitting={isSubmitting}
+                />
+            );
         default:
-            return <p className="text-gray-400 text-center py-8">Waiting for interactive instructions...</p>;
+            return (
+                <div className="p-4 text-center text-gray-400">
+                    <p>Unknown slide type: {currentSlide.type}</p>
+                </div>
+            );
     }
 };
 

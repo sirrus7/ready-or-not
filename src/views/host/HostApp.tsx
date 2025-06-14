@@ -2,10 +2,11 @@
 import React, {useEffect} from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
-import {AlertCircle, Info, ChevronLeft, ChevronRight} from 'lucide-react';
+import {AlertCircle, ChevronLeft, ChevronRight} from 'lucide-react';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import PresentationButton from '@views/host/components/GameControls/PresentationButton';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
+import BusinessGrowthStrategyNotifications from '@views/host/components/BusinessGrowthStrategyNotifications';
 
 const HostApp: React.FC = () => {
     const {
@@ -52,6 +53,11 @@ const HostApp: React.FC = () => {
                 <div>
                     <h1 className="text-xl md:text-2xl font-bold text-gray-800">{gameStructure?.name || 'Game'}</h1>
                     <p className="text-gray-500 text-sm md:text-base">Session: {currentSessionId?.substring(0, 8)}...</p>
+                </div>
+
+                {/* Add the Business Growth Strategy notifications in the header */}
+                <div className="flex items-center gap-3 mt-2 sm:mt-0">
+                    <BusinessGrowthStrategyNotifications />
                 </div>
             </header>
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">

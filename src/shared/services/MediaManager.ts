@@ -1,4 +1,6 @@
 // src/shared/services/MediaManager.ts
+// Updated MediaManager with public precacheSingleSlide method
+
 import {supabase} from '@shared/services/supabase';
 import {Slide} from '@shared/types/game';
 
@@ -79,17 +81,17 @@ class MediaManager {
     }
 
     /**
-     * Precaches signed URLs for upcoming slides to improve loading performance.
-     * This method runs in the background and won't block the UI.
-     *
+     * Precaches signed URLs for current and upcoming slides to improve loading performance.
      * @param slides Array of all slides in the presentation
      * @param currentSlideIndex The current slide index
      * @param precacheCount Number of slides ahead to precache (default: 3)
+     * @param includeCurrent Whether to precache the current slide (default: true)
      */
     public precacheUpcomingSlides(
         slides: Slide[],
         currentSlideIndex: number,
-        precacheCount: number = this.DEFAULT_PRECACHE_COUNT
+        precacheCount: number = this.DEFAULT_PRECACHE_COUNT,
+        includeCurrent: boolean = true
     ): void {
         // Skip if we already precached for this slide index
         if (this.lastPrecacheSlideIndex === currentSlideIndex) {
@@ -99,7 +101,27 @@ class MediaManager {
         // Update the last precached slide index
         this.lastPrecacheSlideIndex = currentSlideIndex;
 
-        // Calculate which slides to precache
+        // Precache current slide first if requested
+        if (includeCurrent && currentSlideIndex >= 0 && currentSlideIndex < slides.length) {
+            const currentSlide = slides[currentSlideIndex];
+            if (currentSlide?.source_path) {
+                const sourcePath = currentSlide.source_path;
+                // Skip if already precaching this file
+                if (!this.precachingInProgress.has(sourcePath)) {
+                    // Skip if already cached and not expired
+                    const cached = this.urlCache.get(sourcePath);
+                    if (!cached || cached.expiresAt <= Date.now()) {
+                        this.precachingInProgress.add(sourcePath);
+                        this.precacheSingleSlide(sourcePath)
+                            .finally(() => {
+                                this.precachingInProgress.delete(sourcePath);
+                            });
+                    }
+                }
+            }
+        }
+
+        // Calculate which upcoming slides to precache
         const startIndex = currentSlideIndex + 1;
         const endIndex = Math.min(startIndex + precacheCount, slides.length);
 
@@ -110,33 +132,35 @@ class MediaManager {
 
         console.log(`[MediaManager] Precaching slides ${startIndex} to ${endIndex - 1} (${endIndex - startIndex} slides)`);
 
-        // Precache slides asynchronously without blocking
+        // Precache upcoming slides asynchronously without blocking
         for (let i = startIndex; i < endIndex; i++) {
             const slide = slides[i];
             if (!slide?.source_path) continue;
 
+            const sourcePath = slide.source_path;
             // Skip if already precaching this file
-            if (this.precachingInProgress.has(slide.source_path)) continue;
+            if (this.precachingInProgress.has(sourcePath)) continue;
 
             // Skip if already cached and not expired
-            const cached = this.urlCache.get(slide.source_path);
+            const cached = this.urlCache.get(sourcePath);
             if (cached && cached.expiresAt > Date.now()) continue;
 
             // Start precaching this slide
-            this.precachingInProgress.add(slide.source_path);
+            this.precachingInProgress.add(sourcePath);
 
-            this.precacheSingleSlide(slide.source_path)
+            this.precacheSingleSlide(sourcePath)
                 .finally(() => {
-                    this.precachingInProgress.delete(slide.source_path);
+                    this.precachingInProgress.delete(sourcePath);
                 });
         }
     }
 
     /**
-     * Precaches a single slide's media file in the background.
+     * Precaches a single slide's media file immediately.
+     * This is useful for precaching the current slide when navigating.
      * @param fileName The source path of the slide media
      */
-    private async precacheSingleSlide(fileName: string): Promise<void> {
+    public async precacheSingleSlide(fileName: string): Promise<void> {
         try {
             console.log(`[MediaManager] Precaching slide: ${fileName}`);
             await this.getSignedUrl(fileName);
