@@ -33,7 +33,12 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                                                          gameStructure,
                                                      }) => {
     const decisionLogic = useDecisionMaking({
-        currentSlide, investmentOptions, challengeOptions, investUpToBudget,
+        currentSlide,
+        investmentOptions,
+        challengeOptions,
+        investUpToBudget,
+        sessionId,
+        teamId
     });
 
     const submission = useTeamDecisionSubmission({

@@ -1,12 +1,12 @@
 // src/views/team/hooks/useDecisionMaking.ts
-// Replace your existing useDecisionMaking hook with this enhanced version
+// Updated version with separate phase_id for immediate purchases
 
 import {useState, useEffect, useMemo, useCallback} from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
 import {db} from '@shared/services/supabase';
 import {supabase} from '@shared/services/supabase';
 
-interface DecisionState {
+export interface DecisionState {
     selectedInvestmentIds: string[];
     spentBudget: number;
     selectedChallengeOptionId: string | null;
@@ -90,7 +90,7 @@ export const useDecisionMaking = ({
     const submissionSummary = useMemo(() => {
         if (!currentSlide) return '';
         switch (currentSlide.type) {
-            case 'interactive_invest':
+            case 'interactive_invest': {
                 const totalSelections = state.selectedInvestmentIds.length + state.immediatePurchases.length;
                 if (totalSelections === 0) {
                     return `No investments selected (${formatCurrency(remainingBudget)} unspent)`;
@@ -105,17 +105,21 @@ export const useDecisionMaking = ({
 
                 const allSelections = [...immediateSelections, ...regularSelections];
                 return `${totalSelections} investments: ${allSelections.join(', ')} (${formatCurrency(state.spentBudget)} spent)`;
-            case 'interactive_choice':
+            }
+            case 'interactive_choice': {
                 const option = challengeOptions.find(opt => opt.id === state.selectedChallengeOptionId);
                 return option ? `Selected: ${option.id} - ${option.text.substring(0, 50)}...` : 'No selection made';
-            case 'interactive_double_down_prompt':
+            }
+            case 'interactive_double_down_prompt': {
                 const ddOption = challengeOptions.find(opt => opt.id === state.selectedChallengeOptionId);
                 return ddOption ? `Double Down: ${ddOption.text}` : 'No selection made';
-            case 'interactive_double_down_select':
+            }
+            case 'interactive_double_down_select': {
                 if (!state.sacrificeInvestmentId || !state.doubleDownOnInvestmentId) return 'Incomplete selection';
                 const sacrificeOpt = investmentOptions.find(opt => opt.id === state.sacrificeInvestmentId);
                 const ddOnOpt = investmentOptions.find(opt => opt.id === state.doubleDownOnInvestmentId);
                 return `Sacrifice: ${sacrificeOpt?.name || 'Unknown'}, Double: ${ddOnOpt?.name || 'Unknown'}`;
+            }
             default:
                 return 'Ready to submit';
         }
@@ -129,24 +133,37 @@ export const useDecisionMaking = ({
             }
 
             try {
+                // Create the immediate purchase phase_id
+                const immediatePhaseId = `${currentSlide.interactive_data_key}_immediate`;
+
                 const {data, error} = await supabase
                     .from('team_decisions')
                     .select('*')
                     .eq('session_id', sessionId)
                     .eq('team_id', teamId)
-                    .eq('phase_id', currentSlide.interactive_data_key)
-                    .eq('is_immediate_purchase', true)
-                    .single();
+                    .eq('phase_id', immediatePhaseId)
+                    .eq('is_immediate_purchase', true);
 
-                if (data && !error) {
+                if (data && !error && data.length > 0) {
+                    // Calculate total spending from immediate purchases
+                    const immediatePurchaseIds: string[] = [];
+                    let immediateSpending = 0;
+
+                    data.forEach(decision => {
+                        if (decision.selected_investment_ids) {
+                            immediatePurchaseIds.push(...decision.selected_investment_ids);
+                        }
+                        immediateSpending += decision.total_spent_budget || 0;
+                    });
+
                     setState(prev => ({
                         ...prev,
-                        immediatePurchases: data.selected_investment_ids || [],
-                        spentBudget: data.total_spent_budget || 0
+                        immediatePurchases: immediatePurchaseIds,
+                        spentBudget: immediateSpending
                     }));
                 }
             } catch (error) {
-                console.log('No existing immediate purchases found');
+                console.log('No existing immediate purchases found:', error);
             }
         };
 
@@ -231,11 +248,14 @@ export const useDecisionMaking = ({
                 .eq('id', teamId)
                 .single();
 
+            // Create immediate purchase phase_id (separate from regular investments)
+            const immediatePhaseId = `${currentSlide.interactive_data_key}_immediate`;
+
             // Submit the immediate purchase to the database
             const payload = {
                 session_id: sessionId,
                 team_id: teamId,
-                phase_id: currentSlide.interactive_data_key,
+                phase_id: immediatePhaseId, // CHANGED: Use separate phase_id
                 round_number: currentSlide.round_number,
                 selected_investment_ids: [optionId],
                 total_spent_budget: cost,

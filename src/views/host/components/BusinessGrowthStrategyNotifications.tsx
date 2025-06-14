@@ -1,11 +1,11 @@
 // src/views/host/components/BusinessGrowthStrategyNotifications.tsx
-// Add this component to your host interface
+// Updated to query immediate purchase records with new phase_id pattern
 
 import React, {useState, useEffect} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
-import {Bell, CheckCircle, Clock, FileText, X, AlertTriangle} from 'lucide-react';
+import {Bell, CheckCircle, Clock, FileText, AlertTriangle} from 'lucide-react';
 
 interface PendingReport {
     id: string;
@@ -40,6 +40,7 @@ const BusinessGrowthStrategyNotifications: React.FC = () => {
                 return [];
             }
 
+            // CHANGED: Query for immediate purchase phase_ids (those ending with "_immediate")
             const {data, error} = await supabase
                 .from('team_decisions')
                 .select(`
@@ -49,11 +50,13 @@ const BusinessGrowthStrategyNotifications: React.FC = () => {
                     submitted_at,
                     report_given,
                     immediate_purchase_data,
+                    phase_id,
                     teams!inner(name)
                 `)
                 .eq('session_id', state.currentSessionId)
                 .eq('is_immediate_purchase', true)
                 .eq('immediate_purchase_type', 'business_growth_strategy')
+                .like('phase_id', '%_immediate') // CHANGED: Query for phase_ids ending with "_immediate"
                 .order('submitted_at', {ascending: false});
 
             if (error) throw error;
@@ -61,18 +64,17 @@ const BusinessGrowthStrategyNotifications: React.FC = () => {
             return (data || []).map(item => ({
                 id: item.id,
                 team_id: item.team_id,
-                team_name: item.teams?.name || 'Unknown Team',
+                team_name: (item.teams as any)?.name || 'Unknown Team',
                 investment_name: 'Business Growth Strategy',
                 cost: item.total_spent_budget || 0,
                 submitted_at: item.submitted_at,
                 report_given: item.report_given || false
-            }));
+            } as PendingReport));
         },
         [state.currentSessionId],
         {
             cacheKey: `pending-reports-${state.currentSessionId}`,
-            cacheTimeout: 10000,
-            enabled: !!(state.currentSessionId && state.currentSessionId !== 'new')
+            cacheTimeout: 10000
         }
     );
 
@@ -124,8 +126,8 @@ const BusinessGrowthStrategyNotifications: React.FC = () => {
         }
     };
 
-    const pendingCount = pendingReports.filter(report => !report.report_given).length;
-    const totalNotifications = pendingCount + realtimeNotifications.length;
+    const pendingCount = (pendingReports || []).filter(report => !report.report_given).length;
+    const totalNotifications = pendingCount + (realtimeNotifications || []).length;
 
     if (!state.currentSessionId || state.currentSessionId === 'new') {
         return null;
@@ -171,7 +173,7 @@ const BusinessGrowthStrategyNotifications: React.FC = () => {
 
                     <div className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
                         {/* Realtime Notifications (recent alerts) */}
-                        {realtimeNotifications.map((notification, index) => (
+                        {(realtimeNotifications || []).map((notification, index) => (
                             <div key={`realtime-${index}`} className="p-4 bg-yellow-100 border-l-4 border-yellow-500">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center">
@@ -193,14 +195,14 @@ const BusinessGrowthStrategyNotifications: React.FC = () => {
                         ))}
 
                         {/* Persistent Reports */}
-                        {pendingReports.length === 0 && realtimeNotifications.length === 0 ? (
+                        {(pendingReports || []).length === 0 && (realtimeNotifications || []).length === 0 ? (
                             <div className="p-8 text-center text-gray-500">
                                 <FileText className="mx-auto mb-2" size={24}/>
                                 <p className="font-medium">No strategy requests yet</p>
                                 <p className="text-sm mt-1">Teams haven't purchased Business Growth Strategy</p>
                             </div>
                         ) : (
-                            pendingReports.map((report) => {
+                            (pendingReports || []).map((report) => {
                                 const isUpdatingThis = isUpdating === report.id;
 
                                 return (
