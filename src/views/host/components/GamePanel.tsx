@@ -1,8 +1,10 @@
 // src/views/host/components/GamePanel.tsx
+// Updated to use the new TeamSubmissions component
+
 import React, {useState, useEffect} from 'react';
 import DecisionHistory from './DecisionHistory';
 import HostGameControls from './GameControls';
-import TeamSubmissions from './TeamMonitor';
+import TeamMonitor from './TeamMonitor';
 import DecisionReviewModal from './DecisionReviewModal';
 import {useGameContext} from '@app/providers/GameProvider';
 import {Layers, Info, AlertTriangle, History, ListChecks} from 'lucide-react';
@@ -15,7 +17,7 @@ const GamePanel: React.FC = () => {
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [reviewingDecisionKey, setReviewingDecisionKey] = useState<string | null>(null);
 
-    const isInteractiveStudentSlide = !!currentSlideData?.interactive_data_key;
+    const isInteractiveStudentSlide = !!(currentSlideData?.interactive_data_key);
 
     // Automatically switch tabs based on slide type
     useEffect(() => {
@@ -79,7 +81,8 @@ const GamePanel: React.FC = () => {
                     <button
                         onClick={() => setActiveTab('timeline')}
                         className={`flex-1 flex items-center justify-center gap-2 p-3 text-sm font-medium transition-colors ${
-                            activeTab === 'timeline' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-100'
+                            activeTab === 'timeline' ?
+                                'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-100'
                         }`}
                     >
                         <History size={16}/>
@@ -105,7 +108,7 @@ const GamePanel: React.FC = () => {
                         </div>
                     )}
                     {activeTab === 'submissions' && isInteractiveStudentSlide && (
-                        <TeamSubmissions/>
+                        <TeamMonitor/>
                     )}
                 </div>
 

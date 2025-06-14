@@ -1,8 +1,11 @@
 // src/core/game/useGameController.ts
+// Enhanced with current slide precaching on navigation
+
 import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {GameSession, GameStructure, Slide} from '@shared/types';
 import {GameSessionManager} from './GameSessionManager';
 import {useSlidePreCaching} from '@shared/hooks/useSlidePreCaching';
+import {mediaManager} from '@shared/services/MediaManager';
 
 export interface GameControllerOutput {
     currentSlideIndex: number | null;
@@ -96,6 +99,16 @@ export const useGameController = (
         if (newIndex < 0 || newIndex >= gameStructure.slides.length) return;
 
         try {
+            // Immediately precache the slide we're navigating to
+            const targetSlide = gameStructure.slides[newIndex];
+            if (targetSlide?.source_path) {
+                // Start precaching immediately (don't await - let it run in background)
+                mediaManager.precacheSingleSlide(targetSlide.source_path)
+                    .catch(error => {
+                        console.warn(`[useGameController] Failed to precache target slide:`, error);
+                    });
+            }
+
             const updatedSession = await sessionManager.updateSession(dbSession.id, {
                 current_slide_index: newIndex,
                 is_complete: newIndex === gameStructure.slides.length - 1,
