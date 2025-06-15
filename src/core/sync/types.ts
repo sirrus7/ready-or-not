@@ -5,8 +5,9 @@ export interface HostCommand {
     type: 'HOST_COMMAND';
     sessionId: string;
     id: string;
-    action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation';
+    action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset';
     time?: number;
+    data?: any; // ✅ NEW: Added data field for custom command data
     timestamp: number;
 }
 
@@ -28,11 +29,5 @@ export interface CommandAck {
     type: 'COMMAND_ACK';
     sessionId: string;
     commandId: string;
-    timestamp: number;
-}
-
-export interface PingMessage {
-    type: 'PING';
-    sessionId: string;
     timestamp: number;
 }

@@ -8,6 +8,7 @@ import {useGameController} from '@core/game/useGameController';
 import {useGameProcessing} from '@core/game/useGameProcessing';
 import {AppState} from '@shared/types/state';
 import {Slide} from '@shared/types';
+import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 interface GameContextType {
     state: AppState;
@@ -77,6 +78,16 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         if (!session?.id || session.id === 'new') throw new Error("No active session");
         try {
             await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
+
+            // ✅ NEW: Send broadcast to the specific team
+            const broadcastManager = SimpleBroadcastManager.getInstance(session.id, 'host');
+            broadcastManager.sendCommand('decision_reset', {
+                teamId: teamId,
+                phaseId: interactiveDataKey,
+                timestamp: new Date().toISOString()
+            });
+            console.log(`[GameProvider] Sent decision_reset broadcast for team ${teamId}, phase ${interactiveDataKey}`);
+
             await fetchTeamsForSession();
         } catch (error) {
             console.error(`[GameProvider] Failed to reset team decision:`, error);

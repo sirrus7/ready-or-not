@@ -1,6 +1,6 @@
 // src/core/sync/SimpleBroadcastManager.ts
 import {Slide} from '@shared/types/game';
-import {HostCommand, SlideUpdate, PresentationStatus, CommandAck} from './types';
+import {HostCommand, SlideUpdate, PresentationStatus} from './types';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -173,7 +173,8 @@ export class SimpleBroadcastManager {
 
     // HOST METHODS
 
-    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation', time?: number): void {
+    // ✅ UPDATED: Now supports custom commands with data
+    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset', data?: any): void {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const command: HostCommand = {
@@ -181,12 +182,12 @@ export class SimpleBroadcastManager {
             sessionId: this.sessionId,
             id: `cmd_${Date.now()}`,
             action,
-            time,
+            data,
             timestamp: Date.now()
         };
 
         this.sendMessage(command);
-        console.log(`[SimpleBroadcastManager] Sent command: ${action}`, time);
+        console.log(`[SimpleBroadcastManager] Sent command: ${action}`, data);
     }
 
     sendSlideUpdate(slide: Slide): void {

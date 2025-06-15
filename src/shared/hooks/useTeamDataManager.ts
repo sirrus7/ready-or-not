@@ -168,34 +168,21 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         }
     }, [initialSessionId, fetchTeamsForSession, fetchTeamDecisionsForSession, fetchTeamRoundDataForSession]);
 
-    // Real-time subscription for team decisions using new hook
+    // Conditional subscription based on parameter
     useRealtimeSubscription(
         `team-decisions-${initialSessionId}`,
         {
-            table: 'team_decisions', // Make sure this matches your actual table name
+            table: 'team_decisions',
             filter: `session_id=eq.${initialSessionId}`,
             onchange: (payload) => {
-                console.log('useTeamDataManager: Team decision change received:', payload.eventType, payload.new, payload.old);
-                const newDecision = payload.new as TeamDecision;
-                const oldDecision = payload.old as TeamDecision;
+                console.log('useTeamDataManager: Team decision change received:', payload.eventType);
 
-                setTeamDecisions(prev => {
-                    const updated = JSON.parse(JSON.stringify(prev)); // Deep clone
-                    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                        if (!updated[newDecision.team_id]) updated[newDecision.team_id] = {};
-                        updated[newDecision.team_id][newDecision.phase_id] = newDecision;
-                        console.log(`useTeamDataManager: Updated decision for team ${newDecision.team_id}, phase ${newDecision.phase_id}`);
-                    } else if (payload.eventType === 'DELETE' && oldDecision?.team_id && oldDecision?.phase_id) {
-                        if (updated[oldDecision.team_id]) {
-                            delete updated[oldDecision.team_id][oldDecision.phase_id];
-                            if (Object.keys(updated[oldDecision.team_id]).length === 0) delete updated[oldDecision.team_id];
-                            console.log(`useTeamDataManager: Removed decision for team ${oldDecision.team_id}, phase ${oldDecision.phase_id}`);
-                        }
-                    }
-                    return updated;
-                });
+                if (initialSessionId) {
+                    fetchTeamDecisionsForSession(initialSessionId);
+                }
             }
         },
+        // Only enable if both conditions are true
         !!initialSessionId && initialSessionId !== 'new'
     );
 

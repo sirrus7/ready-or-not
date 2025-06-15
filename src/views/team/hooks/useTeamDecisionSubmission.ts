@@ -1,12 +1,12 @@
 // src/views/team/hooks/useTeamDecisionSubmission.ts
-// FIXED VERSION - Correct imports and real-time subscription
+// FIXED VERSION - Uses broadcast commands instead of database realtime
 
 import {useState, useCallback, useMemo, useEffect} from 'react';
 import {useSupabaseMutation, useSupabaseQuery} from '@shared/hooks/supabase';
-import {useRealtimeSubscription} from '@shared/services/supabase'; // Fixed import path
 import {db, supabase} from '@shared/services/supabase';
 import {Slide, InvestmentOption, ChallengeOption, GameStructure} from '@shared/types';
 import {DecisionState} from './useDecisionMaking';
+import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 interface UseTeamDecisionSubmissionProps {
     sessionId: string | null;
@@ -103,28 +103,30 @@ export const useTeamDecisionSubmission = ({
         {cacheKey: `immediate-${sessionId}-${teamId}-${decisionKey}`, cacheTimeout: 5000, retryOnError: false}
     );
 
-    // Add real-time subscription to refresh queries when decisions change
-    useRealtimeSubscription(
-        `team-decisions-realtime-${sessionId}-${teamId}`,
-        {
-            table: 'team_decisions',
-            filter: `session_id=eq.${sessionId}.and.team_id=eq.${teamId}`,
-            onchange: (payload) => {
-                console.log('🔄 [TEAM] Decision change detected:', payload.eventType, 'for phase:', payload.old?.phase_id || payload.new?.phase_id);
+    // ✅ NEW: Listen for broadcast commands from host (REPLACES database realtime subscription)
+    useEffect(() => {
+        if (!sessionId || !teamId) return;
 
-                // Refresh both queries when any decision for this team changes
+        const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'team');
+
+        const unsubscribeReset = broadcastManager.onHostCommand((command) => {
+            console.log('🔄 [TEAM] Received host command:', command);
+
+            if (command.action === 'decision_reset' && command.data?.teamId === teamId) {
+                console.log('🔄 [TEAM] Decision was reset by host - refreshing UI');
+
+                // Refresh queries to get fresh state
                 checkForExistingDecision();
                 refreshImmediatePurchases();
 
-                // If a decision was deleted, clear the success state so user can submit again
-                if (payload.eventType === 'DELETE') {
-                    setSubmissionSuccess(false);
-                    setSubmissionError(null);
-                }
+                // Clear submission success state
+                setSubmissionSuccess(false);
+                setSubmissionError(null);
             }
-        },
-        !!(sessionId && teamId)
-    );
+        });
+
+        return unsubscribeReset;
+    }, [sessionId, teamId, checkForExistingDecision, refreshImmediatePurchases]);
 
     const hasExistingSubmission = !!(existingDecision?.submitted_at);
 

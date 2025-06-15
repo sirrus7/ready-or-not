@@ -42,8 +42,8 @@ export const decisionService = {
                 .eq('session_id', sessionId)
                 .eq('team_id', teamId)
                 .eq('phase_id', phaseId)
-                .eq('is_immediate_purchase', false) // Only get regular decisions
-                .maybeSingle(); // Use maybeSingle() to handle case where no row exists
+                .eq('is_immediate_purchase', false)
+                .maybeSingle();
 
             if (error) throw error;
             return data;
