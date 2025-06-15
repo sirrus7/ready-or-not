@@ -1,6 +1,8 @@
-// src/utils/supabase/services/decisionService.ts - Decision operations
+// src/shared/services/supabase/services/decisionService.ts
+// FIXED VERSION - Protects immediate purchases from deletion
+
 import {supabase} from '../client';
-import {withRetry, callRPC} from '../database';
+import {withRetry} from '../database';
 import {TeamDecision} from '@shared/types';
 
 export const decisionService = {
@@ -16,6 +18,7 @@ export const decisionService = {
         }, 3, 1000, `Fetch decisions for session ${sessionId.substring(0, 8)}`);
     },
 
+    // FIXED: Now protects immediate purchases from being deleted
     async delete(sessionId: string, teamId: string, phaseId: string) {
         return withRetry(async () => {
             const {error} = await supabase
@@ -23,21 +26,28 @@ export const decisionService = {
                 .delete()
                 .eq('session_id', sessionId)
                 .eq('team_id', teamId)
-                .eq('phase_id', phaseId);
+                .eq('phase_id', phaseId)
+                .neq('is_immediate_purchase', true); // CRITICAL: Don't delete immediate purchases
+
             if (error) throw error;
-        }, 2, 1000, `Delete decision for team ${teamId.substring(0, 8)} phase ${phaseId}`);
+        }, 2, 1000, `Delete regular decision for team ${teamId.substring(0, 8)} phase ${phaseId}`);
     },
 
+    // FIXED: Replace RPC with direct query
     async getForPhase(sessionId: string, teamId: string, phaseId: string) {
-        return callRPC('get_student_team_decision_for_phase', {
-            target_session_id: sessionId,
-            target_team_id: teamId,
-            target_phase_id: phaseId
-        }, {
-            expectedSingle: true,
-            context: `Get decision for team ${teamId.substring(0, 8)} phase ${phaseId}`,
-            maxRetries: 2
-        });
+        return withRetry(async () => {
+            const {data, error} = await supabase
+                .from('team_decisions')
+                .select('*')
+                .eq('session_id', sessionId)
+                .eq('team_id', teamId)
+                .eq('phase_id', phaseId)
+                .eq('is_immediate_purchase', false) // Only get regular decisions
+                .maybeSingle(); // Use maybeSingle() to handle case where no row exists
+
+            if (error) throw error;
+            return data;
+        }, 2, 1000, `Get decision for team ${teamId.substring(0, 8)} phase ${phaseId}`);
     },
 
     async create(decisionData: Omit<TeamDecision, 'id' | 'created_at'>) {
@@ -55,7 +65,6 @@ export const decisionService = {
         }, 2, 1000, `Create decision for team ${decisionData.team_id?.substring(0, 8)} phase ${decisionData.phase_id}`);
     },
 
-    // NEW UPSERT METHOD TO PREVENT RACE CONDITIONS
     async upsert(decisionData: Omit<TeamDecision, 'id' | 'created_at'>) {
         return withRetry(async () => {
             const payload = {
@@ -66,11 +75,10 @@ export const decisionService = {
             const {data, error} = await supabase
                 .from('team_decisions')
                 .upsert(payload, {
-                    // A team can only have one decision per phase in a session.
                     onConflict: 'session_id, team_id, phase_id'
                 })
                 .select()
-                .single(); // Expect one row back
+                .single();
 
             if (error) throw error;
             return data;

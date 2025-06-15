@@ -1,4 +1,6 @@
-// src/hooks/useTeamDataManager.ts - Team data fetching/management
+// src/shared/hooks/useTeamDataManager.ts
+// FIXED VERSION - Updated resetTeamDecisionInDb to protect immediate purchases
+
 import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 import { db, formatSupabaseError, useRealtimeSubscription } from '@shared/services/supabase';
 import { Team, TeamDecision, TeamRoundData } from '@shared/types';
@@ -109,6 +111,7 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         }
     }, []);
 
+    // FIXED: Updated to protect immediate purchases from being reset
     const resetTeamDecisionInDb = useCallback(async (sessionId: string, teamId: string, phaseId: string) => {
         console.log(`[useTeamDataManager] resetTeamDecisionInDb called with:`, {
             sessionId: sessionId || 'MISSING',
@@ -125,9 +128,10 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         console.log(`useTeamDataManager: Resetting decision in DB for session ${sessionId}, team ${teamId}, phase ${phaseId}`);
 
         try {
+            // This will now use the FIXED delete function that protects immediate purchases
             await db.decisions.delete(sessionId, teamId, phaseId);
 
-            console.log(`useTeamDataManager: Successfully deleted decision from DB, updating local state`);
+            console.log(`useTeamDataManager: Successfully deleted regular decisions from DB, updating local state`);
 
             setTeamDecisions(prev => {
                 const updated = JSON.parse(JSON.stringify(prev)); // Deep clone
@@ -137,15 +141,19 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
                     if (Object.keys(updated[teamId]).length === 0) {
                         delete updated[teamId];
                     }
-                    console.log(`useTeamDataManager: Updated local state after reset - removed ${teamId}/${phaseId}`);
+                    console.log(`useTeamDataManager: Updated local state after reset - removed ${teamId}/${phaseId} (preserved immediate purchases)`);
                 }
                 return updated;
             });
+
+            // ADDED: Force refresh team decisions to get fresh data from database
+            await fetchTeamDecisionsForSession(sessionId);
+
         } catch (err) {
             console.error("useTeamDataManager: Error resetting team decision:", err);
             throw new Error(`Failed to reset decision: ${formatSupabaseError(err)}`);
         }
-    }, []);
+    }, [fetchTeamDecisionsForSession]);
 
     // Initial fetch when sessionId becomes available
     useEffect(() => {

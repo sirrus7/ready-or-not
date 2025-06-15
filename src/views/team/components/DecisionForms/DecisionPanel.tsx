@@ -42,10 +42,14 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
     });
 
     const submission = useTeamDecisionSubmission({
-        sessionId, teamId, currentSlide,
+        sessionId,
+        teamId,
+        currentSlide,
         decisionState: decisionLogic.state,
         isValidSubmission: decisionLogic.isValidSubmission,
-        investmentOptions, challengeOptions, gameStructure
+        investmentOptions,
+        challengeOptions,
+        gameStructure
     });
 
     if (!isDecisionTime || !currentSlide) {
