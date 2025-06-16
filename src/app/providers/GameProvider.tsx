@@ -1,5 +1,5 @@
 // src/app/providers/GameProvider.tsx
-// FIXED VERSION - Based on actual codebase structure
+// FIXED VERSION - Includes missing fetchTeamDecisionsFromHook
 
 import React, {createContext, useContext, ReactNode, useEffect, useCallback} from 'react';
 import {useAuth} from './AuthProvider';
@@ -49,6 +49,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
     } = useSessionManager(passedSessionId, user, authLoading, gameStructure);
     const teamDataManager = useTeamDataManager(session?.id || null);
 
+    // FIXED: Pass the missing fetchTeamDecisionsFromHook function
     const gameProcessing = useGameProcessing({
         currentDbSession: session,
         gameStructure,
@@ -57,10 +58,11 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         teamRoundData: teamDataManager.teamRoundData,
         updateSessionInDb,
         fetchTeamRoundDataFromHook: teamDataManager.fetchTeamRoundDataForSession,
+        fetchTeamDecisionsFromHook: teamDataManager.fetchTeamDecisionsForSession, // FIXED: Added missing function
         setTeamRoundDataDirectly: teamDataManager.setTeamRoundDataDirectly
     });
 
-    // FIXED: Updated to include consequence slide processing
+    // Updated to include consequence slide processing
     const gameController = useGameController(
         session,
         gameStructure,
@@ -86,7 +88,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
 
         try {
             // Delete the team's decision from the database
-            await teamDataManager.resetTeamDecision(teamId, interactiveDataKey);
+            await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
 
             // Send broadcast command to team to refresh their UI
             const broadcastManager = SimpleBroadcastManager.getInstance(session.id, 'host');

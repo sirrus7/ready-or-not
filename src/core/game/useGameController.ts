@@ -1,5 +1,5 @@
 // src/core/game/useGameController.ts
-// FIXED VERSION - Based on actual codebase structure
+// FIXED VERSION - Properly handles "All Teams Have Submitted" modal
 
 import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {GameSession, GameStructure, Slide} from '@shared/types';
@@ -35,6 +35,7 @@ export const useGameController = (
         message: string
     } | null>(null);
     const [allTeamsSubmittedCurrentInteractivePhaseState, setAllTeamsSubmittedCurrentInteractivePhaseState] = useState<boolean>(false);
+    const [allTeamsAlertDismissed, setAllTeamsAlertDismissed] = useState<boolean>(false); // ADDED: Track if alert was dismissed
 
     const previousSlideIdRef = useRef<number | undefined>(undefined);
     const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted";
@@ -57,58 +58,49 @@ export const useGameController = (
 
     // Add slide precaching - this will automatically precache the next 3 slides
     useSlidePreCaching(
-        gameStructure?.slides ?? null,
+        gameStructure?.slides ?? [],
         currentSlideIndex,
         {
             precacheCount: 3,
-            enabled: true
+            enabled: !!currentSlideData?.source_path
         }
     );
 
+    // Initialize host notes from session
     useEffect(() => {
-        if (dbSession) setHostNotesState(dbSession.teacher_notes || {});
-        else {
-            setHostNotesState({});
-            setCurrentHostAlertState(null);
-            setAllTeamsSubmittedCurrentInteractivePhaseState(false);
+        if (dbSession?.teacher_notes) {
+            setHostNotesState(dbSession.teacher_notes);
         }
-    }, [dbSession]);
+    }, [dbSession?.teacher_notes]);
 
-    // Handle slide changes - clear non-persistent alerts
+    // FIXED: Handle "All Teams Have Submitted" alert properly with dismissal tracking
     useEffect(() => {
-        const isNewActualSlide = currentSlideData?.id !== previousSlideIdRef.current;
-        if (currentSlideData && isNewActualSlide) {
-            if (currentHostAlertState && currentHostAlertState.title !== ALL_SUBMIT_ALERT_TITLE) {
-                setCurrentHostAlertState(null);
-            }
+        if (allTeamsSubmittedCurrentInteractivePhaseState &&
+            currentSlideData?.interactive_data_key &&
+            !currentHostAlertState &&
+            !allTeamsAlertDismissed) { // FIXED: Don't show if manually dismissed
+            console.log('[useGameController] All teams submitted, showing alert');
+            setCurrentHostAlertState({
+                title: ALL_SUBMIT_ALERT_TITLE,
+                message: ALL_SUBMIT_ALERT_MESSAGE
+            });
         }
-        previousSlideIdRef.current = currentSlideData?.id;
-    }, [currentSlideData, currentHostAlertState, ALL_SUBMIT_ALERT_TITLE]);
+    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData?.interactive_data_key, currentHostAlertState, allTeamsAlertDismissed]);
 
-    // Effect to show "All Teams Submitted" alert
+    // Auto-process consequence slides when navigating TO them
     useEffect(() => {
-        if (allTeamsSubmittedCurrentInteractivePhaseState) {
-            setCurrentHostAlertState({title: ALL_SUBMIT_ALERT_TITLE, message: ALL_SUBMIT_ALERT_MESSAGE});
-        } else if (currentHostAlertState?.title === ALL_SUBMIT_ALERT_TITLE) {
-            setCurrentHostAlertState(null);
-        }
-    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentHostAlertState?.title]);
+        if (!currentSlideData || !gameStructure) return;
 
-    // FIXED: Auto-process consequence slides when navigating to them
-    useEffect(() => {
         const processConsequenceSlideAuto = async () => {
-            if (!currentSlideData || !gameStructure) return;
-
-            // Only process consequence_reveal slides
             if (currentSlideData.type === 'consequence_reveal') {
+                console.log(`[useGameController] Auto-processing consequence slide: ${currentSlideData.id}`);
                 try {
-                    console.log(`[useGameController] Auto-processing consequence slide: ${currentSlideData.title}`);
                     await processConsequenceSlide(currentSlideData);
                 } catch (error) {
-                    console.error(`[useGameController] Failed to auto-process consequence slide:`, error);
+                    console.error(`[useGameController] Error auto-processing consequence slide:`, error);
                     setCurrentHostAlertState({
-                        title: "KPI Processing Error",
-                        message: `Failed to apply KPI effects for ${currentSlideData.title}: ${error instanceof Error ? error.message : 'Unknown error'}`
+                        title: "Processing Error",
+                        message: `Failed to process consequence slide: ${error instanceof Error ? error.message : 'Unknown error'}`
                     });
                 }
             }
@@ -119,6 +111,7 @@ export const useGameController = (
         if (isNewActualSlide) {
             processConsequenceSlideAuto();
         }
+        previousSlideIdRef.current = currentSlideData?.id;
     }, [currentSlideData, gameStructure, processConsequenceSlide]);
 
     // Navigation actions
@@ -142,7 +135,15 @@ export const useGameController = (
                 is_complete: newIndex === gameStructure.slides.length - 1,
             });
             setDbSession(updatedSession);
+
+            // FIXED: Reset both states when navigating away
             setAllTeamsSubmittedCurrentInteractivePhaseState(false);
+            setAllTeamsAlertDismissed(false); // FIXED: Reset dismissal flag for new slide
+
+            // FIXED: Clear the "All Teams Have Submitted" modal when navigating away
+            if (currentHostAlertState?.title === ALL_SUBMIT_ALERT_TITLE) {
+                setCurrentHostAlertState(null);
+            }
         } catch (error) {
             console.error("[useGameController] Error navigating slide:", error);
             setCurrentHostAlertState({
@@ -192,16 +193,29 @@ export const useGameController = (
         }
     }, [currentSlideData, dbSession, hostNotesState, sessionManager]);
 
-    // Host alert management
+    // FIXED: Host alert management - separate behavior for "All Teams Have Submitted"
     const clearHostAlert = useCallback(async () => {
         if (!currentHostAlertState) return;
-        setCurrentHostAlertState(null);
-        await nextSlide();
+
+        // Check if this is the "All Teams Have Submitted" alert
+        if (currentHostAlertState.title === ALL_SUBMIT_ALERT_TITLE) {
+            // For "All Teams Have Submitted", clear the alert first, then move to next slide
+            setCurrentHostAlertState(null);
+            setAllTeamsAlertDismissed(true); // FIXED: Set dismissed flag to prevent reappearance
+            await nextSlide();
+        } else {
+            // For other alerts, just clear the alert but don't auto-advance
+            setCurrentHostAlertState(null);
+        }
     }, [currentHostAlertState, nextSlide]);
 
     const setCurrentHostAlertStateManually = useCallback((alert: { title: string; message: string } | null) => {
+        // FIXED: If manually dismissing the "All Teams Have Submitted" alert, set dismissed flag
+        if (!alert && currentHostAlertState?.title === ALL_SUBMIT_ALERT_TITLE) {
+            setAllTeamsAlertDismissed(true);
+        }
         setCurrentHostAlertState(alert);
-    }, []);
+    }, [currentHostAlertState]);
 
     return {
         currentSlideIndex,
