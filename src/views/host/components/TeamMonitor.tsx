@@ -1,5 +1,5 @@
 // src/views/host/components/TeamMonitor.tsx
-// FIXED VERSION - Resolves null issues and syntax errors
+// FIXED VERSION - Only shows report information for investment periods
 
 import React, {useState, useMemo, useEffect} from 'react';
 import {useGameContext} from '@app/providers/GameProvider.tsx';
@@ -41,13 +41,16 @@ const TeamMonitor: React.FC = () => {
 
     const decisionKey = currentSlideData?.interactive_data_key;
 
+    // FIXED: Only fetch immediate purchases for investment periods
+    const isInvestmentPeriod = currentSlideData?.type === 'interactive_invest';
+
     // Fetch immediate purchase data for Business Growth Strategy reports
     const {
         data: immediatePurchases,
         refresh: refreshImmediatePurchases
     } = useSupabaseQuery(
         async () => {
-            if (!currentSessionId || currentSessionId === 'new') return [];
+            if (!currentSessionId || currentSessionId === 'new' || !isInvestmentPeriod) return [];
 
             const {data, error} = await supabase
                 .from('team_decisions')
@@ -67,9 +70,9 @@ const TeamMonitor: React.FC = () => {
                 report_given: item.report_given || false
             } as ImmediatePurchaseData));
         },
-        [currentSessionId],
+        [currentSessionId, isInvestmentPeriod],
         {
-            cacheKey: `immediate-purchases-${currentSessionId}`,
+            cacheKey: `immediate-purchases-${currentSessionId}-${isInvestmentPeriod}`,
             cacheTimeout: 5000
         }
     );
@@ -93,7 +96,7 @@ const TeamMonitor: React.FC = () => {
         setAllTeamsSubmittedCurrentInteractivePhase(submissionStats.allSubmitted);
     }, [submissionStats.allSubmitted, setAllTeamsSubmittedCurrentInteractivePhase]);
 
-    // FIXED: Now includes immediate purchases and handles null cases - updated to handle teams with only immediate purchases
+    // FIXED: Only include immediate purchases for investment periods
     const formatSelection = (decision?: TeamDecision, teamId?: string): string => {
         if (!currentSlideData || !gameStructure || !decisionKey) return 'No submission yet';
 
@@ -102,7 +105,7 @@ const TeamMonitor: React.FC = () => {
                 const selectedIds = decision?.selected_investment_ids || [];
                 const investmentOptions = gameStructure.all_investment_options[decisionKey] || [];
 
-                // Check if this team has immediate purchases for this phase
+                // Only check for immediate purchases on investment periods
                 const teamImmediatePurchases = safeImmediatePurchases.filter(purchase =>
                     purchase.team_id === (teamId || decision?.team_id)
                 );
@@ -111,7 +114,6 @@ const TeamMonitor: React.FC = () => {
 
                 // Extract immediate purchase IDs and budget
                 teamImmediatePurchases.forEach(purchase => {
-                    // Option A - Business Growth Strategy
                     immediateIds.push('rd1_inv_biz_growth');
                     immediateBudget += purchase.cost;
                 });
@@ -119,7 +121,6 @@ const TeamMonitor: React.FC = () => {
                 // Combine regular and immediate selections
                 const allSelectedIds = [...immediateIds, ...selectedIds];
 
-                // FIXED: Handle case where there are only immediate purchases (no regular decision yet)
                 if (allSelectedIds.length === 0) {
                     return decision ? `No investments selected` : 'No submission yet';
                 }
@@ -196,7 +197,11 @@ const TeamMonitor: React.FC = () => {
     const teamsWithStatus = teams.map(team => {
         const decision = teamDecisions[team.id]?.[decisionKey];
         const hasSubmitted = !!(decision?.submitted_at);
-        const immediatePurchase = safeImmediatePurchases.find(purchase => purchase.team_id === team.id);
+
+        // FIXED: Only include immediate purchases for investment periods
+        const immediatePurchase = isInvestmentPeriod
+            ? safeImmediatePurchases.find(purchase => purchase.team_id === team.id)
+            : undefined;
 
         return {
             ...team,
@@ -233,8 +238,8 @@ const TeamMonitor: React.FC = () => {
                 </div>
             )}
 
-            {/* Reports Needed - Compact Alert Style */}
-            {reportsNeeded.length > 0 && (
+            {/* FIXED: Only show Reports Needed section for investment periods */}
+            {isInvestmentPeriod && reportsNeeded.length > 0 && (
                 <div className="bg-orange-50 border border-orange-200 rounded p-2">
                     <div className="flex items-center gap-1 text-orange-800 font-medium text-xs mb-1">
                         <AlertTriangle size={14}/>
@@ -266,10 +271,11 @@ const TeamMonitor: React.FC = () => {
                                     className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 flex-shrink-0 ml-2"
                                 >
                                     {isMarkingReport === team.immediatePurchase!.id ?
-                                        <Clock size={12} className="animate-spin"/> :
+                                        <div
+                                            className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div> :
                                         <CheckCircle size={12}/>
                                     }
-                                    <span>Given</span>
+                                    <span className="hidden sm:inline">Given</span>
                                 </button>
                             </div>
                         ))}
@@ -277,32 +283,32 @@ const TeamMonitor: React.FC = () => {
                 </div>
             )}
 
-            {/* Team List */}
-            <div className="grid gap-2">
+            {/* Team Submissions List */}
+            <div className="space-y-2">
                 {teamsWithStatus.map(team => (
                     <div key={team.id}
                          className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                             team.hasSubmitted
-                                 ? 'bg-green-50 border-green-200'
-                                 : 'bg-gray-50 border-gray-200'
+                             team.hasSubmitted ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
                          }`}>
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                             <div
-                                className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
-                                <User size={14} className="text-gray-600"/>
+                                className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                    team.hasSubmitted ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+                                }`}>
+                                <User size={16}/>
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-medium text-gray-900 truncate">{team.name}</span>
+                                    <span className="font-medium text-gray-800 truncate">{team.name}</span>
                                     <span
-                                        className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded-full ${
-                                            team.hasSubmitted
-                                                ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                        className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded-full flex-shrink-0 ${
+                                            team.hasSubmitted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                                         }`}>
                                         {team.hasSubmitted ? <CheckCircle2 size={10}/> : <Clock size={10}/>}
                                         {team.hasSubmitted ? 'Done' : 'Working'}
                                     </span>
-                                    {team.immediatePurchase && (
+                                    {/* FIXED: Only show report badge for investment periods */}
+                                    {isInvestmentPeriod && team.immediatePurchase && (
                                         <span
                                             className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full flex-shrink-0">
                                             <Zap size={10}/>
@@ -313,7 +319,8 @@ const TeamMonitor: React.FC = () => {
                                 <div className="text-xs text-gray-600 truncate">
                                     {formatSelection(team.decision, team.id)}
                                 </div>
-                                {team.immediatePurchase && (
+                                {/* FIXED: Only show report status for investment periods */}
+                                {isInvestmentPeriod && team.immediatePurchase && (
                                     <div className="text-xs text-blue-600 truncate">
                                         Strategy: {formatCurrency(team.immediatePurchase.cost)} •
                                         Report {team.immediatePurchase.report_given ? 'Given ✓' : 'Needed'}
@@ -347,17 +354,17 @@ const TeamMonitor: React.FC = () => {
                         This will allow them to make new selections. Their immediate purchases (like Business Growth
                         Strategy) will remain intact.
                     </p>
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex justify-end space-x-2">
                         <button
                             onClick={() => setIsResetModalOpen(false)}
-                            className="px-3 py-1 text-gray-600 hover:text-gray-800 text-sm"
+                            className="px-3 py-2 text-sm text-gray-600 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={confirmReset}
                             disabled={isResetting}
-                            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
+                            className="px-3 py-2 text-sm text-white bg-red-600 rounded hover:bg-red-700 transition-colors disabled:opacity-50"
                         >
                             {isResetting ? 'Resetting...' : 'Reset Decision'}
                         </button>

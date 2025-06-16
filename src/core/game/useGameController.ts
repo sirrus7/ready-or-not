@@ -1,5 +1,5 @@
 // src/core/game/useGameController.ts
-// Enhanced with current slide precaching on navigation
+// FIXED VERSION - Based on actual codebase structure
 
 import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {GameSession, GameStructure, Slide} from '@shared/types';
@@ -25,7 +25,8 @@ export interface GameControllerOutput {
 export const useGameController = (
     initialDbSession: GameSession | null,
     gameStructure: GameStructure | null,
-    processInteractiveSlide: (completedSlide: Slide) => Promise<void>
+    processInteractiveSlide: (completedSlide: Slide) => Promise<void>,
+    processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>
 ): GameControllerOutput => {
     const [dbSession, setDbSession] = useState<GameSession | null>(initialDbSession);
     const [hostNotesState, setHostNotesState] = useState<Record<string, string>>({});
@@ -59,8 +60,8 @@ export const useGameController = (
         gameStructure?.slides ?? null,
         currentSlideIndex,
         {
-            precacheCount: 3, // You can adjust this number based on your needs
-            enabled: true // You could make this configurable via settings
+            precacheCount: 3,
+            enabled: true
         }
     );
 
@@ -92,6 +93,33 @@ export const useGameController = (
             setCurrentHostAlertState(null);
         }
     }, [allTeamsSubmittedCurrentInteractivePhaseState, currentHostAlertState?.title]);
+
+    // FIXED: Auto-process consequence slides when navigating to them
+    useEffect(() => {
+        const processConsequenceSlideAuto = async () => {
+            if (!currentSlideData || !gameStructure) return;
+
+            // Only process consequence_reveal slides
+            if (currentSlideData.type === 'consequence_reveal') {
+                try {
+                    console.log(`[useGameController] Auto-processing consequence slide: ${currentSlideData.title}`);
+                    await processConsequenceSlide(currentSlideData);
+                } catch (error) {
+                    console.error(`[useGameController] Failed to auto-process consequence slide:`, error);
+                    setCurrentHostAlertState({
+                        title: "KPI Processing Error",
+                        message: `Failed to apply KPI effects for ${currentSlideData.title}: ${error instanceof Error ? error.message : 'Unknown error'}`
+                    });
+                }
+            }
+        };
+
+        // Only process if this is a new slide (not initial load)
+        const isNewActualSlide = currentSlideData?.id !== previousSlideIdRef.current && previousSlideIdRef.current !== undefined;
+        if (isNewActualSlide) {
+            processConsequenceSlideAuto();
+        }
+    }, [currentSlideData, gameStructure, processConsequenceSlide]);
 
     // Navigation actions
     const navigateToSlide = useCallback(async (newIndex: number) => {
@@ -127,8 +155,9 @@ export const useGameController = (
     const nextSlide = useCallback(async () => {
         if (currentSlideIndex === null || !currentSlideData) return;
 
-        // Process the completed slide *before* navigating to the next one.
-        if (currentSlideData.interactive_data_key) {
+        // FIXED: Only process interactive slides on completion, not consequence slides
+        // Consequence slides are now auto-processed when navigating TO them
+        if (currentSlideData.interactive_data_key && currentSlideData.type.startsWith('interactive_')) {
             await processInteractiveSlide(currentSlideData);
         }
 

@@ -1,4 +1,6 @@
 // src/core/game/useGameProcessing.ts
+// FIXED VERSION - Based on actual codebase structure
+
 import {useCallback, useMemo} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {db} from '@shared/services/supabase';
@@ -14,6 +16,7 @@ import {
 import {KpiCalculations} from './ScoringEngine';
 import {DecisionEngine} from './DecisionEngine';
 import {InvestmentEngine} from './InvestmentEngine';
+import {ConsequenceProcessor} from './ConsequenceProcessor';
 
 interface UseGameProcessingProps {
     currentDbSession: GameSession | null;
@@ -27,11 +30,12 @@ interface UseGameProcessingProps {
 }
 
 interface UseGameProcessingReturn {
-    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>;
-    calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => Promise<void>;
-    resetGameProgress: () => Promise<void>;
+    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => void;
+    calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => void;
+    resetGameProgress: () => void;
     isLoadingProcessingDecisions: boolean;
     processInteractiveSlide: (completedSlide: Slide) => Promise<void>;
+    processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>;
 }
 
 export const useGameProcessing = ({
@@ -70,6 +74,19 @@ export const useGameProcessing = ({
         });
     }, [currentDbSession, gameStructure, teams, teamDecisions, teamRoundData, fetchTeamRoundDataFromHook, setTeamRoundDataDirectly]);
 
+    // FIXED: Initialize consequence processor with correct props structure
+    const consequenceProcessor = useMemo(() => {
+        return new ConsequenceProcessor({
+            currentDbSession,
+            gameStructure,
+            teams,
+            teamDecisions,
+            teamRoundData,
+            fetchTeamRoundDataFromHook,
+            setTeamRoundDataDirectly
+        });
+    }, [currentDbSession, gameStructure, teams, teamDecisions, teamRoundData, fetchTeamRoundDataFromHook, setTeamRoundDataDirectly]);
+
     const processInteractiveSlide = useCallback(async (completedSlide: Slide) => {
         console.log('[useGameProcessing] Processing completed interactive slide:', completedSlide.id);
         if (!currentDbSession?.id || !gameStructure || teams.length === 0 || !completedSlide.interactive_data_key) {
@@ -83,6 +100,21 @@ export const useGameProcessing = ({
             throw error;
         }
     }, [decisionEngine, currentDbSession, gameStructure, teams]);
+
+    // FIXED: Consequence slide processor
+    const processConsequenceSlide = useCallback(async (consequenceSlide: Slide) => {
+        console.log('[useGameProcessing] Processing consequence slide:', consequenceSlide.id);
+        if (!currentDbSession?.id || !gameStructure || teams.length === 0) {
+            console.warn('[useGameProcessing] Skipping consequence processing - insufficient data');
+            return;
+        }
+        try {
+            await consequenceProcessor.processConsequenceSlide(consequenceSlide);
+        } catch (error) {
+            console.error('[useGameProcessing] Consequence processing failed:', error);
+            throw error;
+        }
+    }, [consequenceProcessor, currentDbSession, gameStructure, teams]);
 
     const {
         execute: processInvestmentPayoffsExecute,
@@ -119,7 +151,7 @@ export const useGameProcessing = ({
         execute: resetGameProgressExecute,
         isLoading: isResettingGame,
     } = useSupabaseMutation(
-        async () => {
+        async (_variables: void) => {
             if (!currentDbSession?.id || !gameStructure) {
                 throw new Error('Cannot reset game - missing session or structure');
             }
@@ -129,7 +161,6 @@ export const useGameProcessing = ({
             await db.kpis.deleteBySession(currentDbSession.id);
             await db.decisions.deleteBySession(currentDbSession.id);
 
-            // REFACTOR: Use current_slide_index to reset to the start.
             await updateSessionInDb({
                 current_slide_index: 0,
                 is_playing: false,
@@ -144,14 +175,20 @@ export const useGameProcessing = ({
         }
     );
 
-    const processInvestmentPayoffs = useCallback((roundNumber: 1 | 2 | 3) => processInvestmentPayoffsExecute(roundNumber), [processInvestmentPayoffsExecute]);
-    const resetGameProgress = useCallback(() => resetGameProgressExecute(), [resetGameProgressExecute]);
+    const processInvestmentPayoffs = useCallback((roundNumber: 1 | 2 | 3) => {
+        processInvestmentPayoffsExecute(roundNumber);
+    }, [processInvestmentPayoffsExecute]);
+
+    const resetGameProgress = useCallback(() => {
+        resetGameProgressExecute(undefined);
+    }, [resetGameProgressExecute]);
 
     return {
         processInvestmentPayoffs,
         calculateAndFinalizeRoundKPIs: calculateKPIsExecute,
         resetGameProgress,
         isLoadingProcessingDecisions: isProcessingPayoffs || isCalculatingKPIs || isResettingGame,
-        processInteractiveSlide
+        processInteractiveSlide,
+        processConsequenceSlide
     };
 };

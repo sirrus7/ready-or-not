@@ -1,4 +1,6 @@
 // src/app/providers/GameProvider.tsx
+// FIXED VERSION - Based on actual codebase structure
+
 import React, {createContext, useContext, ReactNode, useEffect, useCallback} from 'react';
 import {useAuth} from './AuthProvider';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
@@ -58,10 +60,12 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
         setTeamRoundDataDirectly: teamDataManager.setTeamRoundDataDirectly
     });
 
+    // FIXED: Updated to include consequence slide processing
     const gameController = useGameController(
         session,
         gameStructure,
-        (completedSlide: Slide) => gameProcessing.processInteractiveSlide(completedSlide)
+        gameProcessing.processInteractiveSlide,
+        gameProcessing.processConsequenceSlide
     );
 
     const fetchTeamsForSession = async () => {
@@ -75,40 +79,47 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, passedSessi
     };
 
     const resetTeamDecision = useCallback(async (teamId: string, interactiveDataKey: string) => {
-        if (!session?.id || session.id === 'new') throw new Error("No active session");
+        if (!session?.id) {
+            console.error('Cannot reset decision - no active session');
+            return;
+        }
+
         try {
-            await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
+            // Delete the team's decision from the database
+            await teamDataManager.resetTeamDecision(teamId, interactiveDataKey);
 
-            // ✅ NEW: Send broadcast to the specific team
+            // Send broadcast command to team to refresh their UI
             const broadcastManager = SimpleBroadcastManager.getInstance(session.id, 'host');
-            broadcastManager.sendCommand('decision_reset', {
-                teamId: teamId,
-                phaseId: interactiveDataKey,
-                timestamp: new Date().toISOString()
+            broadcastManager.sendHostCommand({
+                action: 'decision_reset',
+                data: {teamId, interactiveDataKey},
+                timestamp: Date.now()
             });
-            console.log(`[GameProvider] Sent decision_reset broadcast for team ${teamId}, phase ${interactiveDataKey}`);
 
-            await fetchTeamsForSession();
+            console.log(`[GameProvider] Reset decision for team ${teamId}, phase ${interactiveDataKey}`);
         } catch (error) {
-            console.error(`[GameProvider] Failed to reset team decision:`, error);
+            console.error('[GameProvider] Failed to reset team decision:', error);
             throw error;
         }
-    }, [session?.id, teamDataManager.resetTeamDecisionInDb, fetchTeamsForSession]);
+    }, [session?.id, teamDataManager]);
 
+    // Initialize broadcast manager when session changes
     useEffect(() => {
-        fetchTeamsForSession();
+        if (session?.id && session.id !== 'new') {
+            const broadcastManager = SimpleBroadcastManager.getInstance(session.id, 'host');
+            // No need to call initialize() - it's done automatically in the constructor
+            return () => broadcastManager.destroy();
+        }
     }, [session?.id]);
 
     const state: AppState = {
-        currentSessionId: session?.id || null,
         gameStructure,
-        current_slide_index: gameController.currentSlideIndex,
-        hostNotes: gameController.teacherNotes,
-        isPlaying: session?.is_playing || false,
+        currentSessionId: session?.id || null,
+        current_slide_index: session?.current_slide_index ?? null,
         teams: teamDataManager.teams,
         teamDecisions: teamDataManager.teamDecisions,
         teamRoundData: teamDataManager.teamRoundData,
-        isPlayerWindowOpen: false,
+        isModalOpen: false,
         isLoading: sessionLoading || teamDataManager.isLoadingTeams,
         error: sessionError || teamDataManager.error,
         currentHostAlert: gameController.currentHostAlert
