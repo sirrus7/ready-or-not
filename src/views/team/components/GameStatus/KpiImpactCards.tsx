@@ -1,9 +1,9 @@
 // src/views/team/components/GameStatus/KpiImpactCards.tsx
-// PRODUCTION VERSION: Uses explicit challenge IDs with backward compatibility
+// Updated to match the physical card layout shown in the game
 
 import React from 'react';
 import {PermanentKpiAdjustment} from '@shared/types';
-import {Building, ShoppingCart, DollarSign, TrendingUp, Plus, Minus} from 'lucide-react';
+import {Building, ShoppingCart, DollarSign, TrendingUp} from 'lucide-react';
 import {getChallengeById} from '@core/content/ChallengeRegistry';
 
 interface KpiImpactCardsProps {
@@ -30,29 +30,19 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                                                            permanentAdjustments
                                                        }) => {
 
-    /**
-     * PRODUCTION: Creates impact cards using explicit challenge IDs
-     */
     const createImpactCards = (): ImpactCard[] => {
         const cardMap: Record<string, ImpactCard> = {};
 
         permanentAdjustments.forEach(adjustment => {
             if (adjustment.team_id !== teamId) return;
 
-            // PRODUCTION: Use explicit challenge_id (preferred)
             let challengeId = adjustment.challenge_id;
-
-            // BACKWARD COMPATIBILITY: Fallback parsing for old data
             if (!challengeId) {
                 challengeId = extractChallengeFromDescription(adjustment.description);
-                console.warn(`[KpiImpactCards] Using fallback parsing for adjustment: ${adjustment.description} → ${challengeId}`);
             }
 
             const challenge = getChallengeById(challengeId);
-            if (!challenge) {
-                console.warn(`[KpiImpactCards] Unknown challenge ID: ${challengeId}`);
-                return;
-            }
+            if (!challenge) return;
 
             if (!cardMap[challengeId]) {
                 cardMap[challengeId] = {
@@ -64,7 +54,6 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                 };
             }
 
-            // Add KPI effect to card
             const existingEffect = cardMap[challengeId].kpiEffects.find(e => e.kpi === adjustment.kpi_key);
             if (existingEffect) {
                 if (!existingEffect.applies_to_rounds.includes(adjustment.applies_to_round_start)) {
@@ -82,27 +71,17 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
         return Object.values(cardMap);
     };
 
-    /**
-     * BACKWARD COMPATIBILITY: Extract challenge ID from description text
-     */
     const extractChallengeFromDescription = (description: string): string => {
         const desc = description?.toLowerCase() || '';
-
-        // Known patterns from existing data
-        if (desc.includes('cnc machine')) return 'ch1';
-        if (desc.includes('layoff')) return 'ch3';
-        if (desc.includes('tax')) return 'ch2';
-        if (desc.includes('supply chain')) return 'ch4';
-        if (desc.includes('capacity')) return 'ch5';
-        if (desc.includes('quality')) return 'ch6';
-        if (desc.includes('competition')) return 'ch7';
-        if (desc.includes('cyber') || desc.includes('ransomware')) return 'ch8';
-        if (desc.includes('erp')) return 'ch9';
-
-        // Fallback pattern matching
-        const chMatch = desc.match(/ch(\d+)/i);
-        if (chMatch) return `ch${chMatch[1]}`;
-
+        if (desc.includes('ch1') || desc.includes('cnc') || desc.includes('machine')) return 'ch1';
+        if (desc.includes('ch2') || desc.includes('tax')) return 'ch2';
+        if (desc.includes('ch3') || desc.includes('layoff')) return 'ch3';
+        if (desc.includes('ch4') || desc.includes('supply')) return 'ch4';
+        if (desc.includes('ch5') || desc.includes('capacity')) return 'ch5';
+        if (desc.includes('ch6') || desc.includes('quality')) return 'ch6';
+        if (desc.includes('ch7') || desc.includes('competition')) return 'ch7';
+        if (desc.includes('ch8') || desc.includes('cyber')) return 'ch8';
+        if (desc.includes('ch9') || desc.includes('erp')) return 'ch9';
         return 'unknown';
     };
 
@@ -115,24 +94,9 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
             case 'cost':
                 return <DollarSign size={16}/>;
             case 'asp':
-                return <TrendingUp size={16}/>;
+                return <DollarSign size={16}/>;
             default:
                 return <TrendingUp size={16}/>;
-        }
-    };
-
-    const getKpiColor = (kpi: string): string => {
-        switch (kpi) {
-            case 'capacity':
-                return 'text-blue-400';
-            case 'orders':
-                return 'text-yellow-400';
-            case 'cost':
-                return 'text-red-400';
-            case 'asp':
-                return 'text-green-400';
-            default:
-                return 'text-gray-400';
         }
     };
 
@@ -146,7 +110,6 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
 
     const impactCards = createImpactCards();
 
-    // Filter cards that apply to current or future rounds
     const relevantCards = impactCards.filter(card =>
         card.kpiEffects.some(effect =>
             effect.applies_to_rounds.some(round => round >= currentRound)
@@ -158,49 +121,56 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     }
 
     return (
-        <div className="mt-4 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                <TrendingUp size={16}/>
+        <div className="mt-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-300 mb-4 flex items-center gap-2">
+                <TrendingUp size={20}/>
                 KPI Impact Cards
             </h3>
 
-            <div className="space-y-2 max-h-60 overflow-y-auto">
+            <div className="space-y-4">
                 {relevantCards.map(card => (
                     <div
                         key={card.id}
-                        className="bg-gray-700/50 backdrop-blur-sm border border-gray-600 rounded-lg p-3"
+                        className="bg-gray-800 rounded-lg p-6 text-white shadow-lg border border-gray-600 relative overflow-hidden"
                     >
-                        <div className="flex items-start justify-between mb-2">
-                            <div>
-                                <h4 className="text-sm font-medium text-white">{card.title}</h4>
-                                <p className="text-xs text-gray-400 mt-1">{card.description}</p>
+                        {/* Header Section - matches physical card */}
+                        <div className="text-center mb-4">
+                            <div className="bg-gray-700 rounded px-3 py-1 inline-block mb-2">
+                                <span className="text-sm font-semibold tracking-wide">
+                                    PERMANENT KPI IMPACT
+                                </span>
                             </div>
-                            <div className="text-xs text-gray-500 bg-gray-800/50 px-2 py-1 rounded">
-                                {card.source.toUpperCase()}
-                            </div>
+                            <h4 className="text-xl font-bold tracking-wide">
+                                {card.title.toUpperCase()}
+                            </h4>
                         </div>
 
-                        <div className="space-y-1">
+                        {/* Description Section */}
+                        <div className="mb-4">
+                            <p className="text-sm leading-relaxed text-center">
+                                {card.description}
+                            </p>
+                        </div>
+
+                        {/* KPI Effects Section - styled like physical card */}
+                        <div className="bg-black/20 rounded-lg p-4 mb-4">
+                            <p className="text-sm mb-3 text-center font-medium">
+                                Add the following to your<br/>
+                                RD-{card.kpiEffects[0]?.applies_to_rounds.join(' and RD-')} starting KPIs:
+                            </p>
+
                             {card.kpiEffects.map((effect, index) => {
-                                // Filter to only show effects that apply to current or future rounds
                                 const applicableRounds = effect.applies_to_rounds.filter(round => round >= currentRound);
                                 if (applicableRounds.length === 0) return null;
 
                                 return (
-                                    <div key={index} className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <span className={getKpiColor(effect.kpi)}>
+                                    <div key={index} className="text-center">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <span className="text-cyan-300">
                                                 {getKpiIcon(effect.kpi)}
                                             </span>
-                                            <span className="text-gray-300 capitalize">{effect.kpi}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={effect.value > 0 ? 'text-green-400' : 'text-red-400'}>
-                                                {effect.value > 0 ? <Plus size={12}/> : <Minus size={12}/>}
-                                                {formatKpiValue(effect.kpi, effect.value)}
-                                            </span>
-                                            <span className="text-gray-500 text-xs">
-                                                R{applicableRounds.join(',R')}
+                                            <span className="text-cyan-300 font-bold text-lg">
+                                                {effect.kpi.toUpperCase()}: {formatKpiValue(effect.kpi, effect.value)}
                                             </span>
                                         </div>
                                     </div>
@@ -208,11 +178,13 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                             })}
                         </div>
 
-                        <div className="mt-2 pt-2 border-t border-gray-600">
-                            <p className="text-xs text-gray-500">
-                                Active in:
-                                Round {card.kpiEffects.flatMap(e => e.applies_to_rounds).filter(r => r >= currentRound).sort().join(', ')}
-                            </p>
+                        {/* Challenge identifier in corner */}
+                        <div className="absolute top-3 right-3">
+                            <div className="bg-black/50 rounded px-2 py-1">
+                                <span className="text-white text-xs font-semibold">
+                                    {card.source.toUpperCase()}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 ))}
