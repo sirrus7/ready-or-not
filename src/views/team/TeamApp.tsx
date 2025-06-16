@@ -1,11 +1,13 @@
 // src/views/team/TeamApp.tsx
 // Enhanced TeamApp.tsx with comprehensive debug panel and KPI Impact Cards integration
+// FIXED: Added broadcast listener to refresh permanent adjustments when KPI updates occur
 
 import React, {useState, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
 import {Bug} from 'lucide-react';
 import {PermanentKpiAdjustment} from '@shared/types';
 import {db} from '@shared/services/supabase';
+import {SimpleBroadcastManager, KpiUpdateData} from '@core/sync/SimpleBroadcastManager';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import TeamLogout from '@views/team/components/TeamLogin/TeamLogout';
 import TeamStatusDisplay from '@views/team/components/GameStatus/TeamStatus';
@@ -16,7 +18,7 @@ import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
 const TeamDebugPanel: React.FC<{
     sessionId: string | null;
     teamId: string | null;
-    teamGameState: any;
+    teamGameState: ReturnType<typeof useTeamGameState>;
     isVisible: boolean;
 }> = ({sessionId, teamId, teamGameState, isVisible}) => {
     const [refreshCount, setRefreshCount] = useState(0);
@@ -101,6 +103,45 @@ const TeamApp: React.FC = () => {
         loadPermanentAdjustments();
     }, [sessionId, loggedInTeamId]);
 
+    // NEW: Listen for KPI updates via broadcast to refresh permanent adjustments
+    useEffect(() => {
+        if (!sessionId || !loggedInTeamId) return;
+
+        const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'team');
+
+        const unsubscribeKpiUpdates = broadcastManager.onKpiUpdate((kpiData: KpiUpdateData) => {
+            console.log('[TeamApp] Received KPI update from host broadcast:', kpiData);
+
+            // Check if this update is for our team
+            if (kpiData.updatedTeams) {
+                const ourTeamUpdate = kpiData.updatedTeams.find(team => team.teamId === loggedInTeamId);
+                if (ourTeamUpdate) {
+                    console.log('[TeamApp] KPI update detected for our team, refreshing permanent adjustments');
+
+                    // Refresh permanent adjustments when KPI updates come in
+                    const refreshPermanentAdjustments = async () => {
+                        setLoadingAdjustments(true);
+                        try {
+                            const adjustments = await db.adjustments.getBySession(sessionId);
+                            setPermanentAdjustments(adjustments);
+                            console.log('[TeamApp] Refreshed permanent adjustments after KPI update');
+                        } catch (error) {
+                            console.error('[TeamApp] Failed to refresh permanent adjustments:', error);
+                        } finally {
+                            setLoadingAdjustments(false);
+                        }
+                    };
+
+                    refreshPermanentAdjustments();
+                }
+            }
+        });
+
+        return () => {
+            unsubscribeKpiUpdates();
+        };
+    }, [sessionId, loggedInTeamId]);
+
     const handleLoginSuccess = (teamId: string, teamName: string) => {
         setLoggedInTeamId(teamId);
         setLoggedInTeamName(teamName);
@@ -132,11 +173,18 @@ const TeamApp: React.FC = () => {
             />
 
             <TeamLogout teamName={loggedInTeamName} sessionId={sessionId!} onLogout={handleLogout}/>
-            <TeamStatusDisplay teamName={loggedInTeamName} currentSlide={teamGameState.currentActiveSlide}
-                               teamKpis={teamGameState.currentTeamKpis} isLoading={teamGameState.isLoadingKpis}/>
-            <div className="flex-1 min-h-0">
-                {teamGameState.isDecisionTime ? (
-                    <DecisionModeContainer sessionId={sessionId!} teamId={loggedInTeamId}
+
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <TeamStatusDisplay
+                    teamName={loggedInTeamName}
+                    currentSlide={teamGameState.currentActiveSlide}
+                    teamKpis={teamGameState.currentTeamKpis}
+                    isLoading={teamGameState.isLoadingKpis}
+                />
+
+                {teamGameState.isDecisionTime && teamGameState.currentActiveSlide ? (
+                    <DecisionModeContainer sessionId={sessionId!}
+                                           teamId={loggedInTeamId}
                                            currentSlide={teamGameState.currentActiveSlide}
                                            gameStructure={teamGameState.gameStructure}/>
                 ) : (
