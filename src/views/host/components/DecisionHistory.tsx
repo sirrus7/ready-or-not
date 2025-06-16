@@ -1,4 +1,6 @@
 // src/views/host/components/DecisionHistory.tsx
+// FIXED VERSION - Properly determines completion based on team submissions
+
 import React, {useState, useEffect, useMemo} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
 import DecisionHistoryButton from './DecisionHistoryButton';
@@ -9,7 +11,7 @@ interface DecisionHistoryProps {
     onReviewDecision: (decisionKey: string) => void;
 }
 
-// REFACTOR: Moved helper function outside the component body.
+// Helper function moved outside the component body
 const getRoundLabel = (key: string) => {
     const num = key.split('_')[1];
     if (num === '0') return "Setup Decisions";
@@ -18,7 +20,7 @@ const getRoundLabel = (key: string) => {
 
 const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => {
     const {state} = useGameContext();
-    const {gameStructure, current_slide_index} = state;
+    const {gameStructure, current_slide_index, teams, teamDecisions} = state;
 
     const [expandedRounds, setExpandedRounds] = useState<Record<string, boolean>>({});
 
@@ -34,6 +36,32 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
             return acc;
         }, {} as Record<string, Slide[]>);
     }, [gameStructure]);
+
+    // ENHANCED: Helper function to check if any team has submitted for a decision
+    const hasTeamSubmissions = useMemo(() => {
+        return (decisionKey: string): boolean => {
+            if (!decisionKey || teams.length === 0) return false;
+
+            // Check if any team has submitted for this decision key
+            return teams.some(team => {
+                const decision = teamDecisions[team.id]?.[decisionKey];
+                return decision?.submitted_at; // Has a submission timestamp
+            });
+        };
+    }, [teams, teamDecisions]);
+
+    // ENHANCED: Helper function to check if ALL teams have submitted for a decision
+    const allTeamsSubmitted = useMemo(() => {
+        return (decisionKey: string): boolean => {
+            if (!decisionKey || teams.length === 0) return false;
+
+            // Check if ALL teams have submitted for this decision key
+            return teams.every(team => {
+                const decision = teamDecisions[team.id]?.[decisionKey];
+                return decision?.submitted_at; // Has a submission timestamp
+            });
+        };
+    }, [teams, teamDecisions]);
 
     useEffect(() => {
         if (currentRoundKey) {
@@ -60,26 +88,18 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
             <div className="space-y-2">
                 {Object.keys(groupedSlides).map(roundKey => {
                     const slidesInRound = groupedSlides[roundKey];
-                    const isExpanded = !!expandedRounds[roundKey];
-                    const isCurrentRound = roundKey === currentRoundKey;
+                    const isExpanded = expandedRounds[roundKey] ?? false;
 
                     return (
-                        <div key={roundKey} className="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div key={roundKey} className="bg-white rounded-lg border border-gray-200 shadow-sm">
                             <button
                                 onClick={() => toggleRoundExpansion(roundKey)}
-                                className={`w-full flex items-center justify-between p-3 text-left transition-colors hover:bg-gray-100 ${isCurrentRound ? 'bg-blue-50' : ''}`}
+                                className="w-full p-3 text-left font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-200"
                             >
-                                <div className="flex items-center">
-                                    <h3 className={`text-sm font-semibold uppercase tracking-wide ${isCurrentRound ? 'text-blue-700' : 'text-gray-600'}`}>
-                                        {getRoundLabel(roundKey)}
-                                    </h3>
-                                    {isCurrentRound && (
-                                        <div className="ml-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                                    )}
-                                </div>
-                                <div className="flex items-center">
+                                <div className="flex items-center justify-between">
+                                    <span>{getRoundLabel(roundKey)}</span>
                                     <span
-                                        className="text-xs text-gray-500 mr-2">{slidesInRound.length} decision{slidesInRound.length !== 1 ? 's' : ''}</span>
+                                        className="text-xs text-gray-500">{slidesInRound.length} decision{slidesInRound.length !== 1 ? 's' : ''}</span>
                                     {isExpanded ? <ChevronUp size={18} className="text-gray-500"/> :
                                         <ChevronDown size={18} className="text-gray-500"/>}
                                 </div>
@@ -90,21 +110,49 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
                                     {slidesInRound.map((slide) => {
                                         const isCurrentSlide = slide.id === currentSlide?.id;
                                         const slideIndexInMainList = gameStructure.slides.findIndex(s => s.id === slide.id);
-                                        const isCompleted = current_slide_index !== null && slideIndexInMainList < current_slide_index;
+
+                                        // FIXED: Proper completion logic based on team submissions
+                                        const decisionKey = slide.interactive_data_key;
+                                        const hasSubmissions = decisionKey ? hasTeamSubmissions(decisionKey) : false;
+                                        const allSubmitted = decisionKey ? allTeamsSubmitted(decisionKey) : false;
+
+                                        // A slide is completed if:
+                                        // 1. Host has moved past it (original logic), OR
+                                        // 2. At least one team has submitted (allows review even if host hasn't moved on)
+                                        const hostMovedPast = current_slide_index !== null && slideIndexInMainList < current_slide_index;
+                                        const isCompleted = hostMovedPast || hasSubmissions;
 
                                         let icon = ListChecks;
                                         if (slide.type === 'interactive_invest') icon = DollarSign;
                                         if (slide.type.includes('double-down')) icon = Repeat;
 
+                                        // Enhanced label to show submission status
+                                        let enhancedLabel = slide.title || `Decision Point`;
+                                        if (hasSubmissions && !isCurrentSlide) {
+                                            const submittedCount = teams.filter(team =>
+                                                teamDecisions[team.id]?.[decisionKey || '']?.submitted_at
+                                            ).length;
+
+                                            if (allSubmitted) {
+                                                enhancedLabel += ` ✓ Complete`;
+                                            } else {
+                                                enhancedLabel += ` (${submittedCount}/${teams.length} submitted)`;
+                                            }
+                                        }
+
                                         return (
                                             <DecisionHistoryButton
                                                 key={slide.interactive_data_key || slide.id}
-                                                label={slide.title || `Decision Point`}
+                                                label={enhancedLabel}
                                                 round={slide.round_number}
                                                 isCurrent={isCurrentSlide}
-                                                isCompleted={isCompleted}
+                                                isCompleted={isCompleted} // FIXED: Now properly reflects team submissions
                                                 icon={icon}
-                                                onClick={() => onReviewDecision(slide.interactive_data_key!)}
+                                                onClick={() => {
+                                                    if (slide.interactive_data_key) {
+                                                        onReviewDecision(slide.interactive_data_key);
+                                                    }
+                                                }}
                                             />
                                         );
                                     })}
