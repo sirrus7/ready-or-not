@@ -25,12 +25,6 @@ const BASE_ASP = 1000;
 
 const formatCurrency = (value: number | undefined | null, defaultValue: number | string = 'N/A'): string => {
     if (value === undefined || value === null || isNaN(value)) return String(defaultValue);
-    if (Math.abs(value) >= 1_000_000) {
-        return `$${(value / 1_000_000).toFixed(1)}M`;
-    }
-    if (Math.abs(value) >= 1_000 && Math.abs(value) < 1_000_000) {
-        return `$${(value / 1_000).toFixed(0)}K`;
-    }
     return `$${value.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
 };
 
