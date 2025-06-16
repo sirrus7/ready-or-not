@@ -1,10 +1,11 @@
 // src/core/game/ConsequenceProcessor.ts
-// DEBUG ENHANCED VERSION - With detailed logging and broadcast fixes
+// PRODUCTION VERSION: Hardened consequence processing with explicit challenge tracking
 
 import {Slide, GameStructure, GameSession, Team, TeamRoundData, KpiEffect, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
 import {KpiCalculations} from './ScoringEngine';
 import {SimpleBroadcastManager, KpiUpdateData} from '@core/sync/SimpleBroadcastManager';
+import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
 
 interface ConsequenceProcessorProps {
     currentDbSession: GameSession | null;
@@ -22,7 +23,6 @@ export class ConsequenceProcessor {
 
     constructor(props: ConsequenceProcessorProps) {
         this.props = props;
-        // Initialize broadcast manager for real-time KPI updates
         if (this.props.currentDbSession?.id && this.props.currentDbSession.id !== 'new') {
             this.broadcastManager = SimpleBroadcastManager.getInstance(
                 this.props.currentDbSession.id,
@@ -59,7 +59,7 @@ export class ConsequenceProcessor {
         }
 
         const newRoundData = await KpiCalculations.createNewRoundData(currentDbSession.id, teamId, roundNumber, teamRoundData[teamId]);
-        const adjustments = await db.adjustments.getBySession(currentDbSession.id);
+        const adjustments = await db.adjustments.getByTeam(currentDbSession.id, teamId);
         const adjustedData = KpiCalculations.applyPermanentAdjustments(newRoundData, adjustments, teamId, roundNumber);
         const insertedData = await db.kpis.create(adjustedData);
 
@@ -71,17 +71,30 @@ export class ConsequenceProcessor {
         return insertedData as TeamRoundData;
     }
 
-    private async storePermanentAdjustments(teamId: string, sessionId: string, effects: KpiEffect[], sourceLabel: string) {
-        const adjustmentsToUpsert = KpiCalculations.createPermanentAdjustments(effects, sessionId, teamId, sourceLabel);
+    /**
+     * PRODUCTION: Creates permanent adjustments with explicit challenge/option tracking
+     */
+    private async storePermanentAdjustments(
+        teamId: string,
+        sessionId: string,
+        effects: KpiEffect[],
+        challengeId: string,
+        optionId: string
+    ) {
+        const adjustmentsToUpsert = KpiCalculations.createPermanentAdjustments(
+            effects,
+            sessionId,
+            teamId,
+            challengeId,
+            optionId
+        );
+
         if (adjustmentsToUpsert.length > 0) {
             await db.adjustments.upsert(adjustmentsToUpsert);
-            console.log(`[ConsequenceProcessor] Stored ${adjustmentsToUpsert.length} permanent adjustments for team ${teamId}`);
+            console.log(`[ConsequenceProcessor] Stored ${adjustmentsToUpsert.length} permanent adjustments for team ${teamId}, challenge ${challengeId}, option ${optionId}`);
         }
     }
 
-    /**
-     * Enhanced method to broadcast KPI updates to all team interfaces
-     */
     private async broadcastKpiUpdate(updatedTeamData: { teamId: string; kpis: TeamRoundData }[]): Promise<void> {
         if (!this.broadcastManager || updatedTeamData.length === 0) {
             console.log('[ConsequenceProcessor] Skipping broadcast - no manager or no updates');
@@ -110,7 +123,6 @@ export class ConsequenceProcessor {
             this.broadcastManager.sendKpiUpdate(kpiUpdateData);
             console.log('[ConsequenceProcessor] ✅ Broadcasted KPI updates to team interfaces for', updatedTeamData.length, 'teams');
 
-            // Log detailed update info
             updatedTeamData.forEach(team => {
                 console.log(`[ConsequenceProcessor] 📊 Team ${team.teamId} new KPIs:`, {
                     capacity: team.kpis.current_capacity,
@@ -125,7 +137,7 @@ export class ConsequenceProcessor {
     }
 
     /**
-     * ENHANCED DEBUG VERSION: Processes a consequence slide with detailed logging
+     * PRODUCTION: Main consequence processing method
      */
     async processConsequenceSlide(consequenceSlide: Slide): Promise<void> {
         console.log('\n🎯 [ConsequenceProcessor] ==================== PROCESSING CONSEQUENCE SLIDE ====================');
@@ -140,28 +152,23 @@ export class ConsequenceProcessor {
 
         if (!currentDbSession?.id || !gameStructure || !teams.length) {
             console.warn('[ConsequenceProcessor] ❌ Skipping consequence processing - insufficient data');
-            console.log('Debug info:', {
-                hasSession: !!currentDbSession?.id,
-                hasGameStructure: !!gameStructure,
-                teamCount: teams.length
-            });
             return;
         }
 
         console.log(`[ConsequenceProcessor] Processing for ${teams.length} teams in session ${currentDbSession.id}`);
 
         try {
-            // Map consequence slide to the corresponding choice phase
-            const choicePhase = this.getCorrespondingChoicePhase(consequenceSlide);
-            if (!choicePhase) {
-                console.warn(`[ConsequenceProcessor] ❌ No corresponding choice phase found for consequence slide ${consequenceSlide.id}`);
+            // PRODUCTION: Map consequence slide to challenge using registry
+            const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
+            if (!challengeId) {
+                console.warn(`[ConsequenceProcessor] ❌ No challenge mapping found for slide ${consequenceSlide.id}`);
                 return;
             }
 
-            console.log(`[ConsequenceProcessor] ✅ Found corresponding choice phase: ${choicePhase}`);
+            console.log(`[ConsequenceProcessor] ✅ Mapped slide ${consequenceSlide.id} to challenge ${challengeId}`);
 
-            // Get consequences for this choice phase
-            const consequenceKey = `${choicePhase}-conseq`;
+            // Get consequences for this challenge
+            const consequenceKey = `${challengeId}-conseq`;
             const allConsequencesForChoice = gameStructure.all_consequences[consequenceKey];
 
             if (!allConsequencesForChoice || allConsequencesForChoice.length === 0) {
@@ -174,14 +181,13 @@ export class ConsequenceProcessor {
             // Debug: Log team decisions
             console.log('\n📋 [ConsequenceProcessor] Current team decisions:');
             teams.forEach(team => {
-                const decision = teamDecisions[team.id]?.[choicePhase];
+                const decision = teamDecisions[team.id]?.[challengeId];
                 console.log(`  Team ${team.name} (${team.id}): ${decision?.selected_challenge_option_id || 'NO DECISION'}`);
             });
 
-            // Track updated teams for broadcasting
             const updatedTeamData: { teamId: string; kpis: TeamRoundData }[] = [];
 
-            // Process each team based on their ACTUAL choice
+            // Process each team based on their decision
             for (const team of teams) {
                 console.log(`\n🏢 [ConsequenceProcessor] Processing team: ${team.name} (${team.id})`);
 
@@ -193,36 +199,35 @@ export class ConsequenceProcessor {
                     asp: teamKpis.current_asp
                 });
 
-                const decision = teamDecisions[team.id]?.[choicePhase];
-                const options = gameStructure.all_challenge_options[choicePhase] || [];
+                const decision = teamDecisions[team.id]?.[challengeId];
+                const options = gameStructure.all_challenge_options[challengeId] || [];
                 const selectedOptionId = decision?.selected_challenge_option_id || options.find(opt => opt.is_default_choice)?.id;
 
                 console.log(`[ConsequenceProcessor] Team ${team.name} selected option: ${selectedOptionId}`);
 
                 if (selectedOptionId) {
-                    // Find the consequence for this team's ACTUAL choice
                     const consequence = allConsequencesForChoice.find(c => c.challenge_option_id === selectedOptionId);
 
                     if (consequence && consequence.effects.length > 0) {
                         console.log(`[ConsequenceProcessor] Found consequence for ${team.name} option ${selectedOptionId}:`, consequence.effects);
 
-                        // Check if this team already has this consequence applied
-                        const sourceLabel = `${choicePhase} - ${selectedOptionId}`;
-                        const existingAdjustments = await db.adjustments.getBySession(currentDbSession.id);
-                        const alreadyApplied = existingAdjustments.some(adj =>
-                            adj.team_id === team.id &&
-                            adj.description?.includes(sourceLabel)
+                        // Check if already applied using optimized query
+                        const existingAdjustments = await db.adjustments.getByChallengeAndTeam(
+                            currentDbSession.id,
+                            team.id,
+                            challengeId
                         );
+                        const alreadyApplied = existingAdjustments.some(adj => adj.option_id === selectedOptionId);
 
                         if (alreadyApplied) {
-                            console.log(`[ConsequenceProcessor] ⚠️  Team ${team.name}: Consequences for '${selectedOptionId}' already applied, skipping.`);
+                            console.log(`[ConsequenceProcessor] ⚠️  Team ${team.name}: Consequences for '${challengeId}-${selectedOptionId}' already applied, skipping.`);
                             continue;
                         }
 
-                        // Apply the consequences - both immediate and permanent effects
-                        console.log(`[ConsequenceProcessor] 🎲 Applying consequences for team ${team.name} choice '${selectedOptionId}'`);
+                        // Apply consequences
+                        console.log(`[ConsequenceProcessor] 🎲 Applying consequences for team ${team.name} choice '${challengeId}-${selectedOptionId}'`);
 
-                        // Apply immediate effects to current KPIs
+                        // Apply immediate effects
                         const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, consequence.effects);
 
                         console.log(`[ConsequenceProcessor] KPI changes for ${team.name}:`, {
@@ -232,10 +237,10 @@ export class ConsequenceProcessor {
                             aspChange: updatedKpis.current_asp - teamKpis.current_asp
                         });
 
-                        // Store permanent adjustments for future rounds
-                        await this.storePermanentAdjustments(team.id, currentDbSession.id, consequence.effects, sourceLabel);
+                        // Store permanent adjustments
+                        await this.storePermanentAdjustments(team.id, currentDbSession.id, consequence.effects, challengeId, selectedOptionId);
 
-                        // Update the team's KPIs in the database
+                        // Update KPIs in database
                         const finalKpis = await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
                         console.log(`[ConsequenceProcessor] ✅ Updated KPIs in database for ${team.name}`);
 
@@ -255,7 +260,7 @@ export class ConsequenceProcessor {
                         console.warn(`[ConsequenceProcessor] ❌ Team ${team.name}: No consequence found for option ${selectedOptionId}.`);
                     }
                 } else {
-                    console.warn(`[ConsequenceProcessor] ❌ Team ${team.name}: No option selected for ${choicePhase}.`);
+                    console.warn(`[ConsequenceProcessor] ❌ Team ${team.name}: No option selected for ${challengeId}.`);
                 }
             }
 
@@ -265,7 +270,7 @@ export class ConsequenceProcessor {
             await fetchTeamRoundDataFromHook(currentDbSession.id);
             console.log('[ConsequenceProcessor] ✅ Data refresh complete');
 
-            // Broadcast KPI updates to all team interfaces
+            // Broadcast KPI updates
             if (updatedTeamData.length > 0) {
                 await this.broadcastKpiUpdate(updatedTeamData);
             } else {
@@ -278,83 +283,5 @@ export class ConsequenceProcessor {
             console.error(`[ConsequenceProcessor] ❌ Error processing consequence slide ${consequenceSlide.id}:`, error);
             throw error;
         }
-    }
-
-    /**
-     * Maps a consequence slide to its corresponding choice phase
-     * PRODUCTION VERSION - Complete mapping for all 9 challenges
-     */
-    private getCorrespondingChoicePhase(consequenceSlide: Slide): string | null {
-        const slideTitle = consequenceSlide.title?.toLowerCase() || '';
-        const slideId = consequenceSlide.id;
-
-        console.log(`[ConsequenceProcessor] 🗺️  Mapping slide ${slideId} "${slideTitle}" to choice phase`);
-
-        // Primary mapping based on title patterns
-        if (slideTitle.includes('ch1') || slideTitle.includes('challenge 1')) {
-            console.log('[ConsequenceProcessor] Mapped to ch1 via title pattern');
-            return 'ch1';
-        }
-        if (slideTitle.includes('ch2') || slideTitle.includes('challenge 2')) {
-            return 'ch2';
-        }
-        if (slideTitle.includes('ch3') || slideTitle.includes('challenge 3')) {
-            return 'ch3';
-        }
-        if (slideTitle.includes('ch4') || slideTitle.includes('challenge 4')) {
-            return 'ch4';
-        }
-        if (slideTitle.includes('ch5') || slideTitle.includes('challenge 5')) {
-            return 'ch5';
-        }
-        if (slideTitle.includes('ch6') || slideTitle.includes('challenge 6')) {
-            return 'ch6';
-        }
-        if (slideTitle.includes('ch7') || slideTitle.includes('challenge 7')) {
-            return 'ch7';
-        }
-        if (slideTitle.includes('ch8') || slideTitle.includes('challenge 8')) {
-            return 'ch8';
-        }
-        if (slideTitle.includes('ch9') || slideTitle.includes('challenge 9')) {
-            return 'ch9';
-        }
-
-        // PRODUCTION MAPPING - Based on actual slide structure
-        // ROUND 1 CHALLENGES
-        // CH1 (Equipment Failure) consequences: slides 20-23
-        if (slideId >= 20 && slideId <= 23) {
-            console.log(`[ConsequenceProcessor] Mapped slide ${slideId} to ch1 based on ID range (20-23)`);
-            return 'ch1';
-        }
-
-        // CH2 (Revenue Tax) consequences: slides 35-38
-        if (slideId >= 35 && slideId <= 38) return 'ch2';
-
-        // CH3 (Recession) consequences: slides 50-53
-        if (slideId >= 50 && slideId <= 53) return 'ch3';
-
-        // ROUND 2 CHALLENGES
-        // CH4 (Supply Chain) consequences: slides 82-84
-        if (slideId >= 82 && slideId <= 84) return 'ch4';
-
-        // CH5 (Capacity Crisis) consequences: slides 93-96
-        if (slideId >= 93 && slideId <= 96) return 'ch5';
-
-        // CH6 (Quality Crisis) consequences: slides 108-111
-        if (slideId >= 108 && slideId <= 111) return 'ch6';
-
-        // CH7 (Competition) consequences: slides 120-123
-        if (slideId >= 120 && slideId <= 123) return 'ch7';
-
-        // ROUND 3 CHALLENGES
-        // CH8 (Ransomware) consequences: slides 154-156
-        if (slideId >= 154 && slideId <= 156) return 'ch8';
-
-        // CH9 (ERP Crisis) consequences: slides 165-167
-        if (slideId >= 165 && slideId <= 167) return 'ch9';
-
-        console.warn(`[ConsequenceProcessor] ❌ Could not map consequence slide ${slideId} (${slideTitle}) to a choice phase`);
-        return null;
     }
 }

@@ -1,9 +1,10 @@
 // src/views/team/components/GameStatus/KpiImpactCards.tsx
-// Component to display permanent KPI impact cards for teams
+// PRODUCTION VERSION: Uses explicit challenge IDs with backward compatibility
 
 import React from 'react';
 import {PermanentKpiAdjustment} from '@shared/types';
 import {Building, ShoppingCart, DollarSign, TrendingUp, Plus, Minus} from 'lucide-react';
+import {getChallengeById} from '@core/content/ChallengeRegistry';
 
 interface KpiImpactCardsProps {
     teamId: string;
@@ -28,35 +29,49 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                                                            currentRound,
                                                            permanentAdjustments
                                                        }) => {
-    // Group adjustments by their source/description to create impact cards
+
+    /**
+     * PRODUCTION: Creates impact cards using explicit challenge IDs
+     */
     const createImpactCards = (): ImpactCard[] => {
         const cardMap: Record<string, ImpactCard> = {};
 
         permanentAdjustments.forEach(adjustment => {
             if (adjustment.team_id !== teamId) return;
 
-            // Extract the source from the description (e.g., "ch1 - A")
-            const source = adjustment.description?.split(' - ')[0] || 'Unknown';
-            const cardId = source;
+            // PRODUCTION: Use explicit challenge_id (preferred)
+            let challengeId = adjustment.challenge_id;
 
-            if (!cardMap[cardId]) {
-                cardMap[cardId] = {
-                    id: cardId,
-                    title: getCardTitle(source),
-                    description: getCardDescription(source),
+            // BACKWARD COMPATIBILITY: Fallback parsing for old data
+            if (!challengeId) {
+                challengeId = extractChallengeFromDescription(adjustment.description);
+                console.warn(`[KpiImpactCards] Using fallback parsing for adjustment: ${adjustment.description} → ${challengeId}`);
+            }
+
+            const challenge = getChallengeById(challengeId);
+            if (!challenge) {
+                console.warn(`[KpiImpactCards] Unknown challenge ID: ${challengeId}`);
+                return;
+            }
+
+            if (!cardMap[challengeId]) {
+                cardMap[challengeId] = {
+                    id: challengeId,
+                    title: challenge.impact_card_title,
+                    description: challenge.impact_card_description,
                     kpiEffects: [],
-                    source: source
+                    source: challengeId
                 };
             }
 
-            // Add this KPI effect to the card
-            const existingEffect = cardMap[cardId].kpiEffects.find(e => e.kpi === adjustment.kpi_key);
+            // Add KPI effect to card
+            const existingEffect = cardMap[challengeId].kpiEffects.find(e => e.kpi === adjustment.kpi_key);
             if (existingEffect) {
                 if (!existingEffect.applies_to_rounds.includes(adjustment.applies_to_round_start)) {
                     existingEffect.applies_to_rounds.push(adjustment.applies_to_round_start);
                 }
             } else {
-                cardMap[cardId].kpiEffects.push({
+                cardMap[challengeId].kpiEffects.push({
                     kpi: adjustment.kpi_key,
                     value: adjustment.change_value,
                     applies_to_rounds: [adjustment.applies_to_round_start]
@@ -67,26 +82,28 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
         return Object.values(cardMap);
     };
 
-    const getCardTitle = (source: string): string => {
-        switch (source) {
-            case 'ch1':
-                return 'CNC Machine';
-            case 'ch3':
-                return 'Layoff Penalty';
-            default:
-                return `Impact Card (${source})`;
-        }
-    };
+    /**
+     * BACKWARD COMPATIBILITY: Extract challenge ID from description text
+     */
+    const extractChallengeFromDescription = (description: string): string => {
+        const desc = description?.toLowerCase() || '';
 
-    const getCardDescription = (source: string): string => {
-        switch (source) {
-            case 'ch1':
-                return 'Advanced CNC machine provides enhanced production capabilities for future rounds.';
-            case 'ch3':
-                return 'Workforce reduction has permanent impact on production capacity.';
-            default:
-                return `Permanent KPI adjustments from ${source} decision.`;
-        }
+        // Known patterns from existing data
+        if (desc.includes('cnc machine')) return 'ch1';
+        if (desc.includes('layoff')) return 'ch3';
+        if (desc.includes('tax')) return 'ch2';
+        if (desc.includes('supply chain')) return 'ch4';
+        if (desc.includes('capacity')) return 'ch5';
+        if (desc.includes('quality')) return 'ch6';
+        if (desc.includes('competition')) return 'ch7';
+        if (desc.includes('cyber') || desc.includes('ransomware')) return 'ch8';
+        if (desc.includes('erp')) return 'ch9';
+
+        // Fallback pattern matching
+        const chMatch = desc.match(/ch(\d+)/i);
+        if (chMatch) return `ch${chMatch[1]}`;
+
+        return 'unknown';
     };
 
     const getKpiIcon = (kpi: string) => {
