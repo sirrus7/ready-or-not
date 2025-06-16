@@ -1,13 +1,16 @@
-// Enhanced TeamApp.tsx with comprehensive debug panel
-// Replace your existing TeamApp.tsx file with this complete version
+// src/views/team/TeamApp.tsx
+// Enhanced TeamApp.tsx with comprehensive debug panel and KPI Impact Cards integration
 
 import React, {useState, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
 import {Bug} from 'lucide-react';
+import {PermanentKpiAdjustment} from '@shared/types';
+import {db} from '@shared/services/supabase';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import TeamLogout from '@views/team/components/TeamLogin/TeamLogout';
 import TeamStatusDisplay from '@views/team/components/GameStatus/TeamStatus';
 import DecisionModeContainer from '@views/team/components/InteractionPanel/DecisionContainer';
+import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards';
 import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
 
 const TeamDebugPanel: React.FC<{
@@ -41,30 +44,14 @@ const TeamDebugPanel: React.FC<{
                     <div><span className="text-gray-400">Connection:</span>
                         <span className={`ml-1 ${
                             teamGameState.connectionStatus === 'connected' ? 'text-green-400' :
-                                teamGameState.connectionStatus === 'connecting' ? 'text-yellow-400' :
-                                    'text-red-400'
-                        }`}>
-                            {teamGameState.connectionStatus.toUpperCase()}
-                        </span>
-                    </div>
-                    <div><span className="text-gray-400">Current Slide:</span>
-                        <span className="text-blue-400 ml-1">
-                            {teamGameState.currentActiveSlide?.id || 'None'}
-                        </span>
-                    </div>
-                    <div><span className="text-gray-400">Slide Type:</span>
-                        <span className="text-purple-400 ml-1">
-                            {teamGameState.currentActiveSlide?.type || 'None'}
-                        </span>
-                    </div>
-                    <div><span className="text-gray-400">Interactive Key:</span>
-                        <span className="text-cyan-400 ml-1">
-                            {teamGameState.currentActiveSlide?.interactive_data_key || 'None'}
+                                teamGameState.connectionStatus === 'connecting' ?
+                                    'text-yellow-400' : 'text-red-400'}`}>
+                            {teamGameState.connectionStatus || 'unknown'}
                         </span>
                     </div>
                     <div><span className="text-gray-400">Decision Time:</span>
-                        <span
-                            className={`ml-1 font-bold ${teamGameState.isDecisionTime ? 'text-green-400' : 'text-red-400'}`}>
+                        <span className={`ml-1 ${teamGameState.isDecisionTime ?
+                            'text-green-400' : 'text-red-400'}`}>
                             {teamGameState.isDecisionTime ? 'YES' : 'NO'}
                         </span>
                     </div>
@@ -85,11 +72,34 @@ const TeamApp: React.FC = () => {
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(null);
     const [showDebug, setShowDebug] = useState<boolean>(false);
 
+    // NEW: Add state for permanent adjustments
+    const [permanentAdjustments, setPermanentAdjustments] = useState<PermanentKpiAdjustment[]>([]);
+    const [loadingAdjustments, setLoadingAdjustments] = useState(false);
+
     const teamGameState = useTeamGameState({sessionId: sessionId || null, loggedInTeamId});
 
     useEffect(() => {
         document.title = "Ready or Not - Team";
     }, []);
+
+    // NEW: Load permanent adjustments when team logs in
+    useEffect(() => {
+        const loadPermanentAdjustments = async () => {
+            if (!sessionId || !loggedInTeamId) return;
+
+            setLoadingAdjustments(true);
+            try {
+                const adjustments = await db.adjustments.getBySession(sessionId);
+                setPermanentAdjustments(adjustments);
+            } catch (error) {
+                console.error('Failed to load permanent adjustments:', error);
+            } finally {
+                setLoadingAdjustments(false);
+            }
+        };
+
+        loadPermanentAdjustments();
+    }, [sessionId, loggedInTeamId]);
 
     const handleLoginSuccess = (teamId: string, teamName: string) => {
         setLoggedInTeamId(teamId);
@@ -99,6 +109,7 @@ const TeamApp: React.FC = () => {
     const handleLogout = () => {
         setLoggedInTeamId(null);
         setLoggedInTeamName(null);
+        setPermanentAdjustments([]); // NEW: Clear adjustments on logout
     };
 
     if (!sessionId || !loggedInTeamId || !loggedInTeamName) {
@@ -135,15 +146,32 @@ const TeamApp: React.FC = () => {
                                 <div className="max-w-xl w-full">
                                     {teamGameState.currentActiveSlide ? (
                                         <div className="text-center p-6 bg-gray-800 rounded-xl shadow-lg">
-                                            <h3 className="text-xl font-semibold text-sky-400 mb-3">{teamGameState.currentActiveSlide.title || "Current Activity"}</h3>
+                                            <h3 className="text-xl font-semibold text-sky-400 mb-3">
+                                                {teamGameState.currentActiveSlide.title || "Current Activity"}
+                                            </h3>
                                             {teamGameState.currentActiveSlide.main_text &&
-                                                <p className="text-lg text-gray-200 mb-2">{teamGameState.currentActiveSlide.main_text}</p>}
+                                                <p className="text-lg text-gray-200 mb-2">
+                                                    {teamGameState.currentActiveSlide.main_text}
+                                                </p>}
                                             {teamGameState.currentActiveSlide.sub_text &&
-                                                <p className="text-sm text-gray-300 mb-4">{teamGameState.currentActiveSlide.sub_text}</p>}
+                                                <p className="text-sm text-gray-300 mb-4">
+                                                    {teamGameState.currentActiveSlide.sub_text}
+                                                </p>}
                                         </div>
                                     ) : (
                                         <div className="text-center text-gray-400 py-12">
                                             <p className="text-lg">Waiting for facilitator...</p>
+                                        </div>
+                                    )}
+
+                                    {/* NEW: Add KPI Impact Cards below the main content */}
+                                    {!loadingAdjustments && permanentAdjustments.length > 0 && (
+                                        <div className="mt-6">
+                                            <KpiImpactCards
+                                                teamId={loggedInTeamId}
+                                                currentRound={teamGameState.currentActiveSlide?.round_number || 1}
+                                                permanentAdjustments={permanentAdjustments}
+                                            />
                                         </div>
                                     )}
                                 </div>

@@ -3,14 +3,16 @@
 import {Consequence} from '@shared/types/game';
 
 export const allConsequencesData: Record<string, Consequence[]> = {
-    'ch1-conseq': [ // Equip Fail
+    'ch1-conseq': [ // Equipment Failure
         {
             id: 'ch1_conseq_a',
             challenge_option_id: 'A',
             narrative_text: "The complex CNC machine takes longer than expected to arrive and integrate into your operations. You struggle for months to reach previous production levels, but you gain permanent future capabilities.",
             effects: [
+                // Immediate effects (applied when consequence slide is shown)
                 {kpi: 'capacity', change_value: -250, timing: 'immediate'},
                 {kpi: 'cost', change_value: 50000, timing: 'immediate'},
+                // Permanent effect for future rounds (CNC Machine bonus)
                 {
                     kpi: 'capacity',
                     change_value: 500,
@@ -44,7 +46,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Your hemming and hawing have caused significant delays. Channel partners are canceling orders and the production manager has started ordering expensive fins online.",
             effects: [
                 {kpi: 'capacity', change_value: -500, timing: 'immediate'},
-                {kpi: 'cost', change_value: 75000, timing: 'immediate'}
+                {kpi: 'cost', change_value: 75000, timing: 'immediate'},
+                {kpi: 'orders', change_value: -200, timing: 'immediate'}
             ]
         },
     ],

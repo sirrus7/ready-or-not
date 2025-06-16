@@ -125,11 +125,24 @@ export class ConsequenceProcessor {
                             continue;
                         }
 
-                        // Apply the consequences
+                        // FIXED: Apply the consequences - both immediate and permanent effects
+                        console.log(`[ConsequenceProcessor] Team ${team.name}: Applying consequences for choice '${selectedOptionId}'`, consequence.effects);
+
+                        // Apply immediate effects to current KPIs
                         const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, consequence.effects);
+
+                        // Store permanent adjustments for future rounds
                         await this.storePermanentAdjustments(team.id, currentDbSession.id, consequence.effects, sourceLabel);
+
+                        // Update the team's KPIs in the database
                         await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
-                        console.log(`[ConsequenceProcessor] Team ${team.name}: Applied consequences for choice '${selectedOptionId}'.`);
+
+                        console.log(`[ConsequenceProcessor] Team ${team.name}: Applied consequences for choice '${selectedOptionId}'. Updated KPIs:`, {
+                            capacity: updatedKpis.current_capacity,
+                            cost: updatedKpis.current_cost,
+                            orders: updatedKpis.current_orders,
+                            asp: updatedKpis.current_asp
+                        });
                     } else {
                         console.warn(`[ConsequenceProcessor] Team ${team.name}: No consequence found for option ${selectedOptionId}.`);
                     }
@@ -154,6 +167,9 @@ export class ConsequenceProcessor {
     private getCorrespondingChoicePhase(consequenceSlide: Slide): string | null {
         const slideTitle = consequenceSlide.title?.toLowerCase() || '';
         const slideId = consequenceSlide.id;
+
+        // FIXED: Improved mapping logic for CH1 Option A Consequences (slide 20)
+        console.log(`[ConsequenceProcessor] Mapping slide ${slideId} "${slideTitle}" to choice phase`);
 
         // Primary mapping based on title patterns
         if (slideTitle.includes('ch1') || slideTitle.includes('challenge 1')) {
@@ -187,7 +203,10 @@ export class ConsequenceProcessor {
         // PRODUCTION MAPPING - Based on actual slide structure
         // ROUND 1 CHALLENGES
         // CH1 (Equipment Failure) consequences: slides 20-23
-        if (slideId >= 20 && slideId <= 23) return 'ch1';
+        if (slideId >= 20 && slideId <= 23) {
+            console.log(`[ConsequenceProcessor] Slide ${slideId} mapped to ch1 based on ID range`);
+            return 'ch1';
+        }
 
         // CH2 (Revenue Tax) consequences: slides 35-38
         if (slideId >= 35 && slideId <= 38) return 'ch2';
