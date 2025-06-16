@@ -1,7 +1,7 @@
 // src/core/game/ConsequenceProcessor.ts
-// FIXED VERSION - Based on actual codebase structure
+// FIXED VERSION - Applies consequences based on team's actual choice, not slide being displayed
 
-import {Slide, GameStructure, GameSession, Team, TeamRoundData, KpiEffect} from '@shared/types';
+import {Slide, GameStructure, GameSession, Team, TeamRoundData, KpiEffect, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
 import {KpiCalculations} from './ScoringEngine';
 
@@ -9,7 +9,7 @@ interface ConsequenceProcessorProps {
     currentDbSession: GameSession | null;
     gameStructure: GameStructure | null;
     teams: Team[];
-    teamDecisions: Record<string, Record<string, any>>;
+    teamDecisions: Record<string, Record<string, TeamDecision>>;
     teamRoundData: Record<string, Record<number, TeamRoundData>>;
     fetchTeamRoundDataFromHook: (sessionId: string) => Promise<void>;
     setTeamRoundDataDirectly: (updater: (prev: Record<string, Record<number, TeamRoundData>>) => Record<string, Record<number, TeamRoundData>>) => void;
@@ -62,7 +62,8 @@ export class ConsequenceProcessor {
     }
 
     /**
-     * Processes a consequence slide by applying KPI effects to teams based on their previous choices
+     * FIXED: Processes a consequence slide by applying KPI effects to teams based on their ACTUAL previous choices
+     * This method applies consequences to ALL teams based on their individual choices when ANY consequence slide is displayed
      */
     async processConsequenceSlide(consequenceSlide: Slide): Promise<void> {
         if (consequenceSlide.type !== 'consequence_reveal') {
@@ -98,7 +99,7 @@ export class ConsequenceProcessor {
                 return;
             }
 
-            // Process each team - same logic as DecisionEngine
+            // FIXED: Process each team based on their ACTUAL choice, not the slide being displayed
             for (const team of teams) {
                 const teamKpis = await this.ensureTeamRoundData(team.id, consequenceSlide.round_number as 1 | 2 | 3);
                 const decision = teamDecisions[team.id]?.[choicePhase];
@@ -107,16 +108,33 @@ export class ConsequenceProcessor {
                 const selectedOptionId = decision?.selected_challenge_option_id || options.find(opt => opt.is_default_choice)?.id;
 
                 if (selectedOptionId) {
+                    // Find the consequence for this team's ACTUAL choice
                     const consequence = allConsequencesForChoice.find(c => c.challenge_option_id === selectedOptionId);
 
                     if (consequence && consequence.effects.length > 0) {
+                        // Check if this team already has this consequence applied
+                        const sourceLabel = `${choicePhase} - ${selectedOptionId}`;
+                        const existingAdjustments = await db.adjustments.getBySession(currentDbSession.id);
+                        const alreadyApplied = existingAdjustments.some(adj =>
+                            adj.team_id === team.id &&
+                            adj.description?.includes(sourceLabel)
+                        );
+
+                        if (alreadyApplied) {
+                            console.log(`[ConsequenceProcessor] Team ${team.name}: Consequences for '${selectedOptionId}' already applied, skipping.`);
+                            continue;
+                        }
+
+                        // Apply the consequences
                         const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, consequence.effects);
-                        await this.storePermanentAdjustments(team.id, currentDbSession.id, consequence.effects, `${choicePhase} - ${selectedOptionId}`);
+                        await this.storePermanentAdjustments(team.id, currentDbSession.id, consequence.effects, sourceLabel);
                         await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
                         console.log(`[ConsequenceProcessor] Team ${team.name}: Applied consequences for choice '${selectedOptionId}'.`);
                     } else {
                         console.warn(`[ConsequenceProcessor] Team ${team.name}: No consequence found for option ${selectedOptionId}.`);
                     }
+                } else {
+                    console.warn(`[ConsequenceProcessor] Team ${team.name}: No option selected for ${choicePhase}.`);
                 }
             }
 
@@ -167,7 +185,6 @@ export class ConsequenceProcessor {
         }
 
         // PRODUCTION MAPPING - Based on actual slide structure
-
         // ROUND 1 CHALLENGES
         // CH1 (Equipment Failure) consequences: slides 20-23
         if (slideId >= 20 && slideId <= 23) return 'ch1';

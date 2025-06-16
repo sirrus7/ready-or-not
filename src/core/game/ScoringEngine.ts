@@ -1,4 +1,6 @@
 // src/core/game/ScoringEngine.ts
+// Complete production-ready KPI calculation engine
+
 import {TeamRoundData, PermanentKpiAdjustment} from '@shared/types/database';
 import {KpiEffect, KpiKey} from '@shared/types/game';
 
@@ -43,19 +45,29 @@ const getOverheadPercentage = (grossMargin: number): number => {
 };
 
 export class KpiCalculations {
+    /**
+     * Applies immediate KPI effects to current KPIs
+     */
     static applyKpiEffects(currentKpisInput: TeamRoundData, effects: KpiEffect[]): TeamRoundData {
         const updatedKpis = JSON.parse(JSON.stringify(currentKpisInput));
         effects.forEach(effect => {
             if (effect.timing === 'immediate') {
                 const kpi = effect.kpi as keyof typeof updatedKpis;
                 if (typeof updatedKpis[kpi] === 'number') {
-                    updatedKpis[kpi] += effect.change_value;
+                    if (effect.is_percentage_change) {
+                        updatedKpis[kpi] = Math.round(updatedKpis[kpi] * (1 + effect.change_value / 100));
+                    } else {
+                        updatedKpis[kpi] += effect.change_value;
+                    }
                 }
             }
         });
         return updatedKpis;
     }
 
+    /**
+     * Calculates final revenue, net income, and net margin based on current KPIs
+     */
     static calculateFinalKpis(kpis: TeamRoundData): Partial<TeamRoundData> {
         const unitsSold = Math.min(kpis.current_capacity, kpis.current_orders);
         const revenue = unitsSold * kpis.current_asp;
@@ -80,7 +92,10 @@ export class KpiCalculations {
         };
     }
 
-    static createNewRoundData(sessionId: string, teamId: string, roundNumber: 1 | 2 | 3): Omit<TeamRoundData, 'id'> {
+    /**
+     * Creates new round data with base values for a team
+     */
+    static createNewRoundData(sessionId: string, teamId: string, roundNumber: 1 | 2 | 3, existingTeamData?: Record<number, TeamRoundData>): Omit<TeamRoundData, 'id'> {
         const roundBases = ROUND_BASE_VALUES[roundNumber];
         return {
             session_id: sessionId,
@@ -94,12 +109,20 @@ export class KpiCalculations {
             current_cost: roundBases.cost,
             start_asp: BASE_VALUES.ASP,
             current_asp: BASE_VALUES.ASP,
-            revenue: 0, net_margin: 0, net_income: 0,
+            revenue: 0,
+            net_margin: 0,
+            net_income: 0,
         };
     }
 
+    /**
+     * Applies permanent adjustments to round starting values
+     */
     static applyPermanentAdjustments(roundData: Omit<TeamRoundData, 'id'>, adjustments: PermanentKpiAdjustment[], teamId: string, roundNumber: number): Omit<TeamRoundData, 'id'> {
-        const teamAdjustments = adjustments.filter(adj => adj.team_id === teamId && adj.applies_to_round_start === roundNumber);
+        const teamAdjustments = adjustments.filter(adj =>
+            adj.team_id === teamId &&
+            adj.applies_to_round_start === roundNumber
+        );
 
         teamAdjustments.forEach(adj => {
             switch (adj.kpi_key) {
@@ -118,6 +141,7 @@ export class KpiCalculations {
             }
         });
 
+        // Update current values to match start values after adjustments
         roundData.current_capacity = roundData.start_capacity;
         roundData.current_orders = roundData.start_orders;
         roundData.current_cost = roundData.start_cost;
@@ -126,10 +150,13 @@ export class KpiCalculations {
         return roundData;
     }
 
+    /**
+     * Creates permanent adjustment records from KPI effects
+     */
     static createPermanentAdjustments(effects: KpiEffect[], sessionId: string, teamId: string, sourceLabel: string): Omit<PermanentKpiAdjustment, 'id' | 'created_at'>[] {
         return effects
             .filter(eff => eff.timing === 'permanent_next_round_start' && eff.applies_to_rounds?.length)
-            .flatMap(eff => (eff.applies_to_rounds!).map(roundNum => ({
+            .flatMap(eff => (eff.applies_to_rounds || []).map(roundNum => ({
                 session_id: sessionId,
                 team_id: teamId,
                 applies_to_round_start: roundNum,

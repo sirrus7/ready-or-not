@@ -1,4 +1,6 @@
 // src/core/game/DecisionEngine.ts
+// FIXED VERSION - Forces decision history refresh after interactive slides
+
 import {
     GameSession,
     Team,
@@ -18,6 +20,7 @@ interface DecisionEngineProps {
     teamDecisions: Record<string, Record<string, TeamDecision>>;
     teamRoundData: Record<string, Record<number, TeamRoundData>>;
     fetchTeamRoundDataFromHook: (sessionId: string) => Promise<void>;
+    fetchTeamDecisionsFromHook: (sessionId: string) => Promise<void>; // ADDED: For decision history refresh
     setTeamRoundDataDirectly: (updater: (prev: Record<string, Record<number, TeamRoundData>>) => Record<string, Record<number, TeamRoundData>>) => void;
 }
 
@@ -69,12 +72,21 @@ export class DecisionEngine {
     }
 
     /**
-     * REFACTOR: This is the new primary processing method.
-     * Processes decisions made during an interactive slide and applies consequences.
+     * FIXED: Processes decisions made during an interactive slide.
+     * This method NO LONGER applies consequences automatically - that's handled by ConsequenceProcessor
+     * when consequence slides are displayed.
+     * ADDED: Forces decision history refresh after processing
      * @param completedSlide The interactive slide that was just completed.
      */
     public async processInteractiveSlide(completedSlide: Slide): Promise<void> {
-        const {currentDbSession, gameStructure, teams, teamDecisions, fetchTeamRoundDataFromHook} = this.props;
+        const {
+            currentDbSession,
+            gameStructure,
+            teams,
+            teamDecisions,
+            fetchTeamRoundDataFromHook,
+            fetchTeamDecisionsFromHook
+        } = this.props;
         const interactiveDataKey = completedSlide.interactive_data_key;
 
         if (!currentDbSession?.id || !gameStructure || !teams.length || !interactiveDataKey) {
@@ -85,6 +97,7 @@ export class DecisionEngine {
         console.log(`[DecisionEngine] Processing decisions for interactive slide: ${completedSlide.id} (key: ${interactiveDataKey})`);
 
         try {
+            // FIXED: Just ensure team round data exists, but don't apply consequences
             for (const team of teams) {
                 const teamKpis = await this.ensureTeamRoundData(team.id, completedSlide.round_number as 1 | 2 | 3);
                 const decision = teamDecisions[team.id]?.[interactiveDataKey];
@@ -93,23 +106,18 @@ export class DecisionEngine {
                 const selectedOptionId = decision?.selected_challenge_option_id || options.find(opt => opt.is_default_choice)?.id;
 
                 if (selectedOptionId) {
-                    const consequenceKey = `${interactiveDataKey}-conseq`;
-                    const allConsequencesForSlide = gameStructure.all_consequences[consequenceKey];
-                    const consequence = allConsequencesForSlide?.find(c => c.challenge_option_id === selectedOptionId);
-
-                    if (consequence && consequence.effects.length > 0) {
-                        const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, consequence.effects);
-                        await this.storePermanentAdjustments(team.id, currentDbSession.id, consequence.effects, `${interactiveDataKey} - ${selectedOptionId}`);
-                        await db.kpis.upsert({...updatedKpis, id: teamKpis.id});
-                        console.log(`[DecisionEngine] Team ${team.name}: Applied consequences for choice '${selectedOptionId}'.`);
-                    } else {
-                        console.warn(`[DecisionEngine] Team ${team.name}: No consequence found for key ${consequenceKey}, option ${selectedOptionId}.`);
-                    }
+                    console.log(`[DecisionEngine] Team ${team.name}: Recorded choice '${selectedOptionId}' for ${interactiveDataKey}. Consequences will be applied when consequence slides are shown.`);
+                } else {
+                    console.warn(`[DecisionEngine] Team ${team.name}: No option selected for ${interactiveDataKey}.`);
                 }
+
+                // REMOVED: Automatic consequence application - this is now handled by ConsequenceProcessor
             }
 
+            // FIXED: Force refresh of team decisions to update decision history immediately
+            await fetchTeamDecisionsFromHook(currentDbSession.id);
             await fetchTeamRoundDataFromHook(currentDbSession.id);
-            console.log(`[DecisionEngine] Successfully processed interactive slide ${completedSlide.id} for all teams.`);
+            console.log(`[DecisionEngine] Successfully processed interactive slide ${completedSlide.id} for all teams and refreshed decision history.`);
         } catch (err) {
             console.error(`[DecisionEngine] Error processing decisions for slide ${completedSlide.id}:`, err);
             throw err;
