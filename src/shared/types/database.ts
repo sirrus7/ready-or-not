@@ -32,17 +32,24 @@ export interface TeamRoundData {
     net_income: number;
 }
 
-// Re-export other existing types...
 export interface GameSession {
     id: string;
     name: string;
-    user_id: string;
-    current_slide_id: number | null;
-    is_active: boolean;
-    is_public: boolean;
+    host_id: string;  // Changed from teacher_id
+    current_slide_index: number | null;
+    game_version: string;
+    class_name: string | null;
+    grade_level: string | null;
+    is_playing: boolean;
+    is_complete: boolean;
+    host_notes: Record<string, string>;  // Changed from teacher_notes
+    status: 'draft' | 'active' | 'completed';
+    wizard_state: Record<string, any> | null;
     created_at: string;
     updated_at: string;
 }
+
+export type GameSessionInsert = Omit<GameSession, 'id' | 'created_at' | 'updated_at'>;
 
 export interface Team {
     id: string;

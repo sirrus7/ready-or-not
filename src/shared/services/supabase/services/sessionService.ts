@@ -1,11 +1,11 @@
-// src/utils/supabase/services/sessionService.ts - Session management
-import { supabase } from '../client';
-import { withRetry } from '../database';
+// src/shared/services/supabase/services/sessionService.ts - Session management
+import {supabase} from '../client';
+import {withRetry} from '../database';
 
 export const sessionService = {
     async get(sessionId: string) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('sessions')
                 .select('*')
                 .eq('id', sessionId)
@@ -17,7 +17,7 @@ export const sessionService = {
 
     async update(sessionId: string, updates: any) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('sessions')
                 .update({
                     ...updates,
@@ -33,7 +33,7 @@ export const sessionService = {
 
     async create(sessionData: any) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('sessions')
                 .insert({
                     ...sessionData,
@@ -47,16 +47,22 @@ export const sessionService = {
         }, 2, 1000, 'Create session');
     },
 
-    async getByTeacher(teacherId: string) {
+    // Updated method name and column reference
+    async getByHost(hostId: string) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('sessions')
                 .select('*')
-                .eq('teacher_id', teacherId)
-                .order('created_at', { ascending: false });
+                .eq('host_id', hostId) // Changed from teacher_id
+                .order('created_at', {ascending: false});
             if (error) throw error;
             return data || [];
-        }, 3, 1000, `Fetch sessions for teacher ${teacherId.substring(0, 8)}`);
+        }, 3, 1000, `Fetch sessions for host ${hostId.substring(0, 8)}`);
+    },
+
+    // Keep the old method name for backward compatibility (can remove later)
+    async getByTeacher(hostId: string) {
+        return this.getByHost(hostId);
     },
 
     async delete(sessionId: string) {
@@ -67,7 +73,7 @@ export const sessionService = {
             await supabase.from('team_decisions').delete().eq('session_id', sessionId);
             await supabase.from('teams').delete().eq('session_id', sessionId);
 
-            const { error } = await supabase
+            const {error} = await supabase
                 .from('sessions')
                 .delete()
                 .eq('id', sessionId);

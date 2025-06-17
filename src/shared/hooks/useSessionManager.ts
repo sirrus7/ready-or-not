@@ -1,14 +1,14 @@
 // src/shared/hooks/useSessionManager.ts
 import {useState, useEffect, useCallback} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {GameSession, User, GameStructure, NewGameData} from '@shared/types';
-import {GameSessionManager, SessionUpdatePayload} from '@core/game/GameSessionManager';
+import {GameSession, GameSessionInsert, User, GameStructure, NewGameData} from '@shared/types';
+import {GameSessionManager} from '@core/game/GameSessionManager';
 
 interface SessionManagerOutput {
     session: GameSession | null;
     isLoading: boolean;
     error: string | null;
-    updateSessionInDb: (updates: SessionUpdatePayload) => Promise<void>;
+    updateSessionInDb: (updates: Partial<GameSessionInsert>) => Promise<void>;
     clearSessionError: () => void;
 }
 
@@ -22,7 +22,7 @@ export const useSessionManager = (
     passedSessionId: string | null | undefined,
     user: User | null,
     authLoading: boolean,
-    gameStructure: GameStructure | null // Still needed for new session creation
+    gameStructure: GameStructure | null
 ): SessionManagerOutput => {
     const [session, setSession] = useState<GameSession | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -123,7 +123,7 @@ export const useSessionManager = (
 
     }, [passedSessionId, user, authLoading, navigate, gameStructure, sessionManager]);
 
-    const updateSessionInDb = useCallback(async (updates: SessionUpdatePayload) => {
+    const updateSessionInDb = useCallback(async (updates: Partial<GameSessionInsert>) => {
         if (!session?.id || session.id === 'new') {
             console.warn("updateSessionInDb: No valid session ID to update or session is 'new'. Current session:", session);
             setError("Cannot save progress: No active game session loaded.");

@@ -10,7 +10,7 @@ import {mediaManager} from '@shared/services/MediaManager';
 export interface GameControllerOutput {
     currentSlideIndex: number | null;
     currentSlideData: Slide | null;
-    teacherNotes: Record<string, string>;
+    hostNotes: Record<string, string>;
     currentHostAlert: { title: string; message: string } | null;
     allTeamsSubmittedCurrentInteractivePhase: boolean;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
@@ -42,8 +42,10 @@ export const useGameController = (
     const ALL_SUBMIT_ALERT_MESSAGE = "Please verify all teams are happy with their submission. Then click Next to proceed.";
 
     useEffect(() => {
-        setDbSession(initialDbSession);
-    }, [initialDbSession]);
+        if (initialDbSession && !dbSession) {
+            setDbSession(initialDbSession);
+        }
+    }, [dbSession, initialDbSession]);
 
     const sessionManager = useMemo(() => GameSessionManager.getInstance(), []);
 
@@ -68,10 +70,10 @@ export const useGameController = (
 
     // Initialize host notes from session
     useEffect(() => {
-        if (dbSession?.teacher_notes) {
-            setHostNotesState(dbSession.teacher_notes);
+        if (dbSession?.host_notes) {
+            setHostNotesState(dbSession.host_notes);
         }
-    }, [dbSession?.teacher_notes]);
+    }, [dbSession?.host_notes]);
 
     // FIXED: Handle "All Teams Have Submitted" alert properly with dismissal tracking
     useEffect(() => {
@@ -182,10 +184,10 @@ export const useGameController = (
     const updateHostNotesForCurrentSlide = useCallback(async (notes: string) => {
         if (currentSlideData && dbSession?.id) {
             const slideKey = String(currentSlideData.id);
-            const newTeacherNotes = {...hostNotesState, [slideKey]: notes};
-            setHostNotesState(newTeacherNotes);
+            const newHostNotes = {...hostNotesState, [slideKey]: notes};
+            setHostNotesState(newHostNotes);
             try {
-                const updatedSession = await sessionManager.updateTeacherNotes(dbSession.id, newTeacherNotes);
+                const updatedSession = await sessionManager.updateHostNotes(dbSession.id, newHostNotes);
                 setDbSession(updatedSession);
             } catch (error) {
                 console.error("[useGameController] Error updating teacher notes:", error);
@@ -220,7 +222,7 @@ export const useGameController = (
     return {
         currentSlideIndex,
         currentSlideData,
-        teacherNotes: hostNotesState,
+        hostNotes: hostNotesState,
         currentHostAlert: currentHostAlertState,
         allTeamsSubmittedCurrentInteractivePhase: allTeamsSubmittedCurrentInteractivePhaseState,
         setAllTeamsSubmittedCurrentInteractivePhase: setAllTeamsSubmittedCurrentInteractivePhaseState,

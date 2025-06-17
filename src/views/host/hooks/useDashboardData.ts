@@ -32,7 +32,7 @@ export const useDashboardData = (userId?: string): UseDashboardDataReturn => {
             if (!userId) return {draft: [], active: [], completed: []};
 
             console.log('[useDashboardData] Fetching categorized sessions for user:', userId);
-            const result = await sessionManager.getCategorizedSessionsForTeacher(userId);
+            const result = await sessionManager.getCategorizedSessionsForHost(userId);
             console.log('[useDashboardData] Fetched games:', {
                 draft: result.draft.length,
                 active: result.active.length,

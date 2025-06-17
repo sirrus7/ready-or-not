@@ -93,7 +93,7 @@ const CreateGamePage: React.FC = () => {
                 } else {
                     // FIXED: Clean up existing drafts, but NOT the one we might be resuming
                     console.log('Checking for existing draft sessions...');
-                    const existingDrafts = await sessionManager.getCategorizedSessionsForTeacher(user.id);
+                    const existingDrafts = await sessionManager.getCategorizedSessionsForHost(user.id);
 
                     if (existingDrafts.draft.length > 0) {
                         console.log(`Found ${existingDrafts.draft.length} existing draft(s), cleaning up...`);
