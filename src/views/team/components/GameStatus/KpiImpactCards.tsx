@@ -1,5 +1,27 @@
 // src/views/team/components/GameStatus/KpiImpactCards.tsx
-// Updated to match the physical card layout shown in the game
+// OPTIMIZED VERSION - Designed for vertical sidebar layout
+
+/**
+ * ============================================================================
+ * KPI IMPACT CARDS COMPONENT - SIDEBAR OPTIMIZED
+ * ============================================================================
+ *
+ * DESIGN REQUIREMENTS:
+ * - Compact layout for narrow sidebar (320px width)
+ * - Vertical stacking that complements the new KPI display
+ * - Readable typography at smaller sizes
+ * - Consistent visual hierarchy with sidebar design
+ * - Touch-friendly for mobile devices
+ * - Professional appearance matching overall theme
+ *
+ * LAYOUT STRATEGY:
+ * - Smaller padding and margins for compact display
+ * - Simplified card design with essential information
+ * - Consistent color scheme with sidebar theme
+ * - Proper spacing between multiple cards
+ * - Clear visual separation from KPI display above
+ * ============================================================================
+ */
 
 import React from 'react';
 import {PermanentKpiAdjustment} from '@shared/types';
@@ -30,6 +52,9 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                                                            permanentAdjustments
                                                        }) => {
 
+    // ========================================================================
+    // DATA PROCESSING - Create impact cards from permanent adjustments
+    // ========================================================================
     const createImpactCards = (): ImpactCard[] => {
         const cardMap: Record<string, ImpactCard> = {};
 
@@ -71,6 +96,9 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
         return Object.values(cardMap);
     };
 
+    // ========================================================================
+    // HELPER FUNCTIONS
+    // ========================================================================
     const extractChallengeFromDescription = (description: string): string => {
         const desc = description?.toLowerCase() || '';
         if (desc.includes('ch1') || desc.includes('cnc') || desc.includes('machine')) return 'ch1';
@@ -88,15 +116,29 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     const getKpiIcon = (kpi: string) => {
         switch (kpi) {
             case 'capacity':
-                return <Building size={16}/>;
+                return <Building size={14}/>;
             case 'orders':
-                return <ShoppingCart size={16}/>;
+                return <ShoppingCart size={14}/>;
             case 'cost':
-                return <DollarSign size={16}/>;
             case 'asp':
-                return <DollarSign size={16}/>;
+                return <DollarSign size={14}/>;
             default:
-                return <TrendingUp size={16}/>;
+                return <TrendingUp size={14}/>;
+        }
+    };
+
+    const getKpiColor = (kpi: string) => {
+        switch (kpi) {
+            case 'capacity':
+                return 'text-blue-400';
+            case 'orders':
+                return 'text-yellow-400';
+            case 'cost':
+                return 'text-red-400';
+            case 'asp':
+                return 'text-green-400';
+            default:
+                return 'text-gray-400';
         }
     };
 
@@ -108,6 +150,9 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
         return `${sign}${Math.abs(value).toLocaleString()}`;
     };
 
+    // ========================================================================
+    // RENDER LOGIC
+    // ========================================================================
     const impactCards = createImpactCards();
 
     const relevantCards = impactCards.filter(card =>
@@ -121,42 +166,47 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     }
 
     return (
-        <div className="mt-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-300 mb-4 flex items-center gap-2">
-                <TrendingUp size={20}/>
-                KPI Impact Cards
-            </h3>
+        <div className="space-y-3">
+            {/* Section Header - Compact for sidebar */}
+            <div className="flex items-center gap-2 px-2">
+                <TrendingUp size={16} className="text-purple-400"/>
+                <h3 className="text-sm font-semibold text-purple-400">Impact Cards</h3>
+            </div>
 
-            <div className="space-y-4">
+            {/* Cards Container */}
+            <div className="space-y-3">
                 {relevantCards.map(card => (
                     <div
                         key={card.id}
-                        className="bg-gray-800 rounded-lg p-6 text-white shadow-lg border border-gray-600 relative overflow-hidden"
+                        className="bg-gray-700/50 rounded-lg p-3 border border-gray-600/50 relative overflow-hidden"
                     >
-                        {/* Header Section - matches physical card */}
-                        <div className="text-center mb-4">
-                            <div className="bg-gray-700 rounded px-3 py-1 inline-block mb-2">
-                                <span className="text-sm font-semibold tracking-wide">
-                                    PERMANENT KPI IMPACT
+                        {/* Challenge Badge */}
+                        <div className="absolute top-2 right-2">
+                            <div className="bg-purple-600/20 border border-purple-500/30 rounded px-2 py-0.5">
+                                <span className="text-purple-300 text-xs font-semibold">
+                                    {card.source.toUpperCase()}
                                 </span>
                             </div>
-                            <h4 className="text-xl font-bold tracking-wide">
-                                {card.title.toUpperCase()}
+                        </div>
+
+                        {/* Card Header - Compact */}
+                        <div className="mb-2 pr-12">
+                            <h4 className="text-sm font-bold text-white leading-tight">
+                                {card.title}
                             </h4>
                         </div>
 
-                        {/* Description Section */}
-                        <div className="mb-4">
-                            <p className="text-sm leading-relaxed text-center">
+                        {/* Description - Condensed */}
+                        <div className="mb-3">
+                            <p className="text-xs text-gray-300 leading-relaxed">
                                 {card.description}
                             </p>
                         </div>
 
-                        {/* KPI Effects Section - styled like physical card */}
-                        <div className="bg-black/20 rounded-lg p-4 mb-4">
-                            <p className="text-sm mb-3 text-center font-medium">
-                                Add the following to your<br/>
-                                RD-{card.kpiEffects[0]?.applies_to_rounds.join(' and RD-')} starting KPIs:
+                        {/* KPI Effects - Sidebar Optimized */}
+                        <div className="bg-gray-800/30 rounded p-2 space-y-1">
+                            <p className="text-xs text-center text-gray-400 mb-2">
+                                RD-{card.kpiEffects[0]?.applies_to_rounds.join(' & RD-')} Effects:
                             </p>
 
                             {card.kpiEffects.map((effect, index) => {
@@ -164,27 +214,24 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                                 if (applicableRounds.length === 0) return null;
 
                                 return (
-                                    <div key={index} className="text-center">
-                                        <div className="flex items-center justify-center gap-2 mb-2">
-                                            <span className="text-cyan-300">
+                                    <div key={index} className="flex items-center justify-between">
+                                        {/* KPI Label with Icon */}
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={getKpiColor(effect.kpi)}>
                                                 {getKpiIcon(effect.kpi)}
                                             </span>
-                                            <span className="text-cyan-300 font-bold text-lg">
-                                                {effect.kpi.toUpperCase()}: {formatKpiValue(effect.kpi, effect.value)}
+                                            <span className="text-xs font-medium text-gray-200">
+                                                {effect.kpi.toUpperCase()}
                                             </span>
                                         </div>
+
+                                        {/* KPI Value */}
+                                        <span className={`text-sm font-bold ${getKpiColor(effect.kpi)}`}>
+                                            {formatKpiValue(effect.kpi, effect.value)}
+                                        </span>
                                     </div>
                                 );
                             })}
-                        </div>
-
-                        {/* Challenge identifier in corner */}
-                        <div className="absolute top-3 right-3">
-                            <div className="bg-black/50 rounded px-2 py-1">
-                                <span className="text-white text-xs font-semibold">
-                                    {card.source.toUpperCase()}
-                                </span>
-                            </div>
                         </div>
                     </div>
                 ))}

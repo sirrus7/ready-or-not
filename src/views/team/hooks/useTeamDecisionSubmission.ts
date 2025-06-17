@@ -1,5 +1,5 @@
 // src/views/team/hooks/useTeamDecisionSubmission.ts
-// FINAL PRODUCTION VERSION - All TypeScript Errors Fixed
+// UPDATED VERSION - Reacts to decision reset triggers
 
 /**
  * ============================================================================
@@ -14,13 +14,14 @@
  * 2. Fetching existing decisions via polling
  * 3. Submitting new decisions to database
  * 4. Formatting decision summaries for display
+ * 5. UPDATED: Reacting to decision reset triggers from useTeamGameState
  *
  * Real-time updates (like decision resets) are handled by the parent
- * useTeamGameState hook and communicated via the kpiUpdateTrigger mechanism.
+ * useTeamGameState hook and communicated via the decisionResetTrigger mechanism.
  * ============================================================================
  */
 
-import {useState, useCallback, useMemo} from 'react';
+import {useState, useCallback, useMemo, useEffect} from 'react';
 import {useSupabaseMutation, useSupabaseQuery} from '@shared/hooks/supabase';
 import {db, supabase} from '@shared/services/supabase';
 import {Slide, InvestmentOption, ChallengeOption, GameStructure} from '@shared/types';
@@ -35,6 +36,7 @@ interface UseTeamDecisionSubmissionProps {
     investmentOptions?: InvestmentOption[];
     challengeOptions?: ChallengeOption[];
     gameStructure?: GameStructure;
+    decisionResetTrigger?: number; // NEW: Reset trigger from useTeamGameState
 }
 
 export interface UseTeamDecisionSubmissionReturn {
@@ -78,7 +80,8 @@ export const useTeamDecisionSubmission = ({
                                               currentSlide,
                                               decisionState,
                                               isValidSubmission,
-                                              gameStructure
+                                              gameStructure,
+                                              decisionResetTrigger = 0 // NEW: Default to 0 if not provided
                                           }: UseTeamDecisionSubmissionProps): UseTeamDecisionSubmissionReturn => {
 
     // ========================================================================
@@ -93,7 +96,8 @@ export const useTeamDecisionSubmission = ({
         sessionId,
         teamId,
         decisionKey,
-        slideType: currentSlide?.type
+        slideType: currentSlide?.type,
+        resetTrigger: decisionResetTrigger // NEW: Log the reset trigger
     });
 
     // ========================================================================
@@ -119,6 +123,26 @@ export const useTeamDecisionSubmission = ({
             retryOnError: false
         }
     );
+
+    // ========================================================================
+    // NEW: REACT TO DECISION RESET TRIGGERS
+    // When the host resets our team's decision, refresh our data
+    // ========================================================================
+    useEffect(() => {
+        if (decisionResetTrigger > 0) {
+            console.log('🔄 Decision reset trigger detected, refreshing decision data');
+
+            // Clear any existing submission success/error states
+            setSubmissionSuccess(false);
+            setSubmissionError(null);
+
+            // Refresh the existing decision data
+            checkForExistingDecision();
+            refreshImmediatePurchases();
+
+            console.log('🔄 Decision data refresh complete after reset');
+        }
+    }, [decisionResetTrigger, checkForExistingDecision]);
 
     // ========================================================================
     // DATA FETCHING - IMMEDIATE PURCHASES
@@ -171,7 +195,7 @@ export const useTeamDecisionSubmission = ({
             // Calculate total cost from selected investments
             const totalCost = decisionState.selectedInvestmentIds.reduce((sum, id) => {
                 const gameStructureWithData = gameStructure as GameStructure & {
-                    all_investment_options?: Array<{ id: string; name: string; cost: number }>;
+                    all_investment_options?: Record<string, Array<{ id: string; name: string; cost: number }>>;
                 };
                 const investmentOptions = gameStructureWithData?.all_investment_options?.[decisionKey] || [];
                 const investment = investmentOptions.find((inv) => inv.id === id);
@@ -241,32 +265,32 @@ export const useTeamDecisionSubmission = ({
 
         try {
             const gameStructureWithData = gameStructure as GameStructure & {
-                all_investment_options?: Array<{ id: string; name: string; cost: number }>;
-                all_challenge_options?: Array<{ id: string; name: string }>;
+                all_investment_options?: Record<string, Array<{ id: string; name: string; cost: number }>>;
+                all_challenge_options?: Record<string, Array<{ id: string; name: string }>>;
             };
 
             const parts: string[] = [];
 
-            // Format investment selections
-            if (existingDecision.selected_investment_ids) {
-                const selectedIds = parseInvestmentIds(existingDecision.selected_investment_ids);
-                const investmentOptions = decisionKey ? gameStructureWithData.all_investment_options?.[decisionKey] || [] : [];
+            // Add investment selections
+            if (existingDecision.selected_investment_ids?.length > 0) {
+                const decisionKey = currentSlide.interactive_data_key;
+                const investmentOptions = decisionKey ?
+                    gameStructureWithData.all_investment_options?.[decisionKey] || [] : [];
 
-                const selectedInvestments = selectedIds
-                    .map(id => investmentOptions.find(opt => opt.id === id))
-                    .filter((inv): inv is { id: string; name: string; cost: number } => Boolean(inv));
+                const selectedInvestments = parseInvestmentIds(existingDecision.selected_investment_ids)
+                    .map(id => investmentOptions.find(inv => inv.id === id))
+                    .filter(Boolean);
 
                 if (selectedInvestments.length > 0) {
-                    const investmentSummary = selectedInvestments
-                        .map(inv => `${inv.name} (${formatCurrency(inv.cost)})`)
-                        .join(', ');
-                    parts.push(`Investments: ${investmentSummary}`);
+                    parts.push(`Investments: ${selectedInvestments.map(inv => inv!.name).join(', ')}`);
                 }
             }
 
-            // Format challenge selection
+            // Add challenge selection
             if (existingDecision.selected_challenge_option_id) {
-                const challengeOptions = decisionKey ? gameStructureWithData.all_challenge_options?.[decisionKey] || [] : [];
+                const decisionKey = currentSlide.interactive_data_key;
+                const challengeOptions = decisionKey ?
+                    gameStructureWithData.all_challenge_options?.[decisionKey] || [] : [];
                 const selectedChallenge = challengeOptions.find(
                     opt => opt.id === existingDecision.selected_challenge_option_id
                 );

@@ -1,4 +1,5 @@
 // src/views/team/components/InteractionPanel/DecisionContainer.tsx
+// UPDATED VERSION - Passes decision reset trigger to DecisionPanel
 import React, {useMemo} from 'react';
 import DecisionPanel from '@views/team/components/DecisionForms/DecisionPanel';
 import {Slide, GameStructure} from '@shared/types';
@@ -8,13 +9,15 @@ interface DecisionModeContainerProps {
     teamId: string;
     currentSlide: Slide | null;
     gameStructure: GameStructure;
+    decisionResetTrigger?: number; // NEW: Reset trigger from useTeamGameState
 }
 
 const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                                                                          sessionId,
                                                                          teamId,
                                                                          currentSlide,
-                                                                         gameStructure
+                                                                         gameStructure,
+                                                                         decisionResetTrigger = 0 // NEW: Default to 0
                                                                      }) => {
     if (!currentSlide) {
         return (
@@ -51,6 +54,7 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                 availableRd3Investments={phaseData.rd3Investments}
                 isDecisionTime={true}
                 gameStructure={gameStructure}
+                decisionResetTrigger={decisionResetTrigger} // NEW: Pass the reset trigger
             />
         </div>
     );

@@ -1,5 +1,5 @@
 // src/views/team/hooks/useTeamGameState.ts
-// FINAL PRODUCTION VERSION - Single Real-time Connection Architecture
+// UPDATED VERSION - Implements decision reset handling
 
 /**
  * ============================================================================
@@ -27,6 +27,7 @@
  * 2. Decision Resets (team_decisions table deletes)
  *    - Clear submission UI when host resets team decisions
  *    - Allow new choices to be made
+ *    - Trigger refresh of decision-making components
  *
  * FALLBACK POLLING:
  * - Polls every 10 seconds as backup if real-time fails
@@ -52,6 +53,7 @@ interface useTeamGameStateReturn {
     isLoadingKpis: boolean;
     gameStructure: GameStructure;
     connectionStatus: 'disconnected' | 'connecting' | 'connected';
+    decisionResetTrigger: number; // NEW: Trigger for decision component refreshes
 }
 
 export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStateProps): useTeamGameStateReturn => {
@@ -63,6 +65,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
     const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
     const [isLoadingKpis, setIsLoadingKpis] = useState(false);
+    const [decisionResetTrigger, setDecisionResetTrigger] = useState<number>(0); // NEW: Reset trigger counter
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
@@ -81,109 +84,79 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
         if (slide) {
             // Check if this slide requires team decisions
-            const requiresDecision = slide.type.startsWith('interactive_') && !!slide.interactive_data_key;
+            const requiresDecision = slide.type.startsWith('interactive_') && !slide.type.includes('consequence');
             setIsDecisionTime(requiresDecision);
-
-            console.log(`🎬 Updated to slide ${slide.id}: "${slide.title}" | Decision Required: ${requiresDecision}`);
+            console.log(`🎬 Decision time set to: ${requiresDecision} for slide type: ${slide.type}`);
         } else {
             setIsDecisionTime(false);
         }
-    }, []); // No dependencies - this function is stable
+    }, []);
 
     /**
-     * Handles consequence slides - checks if they affect our team and updates KPIs
+     * Fetches the current session data and updates slide state
      */
-    const handleConsequenceSlide = useCallback(async (consequenceSlide: Slide) => {
-        if (!consequenceSlide.interactive_data_key || !loggedInTeamId || !sessionId) {
-            console.log('💥 Consequence slide missing data - skipping KPI check');
-            return;
-        }
+    const fetchSessionData = useCallback(async () => {
+        if (!sessionId) return;
 
         try {
-            console.log('💥 Checking if consequence affects our team:', consequenceSlide.interactive_data_key);
-
-            // Get our team's decision for this consequence phase
-            const decision = await db.decisions.getForPhase(
-                sessionId,
-                loggedInTeamId,
-                consequenceSlide.interactive_data_key
-            );
-
-            if (decision?.submitted_at) {
-                console.log('💥 Consequence matches our choice - updating KPIs');
-
-                // Refresh KPIs with delay to ensure database updates are complete
-                setTimeout(() => {
-                    fetchKpisForCurrentSlide();
-                }, 1000);
-            } else {
-                console.log('💥 Consequence doesn\'t affect our team - no KPI update needed');
-            }
-        } catch (error) {
-            console.error('💥 Error checking consequence relevance:', error);
-        }
-    }, [loggedInTeamId, sessionId]); // Stable dependencies
-
-    /**
-     * Fetches current session data from database
-     */
-    const fetchSessionData = async () => {
-        if (!sessionId || sessionId === 'new') {
-            console.log('📡 No valid sessionId - skipping fetch');
-            return;
-        }
-
-        try {
-            console.log('📡 Fetching session data...');
-            const session = await db.sessions.get(sessionId);
-
-            if (session && session.current_slide_index !== null) {
-                console.log('📡 Session fetched - slide index:', session.current_slide_index);
-
-                const slide = gameStructure.slides[session.current_slide_index] || null;
-                updateSlideState(slide);
-
-                // Handle consequence slides
-                if (slide?.type === 'consequence_reveal') {
-                    await handleConsequenceSlide(slide);
+            const session = await db.sessions.get(sessionId); // FIXED: Using correct method name
+            if (session?.current_slide_index !== null && session?.current_slide_index !== undefined) {
+                const newSlide = gameStructure.slides[session.current_slide_index];
+                if (newSlide) {
+                    updateSlideState(newSlide);
                 }
-
-                setConnectionStatus('connected');
-            } else {
-                console.log('📡 No session data or slide index');
-                setConnectionStatus('disconnected');
             }
         } catch (error) {
-            console.error('📡 Error fetching session:', error);
-            setConnectionStatus('disconnected');
+            console.error('📡 Error fetching session data:', error);
         }
-    };
+    }, [sessionId, gameStructure.slides, updateSlideState]);
 
     /**
-     * Fetches KPI data for the current slide's round
+     * Fetches team KPI data for the current slide
      */
-    const fetchKpisForCurrentSlide = async () => {
-        if (!sessionId || !loggedInTeamId || !currentActiveSlide || currentActiveSlide.round_number === 0) {
-            setCurrentTeamKpis(null);
-            return;
-        }
+    const fetchKpisForCurrentSlide = useCallback(async () => {
+        if (!sessionId || !loggedInTeamId || !currentActiveSlide) return;
 
+        setIsLoadingKpis(true);
         try {
-            setIsLoadingKpis(true);
-            const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, currentActiveSlide.round_number);
-            setCurrentTeamKpis(kpis);
-            console.log('📊 KPIs loaded for round', currentActiveSlide.round_number, ':', kpis);
+            const roundNumber = currentActiveSlide.round_number || 1;
+            console.log('📊 Fetching KPIs for round:', roundNumber);
+
+            const kpiData = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, roundNumber); // FIXED: Using correct method name
+            console.log('📊 KPIs loaded:', kpiData);
+            setCurrentTeamKpis(kpiData);
         } catch (error) {
             console.error('📊 Error loading KPIs:', error);
             setCurrentTeamKpis(null);
         } finally {
             setIsLoadingKpis(false);
         }
-    };
+    }, [sessionId, loggedInTeamId, currentActiveSlide]);
+
+    /**
+     * NEW: Handles decision reset notifications from the host
+     */
+    const handleDecisionReset = useCallback((payload: any) => {
+        console.log('🔄 Decision reset detected:', payload);
+
+        // Check if this reset affects our team and current slide
+        if (payload.old?.team_id === loggedInTeamId &&
+            payload.old?.phase_id === currentActiveSlide?.interactive_data_key) {
+
+            console.log('🔄 Reset affects our team - triggering decision component refresh');
+
+            // Increment the trigger counter to force re-render of decision components
+            setDecisionResetTrigger(prev => prev + 1);
+
+            // Optional: Show a brief notification to the user
+            console.log('✅ Your submission has been reset by the facilitator. You may now make new choices.');
+        }
+    }, [loggedInTeamId, currentActiveSlide?.interactive_data_key]);
 
     // ========================================================================
     // SINGLE REAL-TIME SUBSCRIPTION
     // This is the ONLY WebSocket connection per team app
+    // FIXED: Stable dependencies to prevent connection loop
     // ========================================================================
     useEffect(() => {
         if (!sessionId || !loggedInTeamId) {
@@ -191,72 +164,120 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             return;
         }
 
+        console.log('🔔 Setting up real-time subscription for:', sessionId, loggedInTeamId);
         setConnectionStatus('connecting');
 
-        const channel = supabase
-            .channel(`team-updates-${sessionId}-${loggedInTeamId}`)
+        const channelName = `team-updates-${sessionId}-${loggedInTeamId}`;
+        const channel = supabase.channel(channelName);
+
+        channel
             .on('postgres_changes', {
-                event: '*',
-                schema: 'public'
-                // No table filter - listen to everything
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'sessions',
+                filter: `id=eq.${sessionId}`
             }, (payload) => {
-                console.log('🔔 ALL EVENTS:', payload);
+                console.log('🔔 Session update received:', payload);
 
                 // Handle slide changes
-                if (payload.table === 'sessions' &&
-                    payload.eventType === 'UPDATE' &&
-                    payload.new?.id === sessionId) {
+                if (payload.new?.current_slide_index !== payload.old?.current_slide_index) {
+                    const newSlideIndex = payload.new.current_slide_index;
+                    console.log('🎬 Slide change detected:', newSlideIndex);
 
-                    if (payload.new?.current_slide_index !== payload.old?.current_slide_index) {
-                        const newSlideIndex = payload.new.current_slide_index;
-                        const newSlide = gameStructure.slides[newSlideIndex];
+                    // Use the stable gameStructure reference
+                    const newSlide = readyOrNotGame_2_0_DD.slides[newSlideIndex];
+                    if (newSlide) {
+                        console.log('🎬 Setting new slide:', newSlide.title);
                         setCurrentActiveSlide(newSlide);
+
+                        // Check if this slide requires team decisions
+                        const requiresDecision = newSlide.type.startsWith('interactive_') &&
+                            !newSlide.type.includes('consequence');
+                        setIsDecisionTime(requiresDecision);
+                        console.log(`🎬 Decision time set to: ${requiresDecision}`);
                     }
                 }
+            })
+            .on('postgres_changes', {
+                event: 'DELETE',
+                schema: 'public',
+                table: 'team_decisions'
+            }, (payload) => {
+                console.log('🔔 Decision delete received:', payload);
 
-                // Handle decision resets
-                if (payload.table === 'team_decisions' &&
-                    payload.eventType === 'DELETE') {
+                // Handle decision resets for our team
+                // Check if this reset affects our team and current slide
+                if (payload.old?.team_id === loggedInTeamId) {
+                    console.log('🔄 Decision reset detected for our team');
 
-                    // TODO: Handle that the host reset our team's choices. Now we need to reload the choices for the current slide so we can select and submit them again!
+                    // Get current slide to check if reset affects current phase
+                    const currentSlide = readyOrNotGame_2_0_DD.slides.find(slide =>
+                        slide.interactive_data_key === payload.old?.phase_id
+                    );
+
+                    if (currentSlide) {
+                        console.log('🔄 Reset affects current slide - triggering decision component refresh');
+
+                        // Increment the trigger counter to force re-render of decision components
+                        setDecisionResetTrigger(prev => prev + 1);
+
+                        console.log('✅ Your submission has been reset by the facilitator. You may now make new choices.');
+                    } else {
+                        console.log('🔄 Reset for different phase, incrementing trigger anyway');
+                        setDecisionResetTrigger(prev => prev + 1);
+                    }
                 }
-
-                setConnectionStatus('connected');
             })
             .subscribe((status) => {
-                console.log('🔔 Single channel status:', status);
+                console.log('🔔 Real-time channel status:', status);
+
+                if (status === 'SUBSCRIBED') {
+                    setConnectionStatus('connected');
+                } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                    setConnectionStatus('disconnected');
+                } else if (status === 'JOINING') {
+                    setConnectionStatus('connecting');
+                }
             });
 
-        // Cleanup: Unsubscribe when component unmounts or dependencies change
+        // Cleanup function
         return () => {
-            console.log('🔔 REAL-TIME: Cleaning up subscription');
-            channel.unsubscribe();
+            console.log('🔔 Cleaning up real-time subscription');
+            supabase.removeChannel(channel);
+            setConnectionStatus('disconnected');
         };
-    }, [sessionId, loggedInTeamId, gameStructure.slides]);
+    }, [sessionId, loggedInTeamId]); // FIXED: Only depend on stable values
 
     // ========================================================================
-    // FALLBACK POLLING
-    // Backup mechanism in case real-time fails
+    // FALLBACK POLLING - DISABLED FOR NOW
+    // Let's see if the fixed real-time connection works reliably
+    // Can re-enable if needed, but should not be necessary
     // ========================================================================
     useEffect(() => {
         if (!sessionId) return;
 
-        console.log('📡 Setting up fallback polling (10 second intervals)');
+        // Only do initial fetch, no polling
+        const initialFetch = async () => {
+            try {
+                const session = await db.sessions.get(sessionId);
+                if (session?.current_slide_index !== null && session?.current_slide_index !== undefined) {
+                    const newSlide = readyOrNotGame_2_0_DD.slides[session.current_slide_index];
+                    if (newSlide) {
+                        console.log('📡 Initial slide fetch:', newSlide.title);
+                        setCurrentActiveSlide(newSlide);
 
-        // Initial fetch
-        fetchSessionData();
-
-        // Backup polling every 10 seconds
-        const pollInterval = setInterval(() => {
-            console.log('📡 POLLING: Checking for updates...');
-            fetchSessionData();
-        }, 10000); // 10 seconds - less aggressive than before
-
-        return () => {
-            console.log('📡 POLLING: Cleaning up fallback polling');
-            clearInterval(pollInterval);
+                        const requiresDecision = newSlide.type.startsWith('interactive_') &&
+                            !newSlide.type.includes('consequence');
+                        setIsDecisionTime(requiresDecision);
+                    }
+                }
+            } catch (error) {
+                console.error('📡 Error fetching initial session data:', error);
+            }
         };
-    }, [sessionId, gameStructure]);
+
+        initialFetch();
+    }, [sessionId]); // Only run once per sessionId
 
     // ========================================================================
     // KPI DATA MANAGEMENT
@@ -274,6 +295,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         currentTeamKpis,
         isLoadingKpis,
         gameStructure,
-        connectionStatus
+        connectionStatus,
+        decisionResetTrigger // NEW: Expose the reset trigger
     };
 };

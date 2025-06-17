@@ -1,4 +1,5 @@
 // src/views/team/components/DecisionForms/DecisionPanel.tsx
+// UPDATED VERSION - Passes decision reset trigger to submission hook
 import React from 'react';
 import {InvestmentOption, ChallengeOption, Slide, GameStructure} from '@shared/types';
 import {Hourglass, CheckCircle2} from 'lucide-react';
@@ -19,6 +20,7 @@ interface DecisionPanelProps {
     availableRd3Investments?: InvestmentOption[];
     isDecisionTime: boolean;
     gameStructure?: GameStructure;
+    decisionResetTrigger?: number; // NEW: Reset trigger from useTeamGameState
 }
 
 const DecisionPanel: React.FC<DecisionPanelProps> = ({
@@ -31,6 +33,7 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                                                          availableRd3Investments = [],
                                                          isDecisionTime,
                                                          gameStructure,
+                                                         decisionResetTrigger = 0 // NEW: Default to 0
                                                      }) => {
     const decisionLogic = useDecisionMaking({
         currentSlide,
@@ -49,7 +52,8 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
         isValidSubmission: decisionLogic.isValidSubmission,
         investmentOptions,
         challengeOptions,
-        gameStructure
+        gameStructure,
+        decisionResetTrigger // NEW: Pass the reset trigger
     });
 
     if (!isDecisionTime || !currentSlide) {
