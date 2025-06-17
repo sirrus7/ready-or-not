@@ -63,7 +63,6 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
     const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
     const [isLoadingKpis, setIsLoadingKpis] = useState(false);
-    const [kpiUpdateTrigger, setKpiUpdateTrigger] = useState<number>(0);
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
@@ -116,7 +115,6 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
                 // Refresh KPIs with delay to ensure database updates are complete
                 setTimeout(() => {
                     fetchKpisForCurrentSlide();
-                    setKpiUpdateTrigger(prev => prev + 1);
                 }, 1000);
             } else {
                 console.log('💥 Consequence doesn\'t affect our team - no KPI update needed');
@@ -189,18 +187,16 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     // ========================================================================
     useEffect(() => {
         if (!sessionId || !loggedInTeamId) {
-            console.log('🔔 Missing sessionId or teamId - no real-time subscription');
             setConnectionStatus('disconnected');
             return;
         }
 
-        console.log('🔔 Setting up SINGLE real-time subscription for team:', loggedInTeamId);
         setConnectionStatus('connecting');
 
         const channel = supabase
             .channel(`team-updates-${sessionId}-${loggedInTeamId}`)
             .on('postgres_changes', {
-                event: '*',  // Listen to ALL events
+                event: '*',
                 schema: 'public'
                 // No table filter - listen to everything
             }, (payload) => {
@@ -211,23 +207,18 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
                     payload.eventType === 'UPDATE' &&
                     payload.new?.id === sessionId) {
 
-                    console.log('🎬 SLIDE CHANGE DETECTED');
                     if (payload.new?.current_slide_index !== payload.old?.current_slide_index) {
                         const newSlideIndex = payload.new.current_slide_index;
                         const newSlide = gameStructure.slides[newSlideIndex];
-                        console.log(`🎬 Setting slide: ${newSlide?.title}`);
                         setCurrentActiveSlide(newSlide);
                     }
                 }
 
                 // Handle decision resets
                 if (payload.table === 'team_decisions' &&
-                    payload.eventType === 'DELETE' &&
-                    payload.old?.session_id === sessionId &&
-                    payload.old?.team_id === loggedInTeamId) {
+                    payload.eventType === 'DELETE') {
 
-                    console.log('🔄 DECISION RESET DETECTED');
-                    console.log('🔄 Deleted phase:', payload.old?.phase_id);
+                    // TODO: Handle that the host reset our team's choices. Now we need to reload the choices for the current slide so we can select and submit them again!
                 }
 
                 setConnectionStatus('connected');
@@ -272,7 +263,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     // ========================================================================
     useEffect(() => {
         fetchKpisForCurrentSlide();
-    }, [currentActiveSlide, kpiUpdateTrigger]);
+    }, [fetchKpisForCurrentSlide]);
 
     // ========================================================================
     // RETURN INTERFACE
