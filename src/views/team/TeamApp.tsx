@@ -1,13 +1,19 @@
 // src/views/team/TeamApp.tsx
-// Enhanced TeamApp.tsx with comprehensive debug panel and KPI Impact Cards integration
-// FIXED: Added broadcast listener to refresh permanent adjustments when KPI updates occur
+// PRODUCTION-GRADE FIXED VERSION - Removed BroadcastChannel usage, implements proper Supabase real-time only
+
+/**
+ * COMMUNICATION ARCHITECTURE RULE:
+ * - Host ↔ Presentation Display: Use BroadcastChannel (same device)
+ * - Host ↔ Team Apps: Use Supabase Real-time ONLY (different devices)
+ * - Team Apps: NEVER use BroadcastChannel - it won't work cross-device
+ */
 
 import React, {useState, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
 import {Bug} from 'lucide-react';
 import {PermanentKpiAdjustment} from '@shared/types';
 import {db} from '@shared/services/supabase';
-import {SimpleBroadcastManager, KpiUpdateData} from '@core/sync/SimpleBroadcastManager';
+import {useRealtimeSubscription} from '@shared/services/supabase';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import TeamLogout from '@views/team/components/TeamLogin/TeamLogout';
 import TeamStatusDisplay from '@views/team/components/GameStatus/TeamStatus';
@@ -53,14 +59,19 @@ const TeamDebugPanel: React.FC<{
                     </div>
                     <div><span className="text-gray-400">Decision Time:</span>
                         <span className={`ml-1 ${teamGameState.isDecisionTime ?
-                            'text-green-400' : 'text-red-400'}`}>
+                            'text-green-400' : 'text-gray-400'}`}>
                             {teamGameState.isDecisionTime ? 'YES' : 'NO'}
                         </span>
                     </div>
-                </div>
-                <div className="border-t border-gray-600 pt-1 mt-1">
-                    <div className="text-gray-500 text-xs">
-                        Last Update: {new Date().toLocaleTimeString()}
+                    <div><span className="text-gray-400">Current Slide:</span>
+                        <span className="ml-1 text-cyan-300">
+                            {teamGameState.currentActiveSlide?.title || 'None'}
+                        </span>
+                    </div>
+                    <div><span className="text-gray-400">KPIs Loading:</span>
+                        <span className={`ml-1 ${teamGameState.isLoadingKpis ? 'text-yellow-400' : 'text-gray-400'}`}>
+                            {teamGameState.isLoadingKpis ? 'YES' : 'NO'}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -72,29 +83,30 @@ const TeamApp: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(null);
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(null);
-    const [showDebug, setShowDebug] = useState<boolean>(false);
-
-    // NEW: Add state for permanent adjustments
+    const [showDebugPanel, setShowDebugPanel] = useState(false);
     const [permanentAdjustments, setPermanentAdjustments] = useState<PermanentKpiAdjustment[]>([]);
     const [loadingAdjustments, setLoadingAdjustments] = useState(false);
 
-    const teamGameState = useTeamGameState({sessionId: sessionId || null, loggedInTeamId});
+    const teamGameState = useTeamGameState({
+        sessionId: sessionId || null,
+        loggedInTeamId
+    });
 
+    // Load permanent adjustments when team/session changes
     useEffect(() => {
-        document.title = "Ready or Not - Team";
-    }, []);
+        if (!sessionId || !loggedInTeamId) {
+            setPermanentAdjustments([]);
+            return;
+        }
 
-    // NEW: Load permanent adjustments when team logs in
-    useEffect(() => {
         const loadPermanentAdjustments = async () => {
-            if (!sessionId || !loggedInTeamId) return;
-
             setLoadingAdjustments(true);
             try {
                 const adjustments = await db.adjustments.getBySession(sessionId);
                 setPermanentAdjustments(adjustments);
+                console.log('[TeamApp] Loaded permanent adjustments:', adjustments.length);
             } catch (error) {
-                console.error('Failed to load permanent adjustments:', error);
+                console.error('[TeamApp] Failed to load permanent adjustments:', error);
             } finally {
                 setLoadingAdjustments(false);
             }
@@ -103,26 +115,25 @@ const TeamApp: React.FC = () => {
         loadPermanentAdjustments();
     }, [sessionId, loggedInTeamId]);
 
-    // NEW: Listen for KPI updates via broadcast to refresh permanent adjustments
-    useEffect(() => {
-        if (!sessionId || !loggedInTeamId) return;
+    // SUPABASE REAL-TIME: Listen for KPI updates to refresh permanent adjustments (REPLACES BroadcastChannel)
+    useRealtimeSubscription(
+        `team-kpi-adjustments-${sessionId}-${loggedInTeamId}`,
+        {
+            table: 'team_round_data',
+            filter: `session_id=eq.${sessionId}`,
+            event: 'UPDATE',
+            onchange: (payload) => {
+                console.log('[TeamApp] KPI update detected via Supabase real-time:', payload);
 
-        const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'team');
-
-        const unsubscribeKpiUpdates = broadcastManager.onKpiUpdate((kpiData: KpiUpdateData) => {
-            console.log('[TeamApp] Received KPI update from host broadcast:', kpiData);
-
-            // Check if this update is for our team
-            if (kpiData.updatedTeams) {
-                const ourTeamUpdate = kpiData.updatedTeams.find(team => team.teamId === loggedInTeamId);
-                if (ourTeamUpdate) {
+                // Check if this update is for our team
+                if (payload.new?.team_id === loggedInTeamId) {
                     console.log('[TeamApp] KPI update detected for our team, refreshing permanent adjustments');
 
                     // Refresh permanent adjustments when KPI updates come in
                     const refreshPermanentAdjustments = async () => {
                         setLoadingAdjustments(true);
                         try {
-                            const adjustments = await db.adjustments.getBySession(sessionId);
+                            const adjustments = await db.adjustments.getBySession(sessionId!);
                             setPermanentAdjustments(adjustments);
                             console.log('[TeamApp] Refreshed permanent adjustments after KPI update');
                         } catch (error) {
@@ -135,31 +146,71 @@ const TeamApp: React.FC = () => {
                     refreshPermanentAdjustments();
                 }
             }
-        });
+        },
+        !!sessionId && !!loggedInTeamId
+    );
 
-        return () => {
-            unsubscribeKpiUpdates();
+    // SUPABASE REAL-TIME: Listen for new permanent adjustments (REPLACES BroadcastChannel)
+    useRealtimeSubscription(
+        `permanent-adjustments-${sessionId}`,
+        {
+            table: 'permanent_kpi_adjustments',
+            filter: `session_id=eq.${sessionId}`,
+            event: 'INSERT',
+            onchange: (payload) => {
+                console.log('[TeamApp] New permanent adjustment detected via Supabase real-time:', payload);
+
+                // Refresh permanent adjustments when new ones are added
+                const refreshPermanentAdjustments = async () => {
+                    try {
+                        const adjustments = await db.adjustments.getBySession(sessionId!);
+                        setPermanentAdjustments(adjustments);
+                        console.log('[TeamApp] Refreshed permanent adjustments after new adjustment');
+                    } catch (error) {
+                        console.error('[TeamApp] Failed to refresh permanent adjustments:', error);
+                    }
+                };
+
+                refreshPermanentAdjustments();
+            }
+        },
+        !!sessionId
+    );
+
+    // Toggle debug panel visibility
+    useEffect(() => {
+        const handleKeyPress = (event: KeyboardEvent) => {
+            if (event.shiftKey && event.key.toLowerCase() === 'd') {
+                setShowDebugPanel(prev => !prev);
+            }
         };
-    }, [sessionId, loggedInTeamId]);
 
-    const handleLoginSuccess = (teamId: string, teamName: string) => {
-        setLoggedInTeamId(teamId);
-        setLoggedInTeamName(teamName);
-    };
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, []);
 
-    const handleLogout = () => {
-        setLoggedInTeamId(null);
-        setLoggedInTeamName(null);
-        setPermanentAdjustments([]); // NEW: Clear adjustments on logout
-    };
+    if (!sessionId) {
+        return (
+            <div
+                className="min-h-screen bg-gradient-to-br from-blue-900 to-purple-900 flex items-center justify-center">
+                <div className="text-center text-white p-8">
+                    <h2 className="text-2xl font-bold mb-4">Invalid Session</h2>
+                    <p>No session ID provided in the URL.</p>
+                </div>
+            </div>
+        );
+    }
 
-    if (!sessionId || !loggedInTeamId || !loggedInTeamName) {
-        return <TeamLogin sessionId={sessionId || ''} onLoginSuccess={handleLoginSuccess}/>;
+    if (!loggedInTeamId || !loggedInTeamName) {
+        return <TeamLogin sessionId={sessionId || ''} onLoginSuccess={(teamId, teamName) => {
+            setLoggedInTeamId(teamId);
+            setLoggedInTeamName(teamName);
+        }}/>;
     }
 
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col touch-manipulation">
-            <button onClick={() => setShowDebug(!showDebug)}
+            <button onClick={() => setShowDebugPanel(!showDebugPanel)}
                     className="fixed top-16 right-4 z-30 bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 transition-colors"
                     title="Toggle Debug Info">
                 <Bug size={16}/>
@@ -169,10 +220,18 @@ const TeamApp: React.FC = () => {
                 sessionId={sessionId}
                 teamId={loggedInTeamId}
                 teamGameState={teamGameState}
-                isVisible={showDebug}
+                isVisible={showDebugPanel}
             />
 
-            <TeamLogout teamName={loggedInTeamName} sessionId={sessionId!} onLogout={handleLogout}/>
+            <TeamLogout
+                teamName={loggedInTeamName}
+                sessionId={sessionId!}
+                onLogout={() => {
+                    setLoggedInTeamId(null);
+                    setLoggedInTeamName(null);
+                    setPermanentAdjustments([]); // Clear adjustments on logout
+                }}
+            />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <TeamStatusDisplay
@@ -182,11 +241,13 @@ const TeamApp: React.FC = () => {
                     isLoading={teamGameState.isLoadingKpis}
                 />
 
-                {teamGameState.isDecisionTime && teamGameState.currentActiveSlide ? (
-                    <DecisionModeContainer sessionId={sessionId!}
-                                           teamId={loggedInTeamId}
-                                           currentSlide={teamGameState.currentActiveSlide}
-                                           gameStructure={teamGameState.gameStructure}/>
+                {/* Content */}
+                {teamGameState.isDecisionTime ? (
+                    <DecisionModeContainer
+                        sessionId={sessionId}
+                        teamId={loggedInTeamId}
+                        currentSlide={teamGameState.currentActiveSlide}
+                        gameStructure={teamGameState.gameStructure}/>
                 ) : (
                     <div className="h-full overflow-y-auto">
                         <div className="p-3 md:p-4 min-h-full flex flex-col">
@@ -212,7 +273,7 @@ const TeamApp: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {/* NEW: Add KPI Impact Cards below the main content */}
+                                    {/* KPI Impact Cards - only show if we have adjustments and not loading */}
                                     {!loadingAdjustments && permanentAdjustments.length > 0 && (
                                         <div className="mt-6">
                                             <KpiImpactCards
@@ -227,6 +288,25 @@ const TeamApp: React.FC = () => {
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Debug Panel */}
+            <TeamDebugPanel
+                sessionId={sessionId}
+                teamId={loggedInTeamId}
+                teamGameState={teamGameState}
+                isVisible={showDebugPanel}
+            />
+
+            {/* Debug toggle hint */}
+            <div className="fixed bottom-4 left-4 text-xs text-gray-500">
+                <button
+                    onClick={() => setShowDebugPanel(!showDebugPanel)}
+                    className="flex items-center gap-1 hover:text-gray-400"
+                >
+                    <Bug size={12}/>
+                    Debug
+                </button>
             </div>
         </div>
     );

@@ -1,5 +1,12 @@
 // src/views/team/hooks/useTeamGameState.ts
-// CORRECTED VERSION - Fixed database method and query options
+// PRODUCTION-GRADE FIXED VERSION - Removed BroadcastChannel usage, implements proper Supabase real-time only
+
+/**
+ * COMMUNICATION ARCHITECTURE RULE:
+ * - Host ↔ Presentation Display: Use BroadcastChannel (same device)
+ * - Host ↔ Team Apps: Use Supabase Real-time ONLY (different devices)
+ * - Team Apps: NEVER use BroadcastChannel - it won't work cross-device
+ */
 
 import {useState, useEffect, useMemo} from 'react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
@@ -8,7 +15,6 @@ import {db} from '@shared/services/supabase';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {Slide, GameStructure} from '@shared/types/game';
 import {TeamRoundData} from '@shared/types/database';
-import {SimpleBroadcastManager, KpiUpdateData} from '@core/sync/SimpleBroadcastManager';
 
 interface useTeamGameStateProps {
     sessionId: string | null;
@@ -48,7 +54,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     const {refresh: refreshSession} = useSupabaseQuery(
         async () => {
             if (!sessionId || sessionId === 'new') return null;
-            const session = await db.sessions.get(sessionId); // CORRECTED: Use db.sessions.get instead of db.sessions.getById
+            const session = await db.sessions.get(sessionId);
             if (session && session.current_slide_index !== null) {
                 const slide = gameStructure.slides[session.current_slide_index] || null;
                 updateSlideState(slide);
@@ -62,85 +68,79 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         }
     );
 
-    // Manual polling for session updates
+    // Manual polling for session updates (faster polling as backup)
     useEffect(() => {
         if (!sessionId) return;
 
-        const pollInterval = setInterval(() => {
-            refreshSession();
-        }, 3000); // Poll every 3 seconds
+        console.log('[useTeamGameState] Starting database polling for session updates');
 
-        return () => clearInterval(pollInterval);
+        const pollInterval = setInterval(() => {
+            console.log('[useTeamGameState] Polling for session updates...');
+            refreshSession();
+        }, 1000); // Poll every 1 second instead of 3 seconds
+
+        return () => {
+            console.log('[useTeamGameState] Stopping database polling');
+            clearInterval(pollInterval);
+        };
     }, [sessionId, refreshSession]);
 
-    // 2. REAL-TIME SUBSCRIPTION: Listen for session changes
+    // 2. SUPABASE REAL-TIME: Listen for session changes (REPLACES BroadcastChannel)
     useRealtimeSubscription(
         `session-updates-${sessionId}`,
         {
             table: 'game_sessions',
             filter: `id=eq.${sessionId}`,
             onchange: (payload) => {
-                console.log('[useTeamGameState] Session updated via real-time:', payload);
-                refreshSession(); // Refresh to get latest state immediately
+                console.log('[useTeamGameState] Session updated via Supabase real-time:', payload);
+                console.log('[useTeamGameState] Payload new data:', payload.new);
+                console.log('[useTeamGameState] Current slide index changed:', payload.new?.current_slide_index);
+
+                setConnectionStatus('connected'); // Update connection status
+
+                // Force immediate refresh to get the latest data
+                setTimeout(() => {
+                    refreshSession();
+                }, 100);
             }
         },
         !!sessionId
     );
 
-    // 3. BROADCAST CHANNEL: Listen for live updates from host (fastest)
-    useEffect(() => {
-        if (!sessionId) return;
+    // 3. SUPABASE REAL-TIME: Listen for decision reset commands
+    useRealtimeSubscription(
+        `decision-resets-${sessionId}`,
+        {
+            table: 'team_decisions',
+            filter: `session_id=eq.${sessionId}`,
+            event: 'DELETE',
+            onchange: (payload) => {
+                console.log('[useTeamGameState] Decision reset detected via Supabase real-time:', payload);
+                setConnectionStatus('connected');
+                // If this affects our team, we'll get notified via useTeamDecisionSubmission
+            }
+        },
+        !!sessionId
+    );
 
-        const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'team');
+    // Connection status management via Supabase connectivity
+    useEffect(() => {
+        if (!sessionId) {
+            setConnectionStatus('disconnected');
+            return;
+        }
+
+        console.log('[useTeamGameState] Setting up connection for session:', sessionId);
         setConnectionStatus('connecting');
 
-        let connectionTimeout: NodeJS.Timeout | null = null;
-        const setConnected = () => {
-            if (connectionStatus !== 'connected') {
-                setConnectionStatus('connected');
-            }
-            if (connectionTimeout) clearTimeout(connectionTimeout);
-            connectionTimeout = setTimeout(() => {
-                setConnectionStatus('disconnected');
-                console.warn('[useTeamGameState] Host connection timed out - falling back to database polling');
-            }, 15000);
-        };
+        // Connection timeout - if no real-time updates after 15 seconds, assume disconnected
+        const connectionTimeout = setTimeout(() => {
+            console.warn('[useTeamGameState] No real-time updates received after 15 seconds - connection status: disconnected');
+            setConnectionStatus('disconnected');
+        }, 15000);
 
-        // Listen for slide updates via broadcast (immediate)
-        const unsubscribeSlideUpdates = broadcastManager.onSlideUpdate((slide: Slide) => {
-            console.log('[useTeamGameState] Received slide update from host broadcast:', slide);
-            updateSlideState(slide);
-            setConnected();
-        });
-
-        // ENHANCED: Listen for KPI updates via broadcast
-        const unsubscribeKpiUpdates = broadcastManager.onKpiUpdate((kpiData: KpiUpdateData) => {
-            console.log('[useTeamGameState] Received KPI update from host broadcast:', kpiData);
-
-            // Check if this update is for our team
-            if (loggedInTeamId && kpiData.updatedTeams) {
-                const ourTeamUpdate = kpiData.updatedTeams.find(team => team.teamId === loggedInTeamId);
-                if (ourTeamUpdate) {
-                    console.log('[useTeamGameState] KPI update detected for our team, refreshing KPI data');
-                    // Force refresh of KPI data
-                    setKpiUpdateTrigger(prev => prev + 1);
-                }
-            }
-            setConnected();
-        });
-
-        // Listen for host commands (to maintain connection)
-        const unsubscribeCommands = broadcastManager.onHostCommand(() => {
-            setConnected();
-        });
-
-        return () => {
-            if (connectionTimeout) clearTimeout(connectionTimeout);
-            unsubscribeSlideUpdates();
-            unsubscribeKpiUpdates();
-            unsubscribeCommands();
-        };
-    }, [sessionId, connectionStatus, loggedInTeamId]);
+        return () => clearTimeout(connectionTimeout);
+    }, [sessionId]);
 
     // KPI data management with enhanced refresh trigger
     const {
@@ -154,22 +154,24 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             }
             return db.kpis.getForTeamRound(sessionId, loggedInTeamId, currentActiveSlide.round_number);
         },
-        [sessionId, loggedInTeamId, currentActiveSlide?.round_number, kpiUpdateTrigger], // Added kpiUpdateTrigger
+        [sessionId, loggedInTeamId, currentActiveSlide?.round_number, kpiUpdateTrigger],
         {
             cacheKey: `team-kpis-${sessionId}-${loggedInTeamId}-${currentActiveSlide?.round_number}-${kpiUpdateTrigger}`,
             cacheTimeout: 2000 // Reduced cache timeout for faster updates
         }
     );
 
-    // Real-time KPI updates via Supabase subscription
+    // SUPABASE REAL-TIME: Listen for KPI updates (REPLACES BroadcastChannel KPI updates)
     useRealtimeSubscription(
         `team-kpis-${sessionId}-${loggedInTeamId}`,
         {
             table: 'team_round_data',
             filter: `session_id=eq.${sessionId}.and.team_id=eq.${loggedInTeamId}`,
             onchange: (payload) => {
-                console.log('[useTeamGameState] KPI data updated via real-time subscription:', payload);
+                console.log('[useTeamGameState] KPI data updated via Supabase real-time subscription:', payload);
+                setConnectionStatus('connected');
                 refetchKpis();
+                setKpiUpdateTrigger(prev => prev + 1);
             }
         },
         !!sessionId && !!loggedInTeamId
