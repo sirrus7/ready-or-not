@@ -1,20 +1,6 @@
-// src/core/game/GameSessionManager.ts
-import {GameStructure, GameSession, NewGameData} from '@shared/types';
+// src/core/game/GameSessionManager.ts - COMPLETE VERSION
+import {GameStructure, GameSession, GameSessionInsert, NewGameData} from '@shared/types';
 import {db, formatSupabaseError} from '@shared/services/supabase';
-
-export interface SessionUpdatePayload {
-    // REFACTOR: Changed to current_slide_index
-    current_slide_index?: number | null;
-    is_playing?: boolean;
-    teacher_notes?: Record<string, string>;
-    is_complete?: boolean;
-    name?: string;
-    class_name?: string | null;
-    grade_level?: string | null;
-    game_version?: '2.0_dd' | '1.5_dd';
-    status?: 'draft' | 'active' | 'completed';
-    wizard_state?: Partial<NewGameData> | null;
-}
 
 export class GameSessionManager {
     private static instance: GameSessionManager;
@@ -30,27 +16,25 @@ export class GameSessionManager {
     }
 
     async createDraftSession(
-        teacherId: string,
+        hostId: string,
         fullGameStructure: GameStructure
     ): Promise<GameSession> {
         console.log("[GameSessionManager] Creating new draft session...");
 
-        // REFACTOR: Use the flat slides array instead of welcome_phases
         const firstSlide = fullGameStructure.slides[0];
         if (!firstSlide) {
             throw new Error("Game structure is missing slides, cannot create draft session.");
         }
 
-        const draftSessionToInsert = {
+        const draftSessionToInsert: GameSessionInsert = {
             name: `Draft Game - ${new Date().toLocaleDateString()}`,
-            teacher_id: teacherId,
-            status: 'draft' as const,
-            game_version: '2.0_dd' as const,
-            // REFACTOR: Set current_slide_index to 0
+            host_id: hostId,
+            status: 'draft',
+            game_version: '2.0_dd',
             current_slide_index: 0,
             is_playing: false,
             is_complete: false,
-            teacher_notes: {},
+            host_notes: {},
             wizard_state: {},
             class_name: null,
             grade_level: null,
@@ -118,12 +102,27 @@ export class GameSessionManager {
         }
     }
 
-    async getLatestDraftForTeacher(teacherId: string): Promise<GameSession | null> {
+    async getLatestDraftForHost(hostId: string): Promise<GameSession | null> {
         try {
-            const sessions = await db.sessions.getByTeacher(teacherId);
+            const sessions = await db.sessions.getByHost(hostId);
             const draftSessions = sessions.filter(s => (s as any).status === 'draft');
             if (draftSessions.length > 0) {
                 return draftSessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] as GameSession;
+            }
+            return null;
+        } catch (error) {
+            console.error(`[GameSessionManager] Error getting latest draft:`, error);
+            throw new Error(`Failed to get latest draft: ${formatSupabaseError(error)}`);
+        }
+    }
+
+    async checkForExistingDraft(hostId: string): Promise<GameSession | null> {
+        try {
+            const sessions = await db.sessions.getByHost(hostId);
+            const draftSessions = sessions.filter(s => (s as any).status === 'draft');
+            if (draftSessions.length > 0) {
+                console.log(`[GameSessionManager] Found existing draft session: ${draftSessions[0].id}`);
+                return draftSessions[0] as GameSession;
             }
             return null;
         } catch (error) {
@@ -132,13 +131,13 @@ export class GameSessionManager {
         }
     }
 
-    async getCategorizedSessionsForTeacher(teacherId: string): Promise<{
+    async getCategorizedSessionsForHost(hostId: string): Promise<{
         draft: GameSession[];
         active: GameSession[];
         completed: GameSession[];
     }> {
         try {
-            const allSessions = await db.sessions.getByTeacher(teacherId);
+            const allSessions = await db.sessions.getByHost(hostId);
             return {
                 draft: allSessions.filter(s => (s as any).status === 'draft'),
                 active: allSessions.filter(s => (s as any).status === 'active' && !s.is_complete),
@@ -152,29 +151,27 @@ export class GameSessionManager {
 
     async createSession(
         gameCreationData: NewGameData,
-        teacherId: string,
+        hostId: string,
         fullGameStructure: GameStructure
     ): Promise<GameSession> {
-        console.log("[GameSessionManager] Attempting to create new session (legacy method)...");
+        console.log("[GameSessionManager] Attempting to create new session...");
 
-        // REFACTOR: Use the flat slides array
         const firstSlide = fullGameStructure.slides[0];
         if (!firstSlide) {
             throw new Error("Game structure is missing slides, cannot create session.");
         }
 
-        const sessionToInsert = {
+        const sessionToInsert: GameSessionInsert = {
             name: gameCreationData.name.trim() || `Game Session - ${new Date().toLocaleDateString()}`,
-            teacher_id: teacherId,
-            status: 'active' as const,
+            host_id: hostId,
+            status: 'active',
             class_name: gameCreationData.class_name?.trim() || null,
             grade_level: gameCreationData.grade_level || null,
             game_version: gameCreationData.game_version,
-            // REFACTOR: Set current_slide_index to 0
             current_slide_index: 0,
             is_playing: false,
             is_complete: false,
-            teacher_notes: {},
+            host_notes: {},
             wizard_state: null,
         };
 
@@ -218,7 +215,7 @@ export class GameSessionManager {
         }
     }
 
-    async updateSession(sessionId: string, updates: SessionUpdatePayload): Promise<GameSession> {
+    async updateSession(sessionId: string, updates: Partial<GameSessionInsert>): Promise<GameSession> {
         if (!sessionId || sessionId === 'new') {
             throw new Error('Cannot update session: Invalid session ID');
         }
@@ -239,9 +236,9 @@ export class GameSessionManager {
         }
     }
 
-    async getSessionsForTeacher(teacherId: string): Promise<GameSession[]> {
+    async getSessionsForHost(hostId: string): Promise<GameSession[]> {
         try {
-            const sessions = await db.sessions.getByTeacher(teacherId);
+            const sessions = await db.sessions.getByHost(hostId);
             return sessions as GameSession[];
         } catch (error) {
             throw new Error(`Failed to fetch sessions: ${formatSupabaseError(error)}`);
@@ -254,7 +251,7 @@ export class GameSessionManager {
             current_slide_index: 0,
             is_playing: false,
             is_complete: false,
-            teacher_notes: {},
+            host_notes: {},
             status: 'active',
             wizard_state: null,
         });
@@ -268,8 +265,8 @@ export class GameSessionManager {
         });
     }
 
-    async updateTeacherNotes(sessionId: string, notes: Record<string, string>): Promise<GameSession> {
-        return this.updateSession(sessionId, {teacher_notes: notes});
+    async updateHostNotes(sessionId: string, notes: Record<string, string>): Promise<GameSession> {
+        return this.updateSession(sessionId, {host_notes: notes});
     }
 
     async validateSession(sessionId: string): Promise<boolean> {
@@ -285,7 +282,7 @@ export class GameSessionManager {
         exists: boolean;
         status: 'draft' | 'active' | 'completed' | null;
         isComplete: boolean;
-        currentPhase: string | null; // Note: This is now a legacy-ish field. current_slide_index is primary.
+        currentPhase: string | null;
         lastUpdated: string;
     }> {
         try {

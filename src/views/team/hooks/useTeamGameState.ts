@@ -1,5 +1,5 @@
 // src/views/team/hooks/useTeamGameState.ts
-// Production-ready version with real-time sync + database polling
+// CORRECTED VERSION - Fixed database method and query options
 
 import {useState, useEffect, useMemo} from 'react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
@@ -8,7 +8,7 @@ import {db} from '@shared/services/supabase';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {Slide, GameStructure} from '@shared/types/game';
 import {TeamRoundData} from '@shared/types/database';
-import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
+import {SimpleBroadcastManager, KpiUpdateData} from '@core/sync/SimpleBroadcastManager';
 
 interface useTeamGameStateProps {
     sessionId: string | null;
@@ -28,6 +28,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
     const [isDecisionTime, setIsDecisionTime] = useState<boolean>(false);
     const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+    const [kpiUpdateTrigger, setKpiUpdateTrigger] = useState<number>(0); // Force refresh trigger
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
@@ -43,46 +44,34 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         }
     };
 
-    // 1. DATABASE POLLING: Get current session state (for teams joining mid-session)
-    const {
-        data: currentSession,
-        isLoading: isLoadingSession,
-        refresh: refreshSession
-    } = useSupabaseQuery(
-        () => {
-            if (!sessionId) return Promise.resolve(null);
-            return db.sessions.get(sessionId); // Using correct db.sessions.get method
+    // 1. DATABASE POLLING: Refresh session data every 3 seconds
+    const {refresh: refreshSession} = useSupabaseQuery(
+        async () => {
+            if (!sessionId || sessionId === 'new') return null;
+            const session = await db.sessions.get(sessionId); // CORRECTED: Use db.sessions.get instead of db.sessions.getById
+            if (session && session.current_slide_index !== null) {
+                const slide = gameStructure.slides[session.current_slide_index] || null;
+                updateSlideState(slide);
+            }
+            return session;
         },
-        [sessionId],
+        [sessionId, gameStructure],
         {
             cacheKey: `session-${sessionId}`,
-            cacheTimeout: 5000, // Short cache for more responsive updates
+            cacheTimeout: 3000
         }
     );
 
-    // Set up polling interval for session state
+    // Manual polling for session updates
     useEffect(() => {
         if (!sessionId) return;
 
         const pollInterval = setInterval(() => {
             refreshSession();
-        }, 2000); // Poll every 2 seconds
+        }, 3000); // Poll every 3 seconds
 
         return () => clearInterval(pollInterval);
     }, [sessionId, refreshSession]);
-
-    // Update slide from database polling
-    useEffect(() => {
-        if (currentSession && gameStructure && !isLoadingSession) {
-            const slideIndex = currentSession.current_slide_index;
-            if (slideIndex !== null && slideIndex >= 0 && slideIndex < gameStructure.slides.length) {
-                const slide = gameStructure.slides[slideIndex];
-                updateSlideState(slide);
-            } else {
-                updateSlideState(null);
-            }
-        }
-    }, [currentSession?.current_slide_index, gameStructure, isLoadingSession]);
 
     // 2. REAL-TIME SUBSCRIPTION: Listen for session changes
     useRealtimeSubscription(
@@ -124,6 +113,22 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             setConnected();
         });
 
+        // ENHANCED: Listen for KPI updates via broadcast
+        const unsubscribeKpiUpdates = broadcastManager.onKpiUpdate((kpiData: KpiUpdateData) => {
+            console.log('[useTeamGameState] Received KPI update from host broadcast:', kpiData);
+
+            // Check if this update is for our team
+            if (loggedInTeamId && kpiData.updatedTeams) {
+                const ourTeamUpdate = kpiData.updatedTeams.find(team => team.teamId === loggedInTeamId);
+                if (ourTeamUpdate) {
+                    console.log('[useTeamGameState] KPI update detected for our team, refreshing KPI data');
+                    // Force refresh of KPI data
+                    setKpiUpdateTrigger(prev => prev + 1);
+                }
+            }
+            setConnected();
+        });
+
         // Listen for host commands (to maintain connection)
         const unsubscribeCommands = broadcastManager.onHostCommand(() => {
             setConnected();
@@ -132,11 +137,12 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         return () => {
             if (connectionTimeout) clearTimeout(connectionTimeout);
             unsubscribeSlideUpdates();
+            unsubscribeKpiUpdates();
             unsubscribeCommands();
         };
-    }, [sessionId, connectionStatus]);
+    }, [sessionId, connectionStatus, loggedInTeamId]);
 
-    // KPI data management
+    // KPI data management with enhanced refresh trigger
     const {
         data: currentTeamKpis,
         isLoading: isLoadingKpis,
@@ -148,23 +154,49 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             }
             return db.kpis.getForTeamRound(sessionId, loggedInTeamId, currentActiveSlide.round_number);
         },
-        [sessionId, loggedInTeamId, currentActiveSlide?.round_number],
-        {cacheKey: `team-kpis-${sessionId}-${loggedInTeamId}-${currentActiveSlide?.round_number}`, cacheTimeout: 30000}
+        [sessionId, loggedInTeamId, currentActiveSlide?.round_number, kpiUpdateTrigger], // Added kpiUpdateTrigger
+        {
+            cacheKey: `team-kpis-${sessionId}-${loggedInTeamId}-${currentActiveSlide?.round_number}-${kpiUpdateTrigger}`,
+            cacheTimeout: 2000 // Reduced cache timeout for faster updates
+        }
     );
 
-    // Real-time KPI updates
+    // Real-time KPI updates via Supabase subscription
     useRealtimeSubscription(
         `team-kpis-${sessionId}-${loggedInTeamId}`,
         {
             table: 'team_round_data',
             filter: `session_id=eq.${sessionId}.and.team_id=eq.${loggedInTeamId}`,
             onchange: (payload) => {
-                console.log('[useTeamGameState] KPI data updated via real-time:', payload);
+                console.log('[useTeamGameState] KPI data updated via real-time subscription:', payload);
                 refetchKpis();
             }
         },
-        !!(sessionId && loggedInTeamId)
+        !!sessionId && !!loggedInTeamId
     );
+
+    // Enhanced: Force refresh KPIs when consequence slides are detected
+    useEffect(() => {
+        if (currentActiveSlide?.type === 'consequence_reveal') {
+            console.log('[useTeamGameState] Consequence slide detected, refreshing KPI data');
+            // Add a small delay to ensure database updates are complete
+            setTimeout(() => {
+                refetchKpis();
+                setKpiUpdateTrigger(prev => prev + 1);
+            }, 1000);
+        }
+    }, [currentActiveSlide?.type, currentActiveSlide?.id, refetchKpis]);
+
+    // Additional: Force refresh when slide changes to any new slide
+    useEffect(() => {
+        if (currentActiveSlide) {
+            console.log('[useTeamGameState] Slide changed, checking for KPI updates');
+            // Small delay to allow processing to complete
+            setTimeout(() => {
+                refetchKpis();
+            }, 500);
+        }
+    }, [currentActiveSlide?.id, refetchKpis]);
 
     return {
         currentActiveSlide,

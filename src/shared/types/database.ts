@@ -1,29 +1,17 @@
 // src/shared/types/database.ts
-import type {DoubleDownChoice, KpiKey} from './game';
-import type {NewGameData} from './ui';
-
-export interface GameSession {
-    id: string;
-    teacher_id: string;
-    name: string;
-    game_version: '2.0_dd' | '1.5_dd';
-    class_name?: string | null;
-    grade_level?: string | null;
-    current_slide_index: number | null;
-    is_playing: boolean;
-    is_complete: boolean;
-    teacher_notes: Record<string, string> | null;
-    status: 'draft' | 'active' | 'completed';
-    wizard_state: Partial<NewGameData> | null;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface Team {
+export interface PermanentKpiAdjustment {
     id: string;
     session_id: string;
-    name: string;
-    passcode: string;
+    team_id: string;
+    applies_to_round_start: number;
+    kpi_key: string;
+    change_value: number;
+    description: string;
+    created_at: string;
+
+    // NEW: Explicit challenge tracking
+    challenge_id: string;  // 'ch1', 'ch2', etc.
+    option_id: string;     // 'A', 'B', 'C', 'D'
 }
 
 export interface TeamRoundData {
@@ -42,8 +30,33 @@ export interface TeamRoundData {
     revenue: number;
     net_margin: number;
     net_income: number;
-    round_investment_spend?: number;
-    round_event_spend?: number;
+}
+
+export interface GameSession {
+    id: string;
+    name: string;
+    host_id: string;  // Changed from teacher_id
+    current_slide_index: number | null;
+    game_version: string;
+    class_name: string | null;
+    grade_level: string | null;
+    is_playing: boolean;
+    is_complete: boolean;
+    host_notes: Record<string, string>;  // Changed from teacher_notes
+    status: 'draft' | 'active' | 'completed';
+    wizard_state: Record<string, any> | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export type GameSessionInsert = Omit<GameSession, 'id' | 'created_at' | 'updated_at'>;
+
+export interface Team {
+    id: string;
+    session_id: string;
+    name: string;
+    access_code: string;
+    created_at: string;
 }
 
 export interface TeamDecision {
@@ -51,21 +64,11 @@ export interface TeamDecision {
     session_id: string;
     team_id: string;
     phase_id: string;
-    round_number: 0 | 1 | 2 | 3;
-    selected_investment_ids?: string[];
-    selected_challenge_option_id?: string;
-    double_down_decision?: DoubleDownChoice;
-    total_spent_budget?: number;
+    round_number: number;
+    selected_investment_ids: string[];
+    selected_challenge_option_id: string;
+    double_down_choice: any;
+    total_spent: number;
     submitted_at: string;
-}
-
-export interface PermanentKpiAdjustment {
-    id?: string;
-    session_id: string;
-    team_id: string;
-    applies_to_round_start: 1 | 2 | 3;
-    kpi_key: KpiKey;
-    change_value: number;
-    is_percentage?: boolean;
-    description?: string;
+    is_final: boolean;
 }

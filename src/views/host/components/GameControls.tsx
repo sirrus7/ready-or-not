@@ -1,5 +1,6 @@
 // src/views/host/components/GameControls.tsx
-// This component orchestrates the various host controls.
+// FIXED VERSION - Handles null currentSlideData properly
+
 import React, {useState} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
 import ActionButtons from './GameControls/ActionButtons';
@@ -27,7 +28,10 @@ const GameControls: React.FC = () => {
         }
     };
 
-    const currentNotes = currentSlideData ? state.hostNotes[String(currentSlideData.id)] || '' : '';
+    // FIXED: Safely handle null currentSlideData AND null/undefined hostNotes
+    const currentNotes = (currentSlideData && state.hostNotes)
+        ? (state.hostNotes[String(currentSlideData.id)] || '')
+        : '';
 
     return (
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
@@ -55,7 +59,7 @@ const GameControls: React.FC = () => {
                 isOpen={!!state.currentHostAlert}
                 onClose={() => setCurrentHostAlertState(null)}
                 title={state.currentHostAlert?.title || "Game Host Alert!"}
-                message={state.currentHostAlert?.message || ""} // Ensure message prop is passed if AlertModal expects it
+                message={state.currentHostAlert?.message || ""}
             />
 
             <JoinInfoModal
@@ -70,7 +74,7 @@ const GameControls: React.FC = () => {
                 teams={state.teams}
             />
 
-            <ExitModal // Using the renamed component
+            <ExitModal
                 isOpen={isExitConfirmModalOpen}
                 onClose={() => setIsExitConfirmModalOpen(false)}
             />

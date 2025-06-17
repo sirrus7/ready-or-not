@@ -35,6 +35,10 @@ export interface KpiEffect {
     timing: 'immediate' | 'permanent_next_round_start' | 'end_of_round_adjustment';
     description?: string;
     applies_to_rounds?: (1 | 2 | 3)[];
+
+    // NEW: Explicit challenge identification
+    challenge_id: string;  // 'ch1', 'ch2', etc.
+    option_id: string;     // 'A', 'B', 'C', 'D'
 }
 
 export interface Consequence {
@@ -90,7 +94,6 @@ export interface Slide {
     details?: string[];
 }
 
-
 export interface GameStructure {
     id: string;
     name: string;
@@ -101,4 +104,14 @@ export interface GameStructure {
     investment_phase_budgets: Record<string, number>;
     all_consequences: Record<string, Consequence[]>;
     all_investment_payoffs: Record<string, InvestmentPayoff[]>;
+}
+
+// NEW: Challenge Metadata Registry
+export interface ChallengeMetadata {
+    id: string;
+    title: string;
+    round: 1 | 2 | 3;
+    impact_card_title: string;
+    impact_card_description: string;
+    consequence_slides: number[];
 }

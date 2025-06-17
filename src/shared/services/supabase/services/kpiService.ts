@@ -1,15 +1,17 @@
-// src/utils/supabase/services/kpiService.ts - KPI/round data operations
-import { supabase } from '../client';
-import { withRetry, callRPC } from '../database';
+// src/shared/services/supabase/services/kpiService.ts
+// FIXED VERSION - Added missing deleteBySession method
+
+import {supabase} from '../client';
+import {withRetry, callRPC} from '../database';
 
 export const kpiService = {
     async getBySession(sessionId: string) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('team_round_data')
                 .select('*')
                 .eq('session_id', sessionId)
-                .order('round_number', { ascending: true });
+                .order('round_number', {ascending: true});
             if (error) throw error;
             return data || [];
         }, 3, 1000, `Fetch KPIs for session ${sessionId.substring(0, 8)}`);
@@ -29,7 +31,7 @@ export const kpiService = {
 
     async create(kpiData: any) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('team_round_data')
                 .insert(kpiData)
                 .select()
@@ -41,7 +43,7 @@ export const kpiService = {
 
     async update(kpiId: string, updates: any) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('team_round_data')
                 .update(updates)
                 .eq('id', kpiId)
@@ -54,13 +56,24 @@ export const kpiService = {
 
     async upsert(kpiData: any) {
         return withRetry(async () => {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('team_round_data')
-                .upsert(kpiData, { onConflict: 'id' })
+                .upsert(kpiData, {onConflict: 'id'})
                 .select()
                 .single();
             if (error) throw error;
             return data;
         }, 2, 1000, `Upsert KPI data for team ${kpiData.team_id?.substring(0, 8)}`);
+    },
+
+    // ADDED: Missing deleteBySession method
+    async deleteBySession(sessionId: string) {
+        return withRetry(async () => {
+            const {error} = await supabase
+                .from('team_round_data')
+                .delete()
+                .eq('session_id', sessionId);
+            if (error) throw error;
+        }, 2, 1000, `Delete KPI data for session ${sessionId.substring(0, 8)}`);
     }
 };

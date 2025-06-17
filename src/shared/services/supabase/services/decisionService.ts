@@ -1,5 +1,5 @@
 // src/shared/services/supabase/services/decisionService.ts
-// FIXED VERSION - Protects immediate purchases from deletion
+// FIXED VERSION - Added missing deleteBySession method
 
 import {supabase} from '../client';
 import {withRetry} from '../database';
@@ -33,6 +33,17 @@ export const decisionService = {
         }, 2, 1000, `Delete regular decision for team ${teamId.substring(0, 8)} phase ${phaseId}`);
     },
 
+    // ADDED: Missing deleteBySession method
+    async deleteBySession(sessionId: string) {
+        return withRetry(async () => {
+            const {error} = await supabase
+                .from('team_decisions')
+                .delete()
+                .eq('session_id', sessionId);
+            if (error) throw error;
+        }, 2, 1000, `Delete all decisions for session ${sessionId.substring(0, 8)}`);
+    },
+
     // FIXED: Replace RPC with direct query
     async getForPhase(sessionId: string, teamId: string, phaseId: string) {
         return withRetry(async () => {
@@ -62,39 +73,18 @@ export const decisionService = {
                 .single();
             if (error) throw error;
             return data;
-        }, 2, 1000, `Create decision for team ${decisionData.team_id?.substring(0, 8)} phase ${decisionData.phase_id}`);
+        }, 2, 1000, `Create decision for team ${decisionData.team_id?.substring(0, 8)}`);
     },
 
-    async upsert(decisionData: Omit<TeamDecision, 'id' | 'created_at'>) {
-        return withRetry(async () => {
-            const payload = {
-                ...decisionData,
-                submitted_at: decisionData.submitted_at || new Date().toISOString()
-            };
-
-            const {data, error} = await supabase
-                .from('team_decisions')
-                .upsert(payload, {
-                    onConflict: 'session_id, team_id, phase_id'
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
-            return data;
-        }, 2, 1000, `Upsert decision for team ${decisionData.team_id?.substring(0, 8)} phase ${decisionData.phase_id}`);
-    },
-
-    async update(decisionId: string, updates: Partial<TeamDecision>) {
+    async upsert(decisionData: any) {
         return withRetry(async () => {
             const {data, error} = await supabase
                 .from('team_decisions')
-                .update(updates)
-                .eq('id', decisionId)
+                .upsert(decisionData, {onConflict: 'id'})
                 .select()
                 .single();
             if (error) throw error;
             return data;
-        }, 2, 1000, `Update decision ${decisionId}`);
+        }, 2, 1000, `Upsert decision for team ${decisionData.team_id?.substring(0, 8)}`);
     }
 };

@@ -1,11 +1,32 @@
 // src/core/sync/SimpleBroadcastManager.ts
+// Enhanced version with KPI update broadcasting support
+
 import {Slide} from '@shared/types/game';
 import {HostCommand, SlideUpdate, PresentationStatus} from './types';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
+// Enhanced KPI update data structure
+export interface KpiUpdateData {
+    type: 'kpi_update';
+    timestamp: number;
+    updatedTeams: Array<{
+        teamId: string;
+        roundNumber: number;
+        kpis: {
+            capacity: number;
+            orders: number;
+            cost: number;
+            asp: number;
+            revenue: number;
+            net_income: number;
+            net_margin: number;
+        };
+    }>;
+}
+
 /**
- * Simple master-slave broadcast manager for Host-Presentation communication
+ * Enhanced SimpleBroadcastManager with KPI update support
  * Uses native BroadcastChannel API directly with singleton pattern
  */
 export class SimpleBroadcastManager {
@@ -23,6 +44,7 @@ export class SimpleBroadcastManager {
     // Message handlers
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
     private slideHandlers: Set<(slide: Slide) => void> = new Set();
+    private kpiHandlers: Set<(data: KpiUpdateData) => void> = new Set(); // NEW: KPI update handlers
 
     // Track if this instance has been destroyed
     private isDestroyed: boolean = false;
@@ -83,6 +105,13 @@ export class SimpleBroadcastManager {
                     }
                     break;
 
+                case 'KPI_UPDATE': // NEW: Handle KPI updates
+                    if (this.mode === 'team') {
+                        console.log(`[SimpleBroadcastManager] Received KPI update for team mode:`, message.payload);
+                        this.kpiHandlers.forEach(handler => handler(message.payload));
+                    }
+                    break;
+
                 case 'PRESENTATION_STATUS':
                     if (this.mode === 'host') {
                         const status = message as PresentationStatus;
@@ -129,7 +158,7 @@ export class SimpleBroadcastManager {
                 }
             }, 5000);
         } else {
-            // ONLY Presentation announces ready after a short delay
+            // Presentation announces ready after a short delay
             if (this.mode === 'presentation') {
                 setTimeout(() => {
                     if (!this.isDestroyed) {
@@ -173,7 +202,6 @@ export class SimpleBroadcastManager {
 
     // HOST METHODS
 
-    // ✅ UPDATED: Now supports custom commands with data
     sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset', data?: any): void {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
@@ -202,6 +230,21 @@ export class SimpleBroadcastManager {
 
         this.sendMessage(update);
         console.log(`[SimpleBroadcastManager] HOST sent slide update:`, slide.id, slide.title || 'No title');
+    }
+
+    // NEW: Send KPI updates to all team interfaces
+    sendKpiUpdate(data: KpiUpdateData): void {
+        if (this.mode !== 'host' || this.isDestroyed) return;
+
+        const update = {
+            type: 'KPI_UPDATE',
+            sessionId: this.sessionId,
+            payload: data,
+            timestamp: Date.now()
+        };
+
+        this.sendMessage(update);
+        console.log(`[SimpleBroadcastManager] HOST sent KPI update:`, data.updatedTeams.length, 'teams affected');
     }
 
     onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
@@ -236,6 +279,17 @@ export class SimpleBroadcastManager {
         this.slideHandlers.add(callback);
         return () => {
             this.slideHandlers.delete(callback);
+        };
+    }
+
+    // NEW: Listen for KPI updates (for team interfaces)
+    onKpiUpdate(callback: (data: KpiUpdateData) => void): () => void {
+        if (this.isDestroyed) return () => {
+        };
+
+        this.kpiHandlers.add(callback);
+        return () => {
+            this.kpiHandlers.delete(callback);
         };
     }
 
@@ -281,6 +335,7 @@ export class SimpleBroadcastManager {
         this.statusCallbacks.clear();
         this.commandHandlers.clear();
         this.slideHandlers.clear();
+        this.kpiHandlers.clear(); // NEW: Clear KPI handlers
 
         // Remove from instances map
         const key = `${this.sessionId}-${this.mode}`;
