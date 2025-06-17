@@ -7,6 +7,7 @@ import {db} from '@shared/services/supabase';
 import {KpiCalculations} from './ScoringEngine';
 import {SimpleBroadcastManager, KpiUpdateData} from '@core/sync/SimpleBroadcastManager';
 import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
+import {getChallengeBySlideId} from '@core/content/ChallengeRegistry';
 
 interface ConsequenceProcessorProps {
     currentDbSession: GameSession | null;
@@ -97,7 +98,8 @@ export class ConsequenceProcessor {
     }
 
     /**
-     * NEW: Determines which option (A, B, C, D) a consequence slide is for
+     * FIXED: Determines which option (A, B, C, D) a consequence slide is for
+     * Now includes comprehensive fallback mappings for all challenges
      */
     private getSlideOption(consequenceSlide: Slide): string {
         const title = consequenceSlide.title?.toLowerCase() || '';
@@ -109,19 +111,40 @@ export class ConsequenceProcessor {
         if (title.includes('option c') || mainText.includes('option c')) return 'C';
         if (title.includes('option d') || mainText.includes('option d')) return 'D';
 
-        // Fallback: map slide ID to option based on known consequence slide order
-        // This assumes slides are in order: A, B, C, D for each challenge
+        // FIXED: Comprehensive fallback mapping for all challenges
+        // Based on the challenge registry consequence_slides arrays
         const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
-        if (challengeId === 'ch1') {
-            if (consequenceSlide.id === 20) return 'A';
-            if (consequenceSlide.id === 21) return 'B';
-            if (consequenceSlide.id === 22) return 'C';
-            if (consequenceSlide.id === 23) return 'D';
-        }
-        // Add other challenges as needed...
 
-        console.warn(`[ConsequenceProcessor] Could not determine option for slide ${consequenceSlide.id}`);
-        return 'A'; // Default fallback
+        if (!challengeId) {
+            console.warn(`[ConsequenceProcessor] No challenge ID found for slide ${consequenceSlide.id}`);
+            return 'A';
+        }
+
+        // Get the challenge metadata to determine slide order
+        const challenge = getChallengeBySlideId(consequenceSlide.id);
+        if (!challenge) {
+            console.warn(`[ConsequenceProcessor] No challenge metadata found for slide ${consequenceSlide.id}`);
+            return 'A';
+        }
+
+        // Find the position of this slide in the consequence slides array
+        const slideIndex = challenge.consequence_slides.indexOf(consequenceSlide.id);
+        if (slideIndex === -1) {
+            console.warn(`[ConsequenceProcessor] Slide ${consequenceSlide.id} not found in consequence slides for challenge ${challengeId}`);
+            return 'A';
+        }
+
+        // Map slide index to option (0=A, 1=B, 2=C, 3=D)
+        const options = ['A', 'B', 'C', 'D'];
+        const option = options[slideIndex];
+
+        if (!option) {
+            console.warn(`[ConsequenceProcessor] Invalid slide index ${slideIndex} for slide ${consequenceSlide.id}`);
+            return 'A';
+        }
+
+        console.log(`[ConsequenceProcessor] Mapped slide ${consequenceSlide.id} to option ${option} (index ${slideIndex} in ${challengeId})`);
+        return option;
     }
 
     private async broadcastKpiUpdate(updatedTeamData: { teamId: string; kpis: TeamRoundData }[]): Promise<void> {
