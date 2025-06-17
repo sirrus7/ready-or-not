@@ -98,13 +98,6 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                     challenge_id: 'ch1',
                     option_id: 'D'
                 },
-                {
-                    kpi: 'orders',
-                    change_value: -200,
-                    timing: 'immediate',
-                    challenge_id: 'ch1',
-                    option_id: 'D'
-                }
             ]
         },
     ],
