@@ -199,99 +199,41 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
         const channel = supabase
             .channel(`team-updates-${sessionId}-${loggedInTeamId}`)
-
-            // ================================================================
-            // REQUIREMENT 1: SLIDE CHANGES
-            // Listen for host slide navigation
-            // ================================================================
             .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'sessions',  // FIXED: Changed from 'game_sessions' to 'sessions'
-                filter: `id=eq.${sessionId}`
+                event: '*',  // Listen to ALL events
+                schema: 'public'
+                // No table filter - listen to everything
             }, (payload) => {
-                console.log('🎬 REAL-TIME: Raw slide change payload:', payload);
-                console.log('🎬 REAL-TIME: Old slide index:', payload.old?.current_slide_index);
-                console.log('🎬 REAL-TIME: New slide index:', payload.new?.current_slide_index);
+                console.log('🔔 ALL EVENTS:', payload);
 
-                // Only process if slide actually changed
-                if (payload.new?.current_slide_index !== payload.old?.current_slide_index) {
-                    const newSlideIndex = payload.new.current_slide_index;
-                    const newSlide = gameStructure.slides[newSlideIndex];
+                // Handle slide changes
+                if (payload.table === 'sessions' &&
+                    payload.eventType === 'UPDATE' &&
+                    payload.new?.id === sessionId) {
 
-                    console.log(`🎬 REAL-TIME: Host moved to slide ${newSlideIndex}: ${newSlide?.title}`);
-
-                    // 1.1 Update the team app slide name
-                    console.log('🎬 REAL-TIME: Updating slide state directly');
-                    setCurrentActiveSlide(newSlide);
-
-                    if (newSlide) {
-                        const requiresDecision = newSlide.type.startsWith('interactive_') && !!newSlide.interactive_data_key;
-                        setIsDecisionTime(requiresDecision);
-                        console.log(`🎬 REAL-TIME: Updated to slide ${newSlide.id}: "${newSlide.title}" | Decision Required: ${requiresDecision}`);
-                    } else {
-                        setIsDecisionTime(false);
+                    console.log('🎬 SLIDE CHANGE DETECTED');
+                    if (payload.new?.current_slide_index !== payload.old?.current_slide_index) {
+                        const newSlideIndex = payload.new.current_slide_index;
+                        const newSlide = gameStructure.slides[newSlideIndex];
+                        console.log(`🎬 Setting slide: ${newSlide?.title}`);
+                        setCurrentActiveSlide(newSlide);
                     }
-
-                    // 1.3 Check if we are updating consequences
-                    if (newSlide?.type === 'consequence_reveal') {
-                        console.log('💥 REAL-TIME: Consequence slide - will check team impact');
-                        // Handle consequence logic here inline to avoid dependency issues
-                    }
-
-                    setConnectionStatus('connected');
-                } else {
-                    console.log('🎬 REAL-TIME: Slide index unchanged, skipping update');
                 }
-            })
 
-            // ================================================================
-            // REQUIREMENT 2: DECISION RESETS
-            // Listen for host resetting team decisions
-            // ================================================================
-            .on('postgres_changes', {
-                event: 'DELETE',
-                schema: 'public',
-                table: 'team_decisions',
-                filter: `session_id=eq.${sessionId}.and.team_id=eq.${loggedInTeamId}`
-            }, (payload) => {
-                console.log('🔄 REAL-TIME: Decision reset detected for our team:', payload);
+                // Handle decision resets
+                if (payload.table === 'team_decisions' &&
+                    payload.eventType === 'DELETE' &&
+                    payload.old?.session_id === sessionId &&
+                    payload.old?.team_id === loggedInTeamId) {
 
-                const deletedPhaseId = payload.old?.phase_id;
-                const currentSlideKey = currentActiveSlide?.interactive_data_key;
-
-                if (deletedPhaseId && currentSlideKey &&
-                    (deletedPhaseId === currentSlideKey || deletedPhaseId === `${currentSlideKey}_immediate`)) {
-
-                    console.log('🔄 REAL-TIME: Our current decision was reset - clearing UI');
-
-                    // Reset the team app and allow new choices
-                    // Note: This will trigger UI updates in components that use this hook
-                    setIsDecisionTime(true); // Re-enable decision making
-
-                    // Trigger re-fetch of decision data in other hooks
-                    setKpiUpdateTrigger(prev => prev + 1);
+                    console.log('🔄 DECISION RESET DETECTED');
+                    console.log('🔄 Deleted phase:', payload.old?.phase_id);
                 }
 
                 setConnectionStatus('connected');
             })
-
             .subscribe((status) => {
-                console.log('🔔 REAL-TIME: Subscription status changed:', status);
-
-                if (status === 'SUBSCRIBED') {
-                    console.log('🔔 REAL-TIME: Successfully connected - listening for changes to session:', sessionId);
-                    setConnectionStatus('connected');
-                } else if (status === 'CHANNEL_ERROR') {
-                    console.log('🔔 REAL-TIME: Connection failed');
-                    setConnectionStatus('disconnected');
-                } else if (status === 'CLOSED') {
-                    console.log('🔔 REAL-TIME: Connection closed');
-                    setConnectionStatus('disconnected');
-                } else {
-                    console.log('🔔 REAL-TIME: Connecting...');
-                    setConnectionStatus('connecting');
-                }
+                console.log('🔔 Single channel status:', status);
             });
 
         // Cleanup: Unsubscribe when component unmounts or dependencies change
@@ -299,7 +241,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             console.log('🔔 REAL-TIME: Cleaning up subscription');
             channel.unsubscribe();
         };
-    }, [sessionId, loggedInTeamId]); // FIXED: Removed callback dependencies that were causing loops
+    }, [sessionId, loggedInTeamId, gameStructure.slides]);
 
     // ========================================================================
     // FALLBACK POLLING

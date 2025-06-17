@@ -173,7 +173,8 @@ export const useTeamDecisionSubmission = ({
                 const gameStructureWithData = gameStructure as GameStructure & {
                     all_investment_options?: Array<{ id: string; name: string; cost: number }>;
                 };
-                const investment = gameStructureWithData?.all_investment_options?.find((inv) => inv.id === id);
+                const investmentOptions = gameStructureWithData?.all_investment_options?.[decisionKey] || [];
+                const investment = investmentOptions.find((inv) => inv.id === id);
                 return sum + (investment?.cost || 0);
             }, 0);
 
@@ -181,8 +182,9 @@ export const useTeamDecisionSubmission = ({
                 session_id: sessionId,
                 team_id: teamId,
                 phase_id: decisionKey,
+                round_number: currentSlide?.round_number || 1,
                 selected_investment_ids: decisionState.selectedInvestmentIds.length > 0
-                    ? JSON.stringify(decisionState.selectedInvestmentIds)
+                    ? decisionState.selectedInvestmentIds  // Send as array, not JSON string
                     : null,
                 selected_challenge_option_id: decisionState.selectedChallengeOptionId || null,
                 total_spent_budget: totalCost,
@@ -248,7 +250,7 @@ export const useTeamDecisionSubmission = ({
             // Format investment selections
             if (existingDecision.selected_investment_ids) {
                 const selectedIds = parseInvestmentIds(existingDecision.selected_investment_ids);
-                const investmentOptions = gameStructureWithData.all_investment_options || [];
+                const investmentOptions = decisionKey ? gameStructureWithData.all_investment_options?.[decisionKey] || [] : [];
 
                 const selectedInvestments = selectedIds
                     .map(id => investmentOptions.find(opt => opt.id === id))
@@ -264,13 +266,13 @@ export const useTeamDecisionSubmission = ({
 
             // Format challenge selection
             if (existingDecision.selected_challenge_option_id) {
-                const challengeOptions = gameStructureWithData.all_challenge_options || [];
+                const challengeOptions = decisionKey ? gameStructureWithData.all_challenge_options?.[decisionKey] || [] : [];
                 const selectedChallenge = challengeOptions.find(
                     opt => opt.id === existingDecision.selected_challenge_option_id
                 );
 
                 if (selectedChallenge) {
-                    parts.push(`Challenge: ${selectedChallenge.name}`);
+                    parts.push(`Challenge: ${selectedChallenge.id}`);
                 }
             }
 
