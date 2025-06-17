@@ -1,5 +1,6 @@
 // src/core/game/ConsequenceProcessor.ts
 // PRODUCTION VERSION: Hardened consequence processing with explicit challenge tracking
+// FIXED: Only apply consequences to teams that chose the matching option
 
 import {Slide, GameStructure, GameSession, Team, TeamRoundData, KpiEffect, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
@@ -95,6 +96,34 @@ export class ConsequenceProcessor {
         }
     }
 
+    /**
+     * NEW: Determines which option (A, B, C, D) a consequence slide is for
+     */
+    private getSlideOption(consequenceSlide: Slide): string {
+        const title = consequenceSlide.title?.toLowerCase() || '';
+        const mainText = consequenceSlide.main_text?.toLowerCase() || '';
+
+        // Check slide title and content for option indicators
+        if (title.includes('option a') || mainText.includes('option a')) return 'A';
+        if (title.includes('option b') || mainText.includes('option b')) return 'B';
+        if (title.includes('option c') || mainText.includes('option c')) return 'C';
+        if (title.includes('option d') || mainText.includes('option d')) return 'D';
+
+        // Fallback: map slide ID to option based on known consequence slide order
+        // This assumes slides are in order: A, B, C, D for each challenge
+        const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
+        if (challengeId === 'ch1') {
+            if (consequenceSlide.id === 20) return 'A';
+            if (consequenceSlide.id === 21) return 'B';
+            if (consequenceSlide.id === 22) return 'C';
+            if (consequenceSlide.id === 23) return 'D';
+        }
+        // Add other challenges as needed...
+
+        console.warn(`[ConsequenceProcessor] Could not determine option for slide ${consequenceSlide.id}`);
+        return 'A'; // Default fallback
+    }
+
     private async broadcastKpiUpdate(updatedTeamData: { teamId: string; kpis: TeamRoundData }[]): Promise<void> {
         if (!this.broadcastManager || updatedTeamData.length === 0) {
             console.log('[ConsequenceProcessor] Skipping broadcast - no manager or no updates');
@@ -178,6 +207,10 @@ export class ConsequenceProcessor {
 
             console.log(`[ConsequenceProcessor] Found ${allConsequencesForChoice.length} consequences for ${consequenceKey}`);
 
+            // NEW: Get which option this slide is for
+            const slideOption = this.getSlideOption(consequenceSlide);
+            console.log(`[ConsequenceProcessor] This slide is for option: ${slideOption}`);
+
             // Debug: Log team decisions
             console.log('\n📋 [ConsequenceProcessor] Current team decisions:');
             teams.forEach(team => {
@@ -204,6 +237,14 @@ export class ConsequenceProcessor {
                 const selectedOptionId = decision?.selected_challenge_option_id || options.find(opt => opt.is_default_choice)?.id;
 
                 console.log(`[ConsequenceProcessor] Team ${team.name} selected option: ${selectedOptionId}`);
+
+                // NEW: Only process teams that chose this specific option
+                if (selectedOptionId !== slideOption) {
+                    console.log(`[ConsequenceProcessor] ⏭️  Team ${team.name} chose ${selectedOptionId}, but slide ${consequenceSlide.id} is for option ${slideOption}. Skipping this team.`);
+                    continue; // Skip this team entirely
+                }
+
+                console.log(`[ConsequenceProcessor] ✅ Team ${team.name} chose ${selectedOptionId}, processing ${slideOption} consequences`);
 
                 if (selectedOptionId) {
                     const consequence = allConsequencesForChoice.find(c => c.challenge_option_id === selectedOptionId);
