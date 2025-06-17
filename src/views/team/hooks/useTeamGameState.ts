@@ -1,5 +1,5 @@
 // src/views/team/hooks/useTeamGameState.ts
-// ENHANCED VERSION - Implements proper real-time KPI updates from consequence processing
+// ENHANCED VERSION - Fixed database field names to use current_slide_index
 
 /**
  * ============================================================================
@@ -78,8 +78,8 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     // ========================================================================
     // SLIDE STATE MANAGEMENT
     // ========================================================================
-    const updateSlideState = useCallback((slideId: number) => {
-        const newSlide = gameStructure.slides.find(s => s.id === slideId);
+    const updateSlideState = useCallback((slideIndex: number) => {
+        const newSlide = gameStructure.slides.find(s => s.id === slideIndex);
         if (newSlide) {
             console.log('📺 Team app: Slide changed to:', newSlide.id, newSlide.title);
             setCurrentActiveSlide(newSlide);
@@ -90,7 +90,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
             console.log('📺 Team app: Decision time =', isDecisionSlide);
         } else {
-            console.warn('📺 Team app: Unknown slide ID:', slideId);
+            console.warn('📺 Team app: Unknown slide ID:', slideIndex);
         }
     }, [gameStructure.slides]);
 
@@ -104,8 +104,8 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             console.log('📡 Fetching session data for:', sessionId);
             const sessionData = await db.sessions.get(sessionId);
 
-            if (sessionData && sessionData.current_slide_id !== null) {
-                updateSlideState(sessionData.current_slide_id);
+            if (sessionData && sessionData.current_slide_index !== null) {
+                updateSlideState(sessionData.current_slide_index);
             }
         } catch (error) {
             console.error('📡 Error fetching session data:', error);
@@ -205,7 +205,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         const channelName = `team-updates-${sessionId}-${loggedInTeamId}`;
         const channel = supabase.channel(channelName);
 
-        // 1. Session updates (slide changes)
+        // 1. Session updates (slide changes) - FIXED: Use current_slide_index
         channel.on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
@@ -213,9 +213,9 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             filter: `id=eq.${sessionId}`
         }, (payload) => {
             console.log('🔔 Session update received:', payload);
-            const newSlideId = payload.new?.current_slide_id;
-            if (newSlideId !== null && newSlideId !== undefined) {
-                updateSlideState(newSlideId);
+            const newSlideIndex = payload.new?.current_slide_index;
+            if (newSlideIndex !== null && newSlideIndex !== undefined) {
+                updateSlideState(newSlideIndex);
             }
         });
 
@@ -281,7 +281,8 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
         console.log('🔄 Setting up fallback polling...');
         const pollInterval = setInterval(() => {
-            if (connectionStatus === 'disconnected' || connectionStatus === 'connecting') {
+            const isDisconnected = connectionStatus === 'disconnected' || connectionStatus === 'connecting';
+            if (isDisconnected) {
                 console.log('🔄 Polling fallback: fetching session data');
                 fetchAndUpdateSessionData();
             }
