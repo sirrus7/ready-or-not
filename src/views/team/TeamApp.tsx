@@ -1,11 +1,28 @@
 // src/views/team/TeamApp.tsx
-// PRODUCTION-GRADE FIXED VERSION - Removed BroadcastChannel usage, implements proper Supabase real-time only
+// FINAL PRODUCTION VERSION - No Real-time Connections (handled by useTeamGameState)
 
 /**
- * COMMUNICATION ARCHITECTURE RULE:
- * - Host ↔ Presentation Display: Use BroadcastChannel (same device)
- * - Host ↔ Team Apps: Use Supabase Real-time ONLY (different devices)
- * - Team Apps: NEVER use BroadcastChannel - it won't work cross-device
+ * ============================================================================
+ * TEAM APPLICATION MAIN COMPONENT
+ * ============================================================================
+ *
+ * COMMUNICATION ARCHITECTURE:
+ * - This component does NOT create any real-time subscriptions
+ * - All real-time communication is handled by useTeamGameState hook
+ * - Maintains single WebSocket connection per team app
+ *
+ * RESPONSIBILITIES:
+ * 1. User authentication (team login/logout)
+ * 2. Game state display (current slide, KPIs, status)
+ * 3. Decision interface when required
+ * 4. Debug panel for development
+ *
+ * REAL-TIME UPDATES:
+ * All handled automatically by useTeamGameState:
+ * - Slide changes from host
+ * - Decision resets from host
+ * - Consequence KPI updates
+ * ============================================================================
  */
 
 import React, {useState, useEffect} from 'react';
@@ -13,7 +30,6 @@ import {useParams} from 'react-router-dom';
 import {Bug} from 'lucide-react';
 import {PermanentKpiAdjustment} from '@shared/types';
 import {db} from '@shared/services/supabase';
-import {useRealtimeSubscription} from '@shared/services/supabase';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import TeamLogout from '@views/team/components/TeamLogin/TeamLogout';
 import TeamStatusDisplay from '@views/team/components/GameStatus/TeamStatus';
@@ -21,6 +37,9 @@ import DecisionModeContainer from '@views/team/components/InteractionPanel/Decis
 import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards';
 import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
 
+// ============================================================================
+// DEBUG PANEL COMPONENT
+// ============================================================================
 const TeamDebugPanel: React.FC<{
     sessionId: string | null;
     teamId: string | null;
@@ -79,7 +98,13 @@ const TeamDebugPanel: React.FC<{
     );
 };
 
+// ============================================================================
+// MAIN TEAM APP COMPONENT
+// ============================================================================
 const TeamApp: React.FC = () => {
+    // ========================================================================
+    // ROUTE AND STATE MANAGEMENT
+    // ========================================================================
     const {sessionId} = useParams<{ sessionId: string }>();
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(null);
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(null);
@@ -87,12 +112,25 @@ const TeamApp: React.FC = () => {
     const [permanentAdjustments, setPermanentAdjustments] = useState<PermanentKpiAdjustment[]>([]);
     const [loadingAdjustments, setLoadingAdjustments] = useState(false);
 
+    console.log('🏢 TeamApp initialized:', {
+        sessionId,
+        loggedInTeamId,
+        loggedInTeamName
+    });
+
+    // ========================================================================
+    // GAME STATE HOOK - SINGLE REAL-TIME CONNECTION
+    // This is the ONLY hook that creates real-time subscriptions
+    // ========================================================================
     const teamGameState = useTeamGameState({
         sessionId: sessionId || null,
         loggedInTeamId
     });
 
-    // Load permanent adjustments when team/session changes
+    // ========================================================================
+    // PERMANENT ADJUSTMENTS MANAGEMENT
+    // Load permanent KPI adjustments when team/session changes
+    // ========================================================================
     useEffect(() => {
         if (!sessionId || !loggedInTeamId) {
             setPermanentAdjustments([]);
@@ -102,11 +140,13 @@ const TeamApp: React.FC = () => {
         const loadPermanentAdjustments = async () => {
             setLoadingAdjustments(true);
             try {
+                console.log('🏢 Loading permanent adjustments for session:', sessionId);
                 const adjustments = await db.adjustments.getBySession(sessionId);
                 setPermanentAdjustments(adjustments);
-                console.log('[TeamApp] Loaded permanent adjustments:', adjustments.length);
+                console.log('🏢 Loaded permanent adjustments:', adjustments.length);
             } catch (error) {
-                console.error('[TeamApp] Failed to load permanent adjustments:', error);
+                console.error('🏢 Failed to load permanent adjustments:', error);
+                setPermanentAdjustments([]); // Set empty array on error
             } finally {
                 setLoadingAdjustments(false);
             }
@@ -115,140 +155,116 @@ const TeamApp: React.FC = () => {
         loadPermanentAdjustments();
     }, [sessionId, loggedInTeamId]);
 
-    // SUPABASE REAL-TIME: Listen for KPI updates to refresh permanent adjustments (REPLACES BroadcastChannel)
-    useRealtimeSubscription(
-        `team-kpi-adjustments-${sessionId}-${loggedInTeamId}`,
-        {
-            table: 'team_round_data',
-            filter: `session_id=eq.${sessionId}`,
-            event: 'UPDATE',
-            onchange: (payload) => {
-                console.log('[TeamApp] KPI update detected via Supabase real-time:', payload);
+    // ========================================================================
+    // TEAM AUTHENTICATION HANDLERS
+    // ========================================================================
+    const handleTeamLogin = (teamId: string, teamName: string) => {
+        console.log('🏢 Team logged in:', teamName, teamId);
+        setLoggedInTeamId(teamId);
+        setLoggedInTeamName(teamName);
+    };
 
-                // Check if this update is for our team
-                if (payload.new?.team_id === loggedInTeamId) {
-                    console.log('[TeamApp] KPI update detected for our team, refreshing permanent adjustments');
+    const handleTeamLogout = () => {
+        console.log('🏢 Team logged out');
+        setLoggedInTeamId(null);
+        setLoggedInTeamName(null);
+    };
 
-                    // Refresh permanent adjustments when KPI updates come in
-                    const refreshPermanentAdjustments = async () => {
-                        setLoadingAdjustments(true);
-                        try {
-                            const adjustments = await db.adjustments.getBySession(sessionId!);
-                            setPermanentAdjustments(adjustments);
-                            console.log('[TeamApp] Refreshed permanent adjustments after KPI update');
-                        } catch (error) {
-                            console.error('[TeamApp] Failed to refresh permanent adjustments:', error);
-                        } finally {
-                            setLoadingAdjustments(false);
-                        }
-                    };
+    // ========================================================================
+    // RENDER LOGIC
+    // ========================================================================
 
-                    refreshPermanentAdjustments();
-                }
-            }
-        },
-        !!sessionId && !!loggedInTeamId
-    );
-
-    // SUPABASE REAL-TIME: Listen for new permanent adjustments (REPLACES BroadcastChannel)
-    useRealtimeSubscription(
-        `permanent-adjustments-${sessionId}`,
-        {
-            table: 'permanent_kpi_adjustments',
-            filter: `session_id=eq.${sessionId}`,
-            event: 'INSERT',
-            onchange: (payload) => {
-                console.log('[TeamApp] New permanent adjustment detected via Supabase real-time:', payload);
-
-                // Refresh permanent adjustments when new ones are added
-                const refreshPermanentAdjustments = async () => {
-                    try {
-                        const adjustments = await db.adjustments.getBySession(sessionId!);
-                        setPermanentAdjustments(adjustments);
-                        console.log('[TeamApp] Refreshed permanent adjustments after new adjustment');
-                    } catch (error) {
-                        console.error('[TeamApp] Failed to refresh permanent adjustments:', error);
-                    }
-                };
-
-                refreshPermanentAdjustments();
-            }
-        },
-        !!sessionId
-    );
-
-    // Toggle debug panel visibility
-    useEffect(() => {
-        const handleKeyPress = (event: KeyboardEvent) => {
-            if (event.shiftKey && event.key.toLowerCase() === 'd') {
-                setShowDebugPanel(prev => !prev);
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyPress);
-        return () => window.removeEventListener('keydown', handleKeyPress);
-    }, []);
-
-    if (!sessionId) {
+    // Show login screen if not authenticated
+    if (!loggedInTeamId || !loggedInTeamName) {
         return (
-            <div
-                className="min-h-screen bg-gradient-to-br from-blue-900 to-purple-900 flex items-center justify-center">
-                <div className="text-center text-white p-8">
-                    <h2 className="text-2xl font-bold mb-4">Invalid Session</h2>
-                    <p>No session ID provided in the URL.</p>
-                </div>
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+                <TeamLogin
+                    sessionId={sessionId || ''}
+                    onLoginSuccess={(teamId: string, teamName: string) => handleTeamLogin(teamId, teamName)}
+                />
             </div>
         );
     }
 
-    if (!loggedInTeamId || !loggedInTeamName) {
-        return <TeamLogin sessionId={sessionId || ''} onLoginSuccess={(teamId, teamName) => {
-            setLoggedInTeamId(teamId);
-            setLoggedInTeamName(teamName);
-        }}/>;
-    }
-
+    // Main application interface
     return (
-        <div className="min-h-screen bg-gray-900 text-white flex flex-col touch-manipulation">
-            <button onClick={() => setShowDebugPanel(!showDebugPanel)}
-                    className="fixed top-16 right-4 z-30 bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 transition-colors"
-                    title="Toggle Debug Info">
-                <Bug size={16}/>
-            </button>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+            {/* ================================================================ */}
+            {/* HEADER WITH TEAM INFO AND LOGOUT */}
+            {/* ================================================================ */}
+            <div className="relative">
+                <div className="absolute top-4 left-4 z-10">
+                    <div className="text-center">
+                        <div className="text-xl font-bold text-sky-400">Team: {loggedInTeamName}</div>
+                        <div className="text-sm text-gray-400">ID: {loggedInTeamId.substring(0, 8)}</div>
+                    </div>
+                </div>
 
+                <div className="absolute top-4 right-4 z-10 flex gap-2">
+                    {/* Debug Panel Toggle */}
+                    <button
+                        onClick={() => setShowDebugPanel(!showDebugPanel)}
+                        className="p-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors"
+                        title="Toggle Debug Panel"
+                    >
+                        <Bug size={20} className="text-gray-400"/>
+                    </button>
+
+                    {/* Logout Button */}
+                    <TeamLogout
+                        teamName={loggedInTeamName}
+                        sessionId={sessionId || ''}
+                        onLogout={() => handleTeamLogout()}
+                    />
+                </div>
+            </div>
+
+            {/* ================================================================ */}
+            {/* DEBUG PANEL */}
+            {/* ================================================================ */}
             <TeamDebugPanel
-                sessionId={sessionId}
+                sessionId={sessionId || null}
                 teamId={loggedInTeamId}
                 teamGameState={teamGameState}
                 isVisible={showDebugPanel}
             />
 
-            <TeamLogout
-                teamName={loggedInTeamName}
-                sessionId={sessionId!}
-                onLogout={() => {
-                    setLoggedInTeamId(null);
-                    setLoggedInTeamName(null);
-                    setPermanentAdjustments([]); // Clear adjustments on logout
-                }}
-            />
-
-            <div className="flex-1 flex flex-col overflow-hidden">
+            {/* ================================================================ */}
+            {/* TEAM STATUS DISPLAY */}
+            {/* Always visible - shows KPIs and current status */}
+            {/* ================================================================ */}
+            <div className="pt-20 pb-4">
                 <TeamStatusDisplay
                     teamName={loggedInTeamName}
                     currentSlide={teamGameState.currentActiveSlide}
                     teamKpis={teamGameState.currentTeamKpis}
                     isLoading={teamGameState.isLoadingKpis}
                 />
+            </div>
 
-                {/* Content */}
+            {/* ================================================================ */}
+            {/* MAIN CONTENT AREA */}
+            {/* ================================================================ */}
+            <div className="px-4 pb-4">
+                {/* DECISION MODE - Only shown when isDecisionTime is true */}
                 {teamGameState.isDecisionTime ? (
-                    <DecisionModeContainer
-                        sessionId={sessionId}
-                        teamId={loggedInTeamId}
-                        currentSlide={teamGameState.currentActiveSlide}
-                        gameStructure={teamGameState.gameStructure}/>
+                    <div className="mb-6">
+                        <div className="text-center mb-4 p-4 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+                            <h2 className="text-xl font-bold text-yellow-400 mb-2">Decision Required</h2>
+                            <p className="text-gray-300">
+                                {teamGameState.currentActiveSlide?.title || "Interactive Phase"}
+                            </p>
+                        </div>
+
+                        <DecisionModeContainer
+                            sessionId={sessionId || ''}
+                            teamId={loggedInTeamId || ''}
+                            currentSlide={teamGameState.currentActiveSlide}
+                            gameStructure={teamGameState.gameStructure}
+                        />
+                    </div>
                 ) : (
+                    /* PASSIVE MODE - Show current slide information */
                     <div className="h-full overflow-y-auto">
                         <div className="p-3 md:p-4 min-h-full flex flex-col">
                             <div className="flex-1 flex items-center justify-center">
@@ -261,26 +277,43 @@ const TeamApp: React.FC = () => {
                                             {teamGameState.currentActiveSlide.main_text &&
                                                 <p className="text-lg text-gray-200 mb-2">
                                                     {teamGameState.currentActiveSlide.main_text}
-                                                </p>}
+                                                </p>
+                                            }
                                             {teamGameState.currentActiveSlide.sub_text &&
                                                 <p className="text-sm text-gray-300 mb-4">
                                                     {teamGameState.currentActiveSlide.sub_text}
-                                                </p>}
+                                                </p>
+                                            }
+
+                                            {/* Connection Status Indicator */}
+                                            <div className="mt-4 flex items-center justify-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${
+                                                    teamGameState.connectionStatus === 'connected' ? 'bg-green-400' :
+                                                        teamGameState.connectionStatus === 'connecting' ? 'bg-yellow-400' :
+                                                            'bg-red-400'
+                                                }`}></div>
+                                                <span className="text-xs text-gray-400">
+                                                    {teamGameState.connectionStatus === 'connected' ? 'Connected' :
+                                                        teamGameState.connectionStatus === 'connecting' ? 'Connecting...' :
+                                                            'Disconnected'}
+                                                </span>
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="text-center text-gray-400 py-12">
                                             <p className="text-lg">Waiting for facilitator...</p>
-                                        </div>
-                                    )}
-
-                                    {/* KPI Impact Cards - only show if we have adjustments and not loading */}
-                                    {!loadingAdjustments && permanentAdjustments.length > 0 && (
-                                        <div className="mt-6">
-                                            <KpiImpactCards
-                                                teamId={loggedInTeamId}
-                                                currentRound={teamGameState.currentActiveSlide?.round_number || 1}
-                                                permanentAdjustments={permanentAdjustments}
-                                            />
+                                            <div className="mt-4 flex items-center justify-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${
+                                                    teamGameState.connectionStatus === 'connected' ? 'bg-green-400' :
+                                                        teamGameState.connectionStatus === 'connecting' ? 'bg-yellow-400' :
+                                                            'bg-red-400'
+                                                }`}></div>
+                                                <span className="text-xs text-gray-400">
+                                                    {teamGameState.connectionStatus === 'connected' ? 'Connected' :
+                                                        teamGameState.connectionStatus === 'connecting' ? 'Connecting...' :
+                                                            'Disconnected'}
+                                                </span>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -288,25 +321,20 @@ const TeamApp: React.FC = () => {
                         </div>
                     </div>
                 )}
-            </div>
 
-            {/* Debug Panel */}
-            <TeamDebugPanel
-                sessionId={sessionId}
-                teamId={loggedInTeamId}
-                teamGameState={teamGameState}
-                isVisible={showDebugPanel}
-            />
-
-            {/* Debug toggle hint */}
-            <div className="fixed bottom-4 left-4 text-xs text-gray-500">
-                <button
-                    onClick={() => setShowDebugPanel(!showDebugPanel)}
-                    className="flex items-center gap-1 hover:text-gray-400"
-                >
-                    <Bug size={12}/>
-                    Debug
-                </button>
+                {/* ============================================================ */}
+                {/* KPI IMPACT CARDS */}
+                {/* Only show if we have adjustments and not loading */}
+                {/* ============================================================ */}
+                {!loadingAdjustments && permanentAdjustments.length > 0 && (
+                    <div className="mt-6">
+                        <KpiImpactCards
+                            teamId={loggedInTeamId || ''}
+                            currentRound={teamGameState.currentActiveSlide?.round_number || 1}
+                            permanentAdjustments={permanentAdjustments}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

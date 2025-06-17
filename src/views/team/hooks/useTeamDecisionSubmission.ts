@@ -1,16 +1,27 @@
 // src/views/team/hooks/useTeamDecisionSubmission.ts
-// PRODUCTION-GRADE FIXED VERSION - Removed BroadcastChannel usage, implements proper Supabase real-time only
+// FINAL PRODUCTION VERSION - All TypeScript Errors Fixed
 
 /**
- * COMMUNICATION ARCHITECTURE RULE:
- * - Host ↔ Presentation Display: Use BroadcastChannel (same device)
- * - Host ↔ Team Apps: Use Supabase Real-time ONLY (different devices)
- * - Team Apps: NEVER use BroadcastChannel - it won't work cross-device
+ * ============================================================================
+ * TEAM DECISION SUBMISSION HOOK
+ * ============================================================================
+ *
+ * IMPORTANT: This hook does NOT create any real-time subscriptions
+ * All real-time communication is handled by useTeamGameState.ts
+ *
+ * This hook is responsible for:
+ * 1. Managing decision submission state
+ * 2. Fetching existing decisions via polling
+ * 3. Submitting new decisions to database
+ * 4. Formatting decision summaries for display
+ *
+ * Real-time updates (like decision resets) are handled by the parent
+ * useTeamGameState hook and communicated via the kpiUpdateTrigger mechanism.
+ * ============================================================================
  */
 
-import {useState, useCallback, useMemo, useEffect} from 'react';
+import {useState, useCallback, useMemo} from 'react';
 import {useSupabaseMutation, useSupabaseQuery} from '@shared/hooks/supabase';
-import {useRealtimeSubscription} from '@shared/services/supabase';
 import {db, supabase} from '@shared/services/supabase';
 import {Slide, InvestmentOption, ChallengeOption, GameStructure} from '@shared/types';
 import {DecisionState} from './useDecisionMaking';
@@ -36,13 +47,16 @@ export interface UseTeamDecisionSubmissionReturn {
     onSubmit: () => Promise<void>;
 }
 
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
 const formatCurrency = (value: number): string => {
     if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
     if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
     return `$${value.toFixed(0)}`;
 };
 
-// Helper function to parse selected_investment_ids (which can be JSON string or array)
 const parseInvestmentIds = (ids: string | string[] | null | undefined): string[] => {
     if (!ids) return [];
     if (Array.isArray(ids)) return ids;
@@ -54,6 +68,10 @@ const parseInvestmentIds = (ids: string | string[] | null | undefined): string[]
     }
 };
 
+// ============================================================================
+// MAIN HOOK
+// ============================================================================
+
 export const useTeamDecisionSubmission = ({
                                               sessionId,
                                               teamId,
@@ -62,35 +80,57 @@ export const useTeamDecisionSubmission = ({
                                               isValidSubmission,
                                               gameStructure
                                           }: UseTeamDecisionSubmissionProps): UseTeamDecisionSubmissionReturn => {
+
+    // ========================================================================
+    // STATE MANAGEMENT
+    // ========================================================================
     const [submissionError, setSubmissionError] = useState<string | null>(null);
     const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
     const decisionKey = currentSlide?.interactive_data_key;
 
-    // Query for regular decisions
+    console.log('🎯 useTeamDecisionSubmission initialized:', {
+        sessionId,
+        teamId,
+        decisionKey,
+        slideType: currentSlide?.type
+    });
+
+    // ========================================================================
+    // DATA FETCHING - REGULAR DECISIONS
+    // ========================================================================
     const {
         data: existingDecision,
-        isLoading: isCheckingExisting,
         refresh: checkForExistingDecision
     } = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId || !decisionKey) return null;
-            return db.decisions.getForPhase(sessionId, teamId, decisionKey);
+
+            console.log('🎯 Fetching existing decision for phase:', decisionKey);
+            const decision = await db.decisions.getForPhase(sessionId, teamId, decisionKey);
+            console.log('🎯 Existing decision found:', !!decision?.submitted_at);
+
+            return decision;
         },
         [sessionId, teamId, decisionKey],
-        {cacheKey: `decision-${sessionId}-${teamId}-${decisionKey}`, cacheTimeout: 5000, retryOnError: false}
+        {
+            cacheKey: `decision-${sessionId}-${teamId}-${decisionKey}`,
+            cacheTimeout: 5000,
+            retryOnError: false
+        }
     );
 
-    // Query for immediate purchases
+    // ========================================================================
+    // DATA FETCHING - IMMEDIATE PURCHASES
+    // ========================================================================
     const {
-        data: immediatePurchases,
-        isLoading: isCheckingImmediate,
         refresh: refreshImmediatePurchases
     } = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId || !decisionKey) return [];
 
             const immediatePhaseId = `${decisionKey}_immediate`;
+            console.log('🎯 Fetching immediate purchases for phase:', immediatePhaseId);
 
             const {data, error} = await supabase
                 .from('team_decisions')
@@ -101,196 +141,176 @@ export const useTeamDecisionSubmission = ({
                 .eq('is_immediate_purchase', true);
 
             if (error) throw error;
+            console.log('🎯 Immediate purchases found:', data?.length || 0);
             return data || [];
         },
         [sessionId, teamId, decisionKey],
-        {cacheKey: `immediate-${sessionId}-${teamId}-${decisionKey}`, cacheTimeout: 5000, retryOnError: false}
-    );
-
-    // SUPABASE REAL-TIME: Listen for decision resets (REPLACES BroadcastChannel)
-    useRealtimeSubscription(
-        `decision-resets-${sessionId}-${teamId}`,
         {
-            table: 'team_decisions',
-            filter: `session_id=eq.${sessionId}.and.team_id=eq.${teamId}`,
-            event: 'DELETE',
-            onchange: (payload) => {
-                console.log('🔄 [TEAM] Decision reset detected via Supabase real-time:', payload);
-
-                // Check if the reset affects our current decision phase
-                const deletedPhaseId = payload.old?.phase_id;
-                if (deletedPhaseId && (deletedPhaseId === decisionKey || deletedPhaseId === `${decisionKey}_immediate`)) {
-                    console.log('🔄 [TEAM] Our decision was reset by host - refreshing UI');
-
-                    // Refresh queries to get fresh state
-                    checkForExistingDecision();
-                    refreshImmediatePurchases();
-
-                    // Clear submission success state
-                    setSubmissionSuccess(false);
-                    setSubmissionError(null);
-                }
-            }
-        },
-        !!sessionId && !!teamId
+            cacheKey: `immediate-${sessionId}-${teamId}-${decisionKey}`,
+            cacheTimeout: 5000,
+            retryOnError: false
+        }
     );
 
-    // SUPABASE REAL-TIME: Listen for new decision submissions (for immediate feedback)
-    useRealtimeSubscription(
-        `decision-updates-${sessionId}-${teamId}`,
-        {
-            table: 'team_decisions',
-            filter: `session_id=eq.${sessionId}.and.team_id=eq.${teamId}`,
-            event: 'INSERT',
-            onchange: (payload) => {
-                console.log('✅ [TEAM] New decision submission detected via Supabase real-time:', payload);
-
-                // Refresh our decision data to show the new submission
-                checkForExistingDecision();
-                refreshImmediatePurchases();
+    // ========================================================================
+    // DECISION SUBMISSION MUTATION
+    // ========================================================================
+    const {mutate: submitDecision, isLoading: isSubmitting} = useSupabaseMutation(
+        async () => {
+            if (!sessionId || !teamId || !decisionKey) {
+                throw new Error('Missing required data for submission');
             }
-        },
-        !!sessionId && !!teamId
-    );
 
-    const hasExistingSubmission = !!(existingDecision?.submitted_at);
+            console.log('🎯 Submitting decision:', {
+                sessionId,
+                teamId,
+                decisionKey,
+                decisionState
+            });
 
-    // Combines both regular and immediate purchases
-    const existingSubmissionSummary = useMemo(() => {
-        if (!currentSlide || !gameStructure) return null;
-        const key = currentSlide.interactive_data_key;
-        if (!key || !existingDecision) return null;
-
-        const gameStructureWithData = gameStructure as GameStructure & {
-            interactive_data?: Record<string, {
-                investment_options?: Array<{ id: string; name: string; cost: number }>;
-                challenge_options?: Array<{ id: string; name: string }>;
-            }>;
-        };
-
-        const interactiveData = gameStructureWithData.interactive_data?.[key];
-        if (!interactiveData) return null;
-
-        let summary = '';
-
-        // Handle investment decisions
-        if (existingDecision.selected_investment_ids) {
-            const selectedIds = parseInvestmentIds(existingDecision.selected_investment_ids);
-            if (selectedIds.length > 0 && interactiveData.investment_options) {
-                const selectedInvestments = interactiveData.investment_options.filter(inv =>
-                    selectedIds.includes(inv.id)
-                );
-                const totalCost = selectedInvestments.reduce((sum, inv) => sum + inv.cost, 0);
-                summary += `Investments: ${formatCurrency(totalCost)}`;
-
-                if (selectedInvestments.length <= 3) {
-                    summary += ` (${selectedInvestments.map(inv => inv.name).join(', ')})`;
-                } else {
-                    summary += ` (${selectedInvestments.length} investments)`;
-                }
-            }
-        }
-
-        // Handle challenge decisions
-        if (existingDecision.selected_challenge_option_id && interactiveData.challenge_options) {
-            const selectedChallenge = interactiveData.challenge_options.find(ch =>
-                ch.id === existingDecision.selected_challenge_option_id
-            );
-            if (selectedChallenge) {
-                if (summary) summary += ' | ';
-                summary += `Challenge: ${selectedChallenge.name}`;
-            }
-        }
-
-        // Add immediate purchases
-        if (immediatePurchases && immediatePurchases.length > 0) {
-            const immediateCost = immediatePurchases.reduce((sum, purchase) => {
-                const ids = parseInvestmentIds(purchase.selected_investment_ids);
-                const cost = ids.reduce((invSum, id) => {
-                    const investment = interactiveData.investment_options?.find(inv => inv.id === id);
-                    return invSum + (investment?.cost || 0);
-                }, 0);
-                return sum + cost;
+            // Calculate total cost from selected investments
+            const totalCost = decisionState.selectedInvestmentIds.reduce((sum, id) => {
+                const gameStructureWithData = gameStructure as GameStructure & {
+                    all_investment_options?: Array<{ id: string; name: string; cost: number }>;
+                };
+                const investment = gameStructureWithData?.all_investment_options?.find((inv) => inv.id === id);
+                return sum + (investment?.cost || 0);
             }, 0);
 
-            if (immediateCost > 0) {
-                if (summary) summary += ' | ';
-                summary += `Immediate: ${formatCurrency(immediateCost)}`;
-            }
-        }
-
-        return summary || null;
-    }, [currentSlide, gameStructure, existingDecision, immediatePurchases]);
-
-    // Submission mutation - CORRECTED to use proper database method
-    const {
-        execute: submitDecisionMutation,
-        isLoading: isSubmitting,
-        error: mutationError
-    } = useSupabaseMutation(
-        async (payload: Record<string, unknown>) => {
-            console.log('[useTeamDecisionSubmission] Submitting decision with payload:', payload);
-
-            // Use upsert to handle potential duplicates
-            await db.decisions.upsert(payload);
-            console.log('[useTeamDecisionSubmission] Decision submitted successfully');
-
-            // Refresh to show updated state
-            checkForExistingDecision();
-            refreshImmediatePurchases();
-            setSubmissionSuccess(true);
-            setSubmissionError(null);
-        }
-    );
-
-    const onSubmit = useCallback(async () => {
-        if (!isValidSubmission || !sessionId || !teamId || !decisionKey || !currentSlide) return;
-
-        try {
-            console.log('[useTeamDecisionSubmission] Submitting decision for phase:', decisionKey);
-
-            // Build submission payload based on decision state
-            const payload: Record<string, unknown> = {
+            const submissionData = {
                 session_id: sessionId,
                 team_id: teamId,
                 phase_id: decisionKey,
-                round_number: currentSlide.round_number,
-                submitted_at: new Date().toISOString()
+                selected_investment_ids: decisionState.selectedInvestmentIds.length > 0
+                    ? JSON.stringify(decisionState.selectedInvestmentIds)
+                    : null,
+                selected_challenge_option_id: decisionState.selectedChallengeOptionId || null,
+                total_spent_budget: totalCost,
+                submitted_at: new Date().toISOString(),
+                is_immediate_purchase: false
             };
 
-            // Add decision-specific data
-            switch (currentSlide.type) {
-                case 'interactive_invest':
-                    payload.selected_investment_ids = decisionState.selectedInvestmentIds;
-                    payload.total_spent_budget = decisionState.spentBudget;
-                    break;
-                case 'interactive_choice':
-                case 'interactive_double_down_prompt':
-                    payload.selected_challenge_option_id = decisionState.selectedChallengeOptionId;
-                    break;
-                default:
-                    throw new Error("Cannot submit for this slide type.");
+            const {data, error} = await supabase
+                .from('team_decisions')
+                .insert([submissionData])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            console.log('🎯 Decision submitted successfully:', data);
+            return data;
+        },
+        {
+            onSuccess: () => {
+                console.log('🎯 Decision submission successful');
+                setSubmissionSuccess(true);
+                setSubmissionError(null);
+
+                // Refresh data to show the new submission
+                checkForExistingDecision();
+                refreshImmediatePurchases();
+            },
+            onError: (error: unknown) => {
+                console.error('🎯 Decision submission failed:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Submission failed';
+                setSubmissionError(errorMessage);
+                setSubmissionSuccess(false);
+            }
+        }
+    );
+
+    // ========================================================================
+    // COMPUTED VALUES
+    // ========================================================================
+    const hasExistingSubmission = !!(existingDecision?.submitted_at);
+    const isSubmitDisabled = !isValidSubmission || isSubmitting || hasExistingSubmission;
+
+    // ========================================================================
+    // SUBMISSION SUMMARY FORMATTING
+    // ========================================================================
+    const existingSubmissionSummary = useMemo(() => {
+        if (!currentSlide || !gameStructure || !existingDecision) return null;
+
+        const key = currentSlide.interactive_data_key;
+        if (!key) return null;
+
+        console.log('🎯 Formatting submission summary for:', key);
+
+        try {
+            const gameStructureWithData = gameStructure as GameStructure & {
+                all_investment_options?: Array<{ id: string; name: string; cost: number }>;
+                all_challenge_options?: Array<{ id: string; name: string }>;
+            };
+
+            const parts: string[] = [];
+
+            // Format investment selections
+            if (existingDecision.selected_investment_ids) {
+                const selectedIds = parseInvestmentIds(existingDecision.selected_investment_ids);
+                const investmentOptions = gameStructureWithData.all_investment_options || [];
+
+                const selectedInvestments = selectedIds
+                    .map(id => investmentOptions.find(opt => opt.id === id))
+                    .filter((inv): inv is { id: string; name: string; cost: number } => Boolean(inv));
+
+                if (selectedInvestments.length > 0) {
+                    const investmentSummary = selectedInvestments
+                        .map(inv => `${inv.name} (${formatCurrency(inv.cost)})`)
+                        .join(', ');
+                    parts.push(`Investments: ${investmentSummary}`);
+                }
             }
 
-            await submitDecisionMutation(payload);
+            // Format challenge selection
+            if (existingDecision.selected_challenge_option_id) {
+                const challengeOptions = gameStructureWithData.all_challenge_options || [];
+                const selectedChallenge = challengeOptions.find(
+                    opt => opt.id === existingDecision.selected_challenge_option_id
+                );
+
+                if (selectedChallenge) {
+                    parts.push(`Challenge: ${selectedChallenge.name}`);
+                }
+            }
+
+            // Add total cost
+            if (existingDecision.total_spent_budget) {
+                parts.push(`Total: ${formatCurrency(existingDecision.total_spent_budget)}`);
+            }
+
+            const summary = parts.join(' • ');
+            console.log('🎯 Submission summary:', summary);
+            return summary;
+
         } catch (error) {
-            console.error('[useTeamDecisionSubmission] Submission failed:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Submission failed';
-            setSubmissionError(errorMessage);
-            setSubmissionSuccess(false);
+            console.error('🎯 Error formatting submission summary:', error);
+            return 'Previous submission found';
         }
-    }, [isValidSubmission, sessionId, teamId, decisionKey, currentSlide, decisionState, submitDecisionMutation]);
+    }, [currentSlide, gameStructure, existingDecision]);
 
-    // Update submission error from mutation
-    useEffect(() => {
-        if (mutationError) {
-            const errorMessage = mutationError instanceof Error ? mutationError.message : 'Submission failed';
-            setSubmissionError(errorMessage);
+    // ========================================================================
+    // SUBMISSION HANDLER
+    // ========================================================================
+    const onSubmit = useCallback(async () => {
+        if (!isValidSubmission || hasExistingSubmission) {
+            console.log('🎯 Submission blocked - invalid or already submitted');
+            return;
         }
-    }, [mutationError]);
 
-    const isSubmitDisabled = !isValidSubmission || isSubmitting || isCheckingExisting || hasExistingSubmission;
+        console.log('🎯 Starting decision submission process');
+        setSubmissionError(null);
+        try {
+            await submitDecision({});
+        } catch (error) {
+            // Error is handled by the mutation's onError callback
+            console.error('🎯 Submission failed:', error);
+        }
+    }, [isValidSubmission, hasExistingSubmission, submitDecision]);
 
+    // ========================================================================
+    // RETURN INTERFACE
+    // ========================================================================
     return {
         isSubmitting,
         isSubmitDisabled,

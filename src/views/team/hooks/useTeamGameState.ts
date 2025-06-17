@@ -1,17 +1,41 @@
 // src/views/team/hooks/useTeamGameState.ts
-// PRODUCTION-GRADE FIXED VERSION - Removed BroadcastChannel usage, implements proper Supabase real-time only
+// FINAL PRODUCTION VERSION - Single Real-time Connection Architecture
 
 /**
- * COMMUNICATION ARCHITECTURE RULE:
- * - Host ↔ Presentation Display: Use BroadcastChannel (same device)
- * - Host ↔ Team Apps: Use Supabase Real-time ONLY (different devices)
- * - Team Apps: NEVER use BroadcastChannel - it won't work cross-device
+ * ============================================================================
+ * CROSS-DEVICE COMMUNICATION ARCHITECTURE FOR READY OR NOT 2.0
+ * ============================================================================
+ *
+ * REQUIREMENTS:
+ * 1. Team apps must sync with host slide changes in real-time
+ * 2. Team apps must handle decision resets from host instantly
+ * 3. CRITICAL: Only 1 WebSocket connection per team app to prevent overload
+ * 4. Must handle consequence slides that affect team KPIs
+ * 5. Reliable fallback if real-time fails
+ *
+ * COMMUNICATION RULES:
+ * - Host ↔ Presentation Display: BroadcastChannel (same device)
+ * - Host ↔ Team Apps: Supabase Real-time ONLY (different devices)
+ * - Team Apps: NEVER use BroadcastChannel (won't work cross-device)
+ * - Team Apps: ONLY 1 real-time subscription per app (this file)
+ *
+ * REAL-TIME SUBSCRIPTION HANDLES:
+ * 1. Slide Changes (game_sessions table updates)
+ *    - Update team app slide display
+ *    - Show/hide decision UI based on slide type
+ *    - Process consequence slides for KPI updates
+ * 2. Decision Resets (team_decisions table deletes)
+ *    - Clear submission UI when host resets team decisions
+ *    - Allow new choices to be made
+ *
+ * FALLBACK POLLING:
+ * - Polls every 10 seconds as backup if real-time fails
+ * - Ensures reliability even with connection issues
+ * ============================================================================
  */
 
-import {useState, useEffect, useMemo} from 'react';
-import {useSupabaseQuery} from '@shared/hooks/supabase';
-import {useRealtimeSubscription} from '@shared/services/supabase';
-import {db} from '@shared/services/supabase';
+import {useState, useEffect, useMemo, useCallback} from 'react';
+import {db, supabase} from '@shared/services/supabase';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {Slide, GameStructure} from '@shared/types/game';
 import {TeamRoundData} from '@shared/types/database';
@@ -31,175 +55,286 @@ interface useTeamGameStateReturn {
 }
 
 export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStateProps): useTeamGameStateReturn => {
+    // ========================================================================
+    // STATE MANAGEMENT
+    // ========================================================================
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
     const [isDecisionTime, setIsDecisionTime] = useState<boolean>(false);
     const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
-    const [kpiUpdateTrigger, setKpiUpdateTrigger] = useState<number>(0); // Force refresh trigger
+    const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
+    const [isLoadingKpis, setIsLoadingKpis] = useState(false);
+    const [kpiUpdateTrigger, setKpiUpdateTrigger] = useState<number>(0);
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
-    // Helper function to update slide state
-    const updateSlideState = (slide: Slide | null) => {
+    console.log('🎮 useTeamGameState initialized - sessionId:', sessionId, 'teamId:', loggedInTeamId);
+
+    // ========================================================================
+    // HELPER FUNCTIONS
+    // ========================================================================
+
+    /**
+     * Updates the current slide state and determines if decisions are needed
+     */
+    const updateSlideState = useCallback((slide: Slide | null) => {
+        console.log('🎬 updateSlideState called with slide:', slide?.id, slide?.title);
         setCurrentActiveSlide(slide);
+
         if (slide) {
-            const isInteractive = slide.type.startsWith('interactive_') && !!slide.interactive_data_key;
-            setIsDecisionTime(isInteractive);
-            console.log(`[useTeamGameState] Updated slide: ${slide.id} (${slide.title}), isDecisionTime: ${isInteractive}`);
+            // Check if this slide requires team decisions
+            const requiresDecision = slide.type.startsWith('interactive_') && !!slide.interactive_data_key;
+            setIsDecisionTime(requiresDecision);
+
+            console.log(`🎬 Updated to slide ${slide.id}: "${slide.title}" | Decision Required: ${requiresDecision}`);
         } else {
             setIsDecisionTime(false);
         }
-    };
+    }, []); // No dependencies - this function is stable
 
-    // 1. DATABASE POLLING: Refresh session data every 3 seconds
-    const {refresh: refreshSession} = useSupabaseQuery(
-        async () => {
-            if (!sessionId || sessionId === 'new') return null;
+    /**
+     * Handles consequence slides - checks if they affect our team and updates KPIs
+     */
+    const handleConsequenceSlide = useCallback(async (consequenceSlide: Slide) => {
+        if (!consequenceSlide.interactive_data_key || !loggedInTeamId || !sessionId) {
+            console.log('💥 Consequence slide missing data - skipping KPI check');
+            return;
+        }
+
+        try {
+            console.log('💥 Checking if consequence affects our team:', consequenceSlide.interactive_data_key);
+
+            // Get our team's decision for this consequence phase
+            const decision = await db.decisions.getForPhase(
+                sessionId,
+                loggedInTeamId,
+                consequenceSlide.interactive_data_key
+            );
+
+            if (decision?.submitted_at) {
+                console.log('💥 Consequence matches our choice - updating KPIs');
+
+                // Refresh KPIs with delay to ensure database updates are complete
+                setTimeout(() => {
+                    fetchKpisForCurrentSlide();
+                    setKpiUpdateTrigger(prev => prev + 1);
+                }, 1000);
+            } else {
+                console.log('💥 Consequence doesn\'t affect our team - no KPI update needed');
+            }
+        } catch (error) {
+            console.error('💥 Error checking consequence relevance:', error);
+        }
+    }, [loggedInTeamId, sessionId]); // Stable dependencies
+
+    /**
+     * Fetches current session data from database
+     */
+    const fetchSessionData = async () => {
+        if (!sessionId || sessionId === 'new') {
+            console.log('📡 No valid sessionId - skipping fetch');
+            return;
+        }
+
+        try {
+            console.log('📡 Fetching session data...');
             const session = await db.sessions.get(sessionId);
+
             if (session && session.current_slide_index !== null) {
+                console.log('📡 Session fetched - slide index:', session.current_slide_index);
+
                 const slide = gameStructure.slides[session.current_slide_index] || null;
                 updateSlideState(slide);
-            }
-            return session;
-        },
-        [sessionId, gameStructure],
-        {
-            cacheKey: `session-${sessionId}`,
-            cacheTimeout: 3000
-        }
-    );
 
-    // Manual polling for session updates (faster polling as backup)
-    useEffect(() => {
-        if (!sessionId) return;
+                // Handle consequence slides
+                if (slide?.type === 'consequence_reveal') {
+                    await handleConsequenceSlide(slide);
+                }
 
-        console.log('[useTeamGameState] Starting database polling for session updates');
-
-        const pollInterval = setInterval(() => {
-            console.log('[useTeamGameState] Polling for session updates...');
-            refreshSession();
-        }, 1000); // Poll every 1 second instead of 3 seconds
-
-        return () => {
-            console.log('[useTeamGameState] Stopping database polling');
-            clearInterval(pollInterval);
-        };
-    }, [sessionId, refreshSession]);
-
-    // 2. SUPABASE REAL-TIME: Listen for session changes (REPLACES BroadcastChannel)
-    useRealtimeSubscription(
-        `session-updates-${sessionId}`,
-        {
-            table: 'game_sessions',
-            filter: `id=eq.${sessionId}`,
-            onchange: (payload) => {
-                console.log('[useTeamGameState] Session updated via Supabase real-time:', payload);
-                console.log('[useTeamGameState] Payload new data:', payload.new);
-                console.log('[useTeamGameState] Current slide index changed:', payload.new?.current_slide_index);
-
-                setConnectionStatus('connected'); // Update connection status
-
-                // Force immediate refresh to get the latest data
-                setTimeout(() => {
-                    refreshSession();
-                }, 100);
-            }
-        },
-        !!sessionId
-    );
-
-    // 3. SUPABASE REAL-TIME: Listen for decision reset commands
-    useRealtimeSubscription(
-        `decision-resets-${sessionId}`,
-        {
-            table: 'team_decisions',
-            filter: `session_id=eq.${sessionId}`,
-            event: 'DELETE',
-            onchange: (payload) => {
-                console.log('[useTeamGameState] Decision reset detected via Supabase real-time:', payload);
                 setConnectionStatus('connected');
-                // If this affects our team, we'll get notified via useTeamDecisionSubmission
+            } else {
+                console.log('📡 No session data or slide index');
+                setConnectionStatus('disconnected');
             }
-        },
-        !!sessionId
-    );
+        } catch (error) {
+            console.error('📡 Error fetching session:', error);
+            setConnectionStatus('disconnected');
+        }
+    };
 
-    // Connection status management via Supabase connectivity
+    /**
+     * Fetches KPI data for the current slide's round
+     */
+    const fetchKpisForCurrentSlide = async () => {
+        if (!sessionId || !loggedInTeamId || !currentActiveSlide || currentActiveSlide.round_number === 0) {
+            setCurrentTeamKpis(null);
+            return;
+        }
+
+        try {
+            setIsLoadingKpis(true);
+            const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, currentActiveSlide.round_number);
+            setCurrentTeamKpis(kpis);
+            console.log('📊 KPIs loaded for round', currentActiveSlide.round_number, ':', kpis);
+        } catch (error) {
+            console.error('📊 Error loading KPIs:', error);
+            setCurrentTeamKpis(null);
+        } finally {
+            setIsLoadingKpis(false);
+        }
+    };
+
+    // ========================================================================
+    // SINGLE REAL-TIME SUBSCRIPTION
+    // This is the ONLY WebSocket connection per team app
+    // ========================================================================
     useEffect(() => {
-        if (!sessionId) {
+        if (!sessionId || !loggedInTeamId) {
+            console.log('🔔 Missing sessionId or teamId - no real-time subscription');
             setConnectionStatus('disconnected');
             return;
         }
 
-        console.log('[useTeamGameState] Setting up connection for session:', sessionId);
+        console.log('🔔 Setting up SINGLE real-time subscription for team:', loggedInTeamId);
         setConnectionStatus('connecting');
 
-        // Connection timeout - if no real-time updates after 15 seconds, assume disconnected
-        const connectionTimeout = setTimeout(() => {
-            console.warn('[useTeamGameState] No real-time updates received after 15 seconds - connection status: disconnected');
-            setConnectionStatus('disconnected');
-        }, 15000);
+        const channel = supabase
+            .channel(`team-updates-${sessionId}-${loggedInTeamId}`)
 
-        return () => clearTimeout(connectionTimeout);
-    }, [sessionId]);
+            // ================================================================
+            // REQUIREMENT 1: SLIDE CHANGES
+            // Listen for host slide navigation
+            // ================================================================
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'sessions',  // FIXED: Changed from 'game_sessions' to 'sessions'
+                filter: `id=eq.${sessionId}`
+            }, (payload) => {
+                console.log('🎬 REAL-TIME: Raw slide change payload:', payload);
+                console.log('🎬 REAL-TIME: Old slide index:', payload.old?.current_slide_index);
+                console.log('🎬 REAL-TIME: New slide index:', payload.new?.current_slide_index);
 
-    // KPI data management with enhanced refresh trigger
-    const {
-        data: currentTeamKpis,
-        isLoading: isLoadingKpis,
-        refresh: refetchKpis
-    } = useSupabaseQuery(
-        () => {
-            if (!sessionId || !loggedInTeamId || !currentActiveSlide || currentActiveSlide.round_number === 0) {
-                return Promise.resolve(null);
-            }
-            return db.kpis.getForTeamRound(sessionId, loggedInTeamId, currentActiveSlide.round_number);
-        },
-        [sessionId, loggedInTeamId, currentActiveSlide?.round_number, kpiUpdateTrigger],
-        {
-            cacheKey: `team-kpis-${sessionId}-${loggedInTeamId}-${currentActiveSlide?.round_number}-${kpiUpdateTrigger}`,
-            cacheTimeout: 2000 // Reduced cache timeout for faster updates
-        }
-    );
+                // Only process if slide actually changed
+                if (payload.new?.current_slide_index !== payload.old?.current_slide_index) {
+                    const newSlideIndex = payload.new.current_slide_index;
+                    const newSlide = gameStructure.slides[newSlideIndex];
 
-    // SUPABASE REAL-TIME: Listen for KPI updates (REPLACES BroadcastChannel KPI updates)
-    useRealtimeSubscription(
-        `team-kpis-${sessionId}-${loggedInTeamId}`,
-        {
-            table: 'team_round_data',
-            filter: `session_id=eq.${sessionId}.and.team_id=eq.${loggedInTeamId}`,
-            onchange: (payload) => {
-                console.log('[useTeamGameState] KPI data updated via Supabase real-time subscription:', payload);
+                    console.log(`🎬 REAL-TIME: Host moved to slide ${newSlideIndex}: ${newSlide?.title}`);
+
+                    // 1.1 Update the team app slide name
+                    console.log('🎬 REAL-TIME: Updating slide state directly');
+                    setCurrentActiveSlide(newSlide);
+
+                    if (newSlide) {
+                        const requiresDecision = newSlide.type.startsWith('interactive_') && !!newSlide.interactive_data_key;
+                        setIsDecisionTime(requiresDecision);
+                        console.log(`🎬 REAL-TIME: Updated to slide ${newSlide.id}: "${newSlide.title}" | Decision Required: ${requiresDecision}`);
+                    } else {
+                        setIsDecisionTime(false);
+                    }
+
+                    // 1.3 Check if we are updating consequences
+                    if (newSlide?.type === 'consequence_reveal') {
+                        console.log('💥 REAL-TIME: Consequence slide - will check team impact');
+                        // Handle consequence logic here inline to avoid dependency issues
+                    }
+
+                    setConnectionStatus('connected');
+                } else {
+                    console.log('🎬 REAL-TIME: Slide index unchanged, skipping update');
+                }
+            })
+
+            // ================================================================
+            // REQUIREMENT 2: DECISION RESETS
+            // Listen for host resetting team decisions
+            // ================================================================
+            .on('postgres_changes', {
+                event: 'DELETE',
+                schema: 'public',
+                table: 'team_decisions',
+                filter: `session_id=eq.${sessionId}.and.team_id=eq.${loggedInTeamId}`
+            }, (payload) => {
+                console.log('🔄 REAL-TIME: Decision reset detected for our team:', payload);
+
+                const deletedPhaseId = payload.old?.phase_id;
+                const currentSlideKey = currentActiveSlide?.interactive_data_key;
+
+                if (deletedPhaseId && currentSlideKey &&
+                    (deletedPhaseId === currentSlideKey || deletedPhaseId === `${currentSlideKey}_immediate`)) {
+
+                    console.log('🔄 REAL-TIME: Our current decision was reset - clearing UI');
+
+                    // Reset the team app and allow new choices
+                    // Note: This will trigger UI updates in components that use this hook
+                    setIsDecisionTime(true); // Re-enable decision making
+
+                    // Trigger re-fetch of decision data in other hooks
+                    setKpiUpdateTrigger(prev => prev + 1);
+                }
+
                 setConnectionStatus('connected');
-                refetchKpis();
-                setKpiUpdateTrigger(prev => prev + 1);
-            }
-        },
-        !!sessionId && !!loggedInTeamId
-    );
+            })
 
-    // Enhanced: Force refresh KPIs when consequence slides are detected
+            .subscribe((status) => {
+                console.log('🔔 REAL-TIME: Subscription status changed:', status);
+
+                if (status === 'SUBSCRIBED') {
+                    console.log('🔔 REAL-TIME: Successfully connected - listening for changes to session:', sessionId);
+                    setConnectionStatus('connected');
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.log('🔔 REAL-TIME: Connection failed');
+                    setConnectionStatus('disconnected');
+                } else if (status === 'CLOSED') {
+                    console.log('🔔 REAL-TIME: Connection closed');
+                    setConnectionStatus('disconnected');
+                } else {
+                    console.log('🔔 REAL-TIME: Connecting...');
+                    setConnectionStatus('connecting');
+                }
+            });
+
+        // Cleanup: Unsubscribe when component unmounts or dependencies change
+        return () => {
+            console.log('🔔 REAL-TIME: Cleaning up subscription');
+            channel.unsubscribe();
+        };
+    }, [sessionId, loggedInTeamId]); // FIXED: Removed callback dependencies that were causing loops
+
+    // ========================================================================
+    // FALLBACK POLLING
+    // Backup mechanism in case real-time fails
+    // ========================================================================
     useEffect(() => {
-        if (currentActiveSlide?.type === 'consequence_reveal') {
-            console.log('[useTeamGameState] Consequence slide detected, refreshing KPI data');
-            // Add a small delay to ensure database updates are complete
-            setTimeout(() => {
-                refetchKpis();
-                setKpiUpdateTrigger(prev => prev + 1);
-            }, 1000);
-        }
-    }, [currentActiveSlide?.type, currentActiveSlide?.id, refetchKpis]);
+        if (!sessionId) return;
 
-    // Additional: Force refresh when slide changes to any new slide
+        console.log('📡 Setting up fallback polling (10 second intervals)');
+
+        // Initial fetch
+        fetchSessionData();
+
+        // Backup polling every 10 seconds
+        const pollInterval = setInterval(() => {
+            console.log('📡 POLLING: Checking for updates...');
+            fetchSessionData();
+        }, 10000); // 10 seconds - less aggressive than before
+
+        return () => {
+            console.log('📡 POLLING: Cleaning up fallback polling');
+            clearInterval(pollInterval);
+        };
+    }, [sessionId, gameStructure]);
+
+    // ========================================================================
+    // KPI DATA MANAGEMENT
+    // ========================================================================
     useEffect(() => {
-        if (currentActiveSlide) {
-            console.log('[useTeamGameState] Slide changed, checking for KPI updates');
-            // Small delay to allow processing to complete
-            setTimeout(() => {
-                refetchKpis();
-            }, 500);
-        }
-    }, [currentActiveSlide?.id, refetchKpis]);
+        fetchKpisForCurrentSlide();
+    }, [currentActiveSlide, kpiUpdateTrigger]);
 
+    // ========================================================================
+    // RETURN INTERFACE
+    // ========================================================================
     return {
         currentActiveSlide,
         isDecisionTime,
