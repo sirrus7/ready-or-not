@@ -1,5 +1,5 @@
 // src/app/providers/GameProvider.tsx
-// REFACTORED VERSION - Only removes broadcastManager from reset logic
+// FINAL FIX: Remove the problematic data refresh useEffect that causes infinite loops
 
 import React, {createContext, useContext, useCallback, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
@@ -107,16 +107,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         }
     }, [session?.id]);
 
-    // Auto-refresh data when slide changes to consequence slides
-    useEffect(() => {
-        if (gameController.currentSlideData?.type === 'consequence_reveal' && session?.id) {
-            console.log('[GameProvider] Consequence slide detected, scheduling data refresh');
-            setTimeout(async () => {
-                // FIXED: Provide the required sessionId argument
-                await teamDataManager.fetchTeamsForSession(session.id);
-            }, 1500);
-        }
-    }, [gameController.currentSlideData?.type, gameController.currentSlideData?.id, session?.id, teamDataManager]);
+    // CRITICAL FIX: REMOVED the problematic auto-refresh useEffect
+    // The old code was:
+    // useEffect(() => {
+    //     if (gameController.currentSlideData?.type === 'consequence_reveal' && session?.id) {
+    //         console.log('[GameProvider] Consequence slide detected, scheduling data refresh');
+    //         setTimeout(async () => {
+    //             await teamDataManager.fetchTeamsForSession(session.id);
+    //         }, 1500);
+    //     }
+    // }, [gameController.currentSlideData?.type, gameController.currentSlideData?.id, session?.id, teamDataManager]);
+    //
+    // This was causing infinite loops because:
+    // 1. teamDataManager changes on every render
+    // 2. This triggers the useEffect repeatedly
+    // 3. Each trigger causes a data fetch
+    // 4. Data fetch triggers re-renders
+    // 5. INFINITE LOOP
+    //
+    // The ConsequenceProcessor already handles its own data refreshes properly,
+    // so this additional refresh is unnecessary and harmful.
 
     // Build AppState with proper property names
     const state: AppState = {
