@@ -33,7 +33,7 @@ interface UseGameProcessingProps {
 interface UseGameProcessingReturn {
     processInteractiveSlide: (completedSlide: Slide) => Promise<void>;
     processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>;
-    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => void;
+    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => void;
     resetGameProgress: () => void;
     isLoadingProcessingDecisions: boolean;
@@ -264,7 +264,9 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
     return {
         processInteractiveSlide,
         processConsequenceSlide,
-        processInvestmentPayoffs: processInvestmentPayoffsExecute,
+        processInvestmentPayoffs: async (roundNumber: 1 | 2 | 3): Promise<void> => {
+            await processInvestmentPayoffsExecute(roundNumber);
+        },
         calculateAndFinalizeRoundKPIs: calculateKPIsExecute,
         resetGameProgress: resetGameProgressExecute,
         isLoadingProcessingDecisions: false,

@@ -10,7 +10,8 @@ export const useGameController = (
     initialDbSession: GameSession | null,
     gameStructure: GameStructure | null,
     processInteractiveSlide: (completedSlide: Slide) => Promise<void>,
-    processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>
+    processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>,
+    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>
 ) => {
     // STATE MANAGEMENT
     const [dbSession, setDbSession] = useState<GameSession | null>(initialDbSession);
@@ -205,8 +206,46 @@ export const useGameController = (
             }
         };
 
+        const processPayoffSlideAuto = async () => {
+            if (currentSlideData.type === 'payoff_reveal') {
+                if (lastProcessedSlideRef.current === currentSlideData.id) {
+                    console.log(`[useGameController] ⚪ Payoff slide ${currentSlideData.id} already processed`);
+                    return;
+                }
+
+                if (processingRef.current) {
+                    console.log(`[useGameController] ⏸️ Already processing slide ${currentSlideData.id}, skipping`);
+                    return;
+                }
+
+                console.log(`[useGameController] 🎯 NEW payoff slide detected: ${currentSlideData.id}`);
+
+                try {
+                    processingRef.current = true;
+
+                    const roundNumber = currentSlideData.round_number as 1 | 2 | 3;
+                    if (roundNumber > 0) {
+                        console.log(`[useGameController] Processing investment payoffs for round ${roundNumber}`);
+                        await processInvestmentPayoffs(roundNumber);
+                        console.log(`[useGameController] ✅ Successfully processed payoffs for round ${roundNumber}`);
+                    }
+
+                    lastProcessedSlideRef.current = currentSlideData.id;
+                } catch (error) {
+                    console.error(`[useGameController] ❌ Error processing payoff slide:`, error);
+                    setCurrentHostAlertState({
+                        title: "Processing Error",
+                        message: `Failed to process investment payoffs: ${error instanceof Error ? error.message : 'Unknown error'}`
+                    });
+                } finally {
+                    processingRef.current = false;
+                }
+            }
+        };
+
         processConsequenceSlideAuto();
-    }, [currentSlideData?.id, currentSlideData?.type, gameStructure, processConsequenceSlide, dbSession?.id]);
+        processPayoffSlideAuto();
+    }, [currentSlideData?.id, currentSlideData?.type, gameStructure, processConsequenceSlide, dbSession?.id, processInvestmentPayoffs]);
 
     // HOST ALERT MANAGEMENT
     const clearHostAlert = useCallback(async () => {

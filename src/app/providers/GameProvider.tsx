@@ -80,7 +80,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         session,
         gameStructure,
         gameProcessing.processInteractiveSlide,
-        gameProcessing.processConsequenceSlide
+        gameProcessing.processConsequenceSlide,
+        gameProcessing.processInvestmentPayoffs
     );
 
     const resetTeamDecision = useCallback(async (teamId: string, interactiveDataKey: string) => {

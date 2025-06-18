@@ -10,7 +10,7 @@ import {useGameContext} from '@app/providers/GameProvider';
 import {Layers, Info, AlertTriangle, History, ListChecks} from 'lucide-react';
 
 const GamePanel: React.FC = () => {
-    const {state, currentSlideData, processInvestmentPayoffs, setCurrentHostAlertState} = useGameContext();
+    const {state, currentSlideData} = useGameContext();
     const {gameStructure, currentSessionId, error: appError, isLoading} = state;
 
     const [activeTab, setActiveTab] = useState<'timeline' | 'submissions'>('timeline');
@@ -51,15 +51,6 @@ const GamePanel: React.FC = () => {
         return <div className="bg-gray-100 p-6 rounded-lg shadow-md flex items-center h-full text-gray-500"><Info
             className="mr-3"/>No Active Game Session Loaded</div>;
     }
-
-    const handlePayoffProcessing = async (roundNumber: 1 | 2 | 3) => {
-        try {
-            await processInvestmentPayoffs(roundNumber);
-            setCurrentHostAlertState({title: 'Processing Complete', message: `Round ${roundNumber} payoffs applied.`});
-        } catch (error) {
-            console.error('[GamePanel] Failed to process investment payoffs:', error);
-        }
-    };
 
     return (
         <>
@@ -114,18 +105,6 @@ const GamePanel: React.FC = () => {
 
                 {/* Bottom Controls */}
                 <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3">
-                    {currentSlideData?.type === 'payoff_reveal' && currentSlideData.round_number > 0 && (
-                        <div className="mb-3 p-2 bg-blue-50 rounded border border-blue-200">
-                            <button
-                                onClick={() => handlePayoffProcessing(currentSlideData.round_number as 1 | 2 | 3)}
-                                className="w-full px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
-                            >
-                                Process RD-{currentSlideData.round_number} Investment Payoffs
-                            </button>
-                            <p className="text-xs text-blue-600 mt-1 text-center">Click to apply investment effects
-                                to all teams</p>
-                        </div>
-                    )}
                     <HostGameControls/>
                 </div>
             </div>
