@@ -1,5 +1,5 @@
 // src/core/game/ConsequenceProcessor.ts
-// CRITICAL FIX: Real-time KPI updates for team apps
+// CRITICAL FIX: Added slide processing state tracking to prevent reprocessing
 
 import {Slide, GameStructure, GameSession, Team, TeamRoundData, KpiEffect, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
@@ -19,14 +19,188 @@ interface ConsequenceProcessorProps {
 export class ConsequenceProcessor {
     private props: ConsequenceProcessorProps;
 
+    // CRITICAL FIX: Track processed slides to prevent reprocessing
+    private static processedSlides = new Set<string>();
+    private static processing = false;
+
     constructor(props: ConsequenceProcessorProps) {
         this.props = props;
         console.log('[ConsequenceProcessor] ✅ Initialized for session:', this.props.currentDbSession?.id);
     }
 
     /**
+     * CRITICAL FIX: Main consequence processing method with safeguards
+     */
+    async processConsequenceSlide(consequenceSlide: Slide): Promise<void> {
+        const slideKey = `${this.props.currentDbSession?.id}-${consequenceSlide.id}`;
+
+        // CRITICAL FIX: Prevent concurrent processing and reprocessing
+        if (ConsequenceProcessor.processing) {
+            console.log(`[ConsequenceProcessor] ⏸️ Already processing, skipping slide ${consequenceSlide.id}`);
+            return;
+        }
+
+        if (ConsequenceProcessor.processedSlides.has(slideKey)) {
+            console.log(`[ConsequenceProcessor] ✅ Slide ${consequenceSlide.id} already processed, skipping`);
+            return;
+        }
+
+        ConsequenceProcessor.processing = true;
+        console.log('\n🎯 [ConsequenceProcessor] ==================== PROCESSING CONSEQUENCE SLIDE ====================');
+        console.log(`[ConsequenceProcessor] Slide ID: ${consequenceSlide.id}, Title: "${consequenceSlide.title}", Type: ${consequenceSlide.type}`);
+
+        try {
+            // Validate slide type
+            if (consequenceSlide.type !== 'consequence_reveal') {
+                console.warn(`[ConsequenceProcessor] ❌ Slide ${consequenceSlide.id} is not a consequence slide (type: ${consequenceSlide.type})`);
+                return;
+            }
+
+            const {currentDbSession, gameStructure, teams, teamDecisions} = this.props;
+
+            // Validate required data
+            if (!currentDbSession?.id || !gameStructure || !teams.length) {
+                console.warn('[ConsequenceProcessor] ❌ Skipping consequence processing - insufficient data');
+                return;
+            }
+
+            console.log(`[ConsequenceProcessor] ✅ Processing for ${teams.length} teams in session ${currentDbSession.id}`);
+
+            // Map consequence slide to challenge using registry
+            const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
+            if (!challengeId) {
+                console.warn(`[ConsequenceProcessor] ❌ No challenge mapping found for slide ${consequenceSlide.id}`);
+                return;
+            }
+
+            console.log(`[ConsequenceProcessor] ✅ Mapped slide ${consequenceSlide.id} to challenge ${challengeId}`);
+
+            // Get consequences for this challenge
+            const consequenceKey = `${challengeId}-conseq`;
+            const allConsequencesForChoice = gameStructure.all_consequences[consequenceKey];
+
+            if (!allConsequencesForChoice || allConsequencesForChoice.length === 0) {
+                console.warn(`[ConsequenceProcessor] ❌ No consequences found for key: ${consequenceKey}`);
+                return;
+            }
+
+            console.log(`[ConsequenceProcessor] ✅ Found ${allConsequencesForChoice.length} consequences for ${consequenceKey}`);
+
+            // CRITICAL: Determine which option this slide is for
+            const slideOption = this.getSlideOption(consequenceSlide);
+            console.log(`[ConsequenceProcessor] ✅ This slide is for option: ${slideOption}`);
+
+            // Debug: Log all team decisions for this challenge
+            console.log('\n📋 [ConsequenceProcessor] Current team decisions:');
+            teams.forEach(team => {
+                const decision = teamDecisions[team.id]?.[challengeId];
+                console.log(`  - ${team.name}: ${decision ? decision.selected_challenge_option_id : 'No decision found'}`);
+            });
+
+            const updatedTeamData: { teamId: string, kpis: TeamRoundData }[] = [];
+
+            // Process each team
+            for (const team of teams) {
+                const teamDecision = teamDecisions[team.id]?.[challengeId];
+                if (!teamDecision) {
+                    console.log(`[ConsequenceProcessor] ⚠️ No decision found for team ${team.name} for challenge ${challengeId}. Skipping.`);
+                    continue;
+                }
+
+                if (teamDecision.selected_challenge_option_id !== slideOption) {
+                    console.log(`[ConsequenceProcessor] ℹ️ Team ${team.name} chose ${teamDecision.selected_challenge_option_id}, but this slide is for ${slideOption}. Skipping.`);
+                    continue;
+                }
+
+                // Ensure KPI data exists for this team and round
+                // Handle round 0 by using round 1 KPIs (round 0 is intro/setup)
+                const kpiRoundNumber = consequenceSlide.round_number === 0 ? 1 : consequenceSlide.round_number as (1 | 2 | 3);
+                const teamKpis = await this.ensureTeamRoundData(team.id, kpiRoundNumber);
+
+                // Find the consequence for this option
+                const consequence = allConsequencesForChoice.find(c => c.challenge_option_id === slideOption);
+                if (!consequence) {
+                    console.warn(`[ConsequenceProcessor] ❌ No consequence found for option ${slideOption} in ${challengeId}`);
+                    continue;
+                }
+
+                console.log(`[ConsequenceProcessor] ✅ Applying consequence for ${team.name}: ${consequence.id}`);
+                console.log(`[ConsequenceProcessor] 📝 Effects to apply:`, consequence.effects);
+
+                // Apply immediate effects to KPIs
+                const updatedKpis = {...teamKpis};
+                let hasImmediateChanges = false;
+
+                consequence.effects.forEach(effect => {
+                    if (effect.timing === 'immediate') {
+                        const oldValue = updatedKpis[`current_${effect.kpi}` as keyof TeamRoundData] as number;
+
+                        if (effect.is_percentage_change) {
+                            const change = oldValue * (effect.change_value / 100);
+                            (updatedKpis as any)[`current_${effect.kpi}`] = Math.round(oldValue + change);
+                        } else {
+                            (updatedKpis as any)[`current_${effect.kpi}`] = oldValue + effect.change_value;
+                        }
+
+                        const newValue = updatedKpis[`current_${effect.kpi}` as keyof TeamRoundData] as number;
+                        console.log(`[ConsequenceProcessor] 📈 ${effect.kpi}: ${oldValue} → ${newValue} (${effect.change_value > 0 ? '+' : ''}${effect.change_value})`);
+                        hasImmediateChanges = true;
+                    }
+                });
+
+                // Recalculate derived metrics if there were immediate changes
+                if (hasImmediateChanges) {
+                    const financialMetrics = KpiCalculations.calculateFinancialMetrics(updatedKpis);
+                    const recalculatedKpis = {
+                        ...updatedKpis,
+                        ...financialMetrics
+                    };
+
+                    // CRITICAL: Update in database - this triggers real-time sync to team apps
+                    const finalKpis = await db.kpis.update(teamKpis.id!, recalculatedKpis);
+                    console.log(`[ConsequenceProcessor] ✅ Updated KPIs in database for team ${team.name}`);
+
+                    updatedTeamData.push({teamId: team.id, kpis: finalKpis as TeamRoundData});
+                }
+
+                // CRITICAL: Store permanent adjustments for future rounds
+                await this.storePermanentAdjustments(
+                    team.id,
+                    currentDbSession.id,
+                    consequence.effects,
+                    challengeId,
+                    slideOption
+                );
+
+                console.log(`[ConsequenceProcessor] ✅ Completed processing for team ${team.name}`);
+            }
+
+            // CRITICAL FIX: Mark slide as processed ONLY after successful completion
+            ConsequenceProcessor.processedSlides.add(slideKey);
+
+            console.log('\n📡 [ConsequenceProcessor] ==================== PROCESSING COMPLETED ====================');
+            console.log(`[ConsequenceProcessor] ✅ Successfully processed slide ${consequenceSlide.id} for ${updatedTeamData.length} teams`);
+            console.log(`[ConsequenceProcessor] 📱 Team apps will receive updates via Supabase real-time subscriptions`);
+
+        } catch (error) {
+            console.error('[ConsequenceProcessor] ❌ Error during consequence processing:', error);
+            throw error;
+        } finally {
+            ConsequenceProcessor.processing = false;
+        }
+    }
+
+    /**
+     * CRITICAL: Reset processed slides when needed (e.g., new session)
+     */
+    public static resetProcessedSlides(): void {
+        ConsequenceProcessor.processedSlides.clear();
+        ConsequenceProcessor.processing = false;
+        console.log('[ConsequenceProcessor] 🔄 Reset processed slides cache');
+    }
+
+    /**
      * CRITICAL: Ensures team KPI data exists in database for the current round
-     * This is essential for real-time synchronization to work properly
      */
     private async ensureTeamRoundData(teamId: string, roundNumber: 1 | 2 | 3): Promise<TeamRoundData> {
         const {currentDbSession, teamRoundData, setTeamRoundDataDirectly} = this.props;
@@ -105,7 +279,7 @@ export class ConsequenceProcessor {
         );
 
         if (permanentEffects.length === 0) {
-            console.log(`[ConsequenceProcessor] ℹ️  No permanent effects to store for ${challengeId}-${optionId}`);
+            console.log(`[ConsequenceProcessor] ℹ️ No permanent effects to store for ${challengeId}-${optionId}`);
             return;
         }
 
@@ -141,21 +315,21 @@ export class ConsequenceProcessor {
         // Fallback: Use challenge registry to map slide to option by position
         const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
         if (!challengeId) {
-            console.warn(`[ConsequenceProcessor] ⚠️  No challenge ID found for slide ${consequenceSlide.id}, defaulting to A`);
+            console.warn(`[ConsequenceProcessor] ⚠️ No challenge ID found for slide ${consequenceSlide.id}, defaulting to A`);
             return 'A';
         }
 
         // Get the challenge metadata to determine slide order
         const challenge = getChallengeBySlideId(consequenceSlide.id);
         if (!challenge) {
-            console.warn(`[ConsequenceProcessor] ⚠️  No challenge metadata found for slide ${consequenceSlide.id}, defaulting to A`);
+            console.warn(`[ConsequenceProcessor] ⚠️ No challenge metadata found for slide ${consequenceSlide.id}, defaulting to A`);
             return 'A';
         }
 
         // Find the position of this slide in the consequence slides array
         const slideIndex = challenge.consequence_slides.indexOf(consequenceSlide.id);
         if (slideIndex === -1) {
-            console.warn(`[ConsequenceProcessor] ⚠️  Slide ${consequenceSlide.id} not found in consequence slides for challenge ${challengeId}, defaulting to A`);
+            console.warn(`[ConsequenceProcessor] ⚠️ Slide ${consequenceSlide.id} not found in consequence slides for challenge ${challengeId}, defaulting to A`);
             return 'A';
         }
 
@@ -164,183 +338,11 @@ export class ConsequenceProcessor {
         const option = options[slideIndex];
 
         if (!option) {
-            console.warn(`[ConsequenceProcessor] ⚠️  Invalid slide index ${slideIndex} for slide ${consequenceSlide.id}, defaulting to A`);
+            console.warn(`[ConsequenceProcessor] ⚠️ Invalid slide index ${slideIndex} for slide ${consequenceSlide.id}, defaulting to A`);
             return 'A';
         }
 
         console.log(`[ConsequenceProcessor] ✅ Mapped slide ${consequenceSlide.id} to option ${option} (index ${slideIndex} in ${challengeId})`);
         return option;
-    }
-
-    /**
-     * CRITICAL FIX: Main consequence processing method
-     *
-     * ARCHITECTURE:
-     * 1. Host processes consequences → Database update → Real-time sync → Team apps update
-     * 2. Only applies consequences to teams that chose the matching option
-     * 3. Updates KPIs immediately and stores permanent adjustments
-     * 4. Database updates trigger Supabase real-time subscriptions in team apps
-     */
-    async processConsequenceSlide(consequenceSlide: Slide): Promise<void> {
-        console.log('\n🎯 [ConsequenceProcessor] ==================== PROCESSING CONSEQUENCE SLIDE ====================');
-        console.log(`[ConsequenceProcessor] Slide ID: ${consequenceSlide.id}, Title: "${consequenceSlide.title}", Type: ${consequenceSlide.type}`);
-
-        // Validate slide type
-        if (consequenceSlide.type !== 'consequence_reveal') {
-            console.warn(`[ConsequenceProcessor] ❌ Slide ${consequenceSlide.id} is not a consequence slide (type: ${consequenceSlide.type})`);
-            return;
-        }
-
-        const {currentDbSession, gameStructure, teams, teamDecisions} = this.props;
-
-        // Validate required data
-        if (!currentDbSession?.id || !gameStructure || !teams.length) {
-            console.warn('[ConsequenceProcessor] ❌ Skipping consequence processing - insufficient data');
-            return;
-        }
-
-        console.log(`[ConsequenceProcessor] ✅ Processing for ${teams.length} teams in session ${currentDbSession.id}`);
-
-        try {
-            // Map consequence slide to challenge using registry
-            const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
-            if (!challengeId) {
-                console.warn(`[ConsequenceProcessor] ❌ No challenge mapping found for slide ${consequenceSlide.id}`);
-                return;
-            }
-
-            console.log(`[ConsequenceProcessor] ✅ Mapped slide ${consequenceSlide.id} to challenge ${challengeId}`);
-
-            // Get consequences for this challenge
-            const consequenceKey = `${challengeId}-conseq`;
-            const allConsequencesForChoice = gameStructure.all_consequences[consequenceKey];
-
-            if (!allConsequencesForChoice || allConsequencesForChoice.length === 0) {
-                console.warn(`[ConsequenceProcessor] ❌ No consequences found for key: ${consequenceKey}`);
-                return;
-            }
-
-            console.log(`[ConsequenceProcessor] ✅ Found ${allConsequencesForChoice.length} consequences for ${consequenceKey}`);
-
-            // CRITICAL: Determine which option this slide is for
-            const slideOption = this.getSlideOption(consequenceSlide);
-            console.log(`[ConsequenceProcessor] ✅ This slide is for option: ${slideOption}`);
-
-            // Debug: Log all team decisions for this challenge
-            console.log('\n📋 [ConsequenceProcessor] Current team decisions:');
-            teams.forEach(team => {
-                const decision = teamDecisions[team.id]?.[challengeId];
-                console.log(`  Team ${team.name} (${team.id}): ${decision?.selected_challenge_option_id || 'NO DECISION'}`);
-            });
-
-            const updatedTeamData: Array<{ teamId: string; kpis: TeamRoundData }> = [];
-
-            // Process each team based on their decision
-            for (const team of teams) {
-                console.log(`\n🏢 [ConsequenceProcessor] ======== PROCESSING TEAM: ${team.name} (${team.id}) ========`);
-
-                // Ensure team has KPI data for current round
-                const teamKpis = await this.ensureTeamRoundData(team.id, consequenceSlide.round_number as 1 | 2 | 3);
-                console.log(`[ConsequenceProcessor] 📊 Current KPIs for ${team.name}:`, {
-                    capacity: teamKpis.current_capacity,
-                    orders: teamKpis.current_orders,
-                    cost: teamKpis.current_cost,
-                    asp: teamKpis.current_asp
-                });
-
-                // Get team's decision for this challenge
-                const decision = teamDecisions[team.id]?.[challengeId];
-                const options = gameStructure.all_challenge_options[challengeId] || [];
-                const selectedOptionId = decision?.selected_challenge_option_id || options.find(opt => opt.is_default_choice)?.id;
-
-                console.log(`[ConsequenceProcessor] 🎯 Team ${team.name} selected option: ${selectedOptionId}`);
-
-                // CRITICAL: Only process teams that chose this specific option
-                if (selectedOptionId !== slideOption) {
-                    console.log(`[ConsequenceProcessor] ⏭️  Team ${team.name} chose ${selectedOptionId}, but slide ${consequenceSlide.id} is for option ${slideOption}. Skipping.`);
-                    continue;
-                }
-
-                // Find the consequence for this option
-                const consequence = allConsequencesForChoice.find(c => c.challenge_option_id === slideOption);
-                if (!consequence) {
-                    console.warn(`[ConsequenceProcessor] ❌ No consequence found for option ${slideOption} in ${challengeId}`);
-                    continue;
-                }
-
-                console.log(`[ConsequenceProcessor] ✅ Applying consequence for ${team.name}: ${consequence.id}`);
-                console.log(`[ConsequenceProcessor] 📝 Effects to apply:`, consequence.effects);
-
-                // Apply immediate effects to KPIs
-                const updatedKpis = {...teamKpis};
-                let hasImmediateChanges = false;
-
-                consequence.effects.forEach(effect => {
-                    if (effect.timing === 'immediate') {
-                        const oldValue = updatedKpis[`current_${effect.kpi}` as keyof TeamRoundData] as number;
-
-                        if (effect.is_percentage_change) {
-                            const change = oldValue * (effect.change_value / 100);
-                            (updatedKpis as any)[`current_${effect.kpi}`] = Math.round(oldValue + change);
-                        } else {
-                            (updatedKpis as any)[`current_${effect.kpi}`] = oldValue + effect.change_value;
-                        }
-
-                        const newValue = updatedKpis[`current_${effect.kpi}` as keyof TeamRoundData] as number;
-                        console.log(`[ConsequenceProcessor] 📈 ${effect.kpi}: ${oldValue} → ${newValue} (${effect.change_value > 0 ? '+' : ''}${effect.change_value})`);
-                        hasImmediateChanges = true;
-                    }
-                });
-
-                // Recalculate derived metrics if there were immediate changes
-                if (hasImmediateChanges) {
-                    const financialMetrics = KpiCalculations.calculateFinancialMetrics(updatedKpis);
-                    const recalculatedKpis = {
-                        ...updatedKpis,
-                        ...financialMetrics
-                    };
-
-                    // CRITICAL: Update in database - this triggers real-time sync to team apps
-                    const finalKpis = await db.kpis.update(teamKpis.id!, recalculatedKpis);
-                    console.log(`[ConsequenceProcessor] ✅ Updated KPIs in database for team ${team.name}`);
-
-                    updatedTeamData.push({teamId: team.id, kpis: finalKpis as TeamRoundData});
-                }
-
-                // CRITICAL: Store permanent adjustments for future rounds
-                await this.storePermanentAdjustments(
-                    team.id,
-                    currentDbSession.id,
-                    consequence.effects,
-                    challengeId,
-                    slideOption
-                );
-
-                console.log(`[ConsequenceProcessor] ✅ Completed processing for team ${team.name}`);
-            }
-
-            // CRITICAL: Real-time broadcasting happens automatically via database updates
-            console.log('\n📡 [ConsequenceProcessor] ==================== REAL-TIME BROADCASTING ====================');
-            console.log(`[ConsequenceProcessor] ✅ Database updates completed for ${updatedTeamData.length} teams`);
-            console.log(`[ConsequenceProcessor] 📱 Team apps should receive updates via Supabase real-time subscriptions`);
-
-            updatedTeamData.forEach(team => {
-                console.log(`[ConsequenceProcessor] 📊 Team ${team.teamId} final KPIs:`, {
-                    capacity: team.kpis.current_capacity,
-                    orders: team.kpis.current_orders,
-                    cost: team.kpis.current_cost,
-                    asp: team.kpis.current_asp,
-                    revenue: team.kpis.revenue,
-                    net_income: team.kpis.net_income,
-                    net_margin: team.kpis.net_margin
-                });
-            });
-
-            console.log(`[ConsequenceProcessor] ✅ Consequence processing completed successfully`);
-
-        } catch (error) {
-            console.error('[ConsequenceProcessor] ❌ Error during consequence processing:', error);
-            throw error;
-        }
     }
 }
