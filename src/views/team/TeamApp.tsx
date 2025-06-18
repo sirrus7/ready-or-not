@@ -43,8 +43,6 @@
 import React, {useState, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
 import {Bug} from 'lucide-react';
-import {PermanentKpiAdjustment} from '@shared/types';
-import {db} from '@shared/services/supabase';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import TeamLogout from '@views/team/components/TeamLogin/TeamLogout';
 import DecisionModeContainer from '@views/team/components/InteractionPanel/DecisionContainer';
@@ -128,8 +126,6 @@ const TeamApp: React.FC = () => {
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(null);
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(null);
     const [showDebugPanel, setShowDebugPanel] = useState(false);
-    const [permanentAdjustments, setPermanentAdjustments] = useState<PermanentKpiAdjustment[]>([]);
-    const [loadingAdjustments, setLoadingAdjustments] = useState(false);
 
     console.log('🏢 TeamApp initialized:', {
         sessionId,
@@ -146,33 +142,6 @@ const TeamApp: React.FC = () => {
         sessionId: sessionId || null,
         loggedInTeamId
     });
-
-    // ========================================================================
-    // PERMANENT ADJUSTMENTS MANAGEMENT
-    // Load permanent KPI adjustments when team/session changes
-    // ========================================================================
-    useEffect(() => {
-        const loadPermanentAdjustments = async () => {
-            if (!sessionId || !loggedInTeamId) {
-                setPermanentAdjustments([]);
-                return;
-            }
-
-            setLoadingAdjustments(true);
-            try {
-                const adjustments = await db.adjustments.getByTeam(sessionId, loggedInTeamId);
-                setPermanentAdjustments(adjustments);
-                console.log('📊 Permanent adjustments loaded:', adjustments.length);
-            } catch (error) {
-                console.error('📊 Error loading permanent adjustments:', error);
-                setPermanentAdjustments([]);
-            } finally {
-                setLoadingAdjustments(false);
-            }
-        };
-
-        loadPermanentAdjustments();
-    }, [sessionId, loggedInTeamId]);
 
     // ========================================================================
     // CONDITIONAL RENDERING
@@ -338,13 +307,12 @@ const TeamApp: React.FC = () => {
                         </div>
 
                         {/* Permanent Adjustments */}
-                        {!loadingAdjustments && permanentAdjustments.length > 0 && (
-                            <KpiImpactCards
-                                teamId={loggedInTeamId || ''}
-                                currentRound={teamGameState.currentActiveSlide?.round_number || 1}
-                                permanentAdjustments={permanentAdjustments}
-                            />
-                        )}
+                        <KpiImpactCards
+                            teamId={loggedInTeamId || ''}
+                            currentRound={teamGameState.currentActiveSlide?.round_number || 1}
+                            permanentAdjustments={teamGameState.permanentAdjustments}
+                            isLoadingAdjustments={teamGameState.isLoadingAdjustments}
+                        />
                     </div>
                 </div>
 
