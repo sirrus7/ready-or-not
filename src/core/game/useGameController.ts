@@ -142,26 +142,24 @@ export const useGameController = (
     const clearHostAlert = useCallback(async () => {
         if (!currentHostAlertState || !dbSession) return;
 
-        const isAllSubmitAlert = currentHostAlertState.title === ALL_SUBMIT_ALERT_TITLE;
-
         setCurrentHostAlertState(null);
+        setAllTeamsAlertDismissed(true);
 
-        if (isAllSubmitAlert) {
-            setAllTeamsAlertDismissed(true);
-            try {
-                const nextSlideIndex = Math.min((dbSession.current_slide_index ?? 0) + 1, (gameStructure?.slides.length ?? 1) - 1);
-                await sessionManager.updateSession(dbSession.id, {current_slide_index: nextSlideIndex});
-                setDbSession(prev => prev ? {...prev, current_slide_index: nextSlideIndex} : null);
-                console.log(`[useGameController] Advanced to slide ${nextSlideIndex} after all teams submitted alert`);
-            } catch (error) {
-                console.error('[useGameController] Error advancing slide after alert:', error);
-                setCurrentHostAlertState({
-                    title: "Navigation Error",
-                    message: error instanceof Error ? error.message : "Failed to change slide."
-                });
-            }
+        // Always advance slide when clearHostAlert is called
+        try {
+            const nextSlideIndex = Math.min(
+                (dbSession.current_slide_index ?? 0) + 1,
+                (gameStructure?.slides.length ?? 1) - 1
+            );
+            await sessionManager.updateSession(dbSession.id, {current_slide_index: nextSlideIndex});
+            setDbSession(prev => prev ? {...prev, current_slide_index: nextSlideIndex} : null);
+        } catch (error) {
+            setCurrentHostAlertState({
+                title: "Navigation Error",
+                message: "Failed to change slide."
+            });
         }
-    }, [dbSession, sessionManager, gameStructure, currentHostAlertState, ALL_SUBMIT_ALERT_TITLE]);
+    }, [currentHostAlertState, dbSession, gameStructure?.slides.length, sessionManager]);
 
     // SLIDE NAVIGATION METHODS
     const nextSlide = useCallback(async () => {
@@ -304,6 +302,7 @@ export const useGameController = (
         currentHostAlert: currentHostAlertState,
         setCurrentHostAlertState,
         clearHostAlert,
+        setAllTeamsAlertDismissed: setAllTeamsAlertDismissed,
 
         // Team interaction
         setAllTeamsSubmittedCurrentInteractivePhase: setAllTeamsSubmittedCurrentInteractivePhase,

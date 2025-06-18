@@ -33,7 +33,7 @@ import {useGameContext} from '@app/providers/GameProvider';
  * - useGameController manages the actual navigation logic
  */
 const AlertModal: React.FC = () => {
-    const {state, clearHostAlert, setCurrentHostAlertState} = useGameContext();
+    const {state, clearHostAlert, setCurrentHostAlertState, setAllTeamsAlertDismissed} = useGameContext();
 
     // Early return if no alert is present
     if (!state.currentHostAlert) return null;
@@ -78,8 +78,9 @@ const AlertModal: React.FC = () => {
      * - GameContext handles dismissal tracking internally
      */
     const handleCloseClick = () => {
-        console.log('[AlertModal] Close button clicked for alert:', state.currentHostAlert?.title);
+        console.log('[AlertModal] Close button clicked');
         setCurrentHostAlertState(null);
+        setAllTeamsAlertDismissed(true); // ✅ Prevent re-showing
     };
 
     /**
@@ -89,8 +90,9 @@ const AlertModal: React.FC = () => {
      * Same behavior as Close button
      */
     const handleOverlayClick = () => {
-        console.log('[AlertModal] Overlay clicked, dismissing alert');
+        console.log('[AlertModal] Overlay clicked');
         setCurrentHostAlertState(null);
+        setAllTeamsAlertDismissed(true); // ✅ Prevent re-showing
     };
 
     return (

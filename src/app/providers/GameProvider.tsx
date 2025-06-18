@@ -38,7 +38,8 @@ interface GameContextType {
     updateHostNotesForCurrentSlide: (notes: string) => void;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
     setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
-    clearHostAlert: () => Promise<void>; // FIXED: Added missing method
+    clearHostAlert: () => Promise<void>;
+    setAllTeamsAlertDismissed: (dismissed: boolean) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -163,7 +164,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         updateHostNotesForCurrentSlide: gameController.updateHostNotesForCurrentSlide,
         setAllTeamsSubmittedCurrentInteractivePhase: gameController.setAllTeamsSubmittedCurrentInteractivePhase,
         setCurrentHostAlertState: gameController.setCurrentHostAlertState,
-        clearHostAlert: gameController.clearHostAlert, // FIXED: Added missing method exposure
+        clearHostAlert: gameController.clearHostAlert,
+        setAllTeamsAlertDismissed: gameController.setAllTeamsAlertDismissed,
     };
 
     return (
