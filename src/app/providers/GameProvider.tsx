@@ -1,5 +1,5 @@
 // src/app/providers/GameProvider.tsx
-// FIXED VERSION - Added missing clearHostAlert method to GameContextType
+// REFACTORED VERSION - Only removes broadcastManager from reset logic
 
 import React, {createContext, useContext, useCallback, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
@@ -91,11 +91,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         try {
             console.log(`[GameProvider] Resetting decision for team ${teamId}, phase ${interactiveDataKey}`);
             await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
-
-            // TODO: this is wrong! Our team app doesn't live within the browser context. It's on another device. We need this to be pushed to realtime and the team app should refresh and load the correct submission form!
-            const broadcastManager = SimpleBroadcastManager.getInstance(session.id, 'host');
-            broadcastManager.sendCommand('decision_reset', {teamId, interactiveDataKey});
-
             console.log(`[GameProvider] Reset decision complete for team ${teamId}, phase ${interactiveDataKey}`);
         } catch (error) {
             console.error('[GameProvider] Failed to reset team decision:', error);
