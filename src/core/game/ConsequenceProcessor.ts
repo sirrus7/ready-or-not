@@ -1,5 +1,5 @@
 // src/core/game/ConsequenceProcessor.ts
-// CRITICAL FIX: Added updateProps method to prevent instance recreation loops
+// FINAL VERSION: Database-backed consequence application tracking
 
 import {Slide, GameStructure, GameSession, Team, TeamRoundData, KpiEffect, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
@@ -19,7 +19,7 @@ interface ConsequenceProcessorProps {
 export class ConsequenceProcessor {
     private props: ConsequenceProcessorProps;
 
-    // CRITICAL FIX: Instance-based processing tracking
+    // Instance-based processing tracking
     private processedSlides = new Set<string>();
     private isProcessing = false;
 
@@ -29,7 +29,7 @@ export class ConsequenceProcessor {
     }
 
     /**
-     * CRITICAL FIX: Dynamic props update to prevent instance recreation
+     * Dynamic props update to prevent instance recreation
      */
     updateProps(newProps: ConsequenceProcessorProps): void {
         // Only log if session changes (significant change)
@@ -44,12 +44,12 @@ export class ConsequenceProcessor {
     }
 
     /**
-     * CRITICAL FIX: Main consequence processing method with proper safeguards
+     * FINAL VERSION: Main consequence processing method with database-backed duplicate prevention
      */
     async processConsequenceSlide(consequenceSlide: Slide): Promise<void> {
         const slideKey = `${this.props.currentDbSession?.id}-${consequenceSlide.id}`;
 
-        // CRITICAL FIX: Prevent concurrent processing and reprocessing
+        // Prevent concurrent processing and reprocessing
         if (this.isProcessing) {
             console.log(`[ConsequenceProcessor] ⏸️ Already processing, skipping slide ${consequenceSlide.id}`);
             return;
@@ -101,7 +101,7 @@ export class ConsequenceProcessor {
 
             console.log(`[ConsequenceProcessor] ✅ Found ${allConsequencesForChoice.length} consequences for ${consequenceKey}`);
 
-            // CRITICAL: Determine which option this slide is for
+            // Determine which option this slide is for
             const slideOption = this.getSlideOption(consequenceSlide);
             console.log(`[ConsequenceProcessor] ✅ This slide is for option: ${slideOption}`);
 
@@ -127,8 +127,20 @@ export class ConsequenceProcessor {
                     continue;
                 }
 
+                // 🏛️ CRITICAL: Database-backed duplicate prevention
+                const alreadyApplied = await db.consequenceApplications.hasBeenApplied(
+                    currentDbSession.id,
+                    team.id,
+                    challengeId,
+                    slideOption
+                );
+
+                if (alreadyApplied) {
+                    console.log(`[ConsequenceProcessor] 🔒 Consequence already applied to team ${team.name} for challenge ${challengeId}, option ${slideOption} (database check). Skipping.`);
+                    continue;
+                }
+
                 // Ensure KPI data exists for this team and round
-                // Handle round 0 by using round 1 KPIs (round 0 is intro/setup)
                 const kpiRoundNumber = consequenceSlide.round_number === 0 ? 1 : consequenceSlide.round_number as (1 | 2 | 3);
                 const teamKpis = await this.ensureTeamRoundData(team.id, kpiRoundNumber);
 
@@ -139,7 +151,7 @@ export class ConsequenceProcessor {
                     continue;
                 }
 
-                console.log(`[ConsequenceProcessor] ✅ Applying consequence for ${team.name}: ${consequence.id}`);
+                console.log(`[ConsequenceProcessor] ✅ Applying NEW consequence for ${team.name}: ${consequence.id}`);
                 console.log(`[ConsequenceProcessor] 📝 Effects to apply:`, consequence.effects);
 
                 // Apply immediate effects to KPIs
@@ -171,14 +183,14 @@ export class ConsequenceProcessor {
                         ...financialMetrics
                     };
 
-                    // CRITICAL: Update in database - this triggers real-time sync to team apps
+                    // Update in database - this triggers real-time sync to team apps
                     const finalKpis = await db.kpis.update(teamKpis.id!, recalculatedKpis);
                     console.log(`[ConsequenceProcessor] ✅ Updated KPIs in database for team ${team.name}`);
 
                     updatedTeamData.push({teamId: team.id, kpis: finalKpis as TeamRoundData});
                 }
 
-                // CRITICAL: Store permanent adjustments for future rounds
+                // Store permanent adjustments for future rounds
                 await this.storePermanentAdjustments(
                     team.id,
                     currentDbSession.id,
@@ -187,36 +199,46 @@ export class ConsequenceProcessor {
                     slideOption
                 );
 
-                console.log(`[ConsequenceProcessor] ✅ Completed processing for team ${team.name}`);
+                // 🏛️ CRITICAL: Record consequence application in database
+                await db.consequenceApplications.recordApplication({
+                    session_id: currentDbSession.id,
+                    team_id: team.id,
+                    challenge_id: challengeId,
+                    option_id: slideOption,
+                    slide_id: consequenceSlide.id
+                });
+
+                console.log(`[ConsequenceProcessor] ✅ Completed processing for team ${team.name} (recorded in database)`);
             }
 
-            // CRITICAL FIX: Mark slide as processed ONLY after successful completion
+            // Mark slide as processed ONLY after successful completion
             this.processedSlides.add(slideKey);
 
             console.log('\n📡 [ConsequenceProcessor] ==================== PROCESSING COMPLETED ====================');
             console.log(`[ConsequenceProcessor] ✅ Successfully processed slide ${consequenceSlide.id} for ${updatedTeamData.length} teams`);
+            console.log(`[ConsequenceProcessor] 🏛️ All consequence applications recorded in database for permanent tracking`);
             console.log(`[ConsequenceProcessor] 📱 Team apps will receive updates via Supabase real-time subscriptions`);
 
         } catch (error) {
             console.error('[ConsequenceProcessor] ❌ Error during consequence processing:', error);
             throw error;
         } finally {
-            // CRITICAL FIX: Always reset processing flag
+            // Always reset processing flag
             this.isProcessing = false;
         }
     }
 
     /**
-     * CRITICAL: Reset processed slides when needed (e.g., new session)
+     * Reset processed slides when needed (e.g., new session)
      */
     public resetProcessedSlides(): void {
         this.processedSlides.clear();
         this.isProcessing = false;
-        console.log('[ConsequenceProcessor] 🔄 Reset processed slides cache');
+        console.log('[ConsequenceProcessor] 🔄 Reset processed slides cache (database tracking remains intact)');
     }
 
     /**
-     * CRITICAL: Ensures team KPI data exists in database for the current round
+     * Ensures team KPI data exists in database for the current round
      */
     private async ensureTeamRoundData(teamId: string, roundNumber: 1 | 2 | 3): Promise<TeamRoundData> {
         const {currentDbSession, teamRoundData, setTeamRoundDataDirectly} = this.props;
@@ -264,7 +286,7 @@ export class ConsequenceProcessor {
         // Apply permanent adjustments
         const adjustedData = KpiCalculations.applyPermanentAdjustments(newRoundData, adjustments, teamId, roundNumber);
 
-        // CRITICAL: Insert into database - this will trigger real-time updates to team apps
+        // Insert into database - this will trigger real-time updates to team apps
         const insertedData = await db.kpis.create(adjustedData);
 
         // Update local state
@@ -278,7 +300,7 @@ export class ConsequenceProcessor {
     }
 
     /**
-     * CRITICAL FIX: Store permanent KPI adjustments with enhanced logging
+     * Store permanent KPI adjustments with enhanced logging
      */
     private async storePermanentAdjustments(
         teamId: string,
@@ -313,7 +335,7 @@ export class ConsequenceProcessor {
         if (adjustmentsToUpsert.length > 0) {
             console.log(`[ConsequenceProcessor] 💾 Storing ${adjustmentsToUpsert.length} permanent adjustments:`, adjustmentsToUpsert);
 
-            // CRITICAL: Store in database - this triggers real-time updates
+            // Store in database - this triggers real-time updates
             const storedAdjustments = await db.adjustments.upsert(adjustmentsToUpsert);
 
             console.log(`[ConsequenceProcessor] ✅ Successfully stored permanent adjustments for team ${teamId}, challenge ${challengeId}, option ${optionId}`);
@@ -322,7 +344,7 @@ export class ConsequenceProcessor {
     }
 
     /**
-     * CRITICAL: Determines which option (A, B, C, D) a consequence slide is for
+     * Determines which option (A, B, C, D) a consequence slide is for
      */
     private getSlideOption(consequenceSlide: Slide): string {
         const title = consequenceSlide.title?.toLowerCase() || '';

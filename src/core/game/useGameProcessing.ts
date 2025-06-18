@@ -214,7 +214,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         }
     );
 
-    // FIXED: Reset game progress
+    // UPDATED: Reset game progress to include consequence applications
     const {
         execute: resetGameProgressExecute,
         isLoading: isResettingGame,
@@ -235,11 +235,12 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                     console.log('[useGameProcessing] Reset consequence processor state');
                 }
 
-                // Delete all team decisions and KPI data for this session
+                // Delete all team decisions, KPI data, and consequence applications for this session
                 await Promise.all([
                     db.decisions.deleteBySession(currentDbSession.id),
                     db.kpis.deleteBySession(currentDbSession.id),
-                    db.adjustments.deleteBySession(currentDbSession.id)
+                    db.adjustments.deleteBySession(currentDbSession.id),
+                    db.consequenceApplications.deleteBySession(currentDbSession.id) // NEW: Clear consequence applications
                 ]);
 
                 // Reset session to slide 0
@@ -252,7 +253,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                 // Redirect to first slide
                 navigate(`/host/${currentDbSession.id}`);
 
-                console.log('[useGameProcessing] Game progress reset successfully');
+                console.log('[useGameProcessing] Game progress reset successfully (including consequence applications)');
             } catch (error) {
                 console.error('Error resetting game progress:', error);
                 throw error;

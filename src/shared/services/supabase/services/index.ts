@@ -1,28 +1,18 @@
-// src/utils/supabase/services/index.ts - Unified export as db object
-import { teamService } from './teamService';
-import { sessionService } from './sessionService';
-import { decisionService } from './decisionService';
-import { kpiService } from './kpiService';
-import { adjustmentService } from './adjustmentService';
-import { healthService } from './healthService';
+// src/shared/services/supabase/services/index.ts
+// Updated to include consequence applications service
 
-// Create the unified db object that maintains the existing API
+import {sessionService} from './sessionService';
+import {teamService} from './teamService';
+import {decisionService} from './decisionService';
+import {kpiService} from './kpiService';
+import {adjustmentService} from './adjustmentService';
+import {consequenceApplicationService} from './consequenceApplicationService';
+
 export const db = {
-    // Teams domain
-    teams: teamService,
-
-    // Sessions domain
     sessions: sessionService,
-
-    // Team decisions domain
+    teams: teamService,
     decisions: decisionService,
-
-    // Team KPIs/round data domain
     kpis: kpiService,
-
-    // Permanent KPI adjustments domain
     adjustments: adjustmentService,
-
-    // Health check and utilities
-    ...healthService
+    consequenceApplications: consequenceApplicationService,
 };
