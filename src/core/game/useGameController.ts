@@ -1,7 +1,7 @@
 // src/core/game/useGameController.ts
-// FINAL FIX: Prevent infinite loop with persistent slide tracking using localStorage
+// ULTIMATE FIX: Only process consequence slides when slide actually changes, not on data refresh
 
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GameSessionManager} from '@core/game/GameSessionManager';
 import {GameStructure, GameSession, Slide} from '@shared/types';
 import {useSlidePreCaching} from '@shared/hooks/useSlidePreCaching';
@@ -19,37 +19,9 @@ export const useGameController = (
     const [allTeamsSubmittedState, setAllTeamsSubmittedCurrentInteractivePhase] = useState<boolean>(false);
     const [allTeamsAlertDismissed, setAllTeamsAlertDismissed] = useState<boolean>(false);
 
-    // CRITICAL FIX: Use sessionStorage for persistent slide tracking across re-renders
-    const getProcessedSlidesKey = (sessionId: string) => `processed_consequence_slides_${sessionId}`;
-
-    const getProcessedSlides = useCallback((): Set<number> => {
-        if (!dbSession?.id) return new Set();
-        try {
-            const stored = sessionStorage.getItem(getProcessedSlidesKey(dbSession.id));
-            return stored ? new Set(JSON.parse(stored)) : new Set();
-        } catch {
-            return new Set();
-        }
-    }, [dbSession?.id]);
-
-    const setProcessedSlides = useCallback((slides: Set<number>) => {
-        if (!dbSession?.id) return;
-        try {
-            sessionStorage.setItem(getProcessedSlidesKey(dbSession.id), JSON.stringify([...slides]));
-        } catch (error) {
-            console.warn('[useGameController] Failed to persist processed slides:', error);
-        }
-    }, [dbSession?.id]);
-
-    const addProcessedSlide = useCallback((slideId: number) => {
-        const current = getProcessedSlides();
-        current.add(slideId);
-        setProcessedSlides(current);
-    }, [getProcessedSlides, setProcessedSlides]);
-
-    const hasProcessedSlide = useCallback((slideId: number): boolean => {
-        return getProcessedSlides().has(slideId);
-    }, [getProcessedSlides]);
+    // CRITICAL FIX: Track the last processed slide to prevent re-processing on data refresh
+    const lastProcessedSlideRef = useRef<number | null>(null);
+    const processingRef = useRef<boolean>(false);
 
     // CONSTANTS
     const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted!";
@@ -62,16 +34,12 @@ export const useGameController = (
         }
     }, [dbSession, initialDbSession]);
 
-    // CRITICAL FIX: Clear processed slides when session changes
+    // CRITICAL FIX: Reset processing state when session changes
     useEffect(() => {
-        if (initialDbSession?.id !== dbSession?.id && initialDbSession?.id) {
-            try {
-                // Clear processed slides for new session
-                sessionStorage.removeItem(getProcessedSlidesKey(initialDbSession.id));
-                console.log('[useGameController] 🔄 Cleared processed slides for new session');
-            } catch (error) {
-                console.warn('[useGameController] Failed to clear processed slides:', error);
-            }
+        if (initialDbSession?.id !== dbSession?.id) {
+            lastProcessedSlideRef.current = null;
+            processingRef.current = false;
+            console.log('[useGameController] 🔄 Session changed, reset processing state');
         }
     }, [initialDbSession?.id, dbSession?.id]);
 
@@ -117,45 +85,58 @@ export const useGameController = (
         }
     }, [allTeamsSubmittedState, currentSlideData?.interactive_data_key, currentHostAlertState, allTeamsAlertDismissed]);
 
-    // CRITICAL FIX: Auto-process consequence slides with persistent tracking
+    // ULTIMATE FIX: Only process consequence slides when slide ID actually changes
     useEffect(() => {
         if (!currentSlideData || !gameStructure || !dbSession?.id) return;
 
         const processConsequenceSlideAuto = async () => {
             if (currentSlideData.type === 'consequence_reveal') {
-                // CRITICAL FIX: Check persistent storage for already processed slides
-                if (hasProcessedSlide(currentSlideData.id)) {
-                    console.log(`[useGameController] 🟡 Consequence slide ${currentSlideData.id} already auto-processed (persistent), skipping`);
+                // ULTIMATE FIX: Only process if this is a new slide and we're not already processing
+                if (lastProcessedSlideRef.current === currentSlideData.id) {
+                    console.log(`[useGameController] ⚪ Consequence slide ${currentSlideData.id} already processed, ignoring data refresh`);
                     return;
                 }
 
-                console.log(`[useGameController] 🎯 Auto-processing consequence slide: ${currentSlideData.id}`);
+                if (processingRef.current) {
+                    console.log(`[useGameController] ⏸️ Already processing slide ${currentSlideData.id}, skipping`);
+                    return;
+                }
+
+                console.log(`[useGameController] 🎯 NEW consequence slide detected: ${currentSlideData.id} (previous: ${lastProcessedSlideRef.current})`);
 
                 try {
-                    // Mark as processed BEFORE processing to prevent re-entry
-                    addProcessedSlide(currentSlideData.id);
+                    // Mark as processing to prevent concurrent calls
+                    processingRef.current = true;
 
                     await processConsequenceSlide(currentSlideData);
 
-                    console.log(`[useGameController] ✅ Successfully auto-processed consequence slide: ${currentSlideData.id}`);
+                    // Mark as processed AFTER successful completion
+                    lastProcessedSlideRef.current = currentSlideData.id;
+
+                    console.log(`[useGameController] ✅ Successfully processed NEW consequence slide: ${currentSlideData.id}`);
                 } catch (error) {
-                    console.error(`[useGameController] ❌ Error auto-processing consequence slide:`, error);
+                    console.error(`[useGameController] ❌ Error processing consequence slide:`, error);
 
-                    // Remove from processed set on error so it can be retried
-                    const current = getProcessedSlides();
-                    current.delete(currentSlideData.id);
-                    setProcessedSlides(current);
-
+                    // Don't mark as processed on error so it can be retried
                     setCurrentHostAlertState({
                         title: "Processing Error",
                         message: `Failed to process consequence slide: ${error instanceof Error ? error.message : "Unknown error"}`
                     });
+                } finally {
+                    // Always reset processing flag
+                    processingRef.current = false;
+                }
+            } else {
+                // Reset last processed slide when we leave consequence slides
+                if (lastProcessedSlideRef.current !== null && currentSlideData.type !== 'consequence_reveal') {
+                    console.log(`[useGameController] 🔄 Left consequence slides, resetting processed state`);
+                    lastProcessedSlideRef.current = null;
                 }
             }
         };
 
         processConsequenceSlideAuto();
-    }, [currentSlideData?.id, currentSlideData?.type, gameStructure, processConsequenceSlide, dbSession?.id, hasProcessedSlide, addProcessedSlide, getProcessedSlides, setProcessedSlides]);
+    }, [currentSlideData?.id, currentSlideData?.type, gameStructure, processConsequenceSlide, dbSession?.id]);
 
     // HOST ALERT MANAGEMENT
     const clearHostAlert = useCallback(async () => {
