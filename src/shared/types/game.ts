@@ -36,9 +36,9 @@ export interface KpiEffect {
     description?: string;
     applies_to_rounds?: (1 | 2 | 3)[];
 
-    // NEW: Explicit challenge identification
-    challenge_id: string;  // 'ch1', 'ch2', etc.
-    option_id: string;     // 'A', 'B', 'C', 'D'
+    // Challenge identification
+    challenge_id?: string;  // 'ch1', 'ch2', 'inv1', 'inv2', etc.
+    option_id?: string;     // 'A', 'B', 'C', 'D' (only for consequences, not investments)
 }
 
 export interface Consequence {

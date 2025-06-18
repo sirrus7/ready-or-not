@@ -8,57 +8,55 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             id: 'payoff_rd1_inv_biz_growth',
             investment_option_id: 'rd1_inv_biz_growth',
             name: "A. Biz Growth Strat.",
-            effects: [{kpi: 'asp', change_value: 20, timing: 'immediate'}, {
-                kpi: 'orders',
-                change_value: 250,
-                timing: 'immediate'
-            }, {kpi: 'capacity', change_value: 250, timing: 'immediate'}]
+            effects: [
+                {kpi: 'capacity', change_value: 250, timing: 'immediate', challenge_id: 'inv1', description: 'Business Growth Strategy'},
+                {kpi: 'orders', change_value: 250, timing: 'immediate', challenge_id: 'inv1', description: 'Business Growth Strategy'},
+                {kpi: 'asp', change_value: 20, timing: 'immediate', challenge_id: 'inv1', description: 'Business Growth Strategy'}
+            ]
         },
         {
             id: 'payoff_rd1_inv_prod_effic',
             investment_option_id: 'rd1_inv_prod_effic',
             name: "B. Prod. Efficiency",
-            effects: [{kpi: 'capacity', change_value: 1000, timing: 'immediate'}]
+            effects: [
+                {kpi: 'capacity', change_value: 1500, timing: 'immediate', challenge_id: 'inv1', description: 'Production Efficiency Investment'}
+            ]
         },
         {
             id: 'payoff_rd1_inv_2nd_shift',
             investment_option_id: 'rd1_inv_2nd_shift',
             name: "C. Add 2nd Shift",
-            effects: [{kpi: 'capacity', change_value: 1500, timing: 'immediate'}, {
-                kpi: 'cost',
-                change_value: 300000,
-                timing: 'immediate'
-            }]
+            effects: [
+                {kpi: 'capacity', change_value: 1500, timing: 'immediate', challenge_id: 'inv1', description: 'Add 2nd Shift'},
+                {kpi: 'cost', change_value: 300000, timing: 'immediate', challenge_id: 'inv1', description: 'Add 2nd Shift'}
+            ]
         },
         {
             id: 'payoff_rd1_inv_sup_chain',
             investment_option_id: 'rd1_inv_sup_chain',
             name: "D. Supply Chain Opt.",
-            effects: [{kpi: 'capacity', change_value: 250, timing: 'immediate'}, {
-                kpi: 'cost',
-                change_value: -100000,
-                timing: 'immediate'
-            }]
+            effects: [
+                {kpi: 'capacity', change_value: 250, timing: 'immediate', challenge_id: 'inv1', description: 'Supply Chain Optimization'},
+                {kpi: 'cost', change_value: -100000, timing: 'immediate', challenge_id: 'inv1', description: 'Supply Chain Optimization'}
+            ]
         },
         {
             id: 'payoff_rd1_inv_emp_dev',
             investment_option_id: 'rd1_inv_emp_dev',
             name: "E. Employee Dev.",
-            effects: [{kpi: 'capacity', change_value: 250, timing: 'immediate'}, {
-                kpi: 'cost',
-                change_value: -25000,
-                timing: 'immediate'
-            }]
+            effects: [
+                {kpi: 'capacity', change_value: 250, timing: 'immediate', challenge_id: 'inv1', description: 'Employee Development'},
+                {kpi: 'cost', change_value: -25000, timing: 'immediate', challenge_id: 'inv1', description: 'Employee Development'}
+            ]
         },
         {
             id: 'payoff_rd1_inv_boutique',
             investment_option_id: 'rd1_inv_boutique',
             name: "F. Maximize Sales (Boutique)",
-            effects: [{kpi: 'asp', change_value: 20, timing: 'immediate'}, {
-                kpi: 'orders',
-                change_value: 500,
-                timing: 'immediate'
-            }]
+            effects: [
+                {kpi: 'orders', change_value: 500, timing: 'immediate', challenge_id: 'inv1', description: 'Maximize Sales (Boutique)'},
+                {kpi: 'asp', change_value: 20, timing: 'immediate', challenge_id: 'inv1', description: 'Maximize Sales (Boutique)'}
+            ]
         },
     ],
     'rd2-payoff': [
