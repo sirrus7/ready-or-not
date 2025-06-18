@@ -1,5 +1,5 @@
 // src/core/game/ConsequenceProcessor.ts
-// CRITICAL FIX: Proper slide processing state management to prevent host endless loops
+// CRITICAL FIX: Added updateProps method to prevent instance recreation loops
 
 import {Slide, GameStructure, GameSession, Team, TeamRoundData, KpiEffect, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
@@ -19,13 +19,28 @@ interface ConsequenceProcessorProps {
 export class ConsequenceProcessor {
     private props: ConsequenceProcessorProps;
 
-    // CRITICAL FIX: Instance-based processing tracking instead of static
+    // CRITICAL FIX: Instance-based processing tracking
     private processedSlides = new Set<string>();
     private isProcessing = false;
 
     constructor(props: ConsequenceProcessorProps) {
         this.props = props;
         console.log('[ConsequenceProcessor] ✅ Initialized for session:', this.props.currentDbSession?.id);
+    }
+
+    /**
+     * CRITICAL FIX: Dynamic props update to prevent instance recreation
+     */
+    updateProps(newProps: ConsequenceProcessorProps): void {
+        // Only log if session changes (significant change)
+        if (newProps.currentDbSession?.id !== this.props.currentDbSession?.id) {
+            console.log('[ConsequenceProcessor] 🔄 Session changed, updating props:', newProps.currentDbSession?.id);
+            // Reset processed slides when session changes
+            this.processedSlides.clear();
+            this.isProcessing = false;
+        }
+
+        this.props = newProps;
     }
 
     /**

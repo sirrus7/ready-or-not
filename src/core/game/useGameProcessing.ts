@@ -1,7 +1,7 @@
 // src/core/game/useGameProcessing.ts
-// FIXED VERSION - Includes decision history refresh for timeline updates
+// CRITICAL FIX: Stabilized ConsequenceProcessor to prevent infinite loop recreation
 
-import {useCallback, useMemo} from 'react';
+import {useCallback, useMemo, useRef} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {db} from '@shared/services/supabase';
 import {useSupabaseMutation} from '@shared/hooks/supabase';
@@ -26,7 +26,7 @@ interface UseGameProcessingProps {
     teamRoundData: Record<string, Record<number, TeamRoundData>>;
     updateSessionInDb: (updates: any) => Promise<void>;
     fetchTeamRoundDataFromHook: (sessionId: string) => Promise<void>;
-    fetchTeamDecisionsFromHook: (sessionId: string) => Promise<void>; // CRITICAL: For decision history refresh
+    fetchTeamDecisionsFromHook: (sessionId: string) => Promise<void>;
     setTeamRoundDataDirectly: (updater: (prev: Record<string, Record<number, TeamRoundData>>) => Record<string, Record<number, TeamRoundData>>) => void;
 }
 
@@ -51,13 +51,63 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         teamRoundData,
         updateSessionInDb,
         fetchTeamRoundDataFromHook,
-        fetchTeamDecisionsFromHook, // CRITICAL: Now properly included
+        fetchTeamDecisionsFromHook,
         setTeamRoundDataDirectly,
     } = props;
 
     const navigate = useNavigate();
 
-    // Initialize engines with all required props including decision refresh
+    // CRITICAL FIX: Use refs to track stable values for ConsequenceProcessor
+    const stableSessionIdRef = useRef<string | null>(null);
+    const stableGameStructureRef = useRef<GameStructure | null>(null);
+    const stableTeamsRef = useRef<Team[]>([]);
+
+    // Update refs when core dependencies change
+    if (currentDbSession?.id !== stableSessionIdRef.current) {
+        stableSessionIdRef.current = currentDbSession?.id || null;
+    }
+    if (gameStructure !== stableGameStructureRef.current) {
+        stableGameStructureRef.current = gameStructure;
+    }
+    if (teams !== stableTeamsRef.current) {
+        stableTeamsRef.current = teams;
+    }
+
+    // CRITICAL FIX: Stabilized ConsequenceProcessor - only recreate on session/structure changes
+    const consequenceProcessor = useMemo(() => {
+        if (!currentDbSession || !gameStructure) return null;
+
+        console.log('[useGameProcessing] Creating ConsequenceProcessor instance for session:', currentDbSession.id);
+
+        return new ConsequenceProcessor({
+            currentDbSession,
+            gameStructure,
+            teams,
+            teamDecisions,
+            teamRoundData,
+            fetchTeamRoundDataFromHook,
+            setTeamRoundDataDirectly,
+        });
+    }, [
+        currentDbSession?.id,  // CRITICAL: Only session ID, not the full object
+        gameStructure,         // CRITICAL: Only recreate if structure changes
+        // REMOVED: teamDecisions, teamRoundData, teams - these cause recreation loops
+    ]);
+
+    // Update processor props dynamically without recreation
+    if (consequenceProcessor) {
+        consequenceProcessor.updateProps({
+            currentDbSession,
+            gameStructure,
+            teams,
+            teamDecisions,
+            teamRoundData,
+            fetchTeamRoundDataFromHook,
+            setTeamRoundDataDirectly,
+        });
+    }
+
+    // Standard engines that can be recreated safely
     const decisionEngine = useMemo(() => new DecisionEngine({
         currentDbSession,
         gameStructure,
@@ -65,7 +115,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         teamDecisions,
         teamRoundData,
         fetchTeamRoundDataFromHook,
-        fetchTeamDecisionsFromHook, // CRITICAL: Pass the decision refresh function
+        fetchTeamDecisionsFromHook,
         setTeamRoundDataDirectly,
     }), [currentDbSession, gameStructure, teams, teamDecisions, teamRoundData, fetchTeamRoundDataFromHook, fetchTeamDecisionsFromHook, setTeamRoundDataDirectly]);
 
@@ -79,17 +129,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         setTeamRoundDataDirectly,
     }), [currentDbSession, gameStructure, teams, teamDecisions, teamRoundData, fetchTeamRoundDataFromHook, setTeamRoundDataDirectly]);
 
-    const consequenceProcessor = useMemo(() => new ConsequenceProcessor({
-        currentDbSession,
-        gameStructure,
-        teams,
-        teamDecisions,
-        teamRoundData,
-        fetchTeamRoundDataFromHook,
-        setTeamRoundDataDirectly,
-    }), [currentDbSession, gameStructure, teams, teamDecisions, teamRoundData, fetchTeamRoundDataFromHook, setTeamRoundDataDirectly]);
-
-    // ENHANCED: Process interactive slides with decision history refresh
+    // Process interactive slides
     const processInteractiveSlide = useCallback(async (completedSlide: Slide) => {
         console.log('[useGameProcessing] Processing interactive slide:', completedSlide.id);
         if (!currentDbSession?.id || !gameStructure || teams.length === 0) {
@@ -100,7 +140,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             await decisionEngine.processInteractiveSlide(completedSlide);
             console.log('[useGameProcessing] Interactive slide processed, decision history updated');
 
-            // CRITICAL: Additional decision refresh to ensure timeline updates
+            // Additional decision refresh to ensure timeline updates
             await fetchTeamDecisionsFromHook(currentDbSession.id);
             console.log('[useGameProcessing] Forced decision history refresh complete');
         } catch (error) {
@@ -109,11 +149,11 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         }
     }, [decisionEngine, currentDbSession, gameStructure, teams, fetchTeamDecisionsFromHook]);
 
-    // ENHANCED: Process consequence slides with complete data refresh
+    // CRITICAL FIX: Stabilized consequence processing
     const processConsequenceSlide = useCallback(async (consequenceSlide: Slide) => {
         console.log('[useGameProcessing] Processing consequence slide:', consequenceSlide.id);
-        if (!currentDbSession?.id || !gameStructure || teams.length === 0) {
-            console.warn('[useGameProcessing] Skipping consequence processing - insufficient data');
+        if (!currentDbSession?.id || !gameStructure || teams.length === 0 || !consequenceProcessor) {
+            console.warn('[useGameProcessing] Skipping consequence processing - insufficient data or no processor');
             return;
         }
         try {
@@ -130,7 +170,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             console.error('[useGameProcessing] Consequence processing failed:', error);
             throw error;
         }
-    }, [consequenceProcessor, currentDbSession, gameStructure, teams, fetchTeamRoundDataFromHook, fetchTeamDecisionsFromHook]);
+    }, [consequenceProcessor, currentDbSession?.id, gameStructure, teams.length, fetchTeamRoundDataFromHook, fetchTeamDecisionsFromHook]);
 
     // Process investment payoffs
     const {
@@ -159,37 +199,32 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
 
             for (const team of teams) {
                 const kpis = teamRoundData[team.id]?.[roundNumber];
-                if (kpis) {
-                    // CRITICAL FIX: Use calculateFinancialMetrics instead of non-existent calculateFinalKpis
+                if (kpis?.id) {
                     const financialMetrics = KpiCalculations.calculateFinancialMetrics(kpis);
-                    const finalizedKpis = {
+                    await db.kpis.update(kpis.id, {
                         ...kpis,
-                        ...financialMetrics
-                    };
-
-                    console.log(`[useGameProcessing] Updating KPIs for team ${team.name}:`, finalizedKpis);
-                    await db.kpis.update(kpis.id, finalizedKpis);
-                } else {
-                    console.warn(`[useGameProcessing] No KPI data found for team ${team.name} round ${roundNumber}`);
+                        ...financialMetrics,
+                        is_final: true
+                    });
                 }
             }
 
-            // Refresh data after updates
             await fetchTeamRoundDataFromHook(currentDbSession.id);
-            console.log(`[useGameProcessing] Successfully finalized KPIs for round ${roundNumber}`);
+            console.log(`[useGameProcessing] KPIs finalized for round ${roundNumber}`);
         }
     );
 
-    // Reset game progress
+    // FIXED: Reset game progress
     const {
         execute: resetGameProgressExecute,
         isLoading: isResettingGame,
     } = useSupabaseMutation(
         async (_variables: void) => {
-            if (!currentDbSession?.id || !gameStructure) {
-                throw new Error('Cannot reset game - missing session or structure');
+            if (!currentDbSession?.id) {
+                throw new Error('No session to reset');
             }
-            if (!window.confirm("Are you sure you want to reset all game progress? This will clear all decisions and KPI data and return to the first slide. This action cannot be undone.")) {
+
+            if (!confirm("Are you sure you want to reset all game progress? This will clear all decisions and KPI data and return to the first slide. This action cannot be undone.")) {
                 return;
             }
 
@@ -231,7 +266,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         processInvestmentPayoffs: processInvestmentPayoffsExecute,
         calculateAndFinalizeRoundKPIs: calculateKPIsExecute,
         resetGameProgress: resetGameProgressExecute,
-        isLoadingProcessingDecisions: false, // DecisionEngine doesn't use async mutations
+        isLoadingProcessingDecisions: false,
         isLoadingProcessingPayoffs: isProcessingPayoffs,
         isLoadingCalculatingKPIs: isCalculatingKPIs,
         isLoadingResettingGame: isResettingGame,

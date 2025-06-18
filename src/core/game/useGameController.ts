@@ -1,63 +1,30 @@
 // src/core/game/useGameController.ts
-// COMPLETE PRODUCTION VERSION - Fixed clearHostAlert implementation
+// CRITICAL FIX: Prevent infinite loop in auto-processing consequence slides
 
-import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
-import {GameSession, GameStructure, Slide} from '@shared/types';
-import {GameSessionManager} from './GameSessionManager';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {GameSessionManager} from '@core/game/GameSessionManager';
+import {GameStructure, GameSession, Slide} from '@shared/types';
 import {useSlidePreCaching} from '@shared/hooks/useSlidePreCaching';
-import {mediaManager} from '@shared/services/MediaManager';
 
-export interface GameControllerOutput {
-    currentSlideIndex: number | null;
-    currentSlideData: Slide | null;
-    hostNotes: Record<string, string>;
-    currentHostAlert: { title: string; message: string } | null;
-    allTeamsSubmittedCurrentInteractivePhase: boolean;
-    setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
-    selectSlideByIndex: (index: number) => Promise<void>;
-    nextSlide: () => Promise<void>;
-    previousSlide: () => Promise<void>;
-    updateHostNotesForCurrentSlide: (notes: string) => void;
-    clearHostAlert: () => Promise<void>;
-    setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
-}
-
-/**
- * GAME CONTROLLER HOOK - PRODUCTION VERSION
- *
- * RESPONSIBILITIES:
- * 1. Manage slide navigation and state
- * 2. Handle host alerts and slide advancement logic
- * 3. Coordinate with game processing for interactive slides
- * 4. Manage host notes and session persistence
- * 5. Provide complete alert dismissal and navigation workflow
- *
- * CRITICAL FIXES APPLIED:
- * - clearHostAlert now properly advances slides for "All Teams Have Submitted" alerts
- * - Complete error handling and logging throughout
- * - Proper async/await patterns for slide navigation
- * - Dismissal tracking to prevent alert reappearance
- */
 export const useGameController = (
     initialDbSession: GameSession | null,
     gameStructure: GameStructure | null,
     processInteractiveSlide: (completedSlide: Slide) => Promise<void>,
     processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>
-): GameControllerOutput => {
+) => {
     // STATE MANAGEMENT
     const [dbSession, setDbSession] = useState<GameSession | null>(initialDbSession);
-    const [hostNotesState, setHostNotesState] = useState<Record<string, string>>({});
-    const [currentHostAlertState, setCurrentHostAlertState] = useState<{
-        title: string;
-        message: string
-    } | null>(null);
-    const [allTeamsSubmittedCurrentInteractivePhaseState, setAllTeamsSubmittedCurrentInteractivePhaseState] = useState<boolean>(false);
+    const [hostNotesState, setHostNotesState] = useState<Record<number, string>>({});
+    const [currentHostAlertState, setCurrentHostAlertState] = useState<{ title: string; message: string } | null>(null);
+    const [allTeamsSubmittedState, setAllTeamsSubmittedCurrentInteractivePhase] = useState<boolean>(false);
     const [allTeamsAlertDismissed, setAllTeamsAlertDismissed] = useState<boolean>(false);
 
-    // CONSTANTS AND REFS
-    const previousSlideIdRef = useRef<number | undefined>(undefined);
-    const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted";
-    const ALL_SUBMIT_ALERT_MESSAGE = "Please verify all teams are happy with their submission. Then click Next to proceed.";
+    // CRITICAL FIX: Track processed consequence slides to prevent infinite loops
+    const processedConsequenceSlidesRef = useRef<Set<number>>(new Set());
+
+    // CONSTANTS
+    const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted!";
+    const ALL_SUBMIT_ALERT_MESSAGE = "All teams have submitted their decisions for this challenge. Click OK to proceed to the next slide, then click Next to proceed.";
 
     // SESSION MANAGEMENT
     useEffect(() => {
@@ -65,6 +32,14 @@ export const useGameController = (
             setDbSession(initialDbSession);
         }
     }, [dbSession, initialDbSession]);
+
+    // CRITICAL FIX: Reset processed slides when session changes
+    useEffect(() => {
+        if (initialDbSession?.id !== dbSession?.id) {
+            processedConsequenceSlidesRef.current.clear();
+            console.log('[useGameController] 🔄 Session changed, reset processed consequence slides');
+        }
+    }, [initialDbSession?.id, dbSession?.id]);
 
     const sessionManager = useMemo(() => GameSessionManager.getInstance(), []);
 
@@ -96,7 +71,7 @@ export const useGameController = (
 
     // AUTO-SHOW "ALL TEAMS SUBMITTED" ALERT
     useEffect(() => {
-        if (allTeamsSubmittedCurrentInteractivePhaseState &&
+        if (allTeamsSubmittedState &&
             currentSlideData?.interactive_data_key &&
             !currentHostAlertState &&
             !allTeamsAlertDismissed) {
@@ -106,86 +81,70 @@ export const useGameController = (
                 message: ALL_SUBMIT_ALERT_MESSAGE
             });
         }
-    }, [allTeamsSubmittedCurrentInteractivePhaseState, currentSlideData?.interactive_data_key, currentHostAlertState, allTeamsAlertDismissed]);
+    }, [allTeamsSubmittedState, currentSlideData?.interactive_data_key, currentHostAlertState, allTeamsAlertDismissed]);
 
-    // AUTO-PROCESS CONSEQUENCE SLIDES
+    // CRITICAL FIX: Auto-process consequence slides with infinite loop prevention
     useEffect(() => {
         if (!currentSlideData || !gameStructure) return;
 
         const processConsequenceSlideAuto = async () => {
             if (currentSlideData.type === 'consequence_reveal') {
-                console.log(`[useGameController] Auto-processing consequence slide: ${currentSlideData.id}`);
+                // CRITICAL FIX: Check if already processed to prevent infinite loop
+                if (processedConsequenceSlidesRef.current.has(currentSlideData.id)) {
+                    console.log(`[useGameController] 🟡 Consequence slide ${currentSlideData.id} already auto-processed, skipping`);
+                    return;
+                }
+
+                console.log(`[useGameController] 🎯 Auto-processing consequence slide: ${currentSlideData.id}`);
+
                 try {
+                    // Mark as processed BEFORE processing to prevent re-entry
+                    processedConsequenceSlidesRef.current.add(currentSlideData.id);
+
                     await processConsequenceSlide(currentSlideData);
+
+                    console.log(`[useGameController] ✅ Successfully auto-processed consequence slide: ${currentSlideData.id}`);
                 } catch (error) {
-                    console.error(`[useGameController] Error auto-processing consequence slide:`, error);
+                    console.error(`[useGameController] ❌ Error auto-processing consequence slide:`, error);
+
+                    // Remove from processed set on error so it can be retried
+                    processedConsequenceSlidesRef.current.delete(currentSlideData.id);
+
                     setCurrentHostAlertState({
                         title: "Processing Error",
-                        message: `Failed to process consequence slide: ${error instanceof Error ? error.message : 'Unknown error'}`
+                        message: `Failed to process consequence slide: ${error instanceof Error ? error.message : "Unknown error"}`
                     });
                 }
             }
         };
 
-        const isNewActualSlide = currentSlideData?.id !== previousSlideIdRef.current && previousSlideIdRef.current !== undefined;
-        if (isNewActualSlide) {
-            processConsequenceSlideAuto();
-        }
-        previousSlideIdRef.current = currentSlideData?.id;
-    }, [currentSlideData, gameStructure, processConsequenceSlide]);
+        processConsequenceSlideAuto();
+    }, [currentSlideData?.id, currentSlideData?.type, gameStructure, processConsequenceSlide]);
 
-    // NAVIGATION CORE FUNCTION
-    const navigateToSlide = useCallback(async (newIndex: number) => {
-        if (!dbSession?.id || !gameStructure) {
-            console.warn('[useGameController] Cannot navigate: Missing session or game structure');
-            return;
-        }
+    // HOST ALERT MANAGEMENT
+    const clearHostAlert = useCallback(async () => {
+        if (!currentHostAlertState || !dbSession) return;
 
-        if (newIndex < 0 || newIndex >= gameStructure.slides.length) {
-            console.warn('[useGameController] Cannot navigate: Index out of bounds', {
-                newIndex,
-                max: gameStructure.slides.length
-            });
-            return;
-        }
+        const isAllSubmitAlert = currentHostAlertState.title === ALL_SUBMIT_ALERT_TITLE;
 
-        try {
-            console.log(`[useGameController] Navigating to slide ${newIndex}`);
+        setCurrentHostAlertState(null);
 
-            // Precache target slide
-            const targetSlide = gameStructure.slides[newIndex];
-            if (targetSlide?.source_path) {
-                mediaManager.precacheSingleSlide(targetSlide.source_path)
-                    .catch(error => {
-                        console.warn(`[useGameController] Failed to precache target slide:`, error);
-                    });
+        if (isAllSubmitAlert) {
+            setAllTeamsAlertDismissed(true);
+            try {
+                const nextSlideIndex = Math.min((dbSession.current_slide_index ?? 0) + 1, (gameStructure?.slides.length ?? 1) - 1);
+                await sessionManager.updateSession(dbSession.id, {current_slide_index: nextSlideIndex});
+                setDbSession(prev => prev ? {...prev, current_slide_index: nextSlideIndex} : null);
+                console.log(`[useGameController] Advanced to slide ${nextSlideIndex} after all teams submitted alert`);
+            } catch (error) {
+                console.error('[useGameController] Error advancing slide after alert:', error);
+                setCurrentHostAlertState({
+                    title: "Navigation Error",
+                    message: error instanceof Error ? error.message : "Failed to change slide."
+                });
             }
-
-            // Update session in database
-            const updatedSession = await sessionManager.updateSession(dbSession.id, {
-                current_slide_index: newIndex,
-                is_complete: newIndex === gameStructure.slides.length - 1,
-            });
-            setDbSession(updatedSession);
-
-            // Reset states for new slide
-            setAllTeamsSubmittedCurrentInteractivePhaseState(false);
-            setAllTeamsAlertDismissed(false);
-
-            // Clear "All Teams Have Submitted" modal when navigating away
-            if (currentHostAlertState?.title === ALL_SUBMIT_ALERT_TITLE) {
-                setCurrentHostAlertState(null);
-            }
-
-            console.log(`[useGameController] Successfully navigated to slide ${newIndex}`);
-        } catch (error) {
-            console.error("[useGameController] Error navigating slide:", error);
-            setCurrentHostAlertState({
-                title: "Navigation Error",
-                message: error instanceof Error ? error.message : "Failed to change slide."
-            });
         }
-    }, [dbSession, gameStructure, sessionManager, currentHostAlertState, ALL_SUBMIT_ALERT_TITLE]);
+    }, [dbSession, sessionManager, gameStructure, currentHostAlertState, ALL_SUBMIT_ALERT_TITLE]);
 
     // SLIDE NAVIGATION METHODS
     const nextSlide = useCallback(async () => {
@@ -205,142 +164,132 @@ export const useGameController = (
                 console.error('[useGameController] Error processing interactive slide:', error);
                 setCurrentHostAlertState({
                     title: "Processing Error",
-                    message: `Failed to process slide: ${error instanceof Error ? error.message : 'Unknown error'}`
+                    message: `Failed to process slide: ${error instanceof Error ? error.message : "Unknown error"}`
                 });
                 return;
             }
         }
 
-        await navigateToSlide(currentSlideIndex + 1);
-    }, [currentSlideIndex, currentSlideData, navigateToSlide, processInteractiveSlide]);
-
-    const previousSlide = useCallback(async () => {
-        // If there's an alert, clear it instead of navigating
-        if (currentHostAlertState) {
-            console.log('[useGameController] Clearing alert instead of navigating back');
-            setCurrentHostAlertState(null);
-            return;
-        }
-
-        if (currentSlideIndex === null) {
-            console.warn('[useGameController] Cannot go back: No current slide');
-            return;
-        }
-
-        console.log(`[useGameController] Going back from slide ${currentSlideIndex}`);
-        await navigateToSlide(currentSlideIndex - 1);
-    }, [currentSlideIndex, navigateToSlide, currentHostAlertState]);
-
-    const selectSlideByIndex = useCallback(async (index: number) => {
-        console.log(`[useGameController] Selecting slide by index: ${index}`);
-        await navigateToSlide(index);
-    }, [navigateToSlide]);
-
-    // HOST NOTES MANAGEMENT
-    const updateHostNotesForCurrentSlide = useCallback(async (notes: string) => {
-        if (!currentSlideData || !dbSession?.id) {
-            console.warn('[useGameController] Cannot update notes: Missing slide or session');
-            return;
-        }
-
-        const slideKey = String(currentSlideData.id);
-        const newHostNotes = {...hostNotesState, [slideKey]: notes};
-        setHostNotesState(newHostNotes);
-
+        // Navigate to next slide
         try {
-            const updatedSession = await sessionManager.updateHostNotes(dbSession.id, newHostNotes);
-            setDbSession(updatedSession);
-            console.log(`[useGameController] Updated notes for slide ${currentSlideData.id}`);
-        } catch (error) {
-            console.error("[useGameController] Error updating host notes:", error);
-        }
-    }, [currentSlideData, dbSession, hostNotesState, sessionManager]);
+            const nextIndex = currentSlideIndex + 1;
+            const maxIndex = (gameStructure?.slides.length ?? 1) - 1;
 
-    /**
-     * CLEAR HOST ALERT - COMPLETE PRODUCTION IMPLEMENTATION
-     *
-     * CRITICAL FUNCTIONALITY:
-     * 1. Handles "All Teams Have Submitted" alerts by advancing to next slide
-     * 2. Handles other alerts by just clearing them
-     * 3. Includes comprehensive error handling and logging
-     * 4. Prevents alert reappearance through dismissal tracking
-     * 5. Provides user feedback for navigation errors
-     *
-     * WORKFLOW:
-     * 1. Check if alert exists
-     * 2. Clear alert from UI immediately
-     * 3. Determine alert type and take appropriate action
-     * 4. For "All Teams Have Submitted": advance slide
-     * 5. For other alerts: no additional action
-     * 6. Handle any errors with user feedback
-     */
-    const clearHostAlert = useCallback(async () => {
-        console.log('[useGameController] clearHostAlert called with alert:', currentHostAlertState?.title);
+            if (nextIndex <= maxIndex) {
+                await sessionManager.updateSession(dbSession!.id, {current_slide_index: nextIndex});
+                setDbSession(prev => prev ? {...prev, current_slide_index: nextIndex} : null);
+                console.log(`[useGameController] Advanced to slide ${nextIndex}`);
 
-        if (!currentHostAlertState) {
-            console.log('[useGameController] No active alert to clear');
-            return;
-        }
-
-        const alertTitle = currentHostAlertState.title;
-
-        // Clear the alert first
-        setCurrentHostAlertState(null);
-        console.log('[useGameController] Alert cleared:', alertTitle);
-
-        // FIXED: ALL host alerts should advance to next slide when "Next" is clicked
-        // The only difference is dismissal tracking for "All Teams Have Submitted"
-        if (alertTitle === ALL_SUBMIT_ALERT_TITLE) {
-            // For "All Teams Have Submitted", also set dismissal flag
-            setAllTeamsAlertDismissed(true);
-            console.log('[useGameController] "All Teams Have Submitted" alert - setting dismissal flag');
-        }
-
-        // CRITICAL FIX: ALL alerts should advance slide when "Next" is clicked
-        try {
-            console.log('[useGameController] Advancing to next slide after alert dismissal');
-            await nextSlide();
-            console.log('[useGameController] Successfully advanced to next slide');
+                // Reset alert dismissal state for new slide
+                setAllTeamsAlertDismissed(false);
+            } else {
+                console.log('[useGameController] Already at last slide');
+            }
         } catch (error) {
             console.error('[useGameController] Error advancing slide:', error);
             setCurrentHostAlertState({
                 title: "Navigation Error",
-                message: `Failed to advance slide: ${error instanceof Error ? error.message : 'Unknown error'}`
+                message: error instanceof Error ? error.message : "Failed to advance slide."
             });
         }
-    }, [currentHostAlertState, nextSlide, ALL_SUBMIT_ALERT_TITLE]);
+    }, [currentSlideIndex, currentSlideData, dbSession, sessionManager, gameStructure, processInteractiveSlide]);
 
-    /**
-     * MANUAL ALERT STATE SETTER - HANDLES DISMISSAL TRACKING
-     *
-     * PURPOSE: Handle manual alert dismissal (Close button) with proper tracking
-     * BEHAVIOR: If manually dismissing "All Teams Have Submitted", prevent reappearance
-     */
-    const setCurrentHostAlertStateManually = useCallback((alert: { title: string; message: string } | null) => {
-        console.log('[useGameController] setCurrentHostAlertStateManually called:', alert?.title || 'null');
-
-        // If manually dismissing the "All Teams Have Submitted" alert, set dismissed flag
-        if (!alert && currentHostAlertState?.title === ALL_SUBMIT_ALERT_TITLE) {
-            console.log('[useGameController] Manually dismissing "All Teams Have Submitted" alert');
-            setAllTeamsAlertDismissed(true);
+    const previousSlide = useCallback(async () => {
+        if (currentSlideIndex === null || !dbSession) {
+            console.warn('[useGameController] Cannot go back: No current slide or session');
+            return;
         }
 
-        setCurrentHostAlertState(alert);
-    }, [currentHostAlertState, ALL_SUBMIT_ALERT_TITLE]);
+        console.log(`[useGameController] Going back from slide ${currentSlideIndex}`);
 
-    // RETURN COMPLETE CONTROLLER OUTPUT
+        try {
+            const prevIndex = Math.max(currentSlideIndex - 1, 0);
+            await sessionManager.updateSession(dbSession.id, {current_slide_index: prevIndex});
+            setDbSession(prev => prev ? {...prev, current_slide_index: prevIndex} : null);
+            console.log(`[useGameController] Went back to slide ${prevIndex}`);
+
+            // Reset alert dismissal state for new slide
+            setAllTeamsAlertDismissed(false);
+        } catch (error) {
+            console.error('[useGameController] Error going to previous slide:', error);
+            setCurrentHostAlertState({
+                title: "Navigation Error",
+                message: error instanceof Error ? error.message : "Failed to go to previous slide."
+            });
+        }
+    }, [currentSlideIndex, dbSession, sessionManager]);
+
+    const selectSlideByIndex = useCallback(async (targetIndex: number) => {
+        if (!dbSession || targetIndex < 0 || targetIndex >= (gameStructure?.slides.length ?? 0)) {
+            console.warn('[useGameController] Invalid slide index or no session');
+            return;
+        }
+
+        console.log(`[useGameController] Jumping to slide ${targetIndex}`);
+
+        try {
+            await sessionManager.updateSession(dbSession.id, {current_slide_index: targetIndex});
+            setDbSession(prev => prev ? {...prev, current_slide_index: targetIndex} : null);
+            console.log(`[useGameController] Jumped to slide ${targetIndex}`);
+
+            // Reset alert dismissal state for new slide
+            setAllTeamsAlertDismissed(false);
+        } catch (error) {
+            console.error('[useGameController] Error jumping to slide:', error);
+            setCurrentHostAlertState({
+                title: "Navigation Error",
+                message: error instanceof Error ? error.message : "Failed to jump to slide."
+            });
+        }
+    }, [dbSession, sessionManager, gameStructure]);
+
+    // HOST NOTES MANAGEMENT
+    const updateHostNotesForCurrentSlide = useCallback((notes: string) => {
+        if (currentSlideIndex === null) return;
+
+        const updatedNotes = {...hostNotesState, [currentSlideIndex]: notes};
+        setHostNotesState(updatedNotes);
+
+        // Update in database
+        if (dbSession?.id) {
+            sessionManager.updateSession(dbSession.id, {host_notes: updatedNotes})
+                .catch(error => console.error('Error updating host notes:', error));
+        }
+    }, [currentSlideIndex, hostNotesState, dbSession, sessionManager]);
+
+    // COMPUTED PROPERTIES
+    const hostNotes = useMemo(() => {
+        if (currentSlideIndex === null) return '';
+        return hostNotesState[currentSlideIndex] || '';
+    }, [currentSlideIndex, hostNotesState]);
+
+    const isFirstSlide = useMemo(() => currentSlideIndex === 0, [currentSlideIndex]);
+    const isLastSlide = useMemo(() => {
+        const totalSlides = gameStructure?.slides.length ?? 0;
+        return currentSlideIndex === totalSlides - 1;
+    }, [currentSlideIndex, gameStructure]);
+
     return {
-        currentSlideIndex,
+        // Core slide data
         currentSlideData,
-        hostNotes: hostNotesState,
-        currentHostAlert: currentHostAlertState,
-        allTeamsSubmittedCurrentInteractivePhase: allTeamsSubmittedCurrentInteractivePhaseState,
-        setAllTeamsSubmittedCurrentInteractivePhase: setAllTeamsSubmittedCurrentInteractivePhaseState,
-        selectSlideByIndex,
+        currentSlideIndex,
+
+        // Navigation
         nextSlide,
         previousSlide,
+        selectSlideByIndex,
+        isFirstSlide,
+        isLastSlide,
+
+        // Host features
+        hostNotes,
         updateHostNotesForCurrentSlide,
-        clearHostAlert, // PRODUCTION-READY: Complete implementation
-        setCurrentHostAlertState: setCurrentHostAlertStateManually
+        currentHostAlert: currentHostAlertState,
+        setCurrentHostAlertState,
+        clearHostAlert,
+
+        // Team interaction
+        setAllTeamsSubmittedCurrentInteractivePhase: setAllTeamsSubmittedCurrentInteractivePhase,
+        allTeamsSubmittedCurrentInteractivePhase: allTeamsSubmittedState,
     };
 };
