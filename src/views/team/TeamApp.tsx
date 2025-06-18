@@ -224,86 +224,113 @@ const TeamApp: React.FC = () => {
                                             "Game Setup"}
                                 </p>
 
-                                {/* VERTICAL KPI LAYOUT FOR SIDEBAR */}
-                                <div className="space-y-3 lg:space-y-2">
-                                    {/* Capacity */}
-                                    <div className="flex items-center justify-between p-2 bg-gray-700/50 rounded">
-                                        <div className="flex items-center gap-2">
-                                            <div className="text-blue-400">🏢</div>
-                                            <span className="text-sm font-medium">Capacity</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-lg font-bold text-blue-400">
-                                                {teamGameState.currentTeamKpis?.current_capacity?.toLocaleString() || '5,000'}
+                                {/* CLEAN KPI SECTION */}
+                                <div className="space-y-2">
+                                    {/* Capacity - CLEAN */}
+                                    <div
+                                        className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 backdrop-blur-sm rounded-lg p-3 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-blue-400 text-xl">🏢</div>
+                                                <span className="text-sm font-semibold text-slate-200">Capacity</span>
                                             </div>
-                                            <div className="text-xs text-gray-400">
-                                                Start: {teamGameState.currentTeamKpis?.start_capacity?.toLocaleString() || '5,000'}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Orders */}
-                                    <div className="flex items-center justify-between p-2 bg-gray-700/50 rounded">
-                                        <div className="flex items-center gap-2">
-                                            <div className="text-yellow-400">🛒</div>
-                                            <span className="text-sm font-medium">Orders</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-lg font-bold text-yellow-400">
-                                                {teamGameState.currentTeamKpis?.current_orders?.toLocaleString() || '6,250'}
-                                            </div>
-                                            <div className="text-xs text-gray-400">
-                                                Start: {teamGameState.currentTeamKpis?.start_orders?.toLocaleString() || '6,250'}
+                                            <div className="text-right">
+                                                {/* Current Value - Color coded based on good/bad */}
+                                                <div className={`text-2xl font-bold ${
+                                                    teamGameState.currentTeamKpis?.current_capacity === teamGameState.currentTeamKpis?.start_capacity
+                                                        ? 'text-white'
+                                                        : (teamGameState.currentTeamKpis?.current_capacity || 0) > (teamGameState.currentTeamKpis?.start_capacity || 0)
+                                                            ? 'text-green-400'
+                                                            : 'text-red-400'
+                                                }`}>
+                                                    {teamGameState.currentTeamKpis?.current_capacity?.toLocaleString() || '5,000'}
+                                                </div>
+                                                {/* Starting Value */}
+                                                <div className="text-xs text-slate-400 mt-1">
+                                                    Start: {teamGameState.currentTeamKpis?.start_capacity?.toLocaleString() || '5,000'}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Cost */}
-                                    <div className="flex items-center justify-between p-2 bg-gray-700/50 rounded">
-                                        <div className="flex items-center gap-2">
-                                            <div className="text-red-400">💰</div>
-                                            <span className="text-sm font-medium">Cost</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-lg font-bold text-red-400">
-                                                ${(teamGameState.currentTeamKpis?.current_cost || 1200000).toLocaleString()}
+                                    {/* Orders - CLEAN */}
+                                    <div
+                                        className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-green-400 text-xl">📦</div>
+                                                <span className="text-sm font-semibold text-slate-200">Orders</span>
                                             </div>
-                                            <div className="text-xs text-gray-400">
-                                                Start:
-                                                ${(teamGameState.currentTeamKpis?.start_cost || 1200000).toLocaleString()}
+                                            <div className="text-right">
+                                                <div className={`text-2xl font-bold ${
+                                                    teamGameState.currentTeamKpis?.current_orders === teamGameState.currentTeamKpis?.start_orders
+                                                        ? 'text-white'
+                                                        : (teamGameState.currentTeamKpis?.current_orders || 0) > (teamGameState.currentTeamKpis?.start_orders || 0)
+                                                            ? 'text-green-400'
+                                                            : 'text-red-400'
+                                                }`}>
+                                                    {teamGameState.currentTeamKpis?.current_orders?.toLocaleString() || '5,000'}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-1">
+                                                    Start: {teamGameState.currentTeamKpis?.start_orders?.toLocaleString() || '5,000'}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* ASP */}
-                                    <div className="flex items-center justify-between p-2 bg-gray-700/50 rounded">
-                                        <div className="flex items-center gap-2">
-                                            <div className="text-green-400">📈</div>
-                                            <span className="text-sm font-medium">ASP</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-lg font-bold text-green-400">
-                                                ${(teamGameState.currentTeamKpis?.current_asp || 1000).toLocaleString()}
+                                    {/* Cost - CLEAN */}
+                                    <div
+                                        className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-red-400 text-xl">💸</div>
+                                                <span className="text-sm font-semibold text-slate-200">Cost</span>
                                             </div>
-                                            <div className="text-xs text-gray-400">
-                                                Start:
-                                                ${(teamGameState.currentTeamKpis?.start_asp || 1000).toLocaleString()}
+                                            <div className="text-right">
+                                                <div className={`text-2xl font-bold ${
+                                                    teamGameState.currentTeamKpis?.current_cost === teamGameState.currentTeamKpis?.start_cost
+                                                        ? 'text-white'
+                                                        : (teamGameState.currentTeamKpis?.current_cost || 0) < (teamGameState.currentTeamKpis?.start_cost || 0)
+                                                            ? 'text-green-400'
+                                                            : 'text-red-400'
+                                                }`}>
+                                                    ${teamGameState.currentTeamKpis?.current_cost?.toLocaleString() || '1,200,000'}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-1">
+                                                    Start:
+                                                    ${teamGameState.currentTeamKpis?.start_cost?.toLocaleString() || '1,200,000'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* ASP - CLEAN */}
+                                    <div
+                                        className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 backdrop-blur-sm rounded-lg p-3 border border-purple-500/30 hover:border-purple-500/50 transition-colors">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-purple-400 text-xl">💰</div>
+                                                <span className="text-sm font-semibold text-slate-200">ASP</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className={`text-2xl font-bold ${
+                                                    teamGameState.currentTeamKpis?.current_asp === teamGameState.currentTeamKpis?.start_asp
+                                                        ? 'text-white'
+                                                        : (teamGameState.currentTeamKpis?.current_asp || 0) > (teamGameState.currentTeamKpis?.start_asp || 0)
+                                                            ? 'text-green-400'
+                                                            : 'text-red-400'
+                                                }`}>
+                                                    ${teamGameState.currentTeamKpis?.current_asp?.toLocaleString() || '950'}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-1">
+                                                    Start:
+                                                    ${teamGameState.currentTeamKpis?.start_asp?.toLocaleString() || '950'}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Loading indicator */}
-                            {teamGameState.isLoadingKpis && teamGameState.currentActiveSlide?.round_number > 0 && (
-                                <div className="bg-yellow-900/30 border-b border-yellow-700 p-2 text-center">
-                                    <div className="flex items-center justify-center text-yellow-400 text-sm">
-                                        <div
-                                            className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400 mr-2"></div>
-                                        Loading data for {teamGameState.currentActiveSlide.title}...
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* Permanent Adjustments */}

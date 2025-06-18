@@ -1,5 +1,5 @@
 // src/views/team/components/GameStatus/KpiImpactCards.tsx
-// CRITICAL FIX: Enhanced impact card rendering with proper real-time updates
+// Enhanced visual styling ONLY - keeping all existing logic intact
 
 import React, {useMemo} from 'react';
 import {PermanentKpiAdjustment} from '@shared/types';
@@ -33,7 +33,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                                                        }) => {
 
     // ========================================================================
-    // CRITICAL FIX: Memoized data processing to prevent excessive re-renders
+    // EXISTING LOGIC - UNCHANGED
     // ========================================================================
     const impactCards: ImpactCard[] = useMemo(() => {
         if (!permanentAdjustments.length) return [];
@@ -66,7 +66,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                 };
             }
 
-            // Add or update KPI effect
+            // Add or update KPI effect - EXISTING LOGIC
             const existingEffect = cardMap[challengeId].kpiEffects.find(e => e.kpi === adjustment.kpi_key);
             if (existingEffect) {
                 if (!existingEffect.applies_to_rounds.includes(adjustment.applies_to_round_start)) {
@@ -85,7 +85,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     }, [permanentAdjustments, teamId]);
 
     // ========================================================================
-    // HELPER FUNCTIONS
+    // EXISTING HELPER FUNCTIONS - UNCHANGED
     // ========================================================================
     const extractChallengeFromDescription = (description: string): string => {
         // Try to extract challenge ID from description
@@ -96,15 +96,15 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     const getKpiIcon = (kpi: string) => {
         switch (kpi) {
             case 'capacity':
-                return <Building className="w-4 h-4"/>;
+                return <Building className="w-4 h-4 text-blue-400"/>;
             case 'orders':
-                return <ShoppingCart className="w-4 h-4"/>;
+                return <ShoppingCart className="w-4 h-4 text-green-400"/>;
             case 'cost':
-                return <DollarSign className="w-4 h-4"/>;
+                return <DollarSign className="w-4 h-4 text-red-400"/>;
             case 'asp':
-                return <TrendingUp className="w-4 h-4"/>;
+                return <TrendingUp className="w-4 h-4 text-purple-400"/>;
             default:
-                return <AlertCircle className="w-4 h-4"/>;
+                return <AlertCircle className="w-4 h-4 text-gray-400"/>;
         }
     };
 
@@ -131,92 +131,153 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     };
 
     // ========================================================================
-    // RENDER
+    // ENHANCED RENDER - VISUAL IMPROVEMENTS ONLY
     // ========================================================================
 
-    // Show loading state
+    // Show loading state - ENHANCED VISUALS
     if (isLoadingAdjustments) {
         return (
             <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Impact Cards</h3>
-                <div className="bg-gray-100 rounded-lg p-3 animate-pulse">
-                    <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-300 rounded w-full"></div>
+                <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400"/>
+                    <h3 className="text-sm font-semibold text-slate-200">Impact Cards</h3>
+                </div>
+                <div
+                    className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-4 border border-slate-700 animate-pulse">
+                    <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400 mr-3"></div>
+                        <span className="text-slate-300 text-sm">Loading impact cards...</span>
+                    </div>
                 </div>
             </div>
         );
     }
 
-    // Show empty state
+    // Show empty state - ENHANCED VISUALS
     if (!impactCards.length) {
         return (
             <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Impact Cards</h3>
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <AlertCircle className="w-6 h-6 text-gray-400 mx-auto mb-1"/>
-                    <p className="text-xs text-gray-500">No impact cards yet</p>
-                    <p className="text-xs text-gray-400">Make decisions to see future effects</p>
+                <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-slate-400"/>
+                    <h3 className="text-sm font-semibold text-slate-300">Impact Cards</h3>
+                </div>
+                <div
+                    className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-lg p-4 border border-slate-700/50 text-center">
+                    <AlertCircle className="w-8 h-8 text-slate-500 mx-auto mb-2"/>
+                    <p className="text-sm text-slate-400 font-medium">No impact cards yet</p>
+                    <p className="text-xs text-slate-500 mt-1">Make decisions to see future effects</p>
                 </div>
             </div>
         );
     }
 
-    // Show impact cards
+    // Show impact cards - ENHANCED VISUALS WITH TREND ARROWS
     return (
         <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Impact Cards</h3>
-            <div className="space-y-2">
+            <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-400"/>
+                <h3 className="text-sm font-semibold text-slate-200">Impact Cards</h3>
+            </div>
+            <div className="space-y-3">
                 {impactCards.map(card => (
                     <div key={card.id}
-                         className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 border border-blue-200">
-                        {/* Card Header */}
-                        <div className="flex items-start justify-between mb-2">
-                            <h4 className="text-sm font-semibold text-gray-800 leading-tight">
-                                {card.title}
-                            </h4>
-                            <div className="text-xs text-blue-600 font-medium px-2 py-1 bg-blue-100 rounded">
-                                {card.source.toUpperCase()}
+                         className="bg-gradient-to-br from-slate-700/30 to-slate-600/40 rounded-lg p-3 border border-slate-500/50 shadow-lg">
+
+                        {/* Card Header - CONSISTENT WITH KPIs */}
+                        <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-500/30">
+                            <div className="w-6 h-6 bg-slate-500 rounded-lg flex items-center justify-center">
+                                <AlertCircle className="w-4 h-4 text-slate-200"/>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-semibold text-slate-100">
+                                    {card.title}
+                                </h4>
+                                <div className="text-xs text-slate-300">
+                                    Impact Card
+                                </div>
                             </div>
                         </div>
 
-                        {/* Card Description */}
-                        <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                        {/* Card Description - MINIMAL */}
+                        <p className="text-xs text-slate-300 mb-3">
                             {card.description}
                         </p>
 
-                        {/* KPI Effects */}
-                        <div className="space-y-1.5">
-                            {card.kpiEffects.map((effect, index) => (
-                                <div key={`${effect.kpi}-${index}`}
-                                     className="flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-1.5">
-                                        {getKpiIcon(effect.kpi)}
-                                        <span className="font-medium text-gray-700">
-                                            {getKpiLabel(effect.kpi)}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`font-semibold ${
-                                            effect.value >= 0 ? 'text-green-600' : 'text-red-600'
-                                        }`}>
-                                            {formatKpiValue(effect.kpi, effect.value)}
-                                        </span>
-                                        <div className="text-xs text-gray-500">
-                                            R{effect.applies_to_rounds.sort().join(', ')}
+                        {/* KPI Effects - COLOR-MATCHED TO KPIs */}
+                        <div className="space-y-2">
+                            {card.kpiEffects.map((effect, index) => {
+                                // Match KPI colors based on effect type
+                                const getKpiColorClasses = (kpi: string) => {
+                                    switch (kpi) {
+                                        case 'capacity':
+                                            return {
+                                                bg: 'bg-gradient-to-r from-blue-500/20 to-blue-600/20',
+                                                border: 'border-blue-500/30'
+                                            };
+                                        case 'orders':
+                                            return {
+                                                bg: 'bg-gradient-to-r from-green-500/20 to-green-600/20',
+                                                border: 'border-green-500/30'
+                                            };
+                                        case 'cost':
+                                            return {
+                                                bg: 'bg-gradient-to-r from-red-500/20 to-red-600/20',
+                                                border: 'border-red-500/30'
+                                            };
+                                        case 'asp':
+                                            return {
+                                                bg: 'bg-gradient-to-r from-purple-500/20 to-purple-600/20',
+                                                border: 'border-purple-500/30'
+                                            };
+                                        default:
+                                            return {
+                                                bg: 'bg-gradient-to-r from-slate-700/30 to-slate-800/30',
+                                                border: 'border-slate-600/30'
+                                            };
+                                    }
+                                };
+
+                                const colorClasses = getKpiColorClasses(effect.kpi);
+
+                                return (
+                                    <div key={`${effect.kpi}-${index}`}
+                                         className={`${colorClasses.bg} backdrop-blur-sm rounded-lg p-3 border ${colorClasses.border}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                {getKpiIcon(effect.kpi)}
+                                                <span className="text-sm font-semibold text-slate-200">
+                                                    {getKpiLabel(effect.kpi)}
+                                                </span>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className={`text-2xl font-bold ${
+                                                    effect.value >= 0 ? 'text-green-400' : 'text-red-400'
+                                                }`}>
+                                                    {formatKpiValue(effect.kpi, effect.value)}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-1">
+                                                    {effect.applies_to_rounds.length === 1
+                                                        ? `Round ${effect.applies_to_rounds[0]}`
+                                                        : effect.applies_to_rounds.length === 2
+                                                            ? `Rounds ${effect.applies_to_rounds.sort().join(' & ')}`
+                                                            : `Rounds ${effect.applies_to_rounds.sort().join(', ')}`
+                                                    }
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
-                        {/* Active Status Indicator */}
+                        {/* Active Status Indicator - ENHANCED */}
                         {card.kpiEffects.some(effect =>
                             effect.applies_to_rounds.includes(currentRound)
                         ) && (
-                            <div className="mt-2 pt-2 border-t border-blue-200">
-                                <div className="flex items-center gap-1.5 text-xs text-blue-700">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                                    <span className="font-medium">Active this round</span>
+                            <div className="mt-3 pt-3 border-t border-slate-700">
+                                <div className="flex items-center gap-2 text-xs">
+                                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                    <span className="font-medium text-green-400">Active this round</span>
                                 </div>
                             </div>
                         )}

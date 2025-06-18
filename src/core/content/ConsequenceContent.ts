@@ -108,7 +108,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "Your ASP increase builds some additional profits. The fear that customers would balk at a $1,000-plus price proved to be a false narrative.",
             effects: [{
                 kpi: 'asp',
-                change_value: 10,
+                change_value: 20,
                 timing: 'immediate',
                 challenge_id: 'ch2',
                 option_id: 'A'
@@ -163,7 +163,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             effects: [{
                 kpi: 'cost',
                 change_value: 50000,
-                timing: 'immediate',
+                timing: 'end_of_round_adjustment',
                 description: 'New Tax Cost Incurred',
                 challenge_id: 'ch2',
                 option_id: 'D'
