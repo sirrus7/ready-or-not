@@ -1,5 +1,5 @@
 // src/views/team/hooks/useTeamGameState.ts
-// FIXED VERSION - Eliminates infinite loop and handles TypeScript errors
+// VERSION 2 - Simple debounce fix to prevent cascade loops
 
 import {useState, useEffect, useMemo, useCallback, useRef} from 'react';
 import {db, useRealtimeSubscription} from '@shared/services/supabase';
@@ -38,12 +38,12 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     const [isLoadingAdjustments, setIsLoadingAdjustments] = useState<boolean>(false);
 
     // ========================================================================
-    // FIXED: USE REFS TO AVOID INFINITE LOOPS
-    // Using refs instead of state for tracking data that doesn't need re-renders
+    // V2 FIX: DEBOUNCE REFS TO PREVENT CASCADE LOOPS
     // ========================================================================
     const [teamDecisionIds, setTeamDecisionIds] = useState<Set<string>>(new Set());
     const lastDecisionSnapshotRef = useRef<Record<string, string>>({});
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const resetDebounceRef = useRef<NodeJS.Timeout | null>(null); // ✅ NEW: Debounce ref
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
@@ -69,7 +69,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     }, [gameStructure.slides]);
 
     // ========================================================================
-    // FIXED: DECISION TRACKING WITHOUT INFINITE LOOPS
+    // V2 FIX: DEBOUNCED DECISION TRACKING
     // ========================================================================
     const fetchAndTrackTeamDecisions = useCallback(async () => {
         if (!sessionId || !loggedInTeamId) {
@@ -91,7 +91,6 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
                 newSnapshot[decision.phase_id] = decision.id;
             });
 
-            // ✅ FIXED: Use ref to avoid dependency loop
             const oldSnapshot = lastDecisionSnapshotRef.current;
             const deletedPhases: string[] = [];
 
@@ -105,14 +104,27 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
                 }
             });
 
-            // Update tracking (ref doesn't cause re-renders)
+            // Update tracking
             setTeamDecisionIds(newDecisionIds);
             lastDecisionSnapshotRef.current = newSnapshot;
 
-            // Trigger reset if deletions detected
+            // ✅ V2 FIX: DEBOUNCED RESET TRIGGER
             if (deletedPhases.length > 0) {
-                console.log(`[useTeamGameState] ✅ Triggering reset for phases: ${deletedPhases.join(', ')}`);
-                setDecisionResetTrigger(prev => prev + deletedPhases.length);
+                console.log(`[useTeamGameState] ✅ Triggering DEBOUNCED reset for phases: ${deletedPhases.join(', ')}`);
+
+                // Clear any existing debounce
+                if (resetDebounceRef.current) {
+                    clearTimeout(resetDebounceRef.current);
+                }
+
+                // Set debounced reset trigger
+                resetDebounceRef.current = setTimeout(() => {
+                    setDecisionResetTrigger(prev => {
+                        const newTrigger = prev + deletedPhases.length;
+                        console.log(`[useTeamGameState] 🔄 Reset trigger fired: ${prev} -> ${newTrigger}`);
+                        return newTrigger;
+                    });
+                }, 250); // ✅ 250ms debounce to prevent cascade
             }
 
             return {teamDecisions, deletedPhases};
@@ -121,10 +133,10 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             console.error('[useTeamGameState] ❌ Error tracking team decisions:', error);
             return {teamDecisions: [], deletedPhases: []};
         }
-    }, [sessionId, loggedInTeamId]); // ✅ FIXED: Clean dependency array
+    }, [sessionId, loggedInTeamId]);
 
     // ========================================================================
-    // FIXED: DECISION RESET HANDLER WITH PROPER ERROR HANDLING
+    // V2 FIX: DEBOUNCED DECISION RESET HANDLER
     // ========================================================================
     const handleDecisionReset = useCallback(async (payload: any) => {
         console.log(`🔔 [useTeamGameState] DELETE event received:`, {
@@ -144,15 +156,23 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         if (teamDecisionIds.has(deletedId)) {
             console.log(`[useTeamGameState] 🎯 CONFIRMED: Our team's decision was deleted (ID: ${deletedId})`);
 
-            // Refresh our decision tracking to get accurate state
-            const result = await fetchAndTrackTeamDecisions();
-
-            // ✅ FIXED: Handle potential undefined result
-            if (!result || result.deletedPhases.length === 0) {
-                // Manual trigger if tracking didn't catch it
-                console.log(`[useTeamGameState] 🔄 Manual reset trigger for deleted ID: ${deletedId}`);
-                setDecisionResetTrigger(prev => prev + 1);
+            // ✅ V2 FIX: DEBOUNCED RESET RESPONSE
+            if (resetDebounceRef.current) {
+                clearTimeout(resetDebounceRef.current);
             }
+
+            resetDebounceRef.current = setTimeout(async () => {
+                console.log(`[useTeamGameState] 🔄 Processing debounced reset for ID: ${deletedId}`);
+
+                // Refresh our decision tracking
+                const result = await fetchAndTrackTeamDecisions();
+
+                if (!result || result.deletedPhases.length === 0) {
+                    // Manual trigger if tracking didn't catch it
+                    console.log(`[useTeamGameState] 🔄 Manual reset trigger for deleted ID: ${deletedId}`);
+                    setDecisionResetTrigger(prev => prev + 1);
+                }
+            }, 200); // ✅ Debounce the reset handling
 
         } else {
             console.log(`[useTeamGameState] ℹ️  DELETE event for different team (ID: ${deletedId}) - ignoring`);
@@ -222,10 +242,10 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     }, [sessionId, loggedInTeamId]);
 
     // ========================================================================
-    // REAL-TIME SUBSCRIPTIONS
+    // REAL-TIME SUBSCRIPTIONS (UNCHANGED)
     // ========================================================================
 
-    // 1. SLIDE CHANGES - Game session updates from host
+    // 1. SLIDE CHANGES
     useRealtimeSubscription(
         `team-slide-updates-${sessionId}`,
         {
@@ -244,20 +264,19 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         !!sessionId && !!loggedInTeamId
     );
 
-    // 2. DECISION RESETS - Enhanced DELETE detection
+    // 2. DECISION RESETS (with debounced handling)
     useRealtimeSubscription(
         `team-decision-resets-${sessionId}`,
         {
             table: 'team_decisions',
             event: 'DELETE',
-            // Use session filter to reduce noise, handle team filtering in callback
             filter: `session_id=eq.${sessionId}`,
             onchange: handleDecisionReset
         },
         !!sessionId && !!loggedInTeamId
     );
 
-    // 3. KPI UPDATES - Real-time consequence processing updates
+    // 3. KPI UPDATES
     useRealtimeSubscription(
         `team-kpi-updates-${sessionId}-${loggedInTeamId}`,
         {
@@ -279,7 +298,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         !!sessionId && !!loggedInTeamId
     );
 
-    // 4. KPI IMPACT CARDS - Real-time permanent adjustments updates
+    // 4. KPI IMPACT CARDS
     useRealtimeSubscription(
         `team-adjustments-${sessionId}-${loggedInTeamId}`,
         {
@@ -299,40 +318,48 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     );
 
     // ========================================================================
-    // FIXED: CONTROLLED POLLING WITHOUT INFINITE LOOPS
+    // V2 FIX: CONTROLLED POLLING WITH CLEANUP
     // ========================================================================
     useEffect(() => {
         if (!sessionId || !loggedInTeamId) {
-            // Clean up polling if no session/team
+            // Clean up all timers
             if (pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current);
                 pollIntervalRef.current = null;
             }
+            if (resetDebounceRef.current) {
+                clearTimeout(resetDebounceRef.current);
+                resetDebounceRef.current = null;
+            }
             return;
         }
 
-        console.log(`[useTeamGameState] 🚀 Setting up polling for sessionId: ${sessionId}, teamId: ${loggedInTeamId}`);
+        console.log(`[useTeamGameState] 🚀 Setting up controlled polling for sessionId: ${sessionId}, teamId: ${loggedInTeamId}`);
 
         // Initial fetch
         fetchAndTrackTeamDecisions();
 
-        // Set up controlled polling (longer interval to avoid spam)
+        // Controlled polling
         pollIntervalRef.current = setInterval(() => {
-            console.log('[useTeamGameState] 🔄 Polling for decision changes (fallback)');
+            console.log('[useTeamGameState] 🔄 Polling for changes (fallback)');
             fetchAndTrackTeamDecisions();
             fetchAndUpdateSessionData();
-        }, 10000); // ✅ FIXED: 10 seconds instead of 5 to reduce load
+        }, 15000); // ✅ V2 FIX: Increased to 15 seconds to reduce load
 
         return () => {
             if (pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current);
                 pollIntervalRef.current = null;
             }
+            if (resetDebounceRef.current) {
+                clearTimeout(resetDebounceRef.current);
+                resetDebounceRef.current = null;
+            }
         };
-    }, [sessionId, loggedInTeamId]); // ✅ FIXED: Only depend on sessionId and loggedInTeamId
+    }, [sessionId, loggedInTeamId]);
 
     // ========================================================================
-    // INITIAL DATA FETCHING
+    // INITIAL DATA FETCHING (UNCHANGED)
     // ========================================================================
     useEffect(() => {
         if (sessionId && loggedInTeamId) {
@@ -351,7 +378,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     }, [currentActiveSlide, fetchCurrentTeamKpis]);
 
     // ========================================================================
-    // DEBUG LOGGING (REDUCED FREQUENCY)
+    // V2 FIX: REDUCED DEBUG LOGGING
     // ========================================================================
     useEffect(() => {
         console.log(`[useTeamGameState] 📊 State Update:`, {
@@ -362,10 +389,9 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             connectionStatus,
             decisionResetTrigger,
             hasKpis: !!currentTeamKpis,
-            adjustmentsCount: permanentAdjustments.length,
             trackedDecisions: teamDecisionIds.size
         });
-    }, [sessionId, loggedInTeamId, currentActiveSlide, isDecisionTime, connectionStatus, decisionResetTrigger, currentTeamKpis, permanentAdjustments, teamDecisionIds.size]);
+    }, [sessionId, loggedInTeamId, currentActiveSlide?.title, isDecisionTime, connectionStatus, decisionResetTrigger, currentTeamKpis, teamDecisionIds.size]);
 
     return {
         currentActiveSlide,
