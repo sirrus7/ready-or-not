@@ -6,8 +6,7 @@ import {
     Clock,
     Info,
     AlertTriangle,
-    User,
-    Zap,
+    FileText,
 } from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
@@ -233,73 +232,50 @@ const TeamMonitor: React.FC = () => {
                     </div>
                 </div>
 
-                {/* FIXED: Business Growth Strategy Reports Section - Informational Only */}
-                {isInvestmentPeriod && safeImmediatePurchases.length > 0 && (
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-300 rounded-lg">
-
-                        {/* Teams Who Purchased Reports Section */}
-                        {safeImmediatePurchases.length > 0 && (
-                            <div className="mb-6">
-                                <div className="flex items-center mb-3">
-                                    <Zap className="text-blue-600 mr-2" size={20}/>
-                                    <h3 className="font-semibold text-blue-800">
-                                        Teams Who Purchased Reports ({safeImmediatePurchases.length})
-                                    </h3>
-                                </div>
-                                <div className="space-y-2">
-                                    {safeImmediatePurchases.map(purchase => {
-                                        const team = teams.find(t => t.id === purchase.team_id);
-                                        const purchaseDate = new Date(purchase.submitted_at).toLocaleTimeString();
-
-                                        return (
-                                            <div key={purchase.id}
-                                                 className="flex items-center justify-between bg-blue-50 border border-blue-200 p-3 rounded-lg">
-                                                <div className="flex items-center flex-grow">
-                                                    <User className="text-blue-700 mr-3" size={18}/>
-                                                    <div>
-                                                <span className="font-medium text-blue-900">
-                                                    {team?.name || 'Unknown Team'}
-                                                </span>
-                                                        <div className="text-xs text-blue-600 mt-1">
-                                                            Cost: {formatCurrency(purchase.cost)} • Purchased: {purchaseDate}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* REMOVED: All "Mark as Given" buttons and related code */}
-                        {/* Teams that need reports are now shown in the informational modal only */}
-                    </div>
-                )}
-
                 {/* Team Status List */}
                 <div className="space-y-2">
                     {teams.map(team => {
                         const decision = decisionKey ? teamDecisions[team.id]?.[decisionKey] : undefined;
                         const hasSubmitted = !!decision?.submitted_at;
                         const selection = formatSelection(decision, team.id);
+                        const teamPurchase = safeImmediatePurchases.find(p => p.team_id === team.id);
+                        const needsBusinessReport = teamPurchase && !teamPurchase.report_given;
 
                         return (
                             <div
                                 key={team.id}
                                 className={`p-3 rounded-lg border transition-colors ${
-                                    hasSubmitted
-                                        ? 'bg-green-50 border-green-200'
-                                        : 'bg-gray-50 border-gray-200'
+                                    needsBusinessReport
+                                        ? 'bg-amber-50 border-amber-300'
+                                        : hasSubmitted
+                                            ? 'bg-green-50 border-green-200'
+                                            : 'bg-gray-50 border-gray-200'
                                 }`}
                             >
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center">
-                                        <div className={`mr-3 ${hasSubmitted ? 'text-green-600' : 'text-gray-400'}`}>
-                                            {hasSubmitted ? <CheckCircle2 size={20}/> : <Clock size={20}/>}
+                                        <div className={`mr-3 ${
+                                            needsBusinessReport ? 'text-amber-600' :
+                                                hasSubmitted ? 'text-green-600' : 'text-gray-400'
+                                        }`}>
+                                            {needsBusinessReport ? (
+                                                <FileText size={20}/>
+                                            ) : hasSubmitted ? (
+                                                <CheckCircle2 size={20}/>
+                                            ) : (
+                                                <Clock size={20}/>
+                                            )}
                                         </div>
                                         <div>
-                                            <div className="font-medium">{team.name}</div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium text-gray-900">{team.name}</span>
+                                                {needsBusinessReport && (
+                                                    <span
+                                                        className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium">
+                                                        Needs Business Report
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="text-sm text-gray-600">{selection}</div>
                                         </div>
                                     </div>
