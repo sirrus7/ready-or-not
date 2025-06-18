@@ -294,7 +294,7 @@ export const useTeamDecisionSubmission = ({
                     .filter(Boolean);
 
                 if (selectedInvestments.length > 0) {
-                    parts.push(`Investments: ${selectedInvestments.map(inv => inv!.title || inv!.name).join(', ')}`);
+                    parts.push(`Investments: ${selectedInvestments.map(inv => inv!.name).join(', ')}`);
                 }
             }
 
