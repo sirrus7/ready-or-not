@@ -1,27 +1,7 @@
 // src/views/team/hooks/useTeamDecisionSubmission.ts
-// UPDATED VERSION - Reacts to decision reset triggers
+// FIXED VERSION - No endless loops, stable reset handling
 
-/**
- * ============================================================================
- * TEAM DECISION SUBMISSION HOOK
- * ============================================================================
- *
- * IMPORTANT: This hook does NOT create any real-time subscriptions
- * All real-time communication is handled by useTeamGameState.ts
- *
- * This hook is responsible for:
- * 1. Managing decision submission state
- * 2. Fetching existing decisions via polling
- * 3. Submitting new decisions to database
- * 4. Formatting decision summaries for display
- * 5. UPDATED: Reacting to decision reset triggers from useTeamGameState
- *
- * Real-time updates (like decision resets) are handled by the parent
- * useTeamGameState hook and communicated via the decisionResetTrigger mechanism.
- * ============================================================================
- */
-
-import {useState, useCallback, useMemo, useEffect} from 'react';
+import {useState, useCallback, useMemo, useEffect, useRef} from 'react';
 import {useSupabaseMutation, useSupabaseQuery} from '@shared/hooks/supabase';
 import {db, supabase} from '@shared/services/supabase';
 import {Slide, InvestmentOption, ChallengeOption, GameStructure} from '@shared/types';
@@ -36,7 +16,7 @@ interface UseTeamDecisionSubmissionProps {
     investmentOptions?: InvestmentOption[];
     challengeOptions?: ChallengeOption[];
     gameStructure?: GameStructure;
-    decisionResetTrigger?: number; // NEW: Reset trigger from useTeamGameState
+    decisionResetTrigger?: number;
 }
 
 export interface UseTeamDecisionSubmissionReturn {
@@ -70,10 +50,6 @@ const parseInvestmentIds = (ids: string | string[] | null | undefined): string[]
     }
 };
 
-// ============================================================================
-// MAIN HOOK
-// ============================================================================
-
 export const useTeamDecisionSubmission = ({
                                               sessionId,
                                               teamId,
@@ -81,7 +57,7 @@ export const useTeamDecisionSubmission = ({
                                               decisionState,
                                               isValidSubmission,
                                               gameStructure,
-                                              decisionResetTrigger = 0 // NEW: Default to 0 if not provided
+                                              decisionResetTrigger = 0
                                           }: UseTeamDecisionSubmissionProps): UseTeamDecisionSubmissionReturn => {
 
     // ========================================================================
@@ -90,6 +66,9 @@ export const useTeamDecisionSubmission = ({
     const [submissionError, setSubmissionError] = useState<string | null>(null);
     const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
+    // ✅ FIXED: Use ref to track last processed reset trigger
+    const lastProcessedResetTrigger = useRef<number>(0);
+
     const decisionKey = currentSlide?.interactive_data_key;
 
     console.log('🎯 useTeamDecisionSubmission initialized:', {
@@ -97,7 +76,7 @@ export const useTeamDecisionSubmission = ({
         teamId,
         decisionKey,
         slideType: currentSlide?.type,
-        resetTrigger: decisionResetTrigger // NEW: Log the reset trigger
+        resetTrigger: decisionResetTrigger
     });
 
     // ========================================================================
@@ -123,26 +102,6 @@ export const useTeamDecisionSubmission = ({
             retryOnError: false
         }
     );
-
-    // ========================================================================
-    // NEW: REACT TO DECISION RESET TRIGGERS
-    // When the host resets our team's decision, refresh our data
-    // ========================================================================
-    useEffect(() => {
-        if (decisionResetTrigger > 0) {
-            console.log('🔄 Decision reset trigger detected, refreshing decision data');
-
-            // Clear any existing submission success/error states
-            setSubmissionSuccess(false);
-            setSubmissionError(null);
-
-            // Refresh the existing decision data
-            checkForExistingDecision();
-            refreshImmediatePurchases();
-
-            console.log('🔄 Decision data refresh complete after reset');
-        }
-    }, [decisionResetTrigger, checkForExistingDecision]);
 
     // ========================================================================
     // DATA FETCHING - IMMEDIATE PURCHASES
@@ -177,6 +136,57 @@ export const useTeamDecisionSubmission = ({
     );
 
     // ========================================================================
+    // ⚠️  CRITICAL: STABLE RESET TRIGGER HANDLING - DO NOT CHANGE DEPENDENCIES
+    // ========================================================================
+    /**
+     * 🚨 WARNING: ENDLESS LOOP PREVENTION 🚨
+     *
+     * This useEffect has been carefully crafted to prevent endless loops.
+     *
+     * ❌ DO NOT ADD THESE TO THE DEPENDENCY ARRAY:
+     * - checkForExistingDecision (changes on every render)
+     * - refreshImmediatePurchases (changes on every render)
+     * - Any other function from useSupabaseQuery
+     *
+     * 💥 WHAT HAPPENS IF YOU ADD THEM:
+     * 1. useEffect runs → calls refresh functions
+     * 2. Functions change reference → useEffect runs again
+     * 3. Infinite loop of database calls and re-renders
+     * 4. App becomes unusable, console fills with logs
+     * 5. Performance degrades severely
+     *
+     * ✅ ONLY SAFE DEPENDENCIES:
+     * - decisionResetTrigger (primitive number, stable)
+     * - Primitive values that don't change frequently
+     *
+     * 🔧 HOW THIS WORKS:
+     * - Only processes NEW reset triggers (not repeated ones)
+     * - Uses setTimeout to break synchronous call chains
+     * - Prevents cascade effects from refresh functions
+     */
+    useEffect(() => {
+        // Only process if this is a new reset trigger
+        if (decisionResetTrigger > 0 && decisionResetTrigger !== lastProcessedResetTrigger.current) {
+            console.log('🔄 Decision reset trigger detected, refreshing decision data');
+
+            // Mark this trigger as processed to prevent duplicate processing
+            lastProcessedResetTrigger.current = decisionResetTrigger;
+
+            // Clear any existing submission success/error states
+            setSubmissionSuccess(false);
+            setSubmissionError(null);
+
+            // ✅ CRITICAL: Use setTimeout to break the synchronous call chain
+            // This prevents the refresh functions from immediately triggering more renders
+            setTimeout(() => {
+                checkForExistingDecision();
+                refreshImmediatePurchases();
+                console.log('🔄 Decision data refresh complete after reset');
+            }, 50); // Very short delay to break the loop
+        }
+    }, [decisionResetTrigger]); // ⚠️  CRITICAL: ONLY this dependency - DO NOT ADD MORE!
+
+    // ========================================================================
     // DECISION SUBMISSION MUTATION
     // ========================================================================
     const {mutate: submitDecision, isLoading: isSubmitting} = useSupabaseMutation(
@@ -208,7 +218,7 @@ export const useTeamDecisionSubmission = ({
                 phase_id: decisionKey,
                 round_number: currentSlide?.round_number || 1,
                 selected_investment_ids: decisionState.selectedInvestmentIds.length > 0
-                    ? decisionState.selectedInvestmentIds  // Send as array, not JSON string
+                    ? decisionState.selectedInvestmentIds
                     : null,
                 selected_challenge_option_id: decisionState.selectedChallengeOptionId || null,
                 total_spent_budget: totalCost,
@@ -233,9 +243,11 @@ export const useTeamDecisionSubmission = ({
                 setSubmissionSuccess(true);
                 setSubmissionError(null);
 
-                // Refresh data to show the new submission
-                checkForExistingDecision();
-                refreshImmediatePurchases();
+                // ✅ FIXED: Use setTimeout to prevent immediate cascade
+                setTimeout(() => {
+                    checkForExistingDecision();
+                    refreshImmediatePurchases();
+                }, 100);
             },
             onError: (error: unknown) => {
                 console.error('🎯 Decision submission failed:', error);
@@ -282,7 +294,7 @@ export const useTeamDecisionSubmission = ({
                     .filter(Boolean);
 
                 if (selectedInvestments.length > 0) {
-                    parts.push(`Investments: ${selectedInvestments.map(inv => inv!.name).join(', ')}`);
+                    parts.push(`Investments: ${selectedInvestments.map(inv => inv!.title || inv!.name).join(', ')}`);
                 }
             }
 
@@ -291,10 +303,8 @@ export const useTeamDecisionSubmission = ({
                 const decisionKey = currentSlide.interactive_data_key;
                 const challengeOptions = decisionKey ?
                     gameStructureWithData.all_challenge_options?.[decisionKey] || [] : [];
-                const selectedChallenge = challengeOptions.find(
-                    opt => opt.id === existingDecision.selected_challenge_option_id
-                );
 
+                const selectedChallenge = challengeOptions.find(ch => ch.id === existingDecision.selected_challenge_option_id);
                 if (selectedChallenge) {
                     parts.push(`Challenge: ${selectedChallenge.id}`);
                 }
@@ -305,38 +315,27 @@ export const useTeamDecisionSubmission = ({
                 parts.push(`Total: ${formatCurrency(existingDecision.total_spent_budget)}`);
             }
 
-            const summary = parts.join(' • ');
-            console.log('🎯 Submission summary:', summary);
-            return summary;
+            return parts.length > 0 ? parts.join(' • ') : 'Submitted';
 
         } catch (error) {
             console.error('🎯 Error formatting submission summary:', error);
-            return 'Previous submission found';
+            return 'Submitted';
         }
     }, [currentSlide, gameStructure, existingDecision]);
 
     // ========================================================================
-    // SUBMISSION HANDLER
+    // STABLE SUBMIT HANDLER
     // ========================================================================
     const onSubmit = useCallback(async () => {
-        if (!isValidSubmission || hasExistingSubmission) {
-            console.log('🎯 Submission blocked - invalid or already submitted');
-            return;
-        }
+        if (isSubmitDisabled) return;
 
-        console.log('🎯 Starting decision submission process');
-        setSubmissionError(null);
         try {
             await submitDecision({});
         } catch (error) {
-            // Error is handled by the mutation's onError callback
-            console.error('🎯 Submission failed:', error);
+            console.error('🎯 Submit handler error:', error);
         }
-    }, [isValidSubmission, hasExistingSubmission, submitDecision]);
+    }, [isSubmitDisabled, submitDecision]);
 
-    // ========================================================================
-    // RETURN INTERFACE
-    // ========================================================================
     return {
         isSubmitting,
         isSubmitDisabled,
@@ -344,6 +343,6 @@ export const useTeamDecisionSubmission = ({
         submissionSuccess,
         hasExistingSubmission,
         existingSubmissionSummary,
-        onSubmit
+        onSubmit,
     };
 };
