@@ -177,29 +177,22 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "You successfully reduced your workforce and CAP. You've permanently impacted your KPIs for future rounds. HR Managers, come to the facilitator desk to pick up a KPI Adjustment Card.",
             effects: [
                 {
-                    kpi: 'orders',
-                    change_value: -1000,
-                    timing: 'immediate',
-                    challenge_id: 'ch3',
-                    option_id: 'A'
-                },
-                {
                     kpi: 'capacity',
-                    change_value: -1000,
+                    change_value: -1250,
                     timing: 'immediate',
                     challenge_id: 'ch3',
                     option_id: 'A'
                 },
                 {
                     kpi: 'cost',
-                    change_value: -250000,
+                    change_value: -300000,
                     timing: 'immediate',
                     challenge_id: 'ch3',
                     option_id: 'A'
                 },
                 {
                     kpi: 'capacity',
-                    change_value: -1000,
+                    change_value: -1250,
                     timing: 'permanent_next_round_start',
                     applies_to_rounds: [2, 3],
                     description: "Layoff Penalty",
@@ -214,15 +207,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "You successfully furloughed workers for the year to save costs and will get them back next year.",
             effects: [
                 {
-                    kpi: 'orders',
-                    change_value: -750,
-                    timing: 'immediate',
-                    challenge_id: 'ch3',
-                    option_id: 'B'
-                },
-                {
                     kpi: 'capacity',
-                    change_value: -750,
+                    change_value: -1000,
                     timing: 'immediate',
                     challenge_id: 'ch3',
                     option_id: 'B'
@@ -263,8 +249,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "You maintained the workforce but took a significant financial hit during the recession.",
             effects: [
                 {
-                    kpi: 'cost',
-                    change_value: 100000,
+                    kpi: 'capacity',
+                    change_value: -1000,
                     timing: 'immediate',
                     challenge_id: 'ch3',
                     option_id: 'D'

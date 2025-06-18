@@ -379,11 +379,7 @@ export const allGameSlides: Slide[] = [
         title: "CH2 Career Insight - Finance",
         type: 'video',
         source_path: 'Slide_040.mp4',
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "Challenge 2 Complete",
-            message: "Prepare for next segment. Click OK to proceed."
-        }
+        auto_advance_after_video: true,
     },
     {
         id: 40,
