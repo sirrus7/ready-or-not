@@ -1,5 +1,5 @@
 // src/views/team/hooks/useTeamGameState.ts
-// CRITICAL FIX: Stabilized real-time subscriptions with proper dependency management
+// CRITICAL FIX: Enhanced adjustment handling for proper impact card display
 
 import {useState, useEffect, useMemo, useCallback, useRef} from 'react';
 import {db, useRealtimeSubscription} from '@shared/services/supabase';
@@ -46,6 +46,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     const stableTeamId = useRef<string | null>(loggedInTeamId);
     const resetDebounceRef = useRef<NodeJS.Timeout | null>(null);
     const fetchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const adjustmentRefreshRef = useRef<NodeJS.Timeout | null>(null);
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
     // Update refs when props change (but don't trigger re-renders)
@@ -120,7 +121,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
             const adjustments = await db.adjustments.getByTeam(currentSessionId, currentTeamId);
 
-            console.log(`✅ [useTeamGameState] Loaded ${adjustments.length} permanent adjustments`);
+            console.log(`✅ [useTeamGameState] Loaded ${adjustments.length} permanent adjustments:`, adjustments);
             setPermanentAdjustments(adjustments);
         } catch (error) {
             console.error('[useTeamGameState] ❌ Error fetching adjustments:', error);
@@ -176,7 +177,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         }
     }, []);
 
-    // CRITICAL FIX: Adjustment Update Handler - No recursive calls
+    // CRITICAL FIX: Enhanced Adjustment Update Handler for Impact Cards
     const handleAdjustmentUpdate = useCallback((payload: any) => {
         const currentTeamId = stableTeamId.current;
         const currentSessionId = stableSessionId.current;
@@ -187,23 +188,23 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             teamId: adjustment?.team_id,
             currentTeamId,
             challengeId: adjustment?.challenge_id,
+            kpiKey: adjustment?.kpi_key,
+            value: adjustment?.change_value
         });
 
         if (adjustment?.session_id === currentSessionId && adjustment?.team_id === currentTeamId) {
-            console.log('✅ [useTeamGameState] Adjustment update is for our team - refreshing adjustments');
+            console.log('✅ [useTeamGameState] Adjustment update is for our team - refreshing impact cards');
 
-            // Direct state update instead of fetching to prevent loops
-            if (payload.eventType === 'INSERT') {
-                setPermanentAdjustments(prev => [...prev, adjustment]);
-            } else if (payload.eventType === 'UPDATE') {
-                setPermanentAdjustments(prev => prev.map(adj =>
-                    adj.id === adjustment.id ? adjustment : adj
-                ));
-            } else if (payload.eventType === 'DELETE') {
-                setPermanentAdjustments(prev => prev.filter(adj => adj.id !== adjustment.id));
+            // CRITICAL FIX: Force refresh adjustments to ensure impact cards appear
+            if (adjustmentRefreshRef.current) {
+                clearTimeout(adjustmentRefreshRef.current);
             }
+
+            adjustmentRefreshRef.current = setTimeout(() => {
+                fetchAdjustments();
+            }, 200); // Small delay to ensure database is consistent
         }
-    }, []);
+    }, [fetchAdjustments]);
 
     // ========================================================================
     // CRITICAL FIX: STABILIZED REAL-TIME SUBSCRIPTIONS
@@ -245,7 +246,7 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         !!sessionId && !!loggedInTeamId
     );
 
-    // 4. CRITICAL FIX: Permanent Adjustments - Team-specific filter
+    // 4. CRITICAL FIX: Permanent Adjustments - Enhanced for impact cards
     useRealtimeSubscription(
         `team-adj-${sessionId}-${loggedInTeamId}`,
         {
@@ -277,7 +278,17 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         }
     }, [currentActiveSlide?.id, fetchCurrentKpis]); // CRITICAL: Only depend on slide ID
 
-    // Cleanup timeout on unmount
+    // CRITICAL FIX: Force refresh adjustments on consequence slides
+    useEffect(() => {
+        if (currentActiveSlide?.type === 'consequence_reveal' && sessionId && loggedInTeamId) {
+            console.log(`🎯 [useTeamGameState] On consequence slide - refreshing adjustments for impact cards`);
+            setTimeout(() => {
+                fetchAdjustments();
+            }, 1000); // Allow time for consequence processing to complete
+        }
+    }, [currentActiveSlide?.type, currentActiveSlide?.id, fetchAdjustments]);
+
+    // Cleanup timeouts on unmount
     useEffect(() => {
         return () => {
             if (resetDebounceRef.current) {
@@ -285,6 +296,9 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             }
             if (fetchDebounceRef.current) {
                 clearTimeout(fetchDebounceRef.current);
+            }
+            if (adjustmentRefreshRef.current) {
+                clearTimeout(adjustmentRefreshRef.current);
             }
         };
     }, []);

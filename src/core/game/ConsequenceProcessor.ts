@@ -1,5 +1,5 @@
 // src/core/game/ConsequenceProcessor.ts
-// CRITICAL FIX: Added slide processing state tracking to prevent reprocessing
+// CRITICAL FIX: Proper slide processing state management to prevent host endless loops
 
 import {Slide, GameStructure, GameSession, Team, TeamRoundData, KpiEffect, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
@@ -19,9 +19,9 @@ interface ConsequenceProcessorProps {
 export class ConsequenceProcessor {
     private props: ConsequenceProcessorProps;
 
-    // CRITICAL FIX: Track processed slides to prevent reprocessing
-    private static processedSlides = new Set<string>();
-    private static processing = false;
+    // CRITICAL FIX: Instance-based processing tracking instead of static
+    private processedSlides = new Set<string>();
+    private isProcessing = false;
 
     constructor(props: ConsequenceProcessorProps) {
         this.props = props;
@@ -29,23 +29,23 @@ export class ConsequenceProcessor {
     }
 
     /**
-     * CRITICAL FIX: Main consequence processing method with safeguards
+     * CRITICAL FIX: Main consequence processing method with proper safeguards
      */
     async processConsequenceSlide(consequenceSlide: Slide): Promise<void> {
         const slideKey = `${this.props.currentDbSession?.id}-${consequenceSlide.id}`;
 
         // CRITICAL FIX: Prevent concurrent processing and reprocessing
-        if (ConsequenceProcessor.processing) {
+        if (this.isProcessing) {
             console.log(`[ConsequenceProcessor] ⏸️ Already processing, skipping slide ${consequenceSlide.id}`);
             return;
         }
 
-        if (ConsequenceProcessor.processedSlides.has(slideKey)) {
+        if (this.processedSlides.has(slideKey)) {
             console.log(`[ConsequenceProcessor] ✅ Slide ${consequenceSlide.id} already processed, skipping`);
             return;
         }
 
-        ConsequenceProcessor.processing = true;
+        this.isProcessing = true;
         console.log('\n🎯 [ConsequenceProcessor] ==================== PROCESSING CONSEQUENCE SLIDE ====================');
         console.log(`[ConsequenceProcessor] Slide ID: ${consequenceSlide.id}, Title: "${consequenceSlide.title}", Type: ${consequenceSlide.type}`);
 
@@ -176,7 +176,7 @@ export class ConsequenceProcessor {
             }
 
             // CRITICAL FIX: Mark slide as processed ONLY after successful completion
-            ConsequenceProcessor.processedSlides.add(slideKey);
+            this.processedSlides.add(slideKey);
 
             console.log('\n📡 [ConsequenceProcessor] ==================== PROCESSING COMPLETED ====================');
             console.log(`[ConsequenceProcessor] ✅ Successfully processed slide ${consequenceSlide.id} for ${updatedTeamData.length} teams`);
@@ -186,16 +186,17 @@ export class ConsequenceProcessor {
             console.error('[ConsequenceProcessor] ❌ Error during consequence processing:', error);
             throw error;
         } finally {
-            ConsequenceProcessor.processing = false;
+            // CRITICAL FIX: Always reset processing flag
+            this.isProcessing = false;
         }
     }
 
     /**
      * CRITICAL: Reset processed slides when needed (e.g., new session)
      */
-    public static resetProcessedSlides(): void {
-        ConsequenceProcessor.processedSlides.clear();
-        ConsequenceProcessor.processing = false;
+    public resetProcessedSlides(): void {
+        this.processedSlides.clear();
+        this.isProcessing = false;
         console.log('[ConsequenceProcessor] 🔄 Reset processed slides cache');
     }
 
@@ -262,7 +263,7 @@ export class ConsequenceProcessor {
     }
 
     /**
-     * CRITICAL: Store permanent KPI adjustments with explicit challenge tracking
+     * CRITICAL FIX: Store permanent KPI adjustments with enhanced logging
      */
     private async storePermanentAdjustments(
         teamId: string,
@@ -283,6 +284,8 @@ export class ConsequenceProcessor {
             return;
         }
 
+        console.log(`[ConsequenceProcessor] 🎯 Creating permanent adjustments for team ${teamId}:`, permanentEffects);
+
         // Create adjustment records
         const adjustmentsToUpsert = KpiCalculations.createPermanentAdjustments(
             effects,
@@ -293,9 +296,13 @@ export class ConsequenceProcessor {
         );
 
         if (adjustmentsToUpsert.length > 0) {
+            console.log(`[ConsequenceProcessor] 💾 Storing ${adjustmentsToUpsert.length} permanent adjustments:`, adjustmentsToUpsert);
+
             // CRITICAL: Store in database - this triggers real-time updates
-            await db.adjustments.upsert(adjustmentsToUpsert);
-            console.log(`[ConsequenceProcessor] ✅ Stored ${adjustmentsToUpsert.length} permanent adjustments for team ${teamId}, challenge ${challengeId}, option ${optionId}`);
+            const storedAdjustments = await db.adjustments.upsert(adjustmentsToUpsert);
+
+            console.log(`[ConsequenceProcessor] ✅ Successfully stored permanent adjustments for team ${teamId}, challenge ${challengeId}, option ${optionId}`);
+            console.log(`[ConsequenceProcessor] 📊 Stored adjustments:`, storedAdjustments);
         }
     }
 

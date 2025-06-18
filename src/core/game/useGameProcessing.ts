@@ -154,14 +154,29 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             if (!currentDbSession?.id || !teams.length) {
                 throw new Error('Cannot finalize KPIs - missing session or teams');
             }
+
+            console.log(`[useGameProcessing] Calculating and finalizing KPIs for round ${roundNumber}`);
+
             for (const team of teams) {
                 const kpis = teamRoundData[team.id]?.[roundNumber];
                 if (kpis) {
-                    const finalizedKpis = KpiCalculations.calculateFinalKpis(kpis);
+                    // CRITICAL FIX: Use calculateFinancialMetrics instead of non-existent calculateFinalKpis
+                    const financialMetrics = KpiCalculations.calculateFinancialMetrics(kpis);
+                    const finalizedKpis = {
+                        ...kpis,
+                        ...financialMetrics
+                    };
+
+                    console.log(`[useGameProcessing] Updating KPIs for team ${team.name}:`, finalizedKpis);
                     await db.kpis.update(kpis.id, finalizedKpis);
+                } else {
+                    console.warn(`[useGameProcessing] No KPI data found for team ${team.name} round ${roundNumber}`);
                 }
             }
+
+            // Refresh data after updates
             await fetchTeamRoundDataFromHook(currentDbSession.id);
+            console.log(`[useGameProcessing] Successfully finalized KPIs for round ${roundNumber}`);
         }
     );
 
@@ -179,6 +194,12 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             }
 
             try {
+                // CRITICAL FIX: Reset consequence processing state
+                if (consequenceProcessor) {
+                    consequenceProcessor.resetProcessedSlides();
+                    console.log('[useGameProcessing] Reset consequence processor state');
+                }
+
                 // Delete all team decisions and KPI data for this session
                 await Promise.all([
                     db.decisions.deleteBySession(currentDbSession.id),
@@ -195,6 +216,8 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
 
                 // Redirect to first slide
                 navigate(`/host/${currentDbSession.id}`);
+
+                console.log('[useGameProcessing] Game progress reset successfully');
             } catch (error) {
                 console.error('Error resetting game progress:', error);
                 throw error;
