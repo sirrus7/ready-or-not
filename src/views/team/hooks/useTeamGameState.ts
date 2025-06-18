@@ -30,6 +30,9 @@
  * 3. KPI Updates (team_round_data table updates) ⭐ CRITICAL FIX ADDED
  *    - Real-time KPI updates from consequence processing
  *    - Update team dashboard immediately when consequences applied
+ * 4. KPI Impact Cards (permanent_kpi_adjustments table updates) ⭐ NEW FIX ADDED
+ *    - Real-time display of permanent effect cards like "CNC Machine"
+ *    - Show impact cards immediately when consequences with permanent effects processed
  *
  * FALLBACK POLLING:
  * - Polls every 10 seconds as backup if real-time fails
@@ -41,7 +44,7 @@ import {useState, useEffect, useMemo, useCallback} from 'react';
 import {db, useRealtimeSubscription} from '@shared/services/supabase';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {Slide, GameStructure} from '@shared/types/game';
-import {TeamRoundData} from '@shared/types/database';
+import {TeamRoundData, PermanentKpiAdjustment} from '@shared/types/database';
 
 interface useTeamGameStateProps {
     sessionId: string | null;
@@ -56,6 +59,8 @@ interface useTeamGameStateReturn {
     gameStructure: GameStructure;
     connectionStatus: 'disconnected' | 'connecting' | 'connected';
     decisionResetTrigger: number;
+    permanentAdjustments: PermanentKpiAdjustment[]; // NEW: For KPI Impact Cards
+    isLoadingAdjustments: boolean; // NEW: Loading state for adjustments
 }
 
 export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStateProps): useTeamGameStateReturn => {
@@ -68,6 +73,10 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
     const [isLoadingKpis, setIsLoadingKpis] = useState<boolean>(false);
     const [decisionResetTrigger, setDecisionResetTrigger] = useState<number>(0);
+
+    // NEW: State for KPI Impact Cards (permanent adjustments)
+    const [permanentAdjustments, setPermanentAdjustments] = useState<PermanentKpiAdjustment[]>([]);
+    const [isLoadingAdjustments, setIsLoadingAdjustments] = useState<boolean>(false);
 
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
@@ -146,6 +155,28 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         }
     }, [sessionId, loggedInTeamId, currentActiveSlide]);
 
+    // NEW: Fetch permanent adjustments for KPI Impact Cards
+    const fetchPermanentAdjustments = useCallback(async () => {
+        if (!sessionId || !loggedInTeamId) {
+            setPermanentAdjustments([]);
+            return;
+        }
+
+        setIsLoadingAdjustments(true);
+        try {
+            const adjustments = await db.adjustments.getByTeam(sessionId, loggedInTeamId);
+            setPermanentAdjustments(adjustments || []);
+
+            console.log(`[useTeamGameState] 🎯 Loaded ${adjustments?.length || 0} permanent adjustments for team ${loggedInTeamId}`);
+
+        } catch (error) {
+            console.error('[useTeamGameState] ❌ Error fetching permanent adjustments:', error);
+            setPermanentAdjustments([]);
+        } finally {
+            setIsLoadingAdjustments(false);
+        }
+    }, [sessionId, loggedInTeamId]);
+
     // ========================================================================
     // CRITICAL FIX: REAL-TIME SUBSCRIPTIONS FOR TEAM APPS
     // This section was missing the KPI subscription, breaking consequence processing
@@ -165,6 +196,41 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
                     updateSlideState(newSlideIndex);
                 }
                 setConnectionStatus('connected');
+            }
+        },
+        !!sessionId && !!loggedInTeamId
+    );
+
+    // 4. 🆕 CRITICAL FIX: KPI IMPACT CARDS - Real-time permanent adjustments updates
+    // This subscription enables real-time display of KPI Impact Cards like "CNC Machine"
+    useRealtimeSubscription(
+        `team-adjustments-${sessionId}-${loggedInTeamId}`,
+        {
+            table: 'permanent_kpi_adjustments',
+            event: '*', // Listen to INSERT, UPDATE, DELETE events
+            filter: `session_id=eq.${sessionId}`,
+            onchange: (payload) => {
+                const adjustment = payload.new as PermanentKpiAdjustment;
+                const eventType = payload.eventType;
+
+                console.log(`🔔 [useTeamGameState] Permanent adjustment ${eventType}:`, adjustment);
+
+                // Only update if this adjustment is for our team
+                if (adjustment?.team_id === loggedInTeamId) {
+                    console.log(`🎯 [useTeamGameState] ✅ New KPI Impact Card for team ${loggedInTeamId}:`, {
+                        challenge: adjustment.challenge_id,
+                        option: adjustment.option_id,
+                        kpi: adjustment.kpi_key,
+                        value: adjustment.change_value,
+                        description: adjustment.description
+                    });
+
+                    // Refresh permanent adjustments to display new impact cards
+                    fetchPermanentAdjustments();
+                    console.log(`📋 [useTeamGameState] KPI Impact Cards updated in real-time!`);
+                } else {
+                    console.log(`ℹ️  [useTeamGameState] Permanent adjustment for different team ${adjustment?.team_id}, ignoring`);
+                }
             }
         },
         !!sessionId && !!loggedInTeamId
@@ -251,7 +317,8 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
     useEffect(() => {
         fetchCurrentTeamKpis();
-    }, [fetchCurrentTeamKpis]);
+        fetchPermanentAdjustments(); // NEW: Load permanent adjustments
+    }, [fetchCurrentTeamKpis, fetchPermanentAdjustments]);
 
     // Fallback polling for reliability
     useEffect(() => {
@@ -261,10 +328,11 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
             console.log('[useTeamGameState] 🔄 Polling fallback - checking for updates');
             fetchAndUpdateSessionData();
             fetchCurrentTeamKpis();
+            fetchPermanentAdjustments(); // NEW: Poll permanent adjustments
         }, 10000);
 
         return () => clearInterval(pollInterval);
-    }, [sessionId, connectionStatus, fetchAndUpdateSessionData, fetchCurrentTeamKpis]);
+    }, [sessionId, connectionStatus, fetchAndUpdateSessionData, fetchCurrentTeamKpis, fetchPermanentAdjustments]);
 
     // ========================================================================
     // RETURN VALUES
@@ -276,6 +344,8 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         isLoadingKpis,
         gameStructure,
         connectionStatus,
-        decisionResetTrigger
+        decisionResetTrigger,
+        permanentAdjustments, // NEW: For KPI Impact Cards
+        isLoadingAdjustments  // NEW: Loading state
     };
 };
