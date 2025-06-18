@@ -189,15 +189,30 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
 
         console.log(`🔔 [useTeamGameState] DELETE event: ${deletedId}`);
 
+        // ✅ ADD DEBUG: Check if we're tracking this decision
+        console.log('🔍 [DEBUG] Current tracked decisions:', Array.from(teamDecisionIdsRef.current));
+        console.log('🔍 [DEBUG] Is this our decision?', teamDecisionIdsRef.current.has(deletedId));
+
         // Check if it's our team's decision
         if (teamDecisionIdsRef.current.has(deletedId)) {
             console.log(`[useTeamGameState] 🎯 Our decision deleted: ${deletedId}`);
 
+            // ✅ ADD DEBUG: Force immediate trigger for testing
+            console.log('🔄 [DEBUG] Forcing reset trigger increment');
+            setDecisionResetTrigger(prev => {
+                const newValue = prev + 1;
+                console.log('🔄 [DEBUG] Reset trigger: ', prev, '->', newValue);
+                return newValue;
+            });
+
             // Debounced response
             if (resetDebounceRef.current) clearTimeout(resetDebounceRef.current);
             resetDebounceRef.current = setTimeout(() => {
+                console.log('🔄 [DEBUG] Running updateDecisionTracking');
                 updateDecisionTracking();
             }, 100);
+        } else {
+            console.log('ℹ️ [DEBUG] Not our decision, ignoring');
         }
     }, [updateDecisionTracking]);
 
