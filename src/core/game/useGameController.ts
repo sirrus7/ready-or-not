@@ -1,7 +1,7 @@
 // src/core/game/useGameController.ts
-// CRITICAL FIX: Prevent infinite loop in auto-processing consequence slides
+// FINAL FIX: Prevent infinite loop with persistent slide tracking using localStorage
 
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {GameSessionManager} from '@core/game/GameSessionManager';
 import {GameStructure, GameSession, Slide} from '@shared/types';
 import {useSlidePreCaching} from '@shared/hooks/useSlidePreCaching';
@@ -19,8 +19,37 @@ export const useGameController = (
     const [allTeamsSubmittedState, setAllTeamsSubmittedCurrentInteractivePhase] = useState<boolean>(false);
     const [allTeamsAlertDismissed, setAllTeamsAlertDismissed] = useState<boolean>(false);
 
-    // CRITICAL FIX: Track processed consequence slides to prevent infinite loops
-    const processedConsequenceSlidesRef = useRef<Set<number>>(new Set());
+    // CRITICAL FIX: Use sessionStorage for persistent slide tracking across re-renders
+    const getProcessedSlidesKey = (sessionId: string) => `processed_consequence_slides_${sessionId}`;
+
+    const getProcessedSlides = useCallback((): Set<number> => {
+        if (!dbSession?.id) return new Set();
+        try {
+            const stored = sessionStorage.getItem(getProcessedSlidesKey(dbSession.id));
+            return stored ? new Set(JSON.parse(stored)) : new Set();
+        } catch {
+            return new Set();
+        }
+    }, [dbSession?.id]);
+
+    const setProcessedSlides = useCallback((slides: Set<number>) => {
+        if (!dbSession?.id) return;
+        try {
+            sessionStorage.setItem(getProcessedSlidesKey(dbSession.id), JSON.stringify([...slides]));
+        } catch (error) {
+            console.warn('[useGameController] Failed to persist processed slides:', error);
+        }
+    }, [dbSession?.id]);
+
+    const addProcessedSlide = useCallback((slideId: number) => {
+        const current = getProcessedSlides();
+        current.add(slideId);
+        setProcessedSlides(current);
+    }, [getProcessedSlides, setProcessedSlides]);
+
+    const hasProcessedSlide = useCallback((slideId: number): boolean => {
+        return getProcessedSlides().has(slideId);
+    }, [getProcessedSlides]);
 
     // CONSTANTS
     const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted!";
@@ -33,11 +62,16 @@ export const useGameController = (
         }
     }, [dbSession, initialDbSession]);
 
-    // CRITICAL FIX: Reset processed slides when session changes
+    // CRITICAL FIX: Clear processed slides when session changes
     useEffect(() => {
-        if (initialDbSession?.id !== dbSession?.id) {
-            processedConsequenceSlidesRef.current.clear();
-            console.log('[useGameController] 🔄 Session changed, reset processed consequence slides');
+        if (initialDbSession?.id !== dbSession?.id && initialDbSession?.id) {
+            try {
+                // Clear processed slides for new session
+                sessionStorage.removeItem(getProcessedSlidesKey(initialDbSession.id));
+                console.log('[useGameController] 🔄 Cleared processed slides for new session');
+            } catch (error) {
+                console.warn('[useGameController] Failed to clear processed slides:', error);
+            }
         }
     }, [initialDbSession?.id, dbSession?.id]);
 
@@ -83,15 +117,15 @@ export const useGameController = (
         }
     }, [allTeamsSubmittedState, currentSlideData?.interactive_data_key, currentHostAlertState, allTeamsAlertDismissed]);
 
-    // CRITICAL FIX: Auto-process consequence slides with infinite loop prevention
+    // CRITICAL FIX: Auto-process consequence slides with persistent tracking
     useEffect(() => {
-        if (!currentSlideData || !gameStructure) return;
+        if (!currentSlideData || !gameStructure || !dbSession?.id) return;
 
         const processConsequenceSlideAuto = async () => {
             if (currentSlideData.type === 'consequence_reveal') {
-                // CRITICAL FIX: Check if already processed to prevent infinite loop
-                if (processedConsequenceSlidesRef.current.has(currentSlideData.id)) {
-                    console.log(`[useGameController] 🟡 Consequence slide ${currentSlideData.id} already auto-processed, skipping`);
+                // CRITICAL FIX: Check persistent storage for already processed slides
+                if (hasProcessedSlide(currentSlideData.id)) {
+                    console.log(`[useGameController] 🟡 Consequence slide ${currentSlideData.id} already auto-processed (persistent), skipping`);
                     return;
                 }
 
@@ -99,7 +133,7 @@ export const useGameController = (
 
                 try {
                     // Mark as processed BEFORE processing to prevent re-entry
-                    processedConsequenceSlidesRef.current.add(currentSlideData.id);
+                    addProcessedSlide(currentSlideData.id);
 
                     await processConsequenceSlide(currentSlideData);
 
@@ -108,7 +142,9 @@ export const useGameController = (
                     console.error(`[useGameController] ❌ Error auto-processing consequence slide:`, error);
 
                     // Remove from processed set on error so it can be retried
-                    processedConsequenceSlidesRef.current.delete(currentSlideData.id);
+                    const current = getProcessedSlides();
+                    current.delete(currentSlideData.id);
+                    setProcessedSlides(current);
 
                     setCurrentHostAlertState({
                         title: "Processing Error",
@@ -119,7 +155,7 @@ export const useGameController = (
         };
 
         processConsequenceSlideAuto();
-    }, [currentSlideData?.id, currentSlideData?.type, gameStructure, processConsequenceSlide]);
+    }, [currentSlideData?.id, currentSlideData?.type, gameStructure, processConsequenceSlide, dbSession?.id, hasProcessedSlide, addProcessedSlide, getProcessedSlides, setProcessedSlides]);
 
     // HOST ALERT MANAGEMENT
     const clearHostAlert = useCallback(async () => {
