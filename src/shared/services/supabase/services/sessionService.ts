@@ -3,7 +3,7 @@ import {supabase} from '../client';
 import {withRetry} from '../database';
 
 export const sessionService = {
-    async get(sessionId: string) {
+    async getById(sessionId: string) {
         return withRetry(async () => {
             const {data, error} = await supabase
                 .from('sessions')

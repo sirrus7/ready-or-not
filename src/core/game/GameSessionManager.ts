@@ -207,7 +207,7 @@ export class GameSessionManager {
 
     async loadSession(sessionId: string): Promise<GameSession> {
         try {
-            const sessionData = await db.sessions.get(sessionId);
+            const sessionData = await db.sessions.getById(sessionId);
             if (!sessionData) throw new Error(`Session with ID '${sessionId}' not found.`);
             return sessionData as GameSession;
         } catch (error) {
