@@ -1,5 +1,5 @@
 // src/views/team/hooks/useTeamGameState.ts
-// STABLE VERSION - Connections created once, no endless loops
+// CRITICAL FIX: Team KPI Real-time Updates + Impact Cards
 
 import {useState, useEffect, useMemo, useCallback, useRef} from 'react';
 import {db, useRealtimeSubscription} from '@shared/services/supabase';
@@ -22,11 +22,14 @@ interface useTeamGameStateReturn {
     decisionResetTrigger: number;
     permanentAdjustments: PermanentKpiAdjustment[];
     isLoadingAdjustments: boolean;
+    // Manual refresh functions for fallback
+    fetchCurrentKpis: () => Promise<void>;
+    fetchAdjustments: () => Promise<void>;
 }
 
 export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStateProps): useTeamGameStateReturn => {
     // ========================================================================
-    // STATE
+    // STATE MANAGEMENT
     // ========================================================================
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
     const [isDecisionTime, setIsDecisionTime] = useState<boolean>(false);
@@ -40,114 +43,96 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     // ========================================================================
     // STABLE REFS - Never change, prevent subscription recreation
     // ========================================================================
-    const resetDebounceRef = useRef<NodeJS.Timeout | null>(null);
-    const fallbackPollRef = useRef<NodeJS.Timeout | null>(null);
-    const sessionIdRef = useRef<string | null>(sessionId);
     const teamIdRef = useRef<string | null>(loggedInTeamId);
+    const resetDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Keep refs updated but don't trigger re-renders
-    sessionIdRef.current = sessionId;
-    teamIdRef.current = loggedInTeamId;
+    // Update ref when teamId changes
+    useEffect(() => {
+        teamIdRef.current = loggedInTeamId;
+    }, [loggedInTeamId]);
 
+    // ========================================================================
+    // HELPER FUNCTIONS
+    // ========================================================================
     const gameStructure = useMemo(() => readyOrNotGame_2_0_DD, []);
 
-    // ========================================================================
-    // STABLE FUNCTIONS - Never recreate to prevent subscription churn
-    // ========================================================================
-    const updateSlideState = useCallback((slideIndex: number) => {
-        const slide = gameStructure.slides.find(s => s.id === slideIndex);
-        if (!slide) {
-            console.warn(`[useTeamGameState] ⚠️  Slide not found for index: ${slideIndex}`);
-            return;
+    const updateSlideState = useCallback((slideId: number) => {
+        console.log(`🎬 [useTeamGameState] Slide updated to ID ${slideId}`);
+        const slide = gameStructure.slides.find(s => s.id === slideId);
+        if (slide) {
+            setCurrentActiveSlide(slide);
+            setIsDecisionTime(slide.type.startsWith('interactive_'));
         }
-
-        console.log(`[useTeamGameState] 🎯 Updating to slide: ${slide.title} (${slide.type})`);
-        setCurrentActiveSlide(slide);
-
-        const isInteractive = ['interactive_invest', 'interactive_choice', 'interactive_double_down_prompt', 'interactive_double_down_select'].includes(slide.type);
-        setIsDecisionTime(isInteractive);
     }, [gameStructure.slides]);
 
     // ========================================================================
-    // FETCH FUNCTIONS - Stable references
+    // DATA FETCHING FUNCTIONS
     // ========================================================================
-    const fetchSessionData = useCallback(async () => {
-        const currentSessionId = sessionIdRef.current;
-        if (!currentSessionId) return;
+    const fetchCurrentKpis = useCallback(async () => {
+        if (!sessionId || !loggedInTeamId || !currentActiveSlide) return;
 
         try {
-            const sessionData = await db.sessions.getById(currentSessionId);
-            if (sessionData?.current_slide_index !== null && sessionData?.current_slide_index !== undefined) {
-                updateSlideState(sessionData.current_slide_index);
-            }
-        } catch (error) {
-            console.error('[useTeamGameState] ❌ Error fetching session:', error);
-        }
-    }, [updateSlideState]);
+            setIsLoadingKpis(true);
+            console.log(`📊 [useTeamGameState] Fetching KPIs for team ${loggedInTeamId}, round ${currentActiveSlide.round_number}`);
 
-    const fetchTeamKpis = useCallback(async () => {
-        const currentSessionId = sessionIdRef.current;
-        const currentTeamId = teamIdRef.current;
+            const kpiData = await db.kpis.getForTeamRound(
+                sessionId,
+                loggedInTeamId,
+                currentActiveSlide.round_number
+            );
 
-        if (!currentSessionId || !currentTeamId) {
-            setCurrentTeamKpis(null);
-            return;
-        }
-
-        setIsLoadingKpis(true);
-        try {
-            // Get current slide from state, not from changing dependencies
-            const currentSlide = currentActiveSlide;
-            if (!currentSlide || currentSlide.round_number === 0) {
+            if (kpiData) {
+                console.log(`✅ [useTeamGameState] Loaded KPIs for round ${currentActiveSlide.round_number}:`, kpiData);
+                setCurrentTeamKpis(kpiData as TeamRoundData);
+            } else {
+                console.log(`⚠️ [useTeamGameState] No KPI data found for round ${currentActiveSlide.round_number}`);
                 setCurrentTeamKpis(null);
-                return;
             }
-
-            const kpiData = await db.kpis.getForTeamRound(currentSessionId, currentTeamId, currentSlide.round_number as 1 | 2 | 3);
-            setCurrentTeamKpis(kpiData as TeamRoundData || null);
         } catch (error) {
             console.error('[useTeamGameState] ❌ Error fetching KPIs:', error);
             setCurrentTeamKpis(null);
         } finally {
             setIsLoadingKpis(false);
         }
-    }, [currentActiveSlide]);
+    }, [sessionId, loggedInTeamId, currentActiveSlide]);
 
     const fetchAdjustments = useCallback(async () => {
-        const currentSessionId = sessionIdRef.current;
-        const currentTeamId = teamIdRef.current;
+        if (!sessionId || !loggedInTeamId) return;
 
-        if (!currentSessionId || !currentTeamId) {
-            setPermanentAdjustments([]);
-            return;
-        }
-
-        setIsLoadingAdjustments(true);
         try {
-            const adjustments = await db.adjustments.getByTeam(currentSessionId, currentTeamId);
-            setPermanentAdjustments(adjustments || []);
+            setIsLoadingAdjustments(true);
+            console.log(`🎯 [useTeamGameState] Fetching permanent adjustments for team ${loggedInTeamId}`);
+
+            const adjustments = await db.adjustments.getByTeam(sessionId, loggedInTeamId);
+
+            console.log(`✅ [useTeamGameState] Loaded ${adjustments.length} permanent adjustments`);
+            setPermanentAdjustments(adjustments);
         } catch (error) {
             console.error('[useTeamGameState] ❌ Error fetching adjustments:', error);
             setPermanentAdjustments([]);
         } finally {
             setIsLoadingAdjustments(false);
         }
-    }, []);
+    }, [sessionId, loggedInTeamId]);
 
     // ========================================================================
-    // COMPLETELY STABLE EVENT HANDLERS - Never change reference
+    // REAL-TIME EVENT HANDLERS - STABLE CALLBACKS
     // ========================================================================
     const handleSlideUpdate = useCallback((payload: any) => {
-        console.log('🔔 [useTeamGameState] Session update received');
+        console.log('🔔 [useTeamGameState] Session slide update received');
         const newSlideIndex = payload.new?.current_slide_index;
         if (newSlideIndex !== null && newSlideIndex !== undefined) {
-            updateSlideState(newSlideIndex);
+            // Convert slide index to slide ID
+            const slide = gameStructure.slides[newSlideIndex];
+            if (slide) {
+                updateSlideState(slide.id);
+            }
         }
         setConnectionStatus('connected');
-    }, [updateSlideState]);
+    }, [updateSlideState, gameStructure.slides]);
 
     const handleDecisionDelete = useCallback((payload: any) => {
-        console.log(`🔔 [useTeamGameState] Decision deleted in session - triggering refresh`);
+        console.log(`🔔 [useTeamGameState] Decision deleted - triggering refresh`);
 
         // Clear any existing timeout
         if (resetDebounceRef.current) {
@@ -158,46 +143,64 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         resetDebounceRef.current = setTimeout(() => {
             console.log('🔄 [useTeamGameState] Triggering reset for team app');
             setDecisionResetTrigger(prev => prev + 1);
-        }, 300); // Longer debounce to prevent rapid-fire
+        }, 300);
+    }, []);
 
-    }, []); // ✅ Empty deps - completely stable
-
+    // CRITICAL FIX: KPI Update Handler
     const handleKpiUpdate = useCallback((payload: any) => {
         const currentTeamId = teamIdRef.current;
         const updatedKpis = payload.new as TeamRoundData;
 
+        console.log('🔔 [useTeamGameState] KPI update received:', {
+            eventType: payload.eventType,
+            teamId: updatedKpis?.team_id,
+            currentTeamId,
+            roundNumber: updatedKpis?.round_number,
+            capacity: updatedKpis?.current_capacity,
+            orders: updatedKpis?.current_orders,
+            cost: updatedKpis?.current_cost,
+            asp: updatedKpis?.current_asp
+        });
+
+        // Only update if it's for our team
         if (updatedKpis?.team_id === currentTeamId) {
-            console.log('🔔 [useTeamGameState] KPI update for our team');
+            console.log('✅ [useTeamGameState] KPI update is for our team - applying update');
 
-            // Use a ref to get current slide to avoid dependency
-            setCurrentTeamKpis(prev => {
-                // Only update if it's for the current round
-                const slide = currentActiveSlide;
-                if (slide && updatedKpis.round_number === slide.round_number) {
-                    return updatedKpis;
-                }
-                return prev;
-            });
+            // CRITICAL: Always update KPIs when they change
+            setCurrentTeamKpis(updatedKpis);
+
+            // Also refresh adjustments in case permanent effects were added
+            fetchAdjustments();
         }
-    }, []); // ✅ Empty deps - completely stable
+    }, [fetchAdjustments]);
 
+    // CRITICAL FIX: Adjustment Update Handler
     const handleAdjustmentUpdate = useCallback((payload: any) => {
         const currentTeamId = teamIdRef.current;
         const adjustment = payload.new as PermanentKpiAdjustment;
 
+        console.log('🔔 [useTeamGameState] Adjustment update received:', {
+            eventType: payload.eventType,
+            teamId: adjustment?.team_id,
+            currentTeamId,
+            challengeId: adjustment?.challenge_id,
+            kpiKey: adjustment?.kpi_key,
+            value: adjustment?.change_value
+        });
+
         if (adjustment?.team_id === currentTeamId) {
-            console.log('🔔 [useTeamGameState] Adjustment update for our team');
+            console.log('✅ [useTeamGameState] Adjustment update is for our team - refreshing');
             fetchAdjustments();
         }
     }, [fetchAdjustments]);
 
     // ========================================================================
-    // STABLE REAL-TIME SUBSCRIPTIONS - Only created once!
+    // REAL-TIME SUBSCRIPTIONS - CRITICAL FIXES
     // ========================================================================
 
-    // 1. Session/Slide Updates - STABLE
+    // 1. Session/Slide Updates
     useRealtimeSubscription(
-        `team-slide-${sessionId}`, // Simple unique name
+        `team-slide-${sessionId}`,
         {
             table: 'sessions',
             event: 'UPDATE',
@@ -207,9 +210,9 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         !!sessionId && !!loggedInTeamId
     );
 
-    // 2. Decision Deletes - STABLE
+    // 2. Decision Deletes (for reset handling)
     useRealtimeSubscription(
-        `team-deletes-${sessionId}`, // Simple unique name
+        `team-deletes-${sessionId}`,
         {
             table: 'team_decisions',
             event: 'DELETE',
@@ -219,24 +222,24 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
         !!sessionId && !!loggedInTeamId
     );
 
-    // 3. KPI Updates - STABLE
+    // 3. CRITICAL FIX: KPI Updates - More specific filter
     useRealtimeSubscription(
-        `team-kpis-${sessionId}`, // Simple unique name
+        `team-kpis-${sessionId}-${loggedInTeamId}`,
         {
             table: 'team_round_data',
-            event: '*',
+            event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
             filter: `session_id=eq.${sessionId}`,
             onchange: handleKpiUpdate
         },
         !!sessionId && !!loggedInTeamId
     );
 
-    // 4. Adjustment Updates - STABLE
+    // 4. CRITICAL FIX: Permanent Adjustments - More specific filter
     useRealtimeSubscription(
-        `team-adj-${sessionId}`, // Simple unique name
+        `team-adj-${sessionId}-${loggedInTeamId}`,
         {
             table: 'permanent_kpi_adjustments',
-            event: '*',
+            event: '*', // Listen to all events
             filter: `session_id=eq.${sessionId}`,
             onchange: handleAdjustmentUpdate
         },
@@ -244,67 +247,61 @@ export const useTeamGameState = ({sessionId, loggedInTeamId}: useTeamGameStatePr
     );
 
     // ========================================================================
-    // MINIMAL EFFECTS - Only run when actually needed
+    // EFFECTS - Initial data loading and slide-based updates
     // ========================================================================
 
-    // Initial data fetch - only when session/team changes
+    // Load initial data when session/team changes
     useEffect(() => {
-        if (!sessionId || !loggedInTeamId) return;
-
-        console.log(`[useTeamGameState] 🚀 Initial setup: ${sessionId.substring(0, 8)}/${loggedInTeamId}`);
-
-        // Fetch initial data
-        fetchSessionData();
-        fetchAdjustments();
-        // Note: KPIs fetched when slide is determined
-
-    }, [sessionId, loggedInTeamId]); // Only these two dependencies
-
-    // Fetch KPIs when slide changes to decision slides
-    useEffect(() => {
-        if (currentActiveSlide && isDecisionTime) {
-            console.log('[useTeamGameState] 📊 Decision slide detected, fetching KPIs');
-            fetchTeamKpis();
+        if (sessionId && loggedInTeamId) {
+            console.log(`🚀 [useTeamGameState] Initializing for session ${sessionId}, team ${loggedInTeamId}`);
+            fetchCurrentKpis();
+            fetchAdjustments();
         }
-    }, [currentActiveSlide?.id, isDecisionTime]); // Only when slide actually changes
+    }, [sessionId, loggedInTeamId, fetchCurrentKpis, fetchAdjustments]);
 
-    // Conservative fallback polling
+    // CRITICAL: Refresh KPIs when slide changes (especially for consequence slides)
     useEffect(() => {
-        if (!sessionId || !loggedInTeamId) {
-            if (fallbackPollRef.current) {
-                clearInterval(fallbackPollRef.current);
-                fallbackPollRef.current = null;
-            }
-            return;
+        if (currentActiveSlide && sessionId && loggedInTeamId) {
+            console.log(`🎬 [useTeamGameState] Slide changed to ${currentActiveSlide.id} (${currentActiveSlide.type}), refreshing KPIs`);
+
+            // Always refresh on slide change - this ensures we get latest data
+            // especially important for consequence slides
+            fetchCurrentKpis();
         }
+    }, [currentActiveSlide, fetchCurrentKpis]);
 
-        // Very light fallback polling
-        fallbackPollRef.current = setInterval(() => {
-            console.log('[useTeamGameState] 🔄 Fallback poll (30s)');
-            fetchSessionData();
-        }, 30000); // 30 seconds
-
+    // Cleanup timeout on unmount
+    useEffect(() => {
         return () => {
-            if (fallbackPollRef.current) {
-                clearInterval(fallbackPollRef.current);
-                fallbackPollRef.current = null;
-            }
             if (resetDebounceRef.current) {
                 clearTimeout(resetDebounceRef.current);
-                resetDebounceRef.current = null;
             }
         };
-    }, [sessionId, loggedInTeamId]); // Only these dependencies
+    }, []);
 
+    // ========================================================================
+    // RETURN STATE AND FUNCTIONS
+    // ========================================================================
     return {
+        // Current game state
         currentActiveSlide,
         isDecisionTime,
         currentTeamKpis,
-        isLoadingKpis,
-        gameStructure,
-        connectionStatus,
-        decisionResetTrigger,
         permanentAdjustments,
+        gameStructure,
+
+        // Loading states
+        isLoadingKpis,
         isLoadingAdjustments,
+
+        // Connection status
+        connectionStatus,
+
+        // Reset handling
+        decisionResetTrigger,
+
+        // Manual refresh functions (for fallback/debugging)
+        fetchCurrentKpis,
+        fetchAdjustments
     };
 };
