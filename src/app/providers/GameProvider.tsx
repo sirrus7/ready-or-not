@@ -90,10 +90,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
 
         try {
             console.log(`[GameProvider] Resetting decision for team ${teamId}, phase ${interactiveDataKey}`);
-
-            // FIXED: Provide all 3 required arguments: sessionId, teamId, phaseId
             await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
 
+            // TODO: this is wrong! Our team app doesn't live within the browser context. It's on another device. We need this to be pushed to realtime and the team app should refresh and load the correct submission form!
             const broadcastManager = SimpleBroadcastManager.getInstance(session.id, 'host');
             broadcastManager.sendCommand('decision_reset', {teamId, interactiveDataKey});
 
