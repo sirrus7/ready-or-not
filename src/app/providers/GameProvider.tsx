@@ -30,7 +30,7 @@ interface GameContextType {
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
     selectSlideByIndex: (index: number) => Promise<void>;
-    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => void;
+    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>;
     processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>;
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => void;
     resetGameProgress: () => void;
