@@ -118,6 +118,7 @@ export const useGameController = (
             if (allTeamsAlertDismissed) {
                 console.log('[useGameController] 🔄 Resetting alert dismissed state for new interactive slide');
                 setAllTeamsAlertDismissed(false);
+                setAllTeamsSubmittedCurrentInteractivePhase(false);
             }
         }
 
