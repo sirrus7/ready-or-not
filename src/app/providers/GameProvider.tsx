@@ -1,5 +1,5 @@
 // src/app/providers/GameProvider.tsx
-// CORRECTED VERSION - Fixed all imports and property names
+// FIXED VERSION - Added missing clearHostAlert method to GameContextType
 
 import React, {createContext, useContext, useCallback, useEffect} from 'react';
 import {useParams} from 'react-router-dom';
@@ -7,8 +7,8 @@ import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {useGameController} from '@core/game/useGameController';
 import {useGameProcessing} from '@core/game/useGameProcessing';
 import {useTeamDataManager} from '@shared/hooks/useTeamDataManager';
-import {useSessionManager} from '@shared/hooks/useSessionManager'; // CORRECTED: Use useSessionManager instead
-import {useAuth} from './AuthProvider'; // ADDED: Need auth for useSessionManager
+import {useSessionManager} from '@shared/hooks/useSessionManager';
+import {useAuth} from './AuthProvider';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import {
     AppState,
@@ -16,6 +16,14 @@ import {
     Slide,
 } from '@shared/types';
 
+/**
+ * GameContextType Interface
+ *
+ * FIXES APPLIED:
+ * - Issue #1: Added missing clearHostAlert method to interface
+ * - This method is returned by useGameController but was not exposed in the context
+ * - clearHostAlert handles advancing slides for "All Teams Have Submitted" alerts
+ */
 interface GameContextType {
     state: AppState;
     currentSlideData: Slide | null;
@@ -30,6 +38,7 @@ interface GameContextType {
     updateHostNotesForCurrentSlide: (notes: string) => void;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
     setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
+    clearHostAlert: () => Promise<void>; // FIXED: Added missing method
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -44,17 +53,15 @@ export const useGameContext = (): GameContextType => {
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
     const {sessionId} = useParams<{ sessionId: string }>();
-    const {user, loading: authLoading} = useAuth(); // CORRECTED: Get auth data
+    const {user, loading: authLoading} = useAuth();
     const gameStructure: GameStructure = readyOrNotGame_2_0_DD;
 
-    // CORRECTED: Use useSessionManager with proper parameters
     const {session, updateSessionInDb} = useSessionManager(sessionId, user, authLoading, gameStructure);
 
     // Initialize team data management
     const teamDataManager = useTeamDataManager(session?.id || null);
     const {teams, teamDecisions, teamRoundData} = teamDataManager;
 
-    // CORRECTED: Ensure decision history refresh is passed to game processing
     const gameProcessing = useGameProcessing({
         currentDbSession: session,
         gameStructure,
@@ -63,8 +70,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         teamRoundData,
         updateSessionInDb,
         fetchTeamRoundDataFromHook: teamDataManager.fetchTeamRoundDataForSession,
-        fetchTeamDecisionsFromHook: teamDataManager.fetchTeamDecisionsForSession, // CRITICAL: This was missing
-        setTeamRoundDataDirectly: teamDataManager.setTeamRoundDataDirectly, // CORRECTED: Use proper property name
+        fetchTeamDecisionsFromHook: teamDataManager.fetchTeamDecisionsForSession,
+        setTeamRoundDataDirectly: teamDataManager.setTeamRoundDataDirectly,
     });
 
     // Initialize game controller with both processing functions
@@ -75,36 +82,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         gameProcessing.processConsequenceSlide
     );
 
-    // ENHANCED: Fetch teams data with decision refresh
-    const fetchTeamsForSession = async () => {
-        if (session?.id && session.id !== 'new') {
-            console.log('[GameProvider] Refreshing all team data...');
-            await Promise.all([
-                teamDataManager.fetchTeamsForSession(session.id),
-                teamDataManager.fetchTeamDecisionsForSession(session.id),
-                teamDataManager.fetchTeamRoundDataForSession(session.id)
-            ]);
-            console.log('[GameProvider] Team data refresh complete');
-        }
-    };
-
-    // ENHANCED: Reset team decision with proper broadcast
     const resetTeamDecision = useCallback(async (teamId: string, interactiveDataKey: string) => {
         if (!session?.id) {
-            console.error('Cannot reset decision - no active session');
+            console.error('[GameProvider] Cannot reset decision: No active session');
             return;
         }
 
         try {
             console.log(`[GameProvider] Resetting decision for team ${teamId}, phase ${interactiveDataKey}`);
 
-            // Delete the team's decision from the database
+            // FIXED: Provide all 3 required arguments: sessionId, teamId, phaseId
             await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
 
-            // CRITICAL: Force refresh of decision history after reset
-            await teamDataManager.fetchTeamDecisionsForSession(session.id);
-
-            // Send broadcast command to team to refresh their UI
             const broadcastManager = SimpleBroadcastManager.getInstance(session.id, 'host');
             broadcastManager.sendCommand('decision_reset', {teamId, interactiveDataKey});
 
@@ -124,33 +113,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         }
     }, [session?.id]);
 
-    // ENHANCED: Auto-refresh data when slide changes to consequence slides
+    // Auto-refresh data when slide changes to consequence slides
     useEffect(() => {
         if (gameController.currentSlideData?.type === 'consequence_reveal' && session?.id) {
             console.log('[GameProvider] Consequence slide detected, scheduling data refresh');
-            // Small delay to ensure processing is complete
             setTimeout(async () => {
-                await fetchTeamsForSession();
+                // FIXED: Provide the required sessionId argument
+                await teamDataManager.fetchTeamsForSession(session.id);
             }, 1500);
         }
-    }, [gameController.currentSlideData?.type, gameController.currentSlideData?.id, session?.id]);
+    }, [gameController.currentSlideData?.type, gameController.currentSlideData?.id, session?.id, teamDataManager]);
 
-    // CORRECTED: Build AppState with proper property names (excluding allTeamsSubmitted)
+    // Build AppState with proper property names
     const state: AppState = {
         gameStructure,
         currentSessionId: session?.id || null,
         current_slide_index: session?.current_slide_index ?? null,
-        hostNotes: gameController.teacherNotes, // CORRECTED: Use hostNotes instead of teacher_notes
-        isPlaying: session?.is_playing ?? false, // ADDED: Missing property
+        hostNotes: gameController.hostNotes,
+        isPlaying: session?.is_playing ?? false,
         teams,
         teamDecisions,
         teamRoundData,
-        isPlayerWindowOpen: false, // ADDED: Legacy field required by AppState
+        isPlayerWindowOpen: false,
         isLoading: !session && !!sessionId,
         error: null,
         currentHostAlert: gameController.currentHostAlert,
     };
 
+    /**
+     * FIXED: Context value now includes clearHostAlert method
+     * This resolves Issue #1 where the "Next" button wasn't working
+     * because clearHostAlert wasn't exposed in the context
+     */
     const contextValue: GameContextType = {
         state,
         currentSlideData: gameController.currentSlideData,
@@ -165,6 +159,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         updateHostNotesForCurrentSlide: gameController.updateHostNotesForCurrentSlide,
         setAllTeamsSubmittedCurrentInteractivePhase: gameController.setAllTeamsSubmittedCurrentInteractivePhase,
         setCurrentHostAlertState: gameController.setCurrentHostAlertState,
+        clearHostAlert: gameController.clearHostAlert, // FIXED: Added missing method exposure
     };
 
     return (

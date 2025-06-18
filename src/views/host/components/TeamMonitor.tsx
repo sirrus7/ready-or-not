@@ -1,20 +1,15 @@
-// src/views/host/components/TeamMonitor.tsx
-// FIXED VERSION - Proper immediate purchase notifications and real-time updates
-
 import React, {useState, useMemo, useEffect} from 'react';
 import {useGameContext} from '@app/providers/GameProvider.tsx';
 import {TeamDecision} from '@shared/types';
 import {
     CheckCircle2,
     Clock,
-    XCircle,
     Info,
     AlertTriangle,
     User,
-    CheckCircle,
-    Zap
+    Zap,
 } from 'lucide-react';
-import {useSupabaseMutation, useSupabaseQuery} from '@shared/hooks/supabase';
+import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
 import Modal from '@shared/components/UI/Modal';
 
@@ -35,16 +30,15 @@ interface ImmediatePurchaseData {
 const TeamMonitor: React.FC = () => {
     const {state, currentSlideData, resetTeamDecision, setAllTeamsSubmittedCurrentInteractivePhase} = useGameContext();
     const {teams, teamDecisions, gameStructure, currentSessionId} = state;
+
+    // Modal states
     const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
     const [teamToReset, setTeamToReset] = useState<{ id: string, name: string } | null>(null);
-    const [isMarkingReport, setIsMarkingReport] = useState<string | null>(null);
 
     const decisionKey = currentSlideData?.interactive_data_key;
-
-    // FIXED: Only fetch immediate purchases for investment periods
     const isInvestmentPeriod = currentSlideData?.type === 'interactive_invest';
 
-    // FIXED: Fetch immediate purchase data with real-time subscription
+    // Fetch immediate purchase data with real-time subscription
     const {
         data: immediatePurchases,
         refresh: refreshImmediatePurchases
@@ -73,11 +67,11 @@ const TeamMonitor: React.FC = () => {
         [currentSessionId, isInvestmentPeriod],
         {
             cacheKey: `immediate-purchases-${currentSessionId}-${isInvestmentPeriod}`,
-            cacheTimeout: 3000 // REDUCED: More frequent updates
+            cacheTimeout: 3000
         }
     );
 
-    // FIXED: Real-time subscription for immediate purchases
+    // Real-time subscription for immediate purchases
     useEffect(() => {
         if (!currentSessionId || !isInvestmentPeriod) return;
 
@@ -116,9 +110,10 @@ const TeamMonitor: React.FC = () => {
         };
     }, [currentSessionId, isInvestmentPeriod, refreshImmediatePurchases]);
 
-    // Ensure immediatePurchases is never null
-    const safeImmediatePurchases: ImmediatePurchaseData[] = immediatePurchases || [];
+    // Safe immediate purchases array (handles null/undefined)
+    const safeImmediatePurchases = immediatePurchases || [];
 
+    // Calculate submission statistics
     const submissionStats = useMemo(() => {
         if (!decisionKey || teams.length === 0) {
             return {submitted: 0, total: teams.length, allSubmitted: false};
@@ -135,7 +130,7 @@ const TeamMonitor: React.FC = () => {
         setAllTeamsSubmittedCurrentInteractivePhase(submissionStats.allSubmitted);
     }, [submissionStats.allSubmitted, setAllTeamsSubmittedCurrentInteractivePhase]);
 
-    // FIXED: Enhanced format selection with better immediate purchase handling
+    // Enhanced format selection with better immediate purchase handling
     const formatSelection = (decision?: TeamDecision, teamId?: string): string => {
         if (!currentSlideData || !gameStructure || !decisionKey) return 'No submission yet';
 
@@ -163,7 +158,7 @@ const TeamMonitor: React.FC = () => {
 
                 if (allSelectedIds.length === 0) {
                     return decision ?
-                        `No investments (${formatCurrency(decision.total_spent_budget || 0)} spent)` :
+                        `No investments (${formatCurrency(decision.total_spent || 0)} spent)` :
                         'No submission yet';
                 }
 
@@ -172,7 +167,7 @@ const TeamMonitor: React.FC = () => {
                     return opt ? opt.name.split('.')[0].trim() : id;
                 });
 
-                const totalBudget = (decision?.total_spent_budget || 0) + immediateBudget;
+                const totalBudget = (decision?.total_spent || 0) + immediateBudget;
                 return `${selectedNames.join(', ')} (${formatCurrency(totalBudget)} spent)`;
             }
             case 'interactive_choice': {
@@ -186,30 +181,7 @@ const TeamMonitor: React.FC = () => {
         }
     };
 
-    // FIXED: Mark report as given mutation
-    const {execute: markReportGiven} = useSupabaseMutation(
-        async (purchaseId: string) => {
-            const {error} = await supabase
-                .from('team_decisions')
-                .update({report_given: true})
-                .eq('id', purchaseId);
-
-            if (error) throw error;
-            refreshImmediatePurchases();
-        }
-    );
-
-    const handleMarkReportGiven = async (purchaseId: string) => {
-        setIsMarkingReport(purchaseId);
-        try {
-            await markReportGiven(purchaseId);
-        } catch (error) {
-            console.error('Error marking report as given:', error);
-        } finally {
-            setIsMarkingReport(null);
-        }
-    };
-
+    // Mutation for resetting team decision
     const handleResetDecision = async () => {
         if (!teamToReset || !decisionKey) return;
         try {
@@ -261,56 +233,54 @@ const TeamMonitor: React.FC = () => {
                     </div>
                 </div>
 
-                {/* FIXED: Immediate Purchase Notifications for Investment Periods */}
+                {/* FIXED: Business Growth Strategy Reports Section - Informational Only */}
                 {isInvestmentPeriod && safeImmediatePurchases.length > 0 && (
-                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-lg">
-                        <div className="flex items-center mb-2">
-                            <Zap className="text-yellow-600 mr-2" size={20}/>
-                            <h3 className="font-semibold text-yellow-800">Business Growth Strategy Reports Needed</h3>
-                        </div>
-                        <div className="space-y-2">
-                            {safeImmediatePurchases.map(purchase => {
-                                const team = teams.find(t => t.id === purchase.team_id);
-                                return (
-                                    <div key={purchase.id}
-                                         className="flex items-center justify-between bg-yellow-100 p-2 rounded">
-                                        <div className="flex items-center">
-                                            <User className="text-yellow-700 mr-2" size={16}/>
-                                            <span className="text-sm font-medium text-yellow-800">
-                                                {team?.name || 'Unknown Team'} - {formatCurrency(purchase.cost)}
-                                            </span>
-                                        </div>
-                                        <button
-                                            onClick={() => handleMarkReportGiven(purchase.id)}
-                                            disabled={purchase.report_given || isMarkingReport === purchase.id}
-                                            className={`px-3 py-1 text-xs rounded transition-colors ${
-                                                purchase.report_given
-                                                    ? 'bg-green-200 text-green-800 cursor-default'
-                                                    : 'bg-yellow-200 text-yellow-800 hover:bg-yellow-300'
-                                            }`}
-                                        >
-                                            {purchase.report_given ? (
-                                                <>
-                                                    <CheckCircle className="inline mr-1" size={12}/>
-                                                    Report Given
-                                                </>
-                                            ) : isMarkingReport === purchase.id ? (
-                                                'Marking...'
-                                            ) : (
-                                                'Mark as Given'
-                                            )}
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-300 rounded-lg">
+
+                        {/* Teams Who Purchased Reports Section */}
+                        {safeImmediatePurchases.length > 0 && (
+                            <div className="mb-6">
+                                <div className="flex items-center mb-3">
+                                    <Zap className="text-blue-600 mr-2" size={20}/>
+                                    <h3 className="font-semibold text-blue-800">
+                                        Teams Who Purchased Reports ({safeImmediatePurchases.length})
+                                    </h3>
+                                </div>
+                                <div className="space-y-2">
+                                    {safeImmediatePurchases.map(purchase => {
+                                        const team = teams.find(t => t.id === purchase.team_id);
+                                        const purchaseDate = new Date(purchase.submitted_at).toLocaleTimeString();
+
+                                        return (
+                                            <div key={purchase.id}
+                                                 className="flex items-center justify-between bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                                                <div className="flex items-center flex-grow">
+                                                    <User className="text-blue-700 mr-3" size={18}/>
+                                                    <div>
+                                                <span className="font-medium text-blue-900">
+                                                    {team?.name || 'Unknown Team'}
+                                                </span>
+                                                        <div className="text-xs text-blue-600 mt-1">
+                                                            Cost: {formatCurrency(purchase.cost)} • Purchased: {purchaseDate}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* REMOVED: All "Mark as Given" buttons and related code */}
+                        {/* Teams that need reports are now shown in the informational modal only */}
                     </div>
                 )}
 
                 {/* Team Status List */}
                 <div className="space-y-2">
                     {teams.map(team => {
-                        const decision = teamDecisions[team.id]?.[decisionKey];
+                        const decision = decisionKey ? teamDecisions[team.id]?.[decisionKey] : undefined;
                         const hasSubmitted = !!decision?.submitted_at;
                         const selection = formatSelection(decision, team.id);
 
@@ -326,16 +296,11 @@ const TeamMonitor: React.FC = () => {
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center">
                                         <div className={`mr-3 ${hasSubmitted ? 'text-green-600' : 'text-gray-400'}`}>
-                                            {hasSubmitted ? <CheckCircle2 size={20}/> : <XCircle size={20}/>}
+                                            {hasSubmitted ? <CheckCircle2 size={20}/> : <Clock size={20}/>}
                                         </div>
                                         <div>
-                                            <h4 className="font-medium text-gray-900">{team.name}</h4>
-                                            <p className="text-sm text-gray-600">{selection}</p>
-                                            {decision?.submitted_at && (
-                                                <p className="text-xs text-gray-500">
-                                                    Submitted: {new Date(decision.submitted_at).toLocaleTimeString()}
-                                                </p>
-                                            )}
+                                            <div className="font-medium">{team.name}</div>
+                                            <div className="text-sm text-gray-600">{selection}</div>
                                         </div>
                                     </div>
                                     {hasSubmitted && (
@@ -351,39 +316,39 @@ const TeamMonitor: React.FC = () => {
                         );
                     })}
                 </div>
-
-                {teams.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                        <AlertTriangle size={24} className="mx-auto mb-2 opacity-50"/>
-                        <p>No teams found for this session</p>
-                    </div>
-                )}
             </div>
 
             {/* Reset Confirmation Modal */}
             <Modal
                 isOpen={isResetModalOpen}
                 onClose={() => setIsResetModalOpen(false)}
-                title="Reset Team Decision"
+                title="Confirm Reset Submission"
                 size="sm"
             >
                 <div className="p-4">
-                    <p className="text-sm text-gray-700 mb-4">
-                        Are you sure you want to reset the decision for <strong>{teamToReset?.name}</strong>?
-                        This will allow them to resubmit their choice.
-                    </p>
-                    <div className="flex justify-end space-x-2">
+                    <div className="flex items-start">
+                        <AlertTriangle className="text-red-600 mr-3 mt-1" size={20}/>
+                        <div>
+                            <p className="text-sm text-gray-700 mb-3">
+                                Are you sure you want to reset <strong>{teamToReset?.name}</strong>'s submission?
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                This will allow them to resubmit their decision for this phase.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex justify-end space-x-3 mt-4">
                         <button
                             onClick={() => setIsResetModalOpen(false)}
-                            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleResetDecision}
-                            className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                            className="px-4 py-2 text-sm text-white bg-red-600 rounded hover:bg-red-700 transition-colors"
                         >
-                            Reset Decision
+                            Reset Submission
                         </button>
                     </div>
                 </div>
