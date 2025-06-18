@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './client';
 import { db } from './services';
+import {healthService} from "@shared/services/supabase/services/healthService.ts";
 
 export interface ConnectionStatus {
     status: 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -108,7 +109,7 @@ class SupabaseConnectionManager {
         const startTime = Date.now();
 
         try {
-            const healthResult = await db.healthCheck();
+            const healthResult = await healthService.healthCheck();
             const latency = Date.now() - startTime;
 
             this.recordLatency(latency);
