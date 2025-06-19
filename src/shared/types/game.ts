@@ -11,6 +11,13 @@ export interface InvestmentOption {
     name: string;
     cost: number;
     description?: string;
+
+    // NEW: Immediate purchase support
+    is_immediate_purchase?: boolean;
+    immediate_purchase_type?: string; // e.g., 'business_growth_strategy', 'market_research', etc.
+    immediate_purchase_message?: string; // Custom message for the immediate purchase modal
+    host_notification_message?: string; // Custom message for host notification
+    report_name?: string; // e.g., 'Business Growth Strategy Report', 'Market Analysis Report'
 }
 
 export interface ChallengeOption {

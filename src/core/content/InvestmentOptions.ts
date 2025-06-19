@@ -8,7 +8,12 @@ export const allInvestmentOptionsData: Record<string, InvestmentOption[]> = {
             id: 'A',
             name: "Biz Growth Strategy",
             cost: 50000,
-            description: "Invest in new market research and sales channels to increase orders and potentially ASP."
+            description: "Invest in new market research and sales channels to increase orders and potentially ASP.",
+            is_immediate_purchase: true,
+            immediate_purchase_type: 'business_growth_strategy',
+            immediate_purchase_message: "You'll receive a Business Growth Strategy Report from your host with valuable insights about other investment options.",
+            host_notification_message: "Team needs Business Growth Strategy Report delivered.",
+            report_name: "Business Growth Strategy Report"
         },
         {
             id: 'B',
@@ -46,7 +51,12 @@ export const allInvestmentOptionsData: Record<string, InvestmentOption[]> = {
             id: 'A',
             name: "Strategic Plan (KPI Card)",
             cost: 75000,
-            description: "Develop a comprehensive strategic plan, potentially unlocking future KPI benefits."
+            description: "Develop a comprehensive strategic plan, potentially unlocking future KPI benefits.",
+            is_immediate_purchase: true,
+            immediate_purchase_type: 'strategic_plan',
+            immediate_purchase_message: "You'll receive a Strategic Planning Document from your host with detailed KPI analysis and recommendations.",
+            host_notification_message: "Team needs Strategic Planning Document delivered.",
+            report_name: "Strategic Planning Document"
         },
         {
             id: 'B',

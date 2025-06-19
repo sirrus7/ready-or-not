@@ -1,5 +1,5 @@
 // src/views/team/components/DecisionForms/DecisionContent.tsx
-// FIXED: Update prop name to match new hook structure
+// FIXED: Updated prop names and function signatures to match new investment system
 
 import React from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
@@ -35,13 +35,13 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
             return (
                 <InvestmentPanel
                     investmentOptions={investmentOptions}
-                    selectedInvestmentIds={decisionState.selectedInvestmentOptions}  // FIXED: was selectedInvestmentIds
+                    selectedInvestmentIds={decisionState.selectedInvestmentOptions}  // CORRECT: this contains letters ['A', 'B', 'C']
                     spentBudget={decisionState.spentBudget}
                     investUpToBudget={investUpToBudget}
                     onInvestmentToggle={decisionActions.handleInvestmentToggle}
                     onImmediatePurchase={decisionActions.handleImmediatePurchase}
                     isSubmitting={isSubmitting}
-                    immediatePurchases={decisionState.immediatePurchases}
+                    immediatePurchases={decisionState.immediatePurchases}  // This also contains letters ['A', 'B']
                 />
             );
         case 'interactive_choice':
@@ -67,7 +67,7 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
         case 'interactive_double_down_select':
             return (
                 <DoubleDownSelectPanel
-                    availableInvestments={availableRd3Investments}
+                    availableRd3Investments={availableRd3Investments}
                     sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
                     doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
                     onSacrificeSelect={decisionActions.handleSacrificeSelect}
@@ -77,7 +77,11 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
                 />
             );
         default:
-            return <div>Unknown slide type</div>;
+            return (
+                <div className="text-center text-gray-400">
+                    <p>No content available for this slide type.</p>
+                </div>
+            );
     }
 };
 

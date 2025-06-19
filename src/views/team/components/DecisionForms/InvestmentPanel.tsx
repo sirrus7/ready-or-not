@@ -1,5 +1,5 @@
 // src/views/team/components/DecisionForms/InvestmentPanel.tsx
-// Replace your existing InvestmentPanel with this enhanced version
+// UPDATED: Data-driven immediate purchase detection using option properties
 
 import React, {useState} from 'react';
 import {InvestmentOption} from '@shared/types';
@@ -18,13 +18,13 @@ const formatCurrency = (value: number | undefined): string => {
 
 interface InvestmentPanelProps {
     investmentOptions: InvestmentOption[];
-    selectedInvestmentIds: string[];
+    selectedInvestmentIds: string[];  // Contains letters ['A', 'B', 'C']
     spentBudget: number;
     investUpToBudget: number;
-    onInvestmentToggle: (optionId: string, cost: number) => void;
-    onImmediatePurchase: (optionId: string, cost: number) => Promise<void>;
+    onInvestmentToggle: (optionIndex: number, cost: number) => void;
+    onImmediatePurchase: (optionIndex: number, cost: number) => Promise<void>;
     isSubmitting: boolean;
-    immediatePurchases: string[];
+    immediatePurchases: string[];  // Contains letters ['A', 'B']
 }
 
 // Immediate Purchase Confirmation Modal
@@ -55,16 +55,17 @@ const ImmediatePurchaseModal: React.FC<{
                             <div className="text-sm">
                                 <p className="text-yellow-200 font-medium mb-1">This purchase happens immediately!</p>
                                 <p className="text-yellow-300">
-                                    You'll receive a <strong>Business Growth Strategy Report</strong> from your host
-                                    with valuable insights about other investment options.
+                                    {/* Use custom message from option, or default */}
+                                    {option.immediate_purchase_message ||
+                                        `You'll receive a ${option.report_name || 'Report'} from your host.`}
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-between items-center text-sm">
+                    <div className="flex items-center justify-between">
                         <span className="text-gray-400">Cost:</span>
-                        <span className="text-yellow-400 font-bold">{formatCurrency(option.cost)}</span>
+                        <span className="text-yellow-300 font-semibold">{formatCurrency(option.cost)}</span>
                     </div>
                 </div>
 
@@ -72,27 +73,16 @@ const ImmediatePurchaseModal: React.FC<{
                     <button
                         onClick={onCancel}
                         disabled={isPurchasing}
-                        className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={onConfirm}
                         disabled={isPurchasing}
-                        className="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
+                        className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                        {isPurchasing ? (
-                            <>
-                                <div
-                                    className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                                Purchasing...
-                            </>
-                        ) : (
-                            <>
-                                <Zap className="mr-2" size={16}/>
-                                Buy Now
-                            </>
-                        )}
+                        {isPurchasing ? 'Purchasing...' : 'Purchase Now'}
                     </button>
                 </div>
             </div>
@@ -100,31 +90,30 @@ const ImmediatePurchaseModal: React.FC<{
     );
 };
 
-// Immediate Purchase Status Banner
+// Status display for immediate purchases
 const ImmediatePurchaseStatus: React.FC<{
     purchasedOptions: InvestmentOption[];
 }> = ({purchasedOptions}) => {
     if (purchasedOptions.length === 0) return null;
 
     return (
-        <div className="mb-4 p-4 bg-green-900/30 border border-green-600 rounded-lg">
+        <div className="bg-green-900/30 border border-green-600 rounded-lg p-3 mb-4">
             <div className="flex items-center mb-2">
-                <CheckCircle className="text-green-400 mr-2" size={20}/>
-                <h4 className="font-semibold text-green-400">Immediate Purchases Completed</h4>
+                <CheckCircle className="text-green-400 mr-2" size={16}/>
+                <h4 className="text-green-300 font-medium">Immediate Purchases Completed</h4>
             </div>
 
             {purchasedOptions.map(option => (
-                <div key={option.id} className="flex items-center justify-between mb-2 last:mb-0">
-                    <span className="text-green-300 text-sm">{option.name}</span>
-                    <span className="text-green-400 font-medium">{formatCurrency(option.cost)}</span>
+                <div key={option.id} className="text-sm text-green-200 mb-1">
+                    • {option.name} - {formatCurrency(option.cost)}
                 </div>
             ))}
 
-            <div className="mt-3 p-3 bg-blue-900/30 border border-blue-600 rounded-lg">
+            <div className="mt-3 p-2 bg-blue-900/30 border border-blue-600 rounded">
                 <div className="flex items-center">
                     <Clock className="text-blue-400 mr-2" size={16}/>
                     <p className="text-blue-300 text-sm">
-                        <strong>Next Step:</strong> Go to your host to collect your Business Growth Strategy Report(s)
+                        <strong>Next Step:</strong> Go to your host to collect your report(s)
                     </p>
                 </div>
             </div>
@@ -142,31 +131,35 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                                              isSubmitting,
                                                              immediatePurchases
                                                          }) => {
-    const [showImmediateModal, setShowImmediateModal] = useState<string | null>(null);
+    const [showImmediateModal, setShowImmediateModal] = useState<number | null>(null);
     const [isPurchasing, setIsPurchasing] = useState(false);
 
-    // Check if this is an immediate purchase option
-    const isImmediatePurchase = (optionId: string) => {
-        return optionId === 'rd1_inv_biz_growth'; // Business Growth Strategy
+    // Convert index to letter (0=A, 1=B, 2=C, etc.)
+    const getLetterForIndex = (index: number): string => {
+        return String.fromCharCode(65 + index); // 65 is ASCII for 'A'
     };
 
-    const handleInvestmentClick = (optionId: string, cost: number) => {
-        if (isImmediatePurchase(optionId)) {
-            setShowImmediateModal(optionId);
+    const handleInvestmentClick = (optionIndex: number, cost: number) => {
+        const option = investmentOptions[optionIndex];
+        if (!option) return;
+
+        // DATA-DRIVEN: Check if option is marked as immediate purchase
+        if (option.is_immediate_purchase) {
+            setShowImmediateModal(optionIndex);
         } else {
-            onInvestmentToggle(optionId, cost);
+            onInvestmentToggle(optionIndex, cost);
         }
     };
 
     const handleImmediatePurchaseConfirm = async () => {
-        if (!showImmediateModal) return;
+        if (showImmediateModal === null) return;
 
-        const option = investmentOptions.find(opt => opt.id === showImmediateModal);
+        const option = investmentOptions[showImmediateModal];
         if (!option) return;
 
         setIsPurchasing(true);
         try {
-            await onImmediatePurchase(option.id, option.cost);
+            await onImmediatePurchase(showImmediateModal, option.cost);
             setShowImmediateModal(null);
         } catch (error) {
             console.error('Immediate purchase failed:', error);
@@ -176,18 +169,21 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
         }
     };
 
-    const immediatePurchaseOptions = investmentOptions.filter(opt =>
-        immediatePurchases.includes(opt.id)
-    );
+    // Get immediate purchase options by checking letters against actual options
+    const immediatePurchaseOptions = investmentOptions.filter((opt, index) => {
+        const letter = getLetterForIndex(index);
+        return immediatePurchases.includes(letter);
+    });
 
     return (
         <div className="space-y-3">
             <ImmediatePurchaseStatus purchasedOptions={immediatePurchaseOptions}/>
 
-            {investmentOptions.map((opt) => {
-                const isSelected = selectedInvestmentIds.includes(opt.id);
-                const isImmediatePurchased = immediatePurchases.includes(opt.id);
-                const isImmediate = isImmediatePurchase(opt.id);
+            {investmentOptions.map((opt, index) => {
+                const letter = getLetterForIndex(index);
+                const isSelected = selectedInvestmentIds.includes(letter);
+                const isImmediatePurchased = immediatePurchases.includes(letter);
+                const isImmediate = opt.is_immediate_purchase || false; // DATA-DRIVEN
                 const canAfford = !isSelected && spentBudget + opt.cost <= investUpToBudget;
                 const isDisabled = isSubmitting || (!isSelected && !canAfford) || isImmediatePurchased;
 
@@ -201,7 +197,7 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                     ? 'bg-blue-600/80 border-blue-400 text-white shadow-md'
                                     : 'bg-gray-600/70 border-gray-500 hover:bg-gray-500/70'
                         } ${isDisabled && !isImmediatePurchased ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-                        onClick={() => !isDisabled && handleInvestmentClick(opt.id, opt.cost)}
+                        onClick={() => !isDisabled && handleInvestmentClick(index, opt.cost)}
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center">
@@ -212,13 +208,13 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                         type="checkbox"
                                         className="form-checkbox h-5 w-5 text-blue-500 bg-gray-700 border-gray-500 rounded focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 disabled:opacity-50 flex-shrink-0"
                                         checked={isSelected}
-                                        onChange={() => handleInvestmentClick(opt.id, opt.cost)}
+                                        onChange={() => handleInvestmentClick(index, opt.cost)}
                                         disabled={isDisabled}
                                     />
                                 )}
                                 <div className="ml-4 flex-grow min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-sm font-medium">{opt.name}</span>
+                                        <span className="text-sm font-medium">{letter}. {opt.name}</span>
                                         {isImmediate && !isImmediatePurchased && (
                                             <span
                                                 className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-900/50 text-yellow-300 border border-yellow-600">
@@ -242,7 +238,8 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                 </div>
                             </div>
                             <span className={`text-sm font-semibold flex-shrink-0 ml-4 ${
-                                isImmediatePurchased ? 'text-green-400' :
+                                isImmediatePurchased ?
+                                    'text-green-400' :
                                     isSelected ? 'text-blue-200' : 'text-yellow-300'
                             }`}>
                                 {formatCurrency(opt.cost)}
@@ -254,8 +251,8 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
 
             {/* Immediate Purchase Modal */}
             <ImmediatePurchaseModal
-                option={investmentOptions.find(opt => opt.id === showImmediateModal)!}
-                isOpen={!!showImmediateModal}
+                option={investmentOptions.find((opt, idx) => idx === showImmediateModal)!}
+                isOpen={showImmediateModal !== null}
                 onConfirm={handleImmediatePurchaseConfirm}
                 onCancel={() => setShowImmediateModal(null)}
                 isPurchasing={isPurchasing}

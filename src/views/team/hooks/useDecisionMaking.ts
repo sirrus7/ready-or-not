@@ -238,18 +238,28 @@ export const useDecisionMaking = ({
 
     // Immediate purchase handler - CHANGED to use index instead of optionId
     const handleImmediatePurchase = useCallback(async (optionIndex: number, cost: number) => {
-        if (!sessionId || !teamId || !currentSlide) {
-            throw new Error('Missing session information for immediate purchase');
+        if (!sessionId || !teamId || !currentSlide?.interactive_data_key) {
+            throw new Error("Missing session or team information");
         }
 
-        // Check if we can afford it
         if (state.spentBudget + cost > investUpToBudget) {
-            throw new Error(`Cannot exceed budget! You have ${formatCurrency(investUpToBudget - (state.spentBudget + cost))} remaining.`);
+            throw new Error(`This purchase would exceed your budget. 
+        Cost: ${formatCurrency(cost)}, 
+        Current spent: ${formatCurrency(state.spentBudget)}, 
+        You have ${formatCurrency(investUpToBudget - (state.spentBudget + cost))} remaining.`);
+        }
+
+        const option = investmentOptions[optionIndex];
+        if (!option) {
+            throw new Error("Invalid investment option");
         }
 
         try {
             const optionLetter = String.fromCharCode(65 + optionIndex); // A=0, B=1, C=2, etc.
             const immediatePhaseId = `${currentSlide.interactive_data_key}_immediate`;
+
+            // DATA-DRIVEN: Use the option's immediate_purchase_type or default to the option ID
+            const immediateType = option.immediate_purchase_type || option.id;
 
             const {data, error} = await supabase
                 .from('team_decisions')
@@ -258,15 +268,20 @@ export const useDecisionMaking = ({
                     team_id: teamId,
                     phase_id: immediatePhaseId,
                     round_number: currentSlide.round_number || 1,
-                    selected_investment_options: [optionLetter],  // CHANGED: store letter
+                    selected_investment_options: [optionLetter],  // Store letter for new system
                     selected_challenge_option_id: null,
                     total_spent_budget: cost,
                     submitted_at: new Date().toISOString(),
                     is_immediate_purchase: true,
-                    immediate_purchase_type: 'investment',
+                    // DATA-DRIVEN: Use the option's immediate_purchase_type
+                    immediate_purchase_type: immediateType,
                     immediate_purchase_data: {
-                        option_letter: optionLetter,  // CHANGED
+                        option_letter: optionLetter,  // New letter system
                         option_index: optionIndex,
+                        option_name: option.name,
+                        immediate_purchase_type: immediateType,
+                        host_notification_message: option.host_notification_message,
+                        report_name: option.report_name,
                         cost: cost
                     },
                     report_given: false
@@ -276,10 +291,10 @@ export const useDecisionMaking = ({
 
             if (error) throw error;
 
-            // Update local state
+            // Update local state with letter
             setState(prev => ({
                 ...prev,
-                immediatePurchases: [...prev.immediatePurchases, optionLetter].sort(),  // CHANGED
+                immediatePurchases: [...prev.immediatePurchases, optionLetter].sort(),
                 spentBudget: prev.spentBudget + cost,
                 error: null
             }));

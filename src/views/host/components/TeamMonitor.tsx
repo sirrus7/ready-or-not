@@ -24,6 +24,7 @@ interface ImmediatePurchaseData {
     cost: number;
     submitted_at: string;
     report_given: boolean;
+    selected_investment_options: string[];
 }
 
 const TeamMonitor: React.FC = () => {
@@ -40,14 +41,14 @@ const TeamMonitor: React.FC = () => {
     // Fetch immediate purchase data with real-time subscription
     const {
         data: immediatePurchases,
-        refresh: refreshImmediatePurchases
+        refresh: refreshImmediatePurchases  // ✅ KEEP THIS
     } = useSupabaseQuery(
         async () => {
             if (!currentSessionId || currentSessionId === 'new' || !isInvestmentPeriod) return [];
 
             const {data, error} = await supabase
                 .from('team_decisions')
-                .select('id, team_id, total_spent_budget, submitted_at, report_given')
+                .select('id, team_id, total_spent_budget, submitted_at, report_given, selected_investment_options')
                 .eq('session_id', currentSessionId)
                 .eq('is_immediate_purchase', true)
                 .eq('immediate_purchase_type', 'business_growth_strategy')
@@ -60,7 +61,8 @@ const TeamMonitor: React.FC = () => {
                 team_id: item.team_id,
                 cost: item.total_spent_budget || 0,
                 submitted_at: item.submitted_at,
-                report_given: item.report_given || false
+                report_given: item.report_given || false,
+                selected_investment_options: item.selected_investment_options || [] // ✅ ADD THIS
             } as ImmediatePurchaseData));
         },
         [currentSessionId, isInvestmentPeriod],
@@ -129,7 +131,6 @@ const TeamMonitor: React.FC = () => {
         setAllTeamsSubmittedCurrentInteractivePhase(submissionStats.allSubmitted);
     }, [submissionStats.allSubmitted, setAllTeamsSubmittedCurrentInteractivePhase]);
 
-    // Enhanced format selection with better immediate purchase handling
     const formatSelection = (decision?: TeamDecision, teamId?: string): string => {
         if (!currentSlideData || !gameStructure || !decisionKey) return 'No submission yet';
 
@@ -143,17 +144,18 @@ const TeamMonitor: React.FC = () => {
                     purchase.team_id === (teamId || decision?.team_id)
                 );
 
-                const immediateIds: string[] = [];
+                const immediateLetters: string[] = [];
                 let immediateBudget = 0;
 
-                // Extract immediate purchase IDs and budget
+                // FIXED: Use the actual stored data instead of hardcoding
                 teamImmediatePurchases.forEach(purchase => {
-                    immediateIds.push('rd1_inv_biz_growth');
+                    // Add the actual letters from the database record
+                    immediateLetters.push(...(purchase.selected_investment_options || []));
                     immediateBudget += purchase.cost;
                 });
 
-                // Combine regular and immediate selections
-                const allSelectedIds = [...immediateIds, ...selectedIds];
+                // Combine regular selections (letters) and immediate purchases (letters)
+                const allSelectedIds = [...immediateLetters, ...selectedIds];
 
                 if (allSelectedIds.length === 0) {
                     return decision ?
@@ -161,13 +163,25 @@ const TeamMonitor: React.FC = () => {
                         'No submission yet';
                 }
 
-                const selectedNames = allSelectedIds.map(id => {
+                // Sort the selected IDs alphabetically (A, B, C, D...)
+                const sortedSelectedIds = [...allSelectedIds].sort();
+
+                // Find options by their letter IDs and format with letter prefix
+                const selectedNames = sortedSelectedIds.map(id => {
                     const opt = investmentOptions.find(o => o.id === id);
-                    return opt ? opt.name.split('.')[0].trim() : id;
+                    const optionName = opt ? opt.name.split('.')[0].trim() : 'Unknown';
+                    return `${id}. ${optionName}`; // Format as "A. Biz Growth Strategy"
                 });
 
                 const totalBudget = (decision?.total_spent_budget || 0) + immediateBudget;
-                return `${selectedNames.join(', ')} (${formatCurrency(totalBudget)} spent)`;
+
+                // Format for better display - use bullet points instead of line breaks
+                if (selectedNames.length > 1) {
+                    const bulletPoints = selectedNames.map(name => `• ${name}`).join('\n');
+                    return `${bulletPoints}\nTotal: ${formatCurrency(totalBudget)} spent`;
+                } else {
+                    return `${selectedNames.join(', ')} (${formatCurrency(totalBudget)} spent)`;
+                }
             }
             case 'interactive_choice': {
                 const selectedOptionId = decision?.selected_challenge_option_id;
