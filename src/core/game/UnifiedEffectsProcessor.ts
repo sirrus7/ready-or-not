@@ -309,7 +309,7 @@ export class UnifiedEffectsProcessor {
             }
 
             // Check if team selected this option (same as consequences)
-            const selectedOptions = investmentDecision.selected_investment_ids || [];
+            const selectedOptions = investmentDecision.selected_investment_options || [];
             if (!selectedOptions.includes(slideOption)) {
                 console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} did not select option ${slideOption}. Skipping.`);
                 continue;

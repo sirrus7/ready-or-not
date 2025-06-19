@@ -135,7 +135,7 @@ const TeamMonitor: React.FC = () => {
 
         switch (currentSlideData.type) {
             case 'interactive_invest': {
-                const selectedIds = decision?.selected_investment_ids || [];
+                const selectedIds = decision?.selected_investment_options || [];
                 const investmentOptions = gameStructure.all_investment_options[decisionKey] || [];
 
                 // Get immediate purchases for this team

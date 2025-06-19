@@ -202,24 +202,29 @@ export const useTeamDecisionSubmission = ({
                 decisionState
             });
 
-            // Calculate total cost from selected investments
-            const totalCost = decisionState.selectedInvestmentIds.reduce((sum, id) => {
+            // FIXED: Calculate total cost from selected investment options (letters)
+            const totalCost = decisionState.selectedInvestmentOptions.reduce((sum, optionLetter) => {
                 const gameStructureWithData = gameStructure as GameStructure & {
                     all_investment_options?: Record<string, Array<{ id: string; name: string; cost: number }>>;
                 };
                 const investmentOptions = gameStructureWithData?.all_investment_options?.[decisionKey] || [];
-                const investment = investmentOptions.find((inv) => inv.id === id);
+
+                // Convert letter to array index (A=0, B=1, C=2, etc.)
+                const optionIndex = optionLetter.charCodeAt(0) - 65;
+                const investment = investmentOptions[optionIndex];
+
                 return sum + (investment?.cost || 0);
             }, 0);
 
+            // And the submission data object should be updated to:
             const submissionData = {
                 session_id: sessionId,
                 team_id: teamId,
                 phase_id: decisionKey,
                 round_number: currentSlide?.round_number || 1,
-                selected_investment_ids: decisionState.selectedInvestmentIds.length > 0
-                    ? decisionState.selectedInvestmentIds
-                    : null,
+                selected_investment_options: decisionState.selectedInvestmentOptions.length > 0
+                    ? decisionState.selectedInvestmentOptions
+                    : null,  // CHANGED: stores ['A', 'B', 'C'] directly
                 selected_challenge_option_id: decisionState.selectedChallengeOptionId || null,
                 double_down_sacrifice_id: decisionState.sacrificeInvestmentId || null,
                 double_down_on_id: decisionState.doubleDownOnInvestmentId || null,

@@ -39,7 +39,7 @@ const formatSelection = (
         case 'interactive_invest': {
             // Get regular investment selections
             const investmentOptions = structure.all_investment_options[key] || [];
-            const selectedIds = decision?.selected_investment_ids || [];
+            const selectedIds = decision?.selected_investment_options || [];
 
             // Get immediate purchases for this team
             const teamImmediatePurchases = immediatePurchases.filter(purchase =>

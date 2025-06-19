@@ -1,5 +1,5 @@
 // src/views/team/hooks/useDecisionMaking.ts
-// Updated version with separate phase_id for immediate purchases
+// FIXED VERSION: Updated to use investment option letters instead of full IDs
 
 import {useState, useEffect, useMemo, useCallback} from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
@@ -7,18 +7,18 @@ import {db} from '@shared/services/supabase';
 import {supabase} from '@shared/services/supabase';
 
 export interface DecisionState {
-    selectedInvestmentIds: string[];
+    selectedInvestmentOptions: string[];  // CHANGED: now stores ['A', 'B', 'C']
     spentBudget: number;
     selectedChallengeOptionId: string | null;
     sacrificeInvestmentId: string | null;
     doubleDownOnInvestmentId: string | null;
     error: string | null;
-    immediatePurchases: string[];
+    immediatePurchases: string[];  // Still stores letters for immediate purchases
 }
 
 export interface DecisionActions {
-    handleInvestmentToggle: (optionId: string, cost: number) => void;
-    handleImmediatePurchase: (optionId: string, cost: number) => Promise<void>;
+    handleInvestmentToggle: (optionIndex: number, cost: number) => void;  // CHANGED: now takes index
+    handleImmediatePurchase: (optionIndex: number, cost: number) => Promise<void>;  // CHANGED: now takes index
     handleChallengeSelect: (optionId: string) => void;
     handleSacrificeSelect: (optionId: string) => void;
     handleDoubleDownSelect: (optionId: string) => void;
@@ -32,7 +32,7 @@ interface UseDecisionMakingProps {
     investUpToBudget: number;
     sessionId?: string | null;
     teamId?: string | null;
-    onInvestmentSelectionChange?: (selectedIds: string[], spentBudget: number) => void;
+    onInvestmentSelectionChange?: (selectedOptions: string[], spentBudget: number) => void;  // CHANGED: parameter name
 }
 
 interface UseDecisionMakingReturn {
@@ -59,7 +59,7 @@ export const useDecisionMaking = ({
                                       onInvestmentSelectionChange
                                   }: UseDecisionMakingProps): UseDecisionMakingReturn => {
     const [state, setState] = useState<DecisionState>({
-        selectedInvestmentIds: [],
+        selectedInvestmentOptions: [],  // CHANGED
         spentBudget: 0,
         selectedChallengeOptionId: null,
         sacrificeInvestmentId: null,
@@ -76,7 +76,7 @@ export const useDecisionMaking = ({
         if (!currentSlide) return false;
         switch (currentSlide.type) {
             case 'interactive_invest':
-                return state.selectedInvestmentIds.length > 0 || state.immediatePurchases.length > 0;
+                return state.selectedInvestmentOptions.length > 0 || state.immediatePurchases.length > 0;  // CHANGED
             case 'interactive_choice':
             case 'interactive_double_down_prompt':
                 return !!state.selectedChallengeOptionId;
@@ -91,17 +91,23 @@ export const useDecisionMaking = ({
         if (!currentSlide) return '';
         switch (currentSlide.type) {
             case 'interactive_invest': {
-                const totalSelections = state.selectedInvestmentIds.length + state.immediatePurchases.length;
+                const totalSelections = state.selectedInvestmentOptions.length + state.immediatePurchases.length;  // CHANGED
                 if (totalSelections === 0) {
                     return `No investments selected (${formatCurrency(remainingBudget)} unspent)`;
                 }
 
-                const regularSelections = state.selectedInvestmentIds.map(id =>
-                    investmentOptions.find(opt => opt.id === id)?.name.split('.')[0] || `#${id.slice(-4)}`
-                );
-                const immediateSelections = state.immediatePurchases.map(id =>
-                    investmentOptions.find(opt => opt.id === id)?.name.split('.')[0] || `#${id.slice(-4)}`
-                );
+                // CHANGED: Convert letters back to names for display
+                const regularSelections = state.selectedInvestmentOptions.map(letter => {
+                    const index = letter.charCodeAt(0) - 65; // A=0, B=1, C=2, etc.
+                    const option = investmentOptions[index];
+                    return option ? option.name.split('.')[0] : letter;
+                });
+
+                const immediateSelections = state.immediatePurchases.map(letter => {
+                    const index = letter.charCodeAt(0) - 65;
+                    const option = investmentOptions[index];
+                    return option ? option.name.split('.')[0] : letter;
+                });
 
                 const allSelections = [...immediateSelections, ...regularSelections];
                 return `${totalSelections} investments: ${allSelections.join(', ')} (${formatCurrency(state.spentBudget)} spent)`;
@@ -145,20 +151,20 @@ export const useDecisionMaking = ({
                     .eq('is_immediate_purchase', true);
 
                 if (data && !error && data.length > 0) {
-                    // Calculate total spending from immediate purchases
-                    const immediatePurchaseIds: string[] = [];
+                    // CHANGED: Extract immediate purchase options (now letters)
+                    const immediatePurchaseOptions: string[] = [];
                     let immediateSpending = 0;
 
                     data.forEach(decision => {
-                        if (decision.selected_investment_ids) {
-                            immediatePurchaseIds.push(...decision.selected_investment_ids);
+                        if (decision.selected_investment_options) {  // CHANGED: column name
+                            immediatePurchaseOptions.push(...decision.selected_investment_options);
                         }
                         immediateSpending += decision.total_spent_budget || 0;
                     });
 
                     setState(prev => ({
                         ...prev,
-                        immediatePurchases: immediatePurchaseIds,
+                        immediatePurchases: immediatePurchaseOptions,  // CHANGED
                         spentBudget: immediateSpending
                     }));
                 }
@@ -170,7 +176,7 @@ export const useDecisionMaking = ({
         // Reset state when slide changes
         console.log(`[useDecisionMaking] Slide changed to: ${currentSlide?.id}, type: ${currentSlide?.type}`);
         const newState: DecisionState = {
-            selectedInvestmentIds: [],
+            selectedInvestmentOptions: [],  // CHANGED
             spentBudget: 0,
             selectedChallengeOptionId: null,
             sacrificeInvestmentId: null,
@@ -195,19 +201,20 @@ export const useDecisionMaking = ({
     // Notify parent of investment changes
     useEffect(() => {
         if (currentSlide?.type === 'interactive_invest' && onInvestmentSelectionChange) {
-            onInvestmentSelectionChange(state.selectedInvestmentIds, state.spentBudget);
+            onInvestmentSelectionChange(state.selectedInvestmentOptions, state.spentBudget);  // CHANGED
         }
-    }, [state.selectedInvestmentIds, state.spentBudget, currentSlide, onInvestmentSelectionChange]);
+    }, [state.selectedInvestmentOptions, state.spentBudget, currentSlide, onInvestmentSelectionChange]);  // CHANGED
 
-    // Regular investment toggle
-    const handleInvestmentToggle = useCallback((optionId: string, cost: number) => {
-        const currentIndex = state.selectedInvestmentIds.indexOf(optionId);
-        const newSelectedIds = [...state.selectedInvestmentIds];
+    // Regular investment toggle - CHANGED to use index instead of optionId
+    const handleInvestmentToggle = useCallback((optionIndex: number, cost: number) => {
+        const optionLetter = String.fromCharCode(65 + optionIndex); // A=0, B=1, C=2, etc.
+        const currentIndex = state.selectedInvestmentOptions.indexOf(optionLetter);
+        const newSelectedOptions = [...state.selectedInvestmentOptions];
         let newSpentBudget = state.spentBudget;
 
         if (currentIndex === -1) {
             if (newSpentBudget + cost <= investUpToBudget) {
-                newSelectedIds.push(optionId);
+                newSelectedOptions.push(optionLetter);
                 newSpentBudget += cost;
             } else {
                 setState(prev => ({
@@ -217,87 +224,62 @@ export const useDecisionMaking = ({
                 return;
             }
         } else {
-            newSelectedIds.splice(currentIndex, 1);
+            newSelectedOptions.splice(currentIndex, 1);
             newSpentBudget -= cost;
         }
 
         setState(prev => ({
             ...prev,
-            selectedInvestmentIds: newSelectedIds,
+            selectedInvestmentOptions: newSelectedOptions.sort(), // Keep sorted: ['A', 'B', 'F']
             spentBudget: newSpentBudget,
             error: null
         }));
-    }, [state.selectedInvestmentIds, state.spentBudget, investUpToBudget]);
+    }, [state.selectedInvestmentOptions, state.spentBudget, investUpToBudget]);
 
-    // Immediate purchase handler
-    const handleImmediatePurchase = useCallback(async (optionId: string, cost: number) => {
+    // Immediate purchase handler - CHANGED to use index instead of optionId
+    const handleImmediatePurchase = useCallback(async (optionIndex: number, cost: number) => {
         if (!sessionId || !teamId || !currentSlide) {
             throw new Error('Missing session information for immediate purchase');
         }
 
         // Check if we can afford it
         if (state.spentBudget + cost > investUpToBudget) {
-            throw new Error(`Cannot exceed budget! You have ${formatCurrency(investUpToBudget - state.spentBudget)} remaining.`);
+            throw new Error(`Cannot exceed budget! You have ${formatCurrency(investUpToBudget - (state.spentBudget + cost))} remaining.`);
         }
 
         try {
-            // Get team name for notification
-            const {data: teamData} = await supabase
-                .from('teams')
-                .select('name')
-                .eq('id', teamId)
-                .single();
-
-            // Create immediate purchase phase_id (separate from regular investments)
+            const optionLetter = String.fromCharCode(65 + optionIndex); // A=0, B=1, C=2, etc.
             const immediatePhaseId = `${currentSlide.interactive_data_key}_immediate`;
 
-            // Submit the immediate purchase to the database
-            const payload = {
-                session_id: sessionId,
-                team_id: teamId,
-                phase_id: immediatePhaseId, // CHANGED: Use separate phase_id
-                round_number: currentSlide.round_number,
-                selected_investment_ids: [optionId],
-                total_spent_budget: cost,
-                is_immediate_purchase: true,
-                immediate_purchase_type: 'business_growth_strategy',
-                immediate_purchase_data: {
-                    investment_id: optionId,
-                    cost: cost,
-                    purchase_type: 'business_growth_strategy',
-                    team_name: teamData?.name || 'Unknown Team'
-                },
-                report_given: false,
-                submitted_at: new Date().toISOString()
-            };
+            const {data, error} = await supabase
+                .from('team_decisions')
+                .insert({
+                    session_id: sessionId,
+                    team_id: teamId,
+                    phase_id: immediatePhaseId,
+                    round_number: currentSlide.round_number || 1,
+                    selected_investment_options: [optionLetter],  // CHANGED: store letter
+                    selected_challenge_option_id: null,
+                    total_spent_budget: cost,
+                    submitted_at: new Date().toISOString(),
+                    is_immediate_purchase: true,
+                    immediate_purchase_type: 'investment',
+                    immediate_purchase_data: {
+                        option_letter: optionLetter,  // CHANGED
+                        option_index: optionIndex,
+                        cost: cost
+                    },
+                    report_given: false
+                })
+                .select()
+                .single();
 
-            await db.decisions.upsert(payload);
-
-            // Send realtime notification to host using your existing channel system
-            const realtimeNotification = {
-                type: 'immediate_purchase_notification',
-                session_id: sessionId,
-                team_id: teamId,
-                team_name: teamData?.name || 'Unknown Team',
-                investment_id: optionId,
-                investment_name: investmentOptions.find(opt => opt.id === optionId)?.name || 'Business Growth Strategy',
-                cost: cost,
-                message: `${teamData?.name || 'A team'} needs their Business Growth Strategy Report (${formatCurrency(cost)} purchase)`,
-                timestamp: new Date().toISOString()
-            };
-
-            // Send via your existing realtime channel
-            const channel = supabase.channel('host-notifications');
-            channel.send({
-                type: 'broadcast',
-                event: 'immediate_purchase',
-                payload: realtimeNotification
-            });
+            if (error) throw error;
 
             // Update local state
             setState(prev => ({
                 ...prev,
-                immediatePurchases: [...prev.immediatePurchases, optionId],
+                immediatePurchases: [...prev.immediatePurchases, optionLetter].sort(),  // CHANGED
                 spentBudget: prev.spentBudget + cost,
                 error: null
             }));
