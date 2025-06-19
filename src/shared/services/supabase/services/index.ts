@@ -7,6 +7,7 @@ import {decisionService} from './decisionService';
 import {kpiService} from './kpiService';
 import {adjustmentService} from './adjustmentService';
 import {consequenceApplicationService} from './consequenceApplicationService';
+import {payoffApplicationService} from './payoffApplicationService';
 
 export const db = {
     sessions: sessionService,
@@ -15,4 +16,5 @@ export const db = {
     kpis: kpiService,
     adjustments: adjustmentService,
     consequenceApplications: consequenceApplicationService,
+    payoffApplications: payoffApplicationService,
 };

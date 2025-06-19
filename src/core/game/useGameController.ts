@@ -1,5 +1,5 @@
 // src/core/game/useGameController.ts
-// ULTIMATE FIX: Only process consequence slides when slide actually changes, not on data refresh
+// UPDATED: Adds payoff slide processing alongside consequence processing
 
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GameSessionManager} from '@core/game/GameSessionManager';
@@ -11,7 +11,7 @@ export const useGameController = (
     gameStructure: GameStructure | null,
     processInteractiveSlide: (completedSlide: Slide) => Promise<void>,
     processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>,
-    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>
+    processPayoffSlide: (payoffSlide: Slide) => Promise<void> // NEW: Added payoff slide processing
 ) => {
     // STATE MANAGEMENT
     const [dbSession, setDbSession] = useState<GameSession | null>(initialDbSession);
@@ -67,11 +67,12 @@ export const useGameController = (
         }
     }, [dbSession?.host_notes]);
 
-    // ULTIMATE FIX: Only process consequence slides when slide ID actually changes
+    // ULTIMATE FIX: Process effect slides (consequences and payoffs) when slide ID actually changes
     useEffect(() => {
         if (!currentSlideData || !gameStructure || !dbSession?.id) return;
 
-        const processConsequenceSlideAuto = async () => {
+        const processEffectSlideAuto = async () => {
+            // Handle consequence slides
             if (currentSlideData.type === 'consequence_reveal') {
                 // ULTIMATE FIX: Only process if this is a new slide and we're not already processing
                 if (lastProcessedSlideRef.current === currentSlideData.id) {
@@ -108,19 +109,13 @@ export const useGameController = (
                     // Always reset processing flag
                     processingRef.current = false;
                 }
-            } else {
-                // Reset last processed slide when we leave consequence slides
-                if (lastProcessedSlideRef.current !== null && currentSlideData.type !== 'consequence_reveal') {
-                    console.log(`[useGameController] 🔄 Left consequence slides, resetting processed state`);
-                    lastProcessedSlideRef.current = null;
-                }
             }
-        };
 
-        const processPayoffSlideAuto = async () => {
+            // Handle payoff slides (NEW)
             if (currentSlideData.type === 'payoff_reveal') {
+                // Same duplicate prevention logic as consequences
                 if (lastProcessedSlideRef.current === currentSlideData.id) {
-                    console.log(`[useGameController] ⚪ Payoff slide ${currentSlideData.id} already processed`);
+                    console.log(`[useGameController] ⚪ Payoff slide ${currentSlideData.id} already processed, ignoring data refresh`);
                     return;
                 }
 
@@ -129,34 +124,43 @@ export const useGameController = (
                     return;
                 }
 
-                console.log(`[useGameController] 🎯 NEW payoff slide detected: ${currentSlideData.id}`);
+                console.log(`[useGameController] 🎯 NEW payoff slide detected: ${currentSlideData.id} (previous: ${lastProcessedSlideRef.current})`);
 
                 try {
+                    // Mark as processing to prevent concurrent calls
                     processingRef.current = true;
 
-                    const roundNumber = currentSlideData.round_number as 1 | 2 | 3;
-                    if (roundNumber > 0) {
-                        console.log(`[useGameController] Processing investment payoffs for round ${roundNumber}`);
-                        await processInvestmentPayoffs(roundNumber);
-                        console.log(`[useGameController] ✅ Successfully processed payoffs for round ${roundNumber}`);
-                    }
+                    await processPayoffSlide(currentSlideData);
 
+                    // Mark as processed AFTER successful completion
                     lastProcessedSlideRef.current = currentSlideData.id;
+
+                    console.log(`[useGameController] ✅ Successfully processed NEW payoff slide: ${currentSlideData.id}`);
                 } catch (error) {
                     console.error(`[useGameController] ❌ Error processing payoff slide:`, error);
+
+                    // Don't mark as processed on error so it can be retried
                     setCurrentHostAlertState({
                         title: "Processing Error",
-                        message: `Failed to process investment payoffs: ${error instanceof Error ? error.message : 'Unknown error'}`
+                        message: `Failed to process payoff slide: ${error instanceof Error ? error.message : "Unknown error"}`
                     });
                 } finally {
+                    // Always reset processing flag
                     processingRef.current = false;
                 }
             }
+
+            // Reset last processed slide when we leave effect slides
+            if (lastProcessedSlideRef.current !== null &&
+                currentSlideData.type !== 'consequence_reveal' &&
+                currentSlideData.type !== 'payoff_reveal') {
+                console.log(`[useGameController] 🔄 Left effect slides, resetting processed state`);
+                lastProcessedSlideRef.current = null;
+            }
         };
 
-        processConsequenceSlideAuto();
-        processPayoffSlideAuto();
-    }, [currentSlideData?.id, currentSlideData?.type, gameStructure, processConsequenceSlide, dbSession?.id, processInvestmentPayoffs]);
+        processEffectSlideAuto();
+    }, [currentSlideData, gameStructure, dbSession?.id, processConsequenceSlide, processPayoffSlide]);
 
     // HOST ALERT MANAGEMENT
     const clearHostAlert = useCallback(async () => {
@@ -271,55 +275,46 @@ export const useGameController = (
                 message: error instanceof Error ? error.message : "Failed to jump to slide."
             });
         }
-    }, [dbSession, sessionManager, gameStructure]);
+    }, [dbSession, gameStructure?.slides.length, sessionManager]);
 
-    // HOST NOTES MANAGEMENT
-    const updateHostNotesForCurrentSlide = useCallback((notes: string) => {
-        if (currentSlideIndex === null) return;
-
-        const updatedNotes = {...hostNotesState, [currentSlideIndex]: notes};
-        setHostNotesState(updatedNotes);
-
-        // Update in database
-        if (dbSession?.id) {
-            sessionManager.updateSession(dbSession.id, {host_notes: updatedNotes})
-                .catch(error => console.error('Error updating host notes:', error));
-        }
-    }, [currentSlideIndex, hostNotesState, dbSession, sessionManager]);
-
-    // COMPUTED PROPERTIES
-    const hostNotes = useMemo(() => {
-        if (currentSlideIndex === null) return '';
-        return hostNotesState[currentSlideIndex] || '';
-    }, [currentSlideIndex, hostNotesState]);
-
-    const isFirstSlide = useMemo(() => currentSlideIndex === 0, [currentSlideIndex]);
-    const isLastSlide = useMemo(() => {
-        const totalSlides = gameStructure?.slides.length ?? 0;
-        return currentSlideIndex === totalSlides - 1;
-    }, [currentSlideIndex, gameStructure]);
-
+    // RETURN VALUES (keeping existing return structure)
     return {
-        // Core slide data
-        currentSlideData,
+        // Session state
+        dbSession,
         currentSlideIndex,
+        currentSlideData,
 
-        // Navigation
+        // Host state
+        hostNotes: hostNotesState[currentSlideIndex ?? -1] || '',
+        currentHostAlert: currentHostAlertState,
+        allTeamsSubmitted: allTeamsSubmittedState,
+
+        // Navigation methods
         nextSlide,
         previousSlide,
         selectSlideByIndex,
-        isFirstSlide,
-        isLastSlide,
 
-        // Host features
-        hostNotes,
-        updateHostNotesForCurrentSlide,
-        currentHostAlert: currentHostAlertState,
-        setCurrentHostAlertState,
+        // State management methods (keeping existing methods)
+        updateHostNotesForCurrentSlide: useCallback(async (notes: string) => {
+            if (currentSlideIndex === null || !dbSession) return;
+            const updatedHostNotes = {...hostNotesState, [currentSlideIndex]: notes};
+            setHostNotesState(updatedHostNotes);
+            try {
+                await sessionManager.updateSession(dbSession.id, {host_notes: updatedHostNotes});
+                setDbSession(prev => prev ? {...prev, host_notes: updatedHostNotes} : null);
+            } catch (error) {
+                console.error('[useGameController] Error saving host notes:', error);
+            }
+        }, [currentSlideIndex, dbSession, hostNotesState, sessionManager]),
+
+        setAllTeamsSubmittedCurrentInteractivePhase: useCallback((submitted: boolean) => {
+            setAllTeamsSubmittedCurrentInteractivePhase(submitted);
+        }, []),
+
+        setCurrentHostAlertState: useCallback((alert: { title: string; message: string } | null) => {
+            setCurrentHostAlertState(alert);
+        }, []),
+
         clearHostAlert,
-
-        // Team interaction
-        setAllTeamsSubmittedCurrentInteractivePhase: setAllTeamsSubmittedCurrentInteractivePhase,
-        allTeamsSubmittedCurrentInteractivePhase: allTeamsSubmittedState,
     };
 };

@@ -68,6 +68,8 @@ export const sessionService = {
     async delete(sessionId: string) {
         return withRetry(async () => {
             // Delete in correct order to respect foreign key constraints
+            await supabase.from('payoff_applications').delete().eq('session_id', sessionId);
+            await supabase.from('consequence_applications').delete().eq('session_id', sessionId);
             await supabase.from('permanent_kpi_adjustments').delete().eq('session_id', sessionId);
             await supabase.from('team_round_data').delete().eq('session_id', sessionId);
             await supabase.from('team_decisions').delete().eq('session_id', sessionId);
@@ -79,5 +81,5 @@ export const sessionService = {
                 .eq('id', sessionId);
             if (error) throw error;
         }, 2, 1000, `Delete session ${sessionId.substring(0, 8)}`);
-    },
+    }
 };

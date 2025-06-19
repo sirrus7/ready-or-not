@@ -34,7 +34,7 @@ interface GameContextType {
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
     selectSlideByIndex: (index: number) => Promise<void>;
-    processInvestmentPayoffs: (roundNumber: 1 | 2 | 3) => Promise<void>;
+    processPayoffSlide: (payoffSlide: Slide) => Promise<void>;
     processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>;
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => void;
     resetGameProgress: () => void;
@@ -92,7 +92,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         gameStructure,
         gameProcessing.processInteractiveSlide,
         gameProcessing.processConsequenceSlide,
-        gameProcessing.processInvestmentPayoffs
+        gameProcessing.processPayoffSlide
     );
 
     const resetTeamDecision = useCallback(async (teamId: string, interactiveDataKey: string) => {
@@ -137,7 +137,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         nextSlide: gameController.nextSlide,
         previousSlide: gameController.previousSlide,
         selectSlideByIndex: gameController.selectSlideByIndex,
-        processInvestmentPayoffs: gameProcessing.processInvestmentPayoffs,
+        processPayoffSlide: gameProcessing.processPayoffSlide,
         processConsequenceSlide: gameProcessing.processConsequenceSlide,
         calculateAndFinalizeRoundKPIs: gameProcessing.calculateAndFinalizeRoundKPIs,
         resetGameProgress: gameProcessing.resetGameProgress,
