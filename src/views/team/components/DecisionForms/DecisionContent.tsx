@@ -1,5 +1,5 @@
 // src/views/team/components/DecisionForms/DecisionContent.tsx
-// Update your existing DecisionContent to pass the new props
+// FIXED: Update prop name to match new hook structure
 
 import React from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
@@ -35,7 +35,7 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
             return (
                 <InvestmentPanel
                     investmentOptions={investmentOptions}
-                    selectedInvestmentIds={decisionState.selectedInvestmentIds}
+                    selectedInvestmentIds={decisionState.selectedInvestmentOptions}  // FIXED: was selectedInvestmentIds
                     spentBudget={decisionState.spentBudget}
                     investUpToBudget={investUpToBudget}
                     onInvestmentToggle={decisionActions.handleInvestmentToggle}
@@ -67,20 +67,17 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
         case 'interactive_double_down_select':
             return (
                 <DoubleDownSelectPanel
-                    availableRd3Investments={availableRd3Investments}
+                    availableInvestments={availableRd3Investments}
                     sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
                     doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
                     onSacrificeSelect={decisionActions.handleSacrificeSelect}
                     onDoubleDownSelect={decisionActions.handleDoubleDownSelect}
+                    currentSlide={currentSlide}
                     isSubmitting={isSubmitting}
                 />
             );
         default:
-            return (
-                <div className="p-4 text-center text-gray-400">
-                    <p>Unknown slide type: {currentSlide.type}</p>
-                </div>
-            );
+            return <div>Unknown slide type</div>;
     }
 };
 

@@ -329,7 +329,7 @@ export class UnifiedEffectsProcessor {
             }
 
             // Find the payoff for this option (same as consequences)
-            const payoff = allPayoffsForPhase.find(p => p.investment_option_id === slideOption);
+            const payoff = allPayoffsForPhase.find(p => p.id === slideOption);
             if (!payoff) {
                 console.warn(`[UnifiedEffectsProcessor] ❌ No payoff found for option ${slideOption} in ${payoffKey}`);
                 continue;

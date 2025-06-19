@@ -54,7 +54,6 @@ export interface Consequence {
 
 export interface InvestmentPayoff {
     id: string;
-    investment_option_id: string;
     name: string;
     effects: KpiEffect[];
 }

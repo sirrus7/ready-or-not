@@ -1,13 +1,12 @@
-// src/core/content/InvestmentPayoffContent.ts - Updated to use A, B, C, D, E, F pattern
+// src/core/content/InvestmentPayoffContent.ts - FULLY SIMPLIFIED: Letter IDs, no redundant fields
 
 import {InvestmentPayoff} from '@shared/types/game';
 
 export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
     'rd1-payoff': [
         {
-            id: 'payoff_rd1_inv_biz_growth',
-            investment_option_id: 'A',  // Changed from 'rd1_inv_biz_growth'
-            name: "A. Biz Growth Strat.",
+            id: 'A',
+            name: "Biz Growth Strategy",
             effects: [
                 {
                     kpi: 'capacity',
@@ -33,9 +32,8 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd1_inv_prod_effic',
-            investment_option_id: 'B',  // Changed from 'rd1_inv_prod_effic'
-            name: "B. Prod. Efficiency",
+            id: 'B',
+            name: "Production Efficiency",
             effects: [
                 {
                     kpi: 'capacity',
@@ -47,9 +45,8 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd1_inv_2nd_shift',
-            investment_option_id: 'C',  // Changed from 'rd1_inv_2nd_shift'
-            name: "C. Add 2nd Shift",
+            id: 'C',
+            name: "Add 2nd Shift",
             effects: [
                 {
                     kpi: 'capacity',
@@ -68,9 +65,8 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd1_inv_sup_chain',
-            investment_option_id: 'D',  // Changed from 'rd1_inv_sup_chain'
-            name: "D. Supply Chain Opt.",
+            id: 'D',
+            name: "Supply Chain Optimization",
             effects: [
                 {
                     kpi: 'capacity',
@@ -89,9 +85,8 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd1_inv_emp_dev',
-            investment_option_id: 'E',  // Changed from 'rd1_inv_emp_dev'
-            name: "E. Employee Dev.",
+            id: 'E',
+            name: "Employee Development",
             effects: [
                 {
                     kpi: 'capacity',
@@ -110,9 +105,8 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd1_inv_boutique',
-            investment_option_id: 'F',  // Changed from 'rd1_inv_boutique'
-            name: "F. Maximize Sales (Boutique)",
+            id: 'F',
+            name: "Maximize Sales (Boutique)",
             effects: [
                 {
                     kpi: 'orders',
@@ -133,9 +127,8 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
     ],
     'rd2-payoff': [
         {
-            id: 'payoff_rd2_inv_strategic_plan_2',
-            investment_option_id: 'A',  // Changed from 'rd2_inv_strategic_plan_2'
-            name: "A. Business Growth Strategy",
+            id: 'A',
+            name: "Strategic Plan (KPI Card)",
             effects: [
                 {kpi: 'capacity', change_value: 250, timing: 'immediate'},
                 {kpi: 'orders', change_value: 250, timing: 'immediate'},
@@ -143,64 +136,55 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd2_inv_prod_efficiency_2',
-            investment_option_id: 'B',  // Changed from 'rd2_inv_prod_efficiency_2'
-            name: "B. Production Efficiency II",
+            id: 'B',
+            name: "Production Efficiency II",
+            effects: [
+                {kpi: 'capacity', change_value: 2500, timing: 'immediate'}
+            ]
+        },
+        {
+            id: 'C',
+            name: "Add/Expand 2nd Shift",
             effects: [
                 {kpi: 'capacity', change_value: 2000, timing: 'immediate'},
-                {kpi: 'cost', change_value: 50000, timing: 'immediate'}
+                {kpi: 'cost', change_value: 200000, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd2_inv_add_exp_2nd_shift',
-            investment_option_id: 'C',  // Changed from 'rd2_inv_add_exp_2nd_shift'
-            name: "C. Add/Expand 2nd Shift",
-            effects: [
-                {kpi: 'capacity', change_value: 3000, timing: 'immediate'},
-                {kpi: 'cost', change_value: 575000, timing: 'immediate'}
-            ]
-        },
-        {
-            id: 'payoff_rd2_inv_supply_chain_opt_2',
-            investment_option_id: 'D',  // Changed from 'rd2_inv_supply_chain_opt_2'
-            name: "D. Supply Chain Optimization II",
+            id: 'D',
+            name: "Supply Chain Optimization II",
             effects: [
                 {kpi: 'capacity', change_value: 500, timing: 'immediate'},
-                {kpi: 'cost', change_value: -200000, timing: 'immediate'}
+                {kpi: 'cost', change_value: -250000, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd2_inv_emp_dev_2',
-            investment_option_id: 'E',  // Changed from 'rd2_inv_emp_dev_2'
-            name: "E. Employee Development II",
+            id: 'E',
+            name: "Employee Development II",
             effects: [
                 {kpi: 'capacity', change_value: 500, timing: 'immediate'},
-                {kpi: 'cost', change_value: -25000, timing: 'immediate'}
+                {kpi: 'cost', change_value: -50000, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd2_inv_maximize_boutique',
-            investment_option_id: 'F',  // Changed from 'rd2_inv_maximize_boutique'
-            name: "F. Maximize Boutique Sales & Distro",
+            id: 'F',
+            name: "Maximize Boutique Sales & Distribution",
             effects: [
-                {kpi: 'asp', change_value: 40, timing: 'immediate'},
-                {kpi: 'orders', change_value: 2000, timing: 'immediate'}
+                {kpi: 'orders', change_value: 750, timing: 'immediate'},
+                {kpi: 'asp', change_value: 30, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd2_inv_expand_dist_channels',
-            investment_option_id: 'G',  // Additional option for Round 2
-            name: "G. Expand Distribution Channels - Big Box",
+            id: 'G',
+            name: "Expand Distribution Channels - Big Box",
             effects: [
-                {kpi: 'asp', change_value: -20, timing: 'immediate'},
                 {kpi: 'orders', change_value: 1500, timing: 'immediate'},
                 {kpi: 'cost', change_value: 50000, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd2_inv_erp',
-            investment_option_id: 'H',  // Additional option for Round 2
-            name: "H. Enterprise Resource Planning/Business Software",
+            id: 'H',
+            name: "Enterprise Resource Planning/Business Software",
             effects: [
                 {kpi: 'asp', change_value: 10, timing: 'immediate'},
                 {kpi: 'orders', change_value: 250, timing: 'immediate'},
@@ -209,15 +193,13 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd2_inv_it_cybersecurity',
-            investment_option_id: 'I',  // Additional option for Round 2
-            name: "I. IT Infrastructure and Cybersecurity",
+            id: 'I',
+            name: "IT Infrastructure and Cybersecurity",
             effects: []
         },
         {
-            id: 'payoff_rd2_inv_prod_line_expansion',
-            investment_option_id: 'J',  // Additional option for Round 2
-            name: "J. Product Line Expansion - Inflatables",
+            id: 'J',
+            name: "Product Line Expansion - Inflatables",
             effects: [
                 {kpi: 'asp', change_value: -20, timing: 'immediate'},
                 {kpi: 'orders', change_value: 1000, timing: 'immediate'},
@@ -226,26 +208,23 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd2_inv_automation_cobots',
-            investment_option_id: 'K',  // Additional option for Round 2
-            name: "K. Technology Solutions - Automation and Cobots",
+            id: 'K',
+            name: "Technology Solutions - Automation and Cobots",
             effects: [
                 {kpi: 'capacity', change_value: 1500, timing: 'immediate'},
                 {kpi: 'cost', change_value: 150000, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd2_inv_market_share_attack',
-            investment_option_id: 'L',  // Additional option for Round 2
-            name: "L. Market Share Attack",
+            id: 'L',
+            name: "Market Share Attack",
             effects: []
         },
     ],
     'rd3-payoff': [
         {
-            id: 'payoff_rd3_inv_strategic_plan_2',
-            investment_option_id: 'A',  // Changed from 'rd3_inv_strategic_plan_2'
-            name: "A. Strategic Plan II - 5 Year Vision",
+            id: 'A',
+            name: "Strategic Plan II - 5 Year Vision",
             effects: [
                 {kpi: 'asp', change_value: 20, timing: 'immediate'},
                 {kpi: 'orders', change_value: 250, timing: 'immediate'},
@@ -253,54 +232,47 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd3_inv_prod_efficiency_3',
-            investment_option_id: 'B',  // Changed from 'rd3_inv_prod_efficiency_3'
-            name: "B. Production Efficiency III - Lean Manufacturing",
+            id: 'B',
+            name: "Production Efficiency III - Lean Manufacturing",
             effects: [
                 {kpi: 'capacity', change_value: 3000, timing: 'immediate'},
                 {kpi: 'cost', change_value: 100000, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd3_inv_3rd_shift',
-            investment_option_id: 'C',  // Changed from 'rd3_inv_3rd_shift'
-            name: "C. Add 3rd Shift - 24/7 Operations",
+            id: 'C',
+            name: "Add 3rd Shift - 24/7 Operations",
             effects: [
                 {kpi: 'capacity', change_value: 4250, timing: 'immediate'},
                 {kpi: 'cost', change_value: 750000, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd3_inv_supply_chain_3',
-            investment_option_id: 'D',  // Changed from 'rd3_inv_supply_chain_3'
-            name: "D. Supply Chain III - Vertical Integration",
+            id: 'D',
+            name: "Supply Chain III - Vertical Integration",
             effects: [
                 {kpi: 'capacity', change_value: 750, timing: 'immediate'},
                 {kpi: 'cost', change_value: -300000, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd3_inv_emp_dev_3',
-            investment_option_id: 'E',  // Changed from 'rd3_inv_emp_dev_3'
-            name: "E. Employee Development III - Leadership Program",
+            id: 'E',
+            name: "Employee Development III - Leadership Program",
             effects: [
                 {kpi: 'capacity', change_value: 1500, timing: 'immediate'}
             ]
         },
         {
-            id: 'payoff_rd3_inv_premium_brand',
-            investment_option_id: 'F',  // Changed from 'rd3_inv_premium_brand'
-            name: "F. Premium Brand Development",
+            id: 'F',
+            name: "Premium Brand Development",
             effects: [
                 {kpi: 'asp', change_value: 80, timing: 'immediate'},
                 {kpi: 'orders', change_value: 3000, timing: 'immediate'}
             ]
         },
-        // Additional Round 3 options...
         {
-            id: 'payoff_rd3_inv_global_expansion',
-            investment_option_id: 'G',
-            name: "G. Global Market Expansion",
+            id: 'G',
+            name: "Global Market Expansion",
             effects: [
                 {kpi: 'asp', change_value: -40, timing: 'immediate'},
                 {kpi: 'orders', change_value: 4000, timing: 'immediate'},
@@ -308,9 +280,8 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             ]
         },
         {
-            id: 'payoff_rd3_inv_digital_transformation',
-            investment_option_id: 'H',
-            name: "H. Digital Transformation Initiative",
+            id: 'H',
+            name: "Digital Transformation Initiative",
             effects: [
                 {kpi: 'asp', change_value: 10, timing: 'immediate'},
                 {kpi: 'orders', change_value: 250, timing: 'immediate'},
@@ -318,26 +289,38 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
                 {kpi: 'cost', change_value: 25000, timing: 'immediate'}
             ]
         },
-        // Additional options I, J, K, L can be added as needed
-    ],
-    'dd-payoff': [
         {
-            id: 'dd_payoff_critical_success',
-            investment_option_id: 'any',
-            name: "Double Down Critical Success",
-            effects: []
+            id: 'I',
+            name: "Sustainability & Green Manufacturing",
+            effects: [
+                {kpi: 'asp', change_value: 15, timing: 'immediate'},
+                {kpi: 'orders', change_value: 500, timing: 'immediate'}
+            ]
         },
         {
-            id: 'dd_payoff_success',
-            investment_option_id: 'any',
-            name: "Double Down Success",
-            effects: []
+            id: 'J',
+            name: "Innovation Lab & R&D Center",
+            effects: [
+                {kpi: 'asp', change_value: 25, timing: 'immediate'},
+                {kpi: 'capacity', change_value: 500, timing: 'immediate'}
+            ]
         },
         {
-            id: 'dd_payoff_failure',
-            investment_option_id: 'any',
-            name: "Double Down Failure",
-            effects: []
+            id: 'K',
+            name: "Customer Experience Platform",
+            effects: [
+                {kpi: 'asp', change_value: 5, timing: 'immediate'},
+                {kpi: 'orders', change_value: 1000, timing: 'immediate'}
+            ]
+        },
+        {
+            id: 'L',
+            name: "Strategic Acquisition",
+            effects: [
+                {kpi: 'capacity', change_value: 2000, timing: 'immediate'},
+                {kpi: 'orders', change_value: 1500, timing: 'immediate'},
+                {kpi: 'cost', change_value: 200000, timing: 'immediate'}
+            ]
         }
     ]
 };

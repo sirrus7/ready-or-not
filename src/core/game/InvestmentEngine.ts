@@ -88,12 +88,12 @@ export class InvestmentEngine {
 
                 // Apply effects from selected investments
                 if (investmentDecision) {
-                    const selectedInvestmentIds = investmentDecision.selected_investment_ids || [];
-                    selectedInvestmentIds.forEach(investId => {
-                        const payoff = payoffs.find(p => p.investment_option_id === investId);
+                    const selectedInvestmentOptions = investmentDecision.selected_investment_options || [];
+                    selectedInvestmentOptions.forEach(optionId => {
+                        const payoff = payoffs.find(p => p.id === optionId);
                         if (payoff) {
                             effectsToApply.push(...payoff.effects);
-                            console.log(`[InvestmentEngine] Team ${team.name}: Adding payoff effects for investment ${investId}`);
+                            console.log(`[InvestmentEngine] Team ${team.name}: Adding payoff effects for investment ${optionId}`);
                         }
                     });
                 }
@@ -101,7 +101,7 @@ export class InvestmentEngine {
                 // Handle unspent budget for Round 1 only
                 if (roundNumber === 1) {
                     const budget = gameStructure.investment_phase_budgets['rd1-invest'] || 0;
-                    const spent = investmentDecision?.total_spent ?? 0; // ✅ FIXED: Use correct field name
+                    const spent = investmentDecision?.total_spent_budget ?? 0;
                     const unspent = budget - spent;
 
                     if (unspent > 0) {
