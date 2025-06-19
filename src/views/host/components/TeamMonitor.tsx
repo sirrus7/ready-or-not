@@ -157,7 +157,7 @@ const TeamMonitor: React.FC = () => {
 
                 if (allSelectedIds.length === 0) {
                     return decision ?
-                        `No investments (${formatCurrency(decision.total_spent || 0)} spent)` :
+                        `No investments (${formatCurrency(decision.total_spent_budget || 0)} spent)` :
                         'No submission yet';
                 }
 
@@ -166,7 +166,7 @@ const TeamMonitor: React.FC = () => {
                     return opt ? opt.name.split('.')[0].trim() : id;
                 });
 
-                const totalBudget = (decision?.total_spent || 0) + immediateBudget;
+                const totalBudget = (decision?.total_spent_budget || 0) + immediateBudget;
                 return `${selectedNames.join(', ')} (${formatCurrency(totalBudget)} spent)`;
             }
             case 'interactive_choice': {

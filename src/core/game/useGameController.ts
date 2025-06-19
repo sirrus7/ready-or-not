@@ -18,36 +18,10 @@ export const useGameController = (
     const [hostNotesState, setHostNotesState] = useState<Record<number, string>>({});
     const [currentHostAlertState, setCurrentHostAlertState] = useState<{ title: string; message: string } | null>(null);
     const [allTeamsSubmittedState, setAllTeamsSubmittedCurrentInteractivePhase] = useState<boolean>(false);
-    const [allTeamsAlertDismissed, setAllTeamsAlertDismissed] = useState<boolean>(false);
 
     // CRITICAL FIX: Track the last processed slide to prevent re-processing on data refresh
     const lastProcessedSlideRef = useRef<number | null>(null);
     const processingRef = useRef<boolean>(false);
-
-    /**
-     * CONTEXTUAL ALERT SYSTEM
-     *
-     * REQUIREMENTS:
-     * 1. Alert should ONLY show if teams have submitted for the CURRENT slide's interactive_data_key
-     * 2. Alert should NOT carry over from previous challenges (e.g., Investment → Choice 1)
-     * 3. Alert CAN reappear on browser reload if teams have submitted for current slide
-     * 4. Alert should NOT appear on new challenges until teams actually submit
-     *
-     * EXAMPLES:
-     * - Investment complete → Navigate to Investment slide → Alert CAN show (teams submitted for "rd1-invest")
-     * - Investment complete → Navigate to Choice 1 slide → Alert should NOT show (teams haven't submitted for "ch1_decision")
-     * - Choice 1 complete → Navigate to Choice 1 slide → Alert CAN show (teams submitted for "ch1_decision")
-     *
-     * IMPLEMENTATION:
-     * - Track the last interactive_data_key that triggered an alert
-     * - Only show alert if teams submitted for the current slide's specific decision key
-     * - Reset tracking when moving to different interactive_data_key
-     */
-    const lastAlertDataKeyRef = useRef<string | null>(null);
-
-    // CONSTANTS
-    const ALL_SUBMIT_ALERT_TITLE = "All Teams Have Submitted!";
-    const ALL_SUBMIT_ALERT_MESSAGE = "All teams have submitted their decisions for this challenge. Click 'Next' to advance to the next slide, or 'Close' to dismiss this alert and stay on the current slide.";
 
     // SESSION MANAGEMENT
     useEffect(() => {
@@ -92,76 +66,6 @@ export const useGameController = (
             setHostNotesState(dbSession.host_notes);
         }
     }, [dbSession?.host_notes]);
-
-    /**
-     * ENHANCED CONTEXTUAL ALERT DETECTION
-     *
-     * This useEffect ensures alerts are only shown for submissions relevant to the current slide.
-     * It prevents "ghost alerts" from previous challenges appearing on new challenge slides.
-     */
-    useEffect(() => {
-        const currentDataKey = currentSlideData?.interactive_data_key;
-
-        // Early exit if no interactive slide
-        if (!currentDataKey) {
-            lastAlertDataKeyRef.current = null;
-            setAllTeamsSubmittedCurrentInteractivePhase(false); // Reset when leaving interactive slides
-            return;
-        }
-
-        // CRITICAL: Reset submission state when moving to a new interactive data key
-        if (currentDataKey !== lastAlertDataKeyRef.current) {
-            console.log(`[useGameController] 🔄 Interactive data key changed from "${lastAlertDataKeyRef.current}" to "${currentDataKey}"`);
-
-            // FIRST: Reset the submission state to false for the new challenge
-            setAllTeamsSubmittedCurrentInteractivePhase(false);
-
-            // THEN: Update the tracking
-            lastAlertDataKeyRef.current = currentDataKey;
-
-            // FINALLY: Reset alert dismissed state for new slide (allow alerts to show again)
-            if (allTeamsAlertDismissed) {
-                console.log('[useGameController] 🔄 Resetting alert dismissed state for new interactive slide');
-                setAllTeamsAlertDismissed(false);
-            }
-
-            // Don't check for alerts on this render - let the state settle first
-            return;
-        }
-
-        // Only check for alerts if we're on the same slide (not switching)
-        // SHOW ALERT CONDITIONS:
-        // 1. All teams have submitted (for current slide's decision key)
-        // 2. We're on an interactive slide (has interactive_data_key)
-        // 3. No alert is currently showing
-        // 4. Alert hasn't been dismissed for this specific slide
-        if (allTeamsSubmittedState &&
-            currentDataKey &&
-            !currentHostAlertState &&
-            !allTeamsAlertDismissed) {
-
-            console.log(`[useGameController] ✅ All teams submitted for "${currentDataKey}", showing alert`);
-            setCurrentHostAlertState({
-                title: ALL_SUBMIT_ALERT_TITLE,
-                message: ALL_SUBMIT_ALERT_MESSAGE
-            });
-        }
-
-        // DEBUG LOGGING: Help troubleshoot alert logic
-        console.log(`[useGameController] 🔍 Alert check for "${currentDataKey}":`, {
-            allTeamsSubmitted: allTeamsSubmittedState,
-            hasDataKey: !!currentDataKey,
-            noCurrentAlert: !currentHostAlertState,
-            notDismissed: !allTeamsAlertDismissed,
-            willShowAlert: allTeamsSubmittedState && currentDataKey && !currentHostAlertState && !allTeamsAlertDismissed
-        });
-
-    }, [
-        allTeamsSubmittedState,           // Changes when team submission status changes
-        currentSlideData?.interactive_data_key,  // Changes when slide changes
-        currentHostAlertState,            // Changes when alert is shown/hidden
-        allTeamsAlertDismissed           // Changes when alert is dismissed
-    ]);
 
     // ULTIMATE FIX: Only process consequence slides when slide ID actually changes
     useEffect(() => {
@@ -259,7 +163,6 @@ export const useGameController = (
         if (!currentHostAlertState || !dbSession) return;
 
         setCurrentHostAlertState(null);
-        setAllTeamsAlertDismissed(true);
 
         // Always advance slide when clearHostAlert is called
         try {
@@ -291,6 +194,11 @@ export const useGameController = (
             try {
                 console.log(`[useGameController] Processing interactive slide: ${currentSlideData.id}`);
                 await processInteractiveSlide(currentSlideData);
+
+                // Add small delay if this was a choice slide to let auto-submissions settle
+                if (currentSlideData.type === 'interactive_choice') {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
             } catch (error) {
                 console.error('[useGameController] Error processing interactive slide:', error);
                 setCurrentHostAlertState({
@@ -310,9 +218,6 @@ export const useGameController = (
                 await sessionManager.updateSession(dbSession!.id, {current_slide_index: nextIndex});
                 setDbSession(prev => prev ? {...prev, current_slide_index: nextIndex} : null);
                 console.log(`[useGameController] Advanced to slide ${nextIndex}`);
-
-                // Reset alert dismissal state for new slide
-                setAllTeamsAlertDismissed(false);
             } else {
                 console.log('[useGameController] Already at last slide');
             }
@@ -338,9 +243,6 @@ export const useGameController = (
             await sessionManager.updateSession(dbSession.id, {current_slide_index: prevIndex});
             setDbSession(prev => prev ? {...prev, current_slide_index: prevIndex} : null);
             console.log(`[useGameController] Went back to slide ${prevIndex}`);
-
-            // Reset alert dismissal state for new slide
-            setAllTeamsAlertDismissed(false);
         } catch (error) {
             console.error('[useGameController] Error going to previous slide:', error);
             setCurrentHostAlertState({
@@ -362,9 +264,6 @@ export const useGameController = (
             await sessionManager.updateSession(dbSession.id, {current_slide_index: targetIndex});
             setDbSession(prev => prev ? {...prev, current_slide_index: targetIndex} : null);
             console.log(`[useGameController] Jumped to slide ${targetIndex}`);
-
-            // Reset alert dismissal state for new slide
-            setAllTeamsAlertDismissed(false);
         } catch (error) {
             console.error('[useGameController] Error jumping to slide:', error);
             setCurrentHostAlertState({
@@ -418,7 +317,6 @@ export const useGameController = (
         currentHostAlert: currentHostAlertState,
         setCurrentHostAlertState,
         clearHostAlert,
-        setAllTeamsAlertDismissed: setAllTeamsAlertDismissed,
 
         // Team interaction
         setAllTeamsSubmittedCurrentInteractivePhase: setAllTeamsSubmittedCurrentInteractivePhase,

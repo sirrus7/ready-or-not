@@ -43,9 +43,6 @@ interface GameContextType {
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
     setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
     clearHostAlert: () => Promise<void>; // ADDED: Missing method from interface
-    setAllTeamsAlertDismissed: (dismissed: boolean) => void;
-
-    // ADDED: Centralized permanent adjustments (impact cards)
     permanentAdjustments: PermanentKpiAdjustment[]; // Now available globally
     isLoadingAdjustments: boolean; // Loading state for adjustments
 }
@@ -149,9 +146,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         setAllTeamsSubmittedCurrentInteractivePhase: gameController.setAllTeamsSubmittedCurrentInteractivePhase,
         setCurrentHostAlertState: gameController.setCurrentHostAlertState,
         clearHostAlert: gameController.clearHostAlert, // ADDED: Missing method
-        setAllTeamsAlertDismissed: gameController.setAllTeamsAlertDismissed,
-
-        // ADDED: Centralized permanent adjustments (impact cards)
         permanentAdjustments, // Now available globally
         isLoadingAdjustments   // Loading state for adjustments
     };

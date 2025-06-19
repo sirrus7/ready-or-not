@@ -126,6 +126,55 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         });
     }
 
+    // Helper function to ensure all teams have choices recorded in database
+    const ensureAllTeamsHaveChoices = useCallback(async (completedSlide: Slide) => {
+        if (!currentDbSession?.id || !gameStructure || !completedSlide.interactive_data_key) return;
+        if (completedSlide.type !== 'interactive_choice') return;
+
+        const decisionKey = completedSlide.interactive_data_key;
+        const challengeOptions = gameStructure.all_challenge_options[decisionKey] || [];
+        const defaultOption = challengeOptions.find(opt => opt.is_default_choice);
+
+        if (!defaultOption) {
+            console.warn(`[useGameProcessing] No default option found for ${decisionKey}`);
+            return;
+        }
+
+        console.log(`[useGameProcessing] Ensuring all teams have choices for ${decisionKey}`);
+
+        for (const team of teams) {
+            const existingDecision = teamDecisions[team.id]?.[decisionKey];
+
+            if (!existingDecision) {
+                try {
+                    // Build proper TeamDecision object (minus id and created_at)
+                    const defaultDecisionData = {
+                        session_id: currentDbSession.id,
+                        team_id: team.id,
+                        phase_id: decisionKey,
+                        round_number: completedSlide.round_number || 1,
+                        selected_investment_ids: null,
+                        selected_challenge_option_id: defaultOption.id,
+                        double_down_sacrifice_id: null,
+                        double_down_on_id: null,
+                        total_spent_budget: 0,
+                        submitted_at: new Date().toISOString(),
+                        is_immediate_purchase: false,
+                        immediate_purchase_type: null,
+                        immediate_purchase_data: null,
+                        report_given: false,
+                        report_given_at: null
+                    };
+
+                    await db.decisions.create(defaultDecisionData);
+                    console.log(`[useGameProcessing] ✅ Auto-submitted default choice "${defaultOption.id}" for team ${team.name}`);
+                } catch (error) {
+                    console.error(`[useGameProcessing] ❌ Failed to auto-submit for team ${team.name}:`, error);
+                }
+            }
+        }
+    }, [currentDbSession, gameStructure, teams, teamDecisions]);
+
     // SIMPLIFIED: Replace DecisionEngine with inline logic
     const processInteractiveSlide = useCallback(async (completedSlide: Slide) => {
         console.log('[useGameProcessing] Processing interactive slide:', completedSlide.id);
@@ -135,8 +184,10 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             return;
         }
 
+        await ensureAllTeamsHaveChoices(completedSlide);
+
         try {
-            // This is all DecisionEngine was doing - ensure KPI data exists for all teams
+            // Ensure KPI data exists for all teams
             for (const team of teams) {
                 await KpiDataUtils.ensureTeamRoundData(
                     currentDbSession.id,
@@ -145,16 +196,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                     teamRoundData,
                     setTeamRoundDataDirectly
                 );
-
-                const decision = teamDecisions[team.id]?.[completedSlide.interactive_data_key || ''];
-                const options = gameStructure.all_challenge_options[completedSlide.interactive_data_key || ''] || [];
-                const selectedOptionId = decision?.selected_challenge_option_id || options.find(opt => opt.is_default_choice)?.id;
-
-                if (selectedOptionId) {
-                    console.log(`[useGameProcessing] Team ${team.name}: Recorded choice '${selectedOptionId}' for ${completedSlide.interactive_data_key}. Consequences will be applied when consequence slides are shown.`);
-                } else {
-                    console.warn(`[useGameProcessing] Team ${team.name}: No option selected for ${completedSlide.interactive_data_key}.`);
-                }
             }
 
             // Refresh data to update UI
@@ -163,13 +204,13 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                 fetchTeamRoundDataFromHook(currentDbSession.id)
             ]);
 
-            console.log('[useGameProcessing] Interactive slide processed, decision history updated');
+            console.log('[useGameProcessing] Interactive slide processed successfully');
 
         } catch (error) {
             console.error('[useGameProcessing] Slide processing failed:', error);
             throw error;
         }
-    }, [currentDbSession, gameStructure, teams, teamDecisions, teamRoundData, setTeamRoundDataDirectly, fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook]);
+    }, [currentDbSession, gameStructure, teams, ensureAllTeamsHaveChoices, teamDecisions, teamRoundData, setTeamRoundDataDirectly, fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook,]);
 
     // Consequence processing (uses the real ConsequenceProcessor)
     const processConsequenceSlide = useCallback(async (consequenceSlide: Slide) => {

@@ -221,9 +221,15 @@ export const useTeamDecisionSubmission = ({
                     ? decisionState.selectedInvestmentIds
                     : null,
                 selected_challenge_option_id: decisionState.selectedChallengeOptionId || null,
+                double_down_sacrifice_id: decisionState.sacrificeInvestmentId || null,
+                double_down_on_id: decisionState.doubleDownOnInvestmentId || null,
                 total_spent_budget: totalCost,
                 submitted_at: new Date().toISOString(),
-                is_immediate_purchase: false
+                is_immediate_purchase: false,
+                immediate_purchase_type: null,
+                immediate_purchase_data: null,
+                report_given: false,
+                report_given_at: null
             };
 
             const {data, error} = await supabase
