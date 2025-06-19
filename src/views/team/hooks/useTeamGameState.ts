@@ -258,15 +258,39 @@ export const useTeamGameState = ({
         }
     }, [currentActiveSlide?.id, fetchCurrentKpis]); // CRITICAL: Only depend on slide ID
 
-    // CRITICAL FIX: Force refresh adjustments on consequence slides
+    const fetchAdjustmentsSilently = useCallback(async () => {
+        if (!sessionId || !loggedInTeamId) return;
+
+        // DON'T set loading state - this prevents the flash
+        try {
+            const adjustments = await db.adjustments.getByTeam(sessionId, loggedInTeamId);
+            setPermanentAdjustments(adjustments);
+            console.log('🎯 [useTeamGameState] Permanent adjustments fetched silently:', adjustments.length);
+        } catch (error) {
+            console.error('🎯 [useTeamGameState] Error fetching adjustments silently:', error);
+            setPermanentAdjustments([]);
+        }
+        // No setIsLoadingAdjustments(false) here
+    }, [sessionId, loggedInTeamId]);
+
     useEffect(() => {
         if (currentActiveSlide?.type === 'consequence_reveal' && sessionId && loggedInTeamId) {
-            console.log(`🎯 [useTeamGameState] On consequence slide - refreshing adjustments for impact cards`);
+            console.log(`🎯 [useTeamGameState] On consequence slide - refreshing adjustments for impact cards (silently)`);
             setTimeout(() => {
-                fetchAdjustments();
+                fetchAdjustmentsSilently(); // Use silent version
             }, 1000); // Allow time for consequence processing to complete
         }
-    }, [currentActiveSlide?.type, currentActiveSlide?.id, fetchAdjustments]);
+    }, [currentActiveSlide?.type, currentActiveSlide?.id, fetchAdjustmentsSilently]);
+
+    // CRITICAL FIX: Force refresh adjustments on consequence slides
+    // useEffect(() => {
+    //     if (currentActiveSlide?.type === 'consequence_reveal' && sessionId && loggedInTeamId) {
+    //         console.log(`🎯 [useTeamGameState] On consequence slide - refreshing adjustments for impact cards`);
+    //         setTimeout(() => {
+    //             fetchAdjustments();
+    //         }, 1000); // Allow time for consequence processing to complete
+    //     }
+    // }, [currentActiveSlide?.type, currentActiveSlide?.id, fetchAdjustments]);
 
     // CRITICAL FIX: Load game structure and initialize slide
     useEffect(() => {

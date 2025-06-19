@@ -1,5 +1,5 @@
 // src/views/team/components/GameStatus/KpiImpactCards.tsx
-// Enhanced visual styling ONLY - keeping all existing logic intact
+// Updated to remove rounds display since impact cards always affect all rounds
 
 import React, {useMemo} from 'react';
 import {PermanentKpiAdjustment} from '@shared/types';
@@ -85,7 +85,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     }, [permanentAdjustments, teamId]);
 
     // ========================================================================
-    // EXISTING HELPER FUNCTIONS - UNCHANGED
+    // HELPER FUNCTIONS
     // ========================================================================
     const extractChallengeFromDescription = (description: string): string => {
         // Try to extract challenge ID from description
@@ -131,10 +131,10 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     };
 
     // ========================================================================
-    // ENHANCED RENDER - VISUAL IMPROVEMENTS ONLY
+    // RENDER
     // ========================================================================
 
-    // Show loading state - ENHANCED VISUALS
+    // Show loading state
     if (isLoadingAdjustments) {
         return (
             <div className="space-y-3">
@@ -153,7 +153,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
         );
     }
 
-    // Show empty state - ENHANCED VISUALS
+    // Show empty state
     if (!impactCards.length) {
         return (
             <div className="space-y-3">
@@ -171,7 +171,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
         );
     }
 
-    // Show impact cards - ENHANCED VISUALS WITH TREND ARROWS
+    // Show impact cards
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -183,7 +183,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                     <div key={card.id}
                          className="bg-gradient-to-br from-slate-700/30 to-slate-600/40 rounded-lg p-3 border border-slate-500/50 shadow-lg">
 
-                        {/* Card Header - CONSISTENT WITH KPIs */}
+                        {/* Card Header */}
                         <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-500/30">
                             <div className="w-6 h-6 bg-slate-500 rounded-lg flex items-center justify-center">
                                 <AlertCircle className="w-4 h-4 text-slate-200"/>
@@ -198,12 +198,12 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                             </div>
                         </div>
 
-                        {/* Card Description - MINIMAL */}
+                        {/* Card Description */}
                         <p className="text-xs text-slate-300 mb-3">
                             {card.description}
                         </p>
 
-                        {/* KPI Effects - COLOR-MATCHED TO KPIs */}
+                        {/* KPI Effects - UPDATED: Removed rounds display */}
                         <div className="space-y-2">
                             {card.kpiEffects.map((effect, index) => {
                                 // Match KPI colors based on effect type
@@ -255,14 +255,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                                                 }`}>
                                                     {formatKpiValue(effect.kpi, effect.value)}
                                                 </div>
-                                                <div className="text-xs text-slate-400 mt-1">
-                                                    {effect.applies_to_rounds.length === 1
-                                                        ? `Round ${effect.applies_to_rounds[0]}`
-                                                        : effect.applies_to_rounds.length === 2
-                                                            ? `Rounds ${effect.applies_to_rounds.sort().join(' & ')}`
-                                                            : `Rounds ${effect.applies_to_rounds.sort().join(', ')}`
-                                                    }
-                                                </div>
+                                                {/* REMOVED: Rounds display since impact cards affect all rounds */}
                                             </div>
                                         </div>
                                     </div>
@@ -270,7 +263,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                             })}
                         </div>
 
-                        {/* Active Status Indicator - ENHANCED */}
+                        {/* Active Status Indicator */}
                         {card.kpiEffects.some(effect =>
                             effect.applies_to_rounds.includes(currentRound)
                         ) && (

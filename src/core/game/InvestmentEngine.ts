@@ -43,7 +43,7 @@ export class InvestmentEngine {
             console.log(`[InvestmentEngine] No existing round data found for team ${teamId} round ${roundNumber}, creating new.`);
         }
 
-        const newRoundData = await KpiCalculations.createNewRoundData(currentDbSession.id, teamId, roundNumber, teamRoundData[teamId]);
+        const newRoundData = KpiCalculations.createNewRoundData(currentDbSession.id, teamId, roundNumber, teamRoundData[teamId]);
         const adjustments = await db.adjustments.getBySession(currentDbSession.id);
         const adjustedData = KpiCalculations.applyPermanentAdjustments(newRoundData, adjustments, teamId, roundNumber);
         const insertedData = await db.kpis.create(adjustedData);
@@ -56,7 +56,7 @@ export class InvestmentEngine {
     }
 
     private async storePermanentAdjustments(teamId: string, sessionId: string, effects: KpiEffect[], sourceLabel: string) {
-        const adjustmentsToInsert = KpiCalculations.createPermanentAdjustments(effects, sessionId, teamId, sourceLabel);
+        const adjustmentsToInsert = KpiCalculations.createPermanentAdjustments(effects, sessionId, teamId, 'investment', sourceLabel);
         if (adjustmentsToInsert.length > 0) {
             await db.adjustments.upsert(adjustmentsToInsert);
         }
@@ -105,7 +105,7 @@ export class InvestmentEngine {
                 // Handle unspent budget for Round 1 only
                 if (roundNumber === 1) {
                     const budget = gameStructure.investment_phase_budgets['rd1-invest'] || 0;
-                    const spent = investmentDecision?.total_spent_budget ?? 0;
+                    const spent = investmentDecision?.total_spent ?? 0;
                     const unspent = budget - spent;
                     if (unspent > 0) {
                         effectsToApply.push({
@@ -120,7 +120,7 @@ export class InvestmentEngine {
 
                 if (effectsToApply.length > 0) {
                     const updatedKpis = KpiCalculations.applyKpiEffects(teamKpis, effectsToApply);
-                    const finalKpis = KpiCalculations.calculateFinalKpis(updatedKpis);
+                    const finalKpis = KpiCalculations.calculateFinancialMetrics(updatedKpis);
                     await this.storePermanentAdjustments(team.id, currentDbSession.id, effectsToApply, `RD${roundNumber} Payoff`);
                     await db.kpis.upsert({...updatedKpis, ...finalKpis, id: teamKpis.id});
                     console.log(`[InvestmentEngine] Team ${team.name}: Applied ${effectsToApply.length} investment payoff effects for round ${roundNumber}`);

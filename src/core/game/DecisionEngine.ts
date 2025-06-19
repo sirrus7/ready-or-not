@@ -51,7 +51,7 @@ export class DecisionEngine {
             console.log(`[DecisionEngine] No existing round data found for team ${teamId} round ${roundNumber}, creating new.`);
         }
 
-        const newRoundData = await KpiCalculations.createNewRoundData(currentDbSession.id, teamId, roundNumber, teamRoundData[teamId]);
+        const newRoundData = KpiCalculations.createNewRoundData(currentDbSession.id, teamId, roundNumber, teamRoundData[teamId]);
         const adjustments = await db.adjustments.getBySession(currentDbSession.id);
         const adjustedData = KpiCalculations.applyPermanentAdjustments(newRoundData, adjustments, teamId, roundNumber);
         const insertedData = await db.kpis.create(adjustedData);
