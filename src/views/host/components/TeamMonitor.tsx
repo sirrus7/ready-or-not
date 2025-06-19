@@ -1,5 +1,5 @@
 import React, {useState, useMemo, useEffect} from 'react';
-import {useGameContext} from '@app/providers/GameProvider.tsx';
+import {useGameContext} from '@app/providers/GameProvider';
 import {TeamDecision} from '@shared/types';
 import {
     CheckCircle2,
@@ -11,12 +11,7 @@ import {
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
 import Modal from '@shared/components/UI/Modal';
-
-const formatCurrency = (value: number): string => {
-    if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-    return `$${value.toFixed(0)}`;
-};
+import SelectionDisplay, {SelectionData} from './SelectionDisplay';
 
 interface ImmediatePurchaseData {
     id: string;
@@ -41,7 +36,7 @@ const TeamMonitor: React.FC = () => {
     // Fetch immediate purchase data with real-time subscription
     const {
         data: immediatePurchases,
-        refresh: refreshImmediatePurchases  // ✅ KEEP THIS
+        refresh: refreshImmediatePurchases
     } = useSupabaseQuery(
         async () => {
             if (!currentSessionId || currentSessionId === 'new' || !isInvestmentPeriod) return [];
@@ -62,7 +57,7 @@ const TeamMonitor: React.FC = () => {
                 cost: item.total_spent_budget || 0,
                 submitted_at: item.submitted_at,
                 report_given: item.report_given || false,
-                selected_investment_options: item.selected_investment_options || [] // ✅ ADD THIS
+                selected_investment_options: item.selected_investment_options || []
             } as ImmediatePurchaseData));
         },
         [currentSessionId, isInvestmentPeriod],
@@ -91,7 +86,6 @@ const TeamMonitor: React.FC = () => {
                 (payload: any) => {
                     console.log('[TeamMonitor] Database change detected:', payload);
 
-                    // Check if this is an immediate purchase - safely access properties
                     const record = payload.new || payload.old;
                     if (record &&
                         typeof record === 'object' && record.is_immediate_purchase &&
@@ -111,7 +105,7 @@ const TeamMonitor: React.FC = () => {
         };
     }, [currentSessionId, isInvestmentPeriod, refreshImmediatePurchases]);
 
-    // Safe immediate purchases array (handles null/undefined)
+    // Safe immediate purchases array
     const safeImmediatePurchases = immediatePurchases || [];
 
     // Calculate submission statistics
@@ -131,70 +125,92 @@ const TeamMonitor: React.FC = () => {
         setAllTeamsSubmittedCurrentInteractivePhase(submissionStats.allSubmitted);
     }, [submissionStats.allSubmitted, setAllTeamsSubmittedCurrentInteractivePhase]);
 
-    const formatSelection = (decision?: TeamDecision, teamId?: string): string => {
-        if (!currentSlideData || !gameStructure || !decisionKey) return 'No submission yet';
+    // Structured selection data function with FIXED immediate purchases handling and DEBUG LOGS
+    const getSelectionData = (decision?: TeamDecision, teamId?: string): SelectionData => {
+        if (!currentSlideData || !gameStructure || !decisionKey) {
+            return {
+                type: 'none',
+                hasSubmission: false
+            };
+        }
 
         switch (currentSlideData.type) {
             case 'interactive_invest': {
                 const selectedIds = decision?.selected_investment_options || [];
                 const investmentOptions = gameStructure.all_investment_options[decisionKey] || [];
 
-                // Get immediate purchases for this team
+                // Get immediate purchases for this team - FIXED to use correct team ID
                 const teamImmediatePurchases = safeImmediatePurchases.filter(purchase =>
-                    purchase.team_id === (teamId || decision?.team_id)
+                    purchase.team_id === teamId
                 );
+
+                console.log('[TeamMonitor] Debug immediate purchases for team:', teamId, teamImmediatePurchases);
 
                 const immediateLetters: string[] = [];
                 let immediateBudget = 0;
 
-                // FIXED: Use the actual stored data instead of hardcoding
+                // FIXED: Properly extract immediate purchase data
                 teamImmediatePurchases.forEach(purchase => {
+                    console.log('[TeamMonitor] Processing immediate purchase:', purchase);
                     // Add the actual letters from the database record
-                    immediateLetters.push(...(purchase.selected_investment_options || []));
+                    if (purchase.selected_investment_options && Array.isArray(purchase.selected_investment_options)) {
+                        immediateLetters.push(...purchase.selected_investment_options);
+                    }
                     immediateBudget += purchase.cost;
                 });
 
-                // Combine regular selections (letters) and immediate purchases (letters)
+                console.log('[TeamMonitor] Immediate letters found:', immediateLetters);
+                console.log('[TeamMonitor] Regular selections:', selectedIds);
+
+                // Combine regular selections and immediate purchases
                 const allSelectedIds = [...immediateLetters, ...selectedIds];
-
-                if (allSelectedIds.length === 0) {
-                    return decision ?
-                        `No investments (${formatCurrency(decision.total_spent_budget || 0)} spent)` :
-                        'No submission yet';
-                }
-
-                // Sort the selected IDs alphabetically (A, B, C, D...)
-                const sortedSelectedIds = [...allSelectedIds].sort();
-
-                // Find options by their letter IDs and format with letter prefix
-                const selectedNames = sortedSelectedIds.map(id => {
-                    const opt = investmentOptions.find(o => o.id === id);
-                    const optionName = opt ? opt.name.split('.')[0].trim() : 'Unknown';
-                    return `${id}. ${optionName}`; // Format as "A. Biz Growth Strategy"
-                });
-
                 const totalBudget = (decision?.total_spent_budget || 0) + immediateBudget;
 
-                // Format for better display - use bullet points instead of line breaks
-                if (selectedNames.length > 1) {
-                    const bulletPoints = selectedNames.map(name => `• ${name}`).join('\n');
-                    return `${bulletPoints}\nTotal: ${formatCurrency(totalBudget)} spent`;
-                } else {
-                    return `${selectedNames.join(', ')} (${formatCurrency(totalBudget)} spent)`;
-                }
+                console.log('[TeamMonitor] All selected IDs:', allSelectedIds);
+                console.log('[TeamMonitor] Total budget:', totalBudget);
+
+                // Sort alphabetically and create investment objects
+                const sortedSelectedIds = [...allSelectedIds].sort();
+                const investments = sortedSelectedIds.map(id => {
+                    const opt = investmentOptions.find(o => o.id === id);
+                    const optionName = opt ? opt.name.split('.')[0].trim() : 'Unknown';
+                    console.log(`[TeamMonitor] Investment ${id}: cost = ${opt?.cost}, name = ${optionName}`);
+                    return {
+                        id,
+                        name: optionName,
+                        cost: opt?.cost || 0,
+                        isImmediate: immediateLetters.includes(id)
+                    };
+                });
+
+                return {
+                    type: 'investment',
+                    investments,
+                    totalBudget,
+                    hasSubmission: !!decision || teamImmediatePurchases.length > 0 // FIXED: Show submission if immediate purchases exist
+                };
             }
+
             case 'interactive_choice': {
                 const selectedOptionId = decision?.selected_challenge_option_id;
                 const challengeOptions = gameStructure.all_challenge_options[decisionKey] || [];
                 const selectedOption = challengeOptions.find(opt => opt.id === selectedOptionId);
-                return selectedOption ? `Option ${selectedOption.id}` : (decision ? 'Invalid selection' : 'No submission yet');
+
+                return {
+                    type: 'choice',
+                    choiceText: selectedOption ? `Option ${selectedOption.id}` : 'Invalid selection',
+                    hasSubmission: !!decision
+                };
             }
+
             default:
-                return decision ? 'Submitted' : 'No submission yet';
+                return {
+                    type: 'none',
+                    hasSubmission: !!decision
+                };
         }
     };
 
-    // Mutation for resetting team decision
     const handleResetDecision = async () => {
         if (!teamToReset || !decisionKey) return;
         try {
@@ -246,62 +262,62 @@ const TeamMonitor: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Team Status List */}
-                <div className="space-y-2">
+                {/* Team Status List - Professional, clean design */}
+                <div className="space-y-3">
                     {teams.map(team => {
                         const decision = decisionKey ? teamDecisions[team.id]?.[decisionKey] : undefined;
                         const hasSubmitted = !!decision?.submitted_at;
-                        const selection = formatSelection(decision, team.id);
+                        const selectionData = getSelectionData(decision, team.id);
                         const teamPurchase = safeImmediatePurchases.find(p => p.team_id === team.id);
                         const needsBusinessReport = teamPurchase && !teamPurchase.report_given;
 
                         return (
                             <div
                                 key={team.id}
-                                className={`p-3 rounded-lg border transition-colors ${
-                                    needsBusinessReport
-                                        ? 'bg-amber-50 border-amber-300'
-                                        : hasSubmitted
-                                            ? 'bg-green-50 border-green-200'
-                                            : 'bg-gray-50 border-gray-200'
-                                }`}
+                                className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow"
                             >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center">
-                                        <div className={`mr-3 ${
-                                            needsBusinessReport ? 'text-amber-600' :
-                                                hasSubmitted ? 'text-green-600' : 'text-gray-400'
-                                        }`}>
-                                            {needsBusinessReport ? (
-                                                <FileText size={20}/>
-                                            ) : hasSubmitted ? (
-                                                <CheckCircle2 size={20}/>
-                                            ) : (
-                                                <Clock size={20}/>
-                                            )}
-                                        </div>
+                                {/* Team Header */}
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center space-x-3">
+                                        <div className={`w-2 h-2 rounded-full ${
+                                            hasSubmitted ? 'bg-green-500' : 'bg-gray-300'
+                                        }`}/>
                                         <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium text-gray-900">{team.name}</span>
-                                                {needsBusinessReport && (
-                                                    <span
-                                                        className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium">
-                                                        Needs Business Report
-                                                    </span>
-                                                )}
+                                            <h4 className="font-medium text-gray-900">{team.name}</h4>
+                                            <div className="text-xs text-gray-500">
+                                                {hasSubmitted
+                                                    ? `Submitted ${new Date(decision!.submitted_at!).toLocaleTimeString()}`
+                                                    : 'Awaiting submission'
+                                                }
                                             </div>
-                                            <div className="text-sm text-gray-600">{selection}</div>
                                         </div>
                                     </div>
+
                                     {hasSubmitted && (
                                         <button
                                             onClick={() => openResetModal(team.id, team.name)}
-                                            className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                            className="px-3 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:border-red-300 transition-colors"
                                         >
                                             Reset
                                         </button>
                                     )}
                                 </div>
+
+                                {/* Selection Display */}
+                                <div className="mb-3">
+                                    <SelectionDisplay selectionData={selectionData}/>
+                                </div>
+
+                                {/* Business Report Alert */}
+                                {needsBusinessReport && (
+                                    <div
+                                        className="flex items-center space-x-2 p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
+                                        <AlertTriangle size={14} className="flex-shrink-0"/>
+                                        <span className="text-xs">
+                                            Business Growth Strategy report required
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -312,33 +328,25 @@ const TeamMonitor: React.FC = () => {
             <Modal
                 isOpen={isResetModalOpen}
                 onClose={() => setIsResetModalOpen(false)}
-                title="Confirm Reset Submission"
-                size="sm"
+                title="Reset Team Decision"
             >
                 <div className="p-4">
-                    <div className="flex items-start">
-                        <AlertTriangle className="text-red-600 mr-3 mt-1" size={20}/>
-                        <div>
-                            <p className="text-sm text-gray-700 mb-3">
-                                Are you sure you want to reset <strong>{teamToReset?.name}</strong>'s submission?
-                            </p>
-                            <p className="text-xs text-gray-500">
-                                This will allow them to resubmit their decision for this phase.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex justify-end space-x-3 mt-4">
+                    <p className="text-gray-700 mb-4">
+                        Are you sure you want to reset <strong>{teamToReset?.name}</strong>'s decision?
+                        This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end space-x-2">
                         <button
                             onClick={() => setIsResetModalOpen(false)}
-                            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                            className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleResetDecision}
-                            className="px-4 py-2 text-sm text-white bg-red-600 rounded hover:bg-red-700 transition-colors"
+                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                         >
-                            Reset Submission
+                            Reset Decision
                         </button>
                     </div>
                 </div>

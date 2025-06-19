@@ -322,8 +322,9 @@ export const useTeamDecisionSubmission = ({
             }
 
             // Add total cost
-            if (existingDecision.total_spent_budget) {
-                parts.push(`Total: ${formatCurrency(existingDecision.total_spent_budget)}`);
+            const totalCost = decisionState.spentBudget || existingDecision.total_spent_budget || 0;
+            if (totalCost > 0) {
+                parts.push(`Total: ${formatCurrency(totalCost)}`);
             }
 
             return parts.length > 0 ? parts.join(' • ') : 'Submitted';

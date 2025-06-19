@@ -1,20 +1,14 @@
 // src/views/host/components/DecisionReviewModal.tsx
-// FIXED VERSION - Properly handles immediate purchases in decision history
+// Professional design that matches TeamMonitor styling
 
 import React, {useMemo} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
 import Modal from '@shared/components/UI/Modal';
-import {TeamDecision, Slide, GameStructure} from '@shared/types';
+import {TeamDecision} from '@shared/types';
 import {Info} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
-
-const formatCurrency = (value: number | undefined): string => {
-    if (value === undefined || value === null) return '$0';
-    if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-    return `$${value.toFixed(0)}`;
-};
+import SelectionDisplay, {SelectionData} from './SelectionDisplay';
 
 interface ImmediatePurchaseData {
     id: string;
@@ -22,87 +16,8 @@ interface ImmediatePurchaseData {
     cost: number;
     submitted_at: string;
     report_given: boolean;
+    selected_investment_options: string[];
 }
-
-// FIXED: Enhanced function that includes immediate purchases for investment decisions
-const formatSelection = (
-    decision: TeamDecision | undefined,
-    slide: Slide | undefined,
-    structure: GameStructure | null,
-    immediatePurchases: ImmediatePurchaseData[]
-): React.ReactNode => {
-    if (!slide || !structure) return "Data not available";
-
-    const key = slide.interactive_data_key!;
-
-    switch (slide.type) {
-        case 'interactive_invest': {
-            // Get regular investment selections
-            const investmentOptions = structure.all_investment_options[key] || [];
-            const selectedIds = decision?.selected_investment_options || [];
-
-            // Get immediate purchases for this team
-            const teamImmediatePurchases = immediatePurchases.filter(purchase =>
-                purchase.team_id === decision?.team_id
-            );
-
-            // Combine regular and immediate selections
-            const immediateIds: string[] = [];
-            let immediateBudget = 0;
-
-            teamImmediatePurchases.forEach(purchase => {
-                immediateIds.push('rd1_inv_biz_growth'); // Business Growth Strategy
-                immediateBudget += purchase.cost;
-            });
-
-            const allSelectedIds = [...immediateIds, ...selectedIds];
-
-            if (allSelectedIds.length === 0) {
-                return decision ?
-                    <span className="text-gray-500 italic">No investments selected</span> :
-                    <span className="text-gray-400 italic">No submission</span>;
-            }
-
-            const selectedNames = allSelectedIds.map(id => {
-                const opt = investmentOptions.find(o => o.id === id);
-                return opt ? opt.name.split('.')[0] : 'Business Growth Strategy';
-            });
-
-            const totalBudget = (decision?.total_spent_budget || 0) + immediateBudget;
-
-            return (
-                <div>
-                    <div className="font-medium">{selectedNames.join(', ')}</div>
-                    <div className="text-sm text-gray-500">
-                        Total Spent: {formatCurrency(totalBudget)}
-                        {immediateBudget > 0 && (
-                            <span className="ml-2 text-blue-600">
-                                (includes {formatCurrency(immediateBudget)} immediate purchase)
-                            </span>
-                        )}
-                    </div>
-                </div>
-            );
-        }
-
-        case 'interactive_choice':
-        case 'interactive_double_down_prompt': {
-            if (!decision?.submitted_at) return <span className="text-gray-400 italic">No submission</span>;
-
-            const choiceOptions = structure.all_challenge_options[key] || [];
-            const choice = choiceOptions.find(o => o.id === decision.selected_challenge_option_id);
-            return choice ? (
-                <div>
-                    <div className="font-medium">{choice.id}</div>
-                    <div className="text-sm text-gray-600 italic">"{choice.text.substring(0, 50)}..."</div>
-                </div>
-            ) : `Option ID: ${decision.selected_challenge_option_id}`;
-        }
-
-        default:
-            return decision?.submitted_at ? 'Submitted' : <span className="text-gray-400 italic">No submission</span>;
-    }
-};
 
 interface DecisionReviewModalProps {
     isOpen: boolean;
@@ -114,12 +29,11 @@ const DecisionReviewModal: React.FC<DecisionReviewModalProps> = ({isOpen, onClos
     const {state} = useGameContext();
     const {teams, teamDecisions, gameStructure, currentSessionId} = state;
 
-    // FIXED: Fetch immediate purchases for investment decisions
+    // Fetch immediate purchases for investment decisions
     const {data: immediatePurchases} = useSupabaseQuery(
         async () => {
             if (!currentSessionId || currentSessionId === 'new' || !decisionKey) return [];
 
-            // Only fetch immediate purchases for investment decisions
             const interactiveSlide = gameStructure?.interactive_slides.find(
                 s => s.interactive_data_key === decisionKey
             );
@@ -128,7 +42,7 @@ const DecisionReviewModal: React.FC<DecisionReviewModalProps> = ({isOpen, onClos
 
             const {data, error} = await supabase
                 .from('team_decisions')
-                .select('id, team_id, total_spent_budget, submitted_at, report_given')
+                .select('id, team_id, total_spent_budget, submitted_at, report_given, selected_investment_options')
                 .eq('session_id', currentSessionId)
                 .eq('is_immediate_purchase', true)
                 .eq('immediate_purchase_type', 'business_growth_strategy')
@@ -141,7 +55,8 @@ const DecisionReviewModal: React.FC<DecisionReviewModalProps> = ({isOpen, onClos
                 team_id: item.team_id,
                 cost: item.total_spent_budget || 0,
                 submitted_at: item.submitted_at,
-                report_given: item.report_given || false
+                report_given: item.report_given || false,
+                selected_investment_options: item.selected_investment_options || []
             } as ImmediatePurchaseData));
         },
         [currentSessionId, decisionKey, gameStructure],
@@ -150,6 +65,89 @@ const DecisionReviewModal: React.FC<DecisionReviewModalProps> = ({isOpen, onClos
             cacheTimeout: 5000
         }
     );
+
+    // Function to create selection data (same logic as TeamMonitor)
+    const getSelectionData = (decision?: TeamDecision, teamId?: string): SelectionData => {
+        if (!gameStructure || !decisionKey) {
+            return {
+                type: 'none',
+                hasSubmission: false
+            };
+        }
+
+        const interactiveSlide = gameStructure.interactive_slides.find(
+            s => s.interactive_data_key === decisionKey
+        );
+
+        if (!interactiveSlide) {
+            return {
+                type: 'none',
+                hasSubmission: false
+            };
+        }
+
+        switch (interactiveSlide.type) {
+            case 'interactive_invest': {
+                const selectedIds = decision?.selected_investment_options || [];
+                const investmentOptions = gameStructure.all_investment_options[decisionKey] || [];
+
+                // Get immediate purchases for this team
+                const teamImmediatePurchases = (immediatePurchases || []).filter(purchase =>
+                    purchase.team_id === teamId
+                );
+
+                const immediateLetters: string[] = [];
+                let immediateBudget = 0;
+
+                teamImmediatePurchases.forEach(purchase => {
+                    immediateLetters.push(...(purchase.selected_investment_options || []));
+                    immediateBudget += purchase.cost;
+                });
+
+                // Combine regular selections and immediate purchases
+                const allSelectedIds = [...immediateLetters, ...selectedIds];
+                const totalBudget = (decision?.total_spent_budget || 0) + immediateBudget;
+
+                // Sort alphabetically and create investment objects
+                const sortedSelectedIds = [...allSelectedIds].sort();
+                const investments = sortedSelectedIds.map(id => {
+                    const opt = investmentOptions.find(o => o.id === id);
+                    const optionName = opt ? opt.name.split('.')[0].trim() : 'Unknown';
+                    return {
+                        id,
+                        name: optionName,
+                        cost: opt?.cost || 0,
+                        isImmediate: immediateLetters.includes(id)
+                    };
+                });
+
+                return {
+                    type: 'investment',
+                    investments,
+                    totalBudget,
+                    hasSubmission: !!decision || teamImmediatePurchases.length > 0
+                };
+            }
+
+            case 'interactive_choice': {
+                const selectedOptionId = decision?.selected_challenge_option_id;
+                const challengeOptions = gameStructure.all_challenge_options[decisionKey] || [];
+                const selectedOption = challengeOptions.find(opt => opt.id === selectedOptionId);
+
+                return {
+                    type: 'choice',
+                    choiceText: selectedOption ? `Option ${selectedOption.id}` : 'Invalid selection',
+                    hasSubmission: !!decision
+                };
+            }
+
+            default:
+                return {
+                    type: 'none',
+                    hasSubmission: !!decision
+                };
+        }
+    };
 
     const reviewData = useMemo(() => {
         if (!decisionKey || !gameStructure) {
@@ -162,14 +160,14 @@ const DecisionReviewModal: React.FC<DecisionReviewModalProps> = ({isOpen, onClos
 
         const submissions = teams.map(team => {
             const decision = teamDecisions[team.id]?.[decisionKey];
+            const hasSubmitted = !!decision?.submitted_at;
+            const selectionData = getSelectionData(decision, team.id);
+
             return {
                 teamName: team.name,
-                submission: formatSelection(
-                    decision,
-                    interactiveSlide,
-                    gameStructure,
-                    immediatePurchases || []
-                )
+                hasSubmitted,
+                selectionData,
+                submittedAt: decision?.submitted_at
             };
         });
 
@@ -180,20 +178,34 @@ const DecisionReviewModal: React.FC<DecisionReviewModalProps> = ({isOpen, onClos
     }, [decisionKey, teams, teamDecisions, gameStructure, immediatePurchases]);
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={reviewData.title} size="md">
-            <div className="p-2 max-h-[70vh] overflow-y-auto">
+        <Modal isOpen={isOpen} onClose={onClose} title={reviewData.title} size="lg">
+            <div className="p-6">
                 {reviewData.submissions.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         {reviewData.submissions.map(item => (
-                            <div key={item.teamName} className="border-b border-gray-200 pb-3 last:border-b-0">
-                                <div className="flex items-start justify-between">
-                                    <div className="font-medium text-gray-800 w-1/3 pr-4 flex-shrink-0">
-                                        {item.teamName}
-                                    </div>
-                                    <div className="text-sm text-gray-600 flex-1">
-                                        {item.submission}
+                            <div
+                                key={item.teamName}
+                                className="bg-white rounded-lg border border-gray-200 p-4"
+                            >
+                                {/* Team Header */}
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center space-x-3">
+                                        <div className={`w-2 h-2 rounded-full ${
+                                            item.hasSubmitted ? 'bg-green-500' : 'bg-gray-300'
+                                        }`}/>
+                                        <div>
+                                            <h4 className="font-medium text-gray-900">{item.teamName}</h4>
+                                            {item.submittedAt && (
+                                                <div className="text-xs text-gray-500">
+                                                    Submitted {new Date(item.submittedAt).toLocaleTimeString()}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+
+                                {/* Selection Display */}
+                                <SelectionDisplay selectionData={item.selectionData}/>
                             </div>
                         ))}
                     </div>
@@ -204,14 +216,17 @@ const DecisionReviewModal: React.FC<DecisionReviewModalProps> = ({isOpen, onClos
                     </div>
                 )}
             </div>
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                    type="button"
-                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
-                    onClick={onClose}
-                >
-                    Close
-                </button>
+
+            <div className="border-t border-gray-200 px-6 py-3 bg-gray-50 rounded-b-lg">
+                <div className="flex justify-end">
+                    <button
+                        type="button"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        onClick={onClose}
+                    >
+                        Close
+                    </button>
+                </div>
             </div>
         </Modal>
     );
