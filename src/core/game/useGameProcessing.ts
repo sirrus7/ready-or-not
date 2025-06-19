@@ -1,5 +1,5 @@
 // src/core/game/useGameProcessing.ts
-// CRITICAL FIX: Stabilized ConsequenceProcessor to prevent infinite loop recreation
+// SIMPLIFIED: Eliminates DecisionEngine, uses inline logic and utilities
 
 import {useCallback, useMemo, useRef} from 'react';
 import {useNavigate} from 'react-router-dom';
@@ -14,7 +14,7 @@ import {
     Slide
 } from '@shared/types';
 import {KpiCalculations} from './ScoringEngine';
-import {DecisionEngine} from './DecisionEngine';
+import {KpiDataUtils} from './KpiDataUtils';
 import {InvestmentEngine} from './InvestmentEngine';
 import {ConsequenceProcessor} from './ConsequenceProcessor';
 
@@ -60,7 +60,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
     // CRITICAL FIX: Use refs to track stable values for ConsequenceProcessor
     const stableSessionIdRef = useRef<string | null>(null);
     const stableGameStructureRef = useRef<GameStructure | null>(null);
-    const stableTeamsRef = useRef<Team[]>([]);
 
     // Update refs when core dependencies change
     if (currentDbSession?.id !== stableSessionIdRef.current) {
@@ -69,11 +68,8 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
     if (gameStructure !== stableGameStructureRef.current) {
         stableGameStructureRef.current = gameStructure;
     }
-    if (teams !== stableTeamsRef.current) {
-        stableTeamsRef.current = teams;
-    }
 
-    // CRITICAL FIX: Stabilized ConsequenceProcessor - only recreate on session/structure changes
+    // STABILIZED ConsequenceProcessor - only recreate on session/structure changes
     const consequenceProcessor = useMemo(() => {
         if (!currentDbSession || !gameStructure) return null;
 
@@ -91,7 +87,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
     }, [
         currentDbSession?.id,  // CRITICAL: Only session ID, not the full object
         gameStructure,         // CRITICAL: Only recreate if structure changes
-        // REMOVED: teamDecisions, teamRoundData, teams - these cause recreation loops
     ]);
 
     // Update processor props dynamically without recreation
@@ -107,18 +102,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         });
     }
 
-    // Standard engines that can be recreated safely
-    const decisionEngine = useMemo(() => new DecisionEngine({
-        currentDbSession,
-        gameStructure,
-        teams,
-        teamDecisions,
-        teamRoundData,
-        fetchTeamRoundDataFromHook,
-        fetchTeamDecisionsFromHook,
-        setTeamRoundDataDirectly,
-    }), [currentDbSession, gameStructure, teams, teamDecisions, teamRoundData, fetchTeamRoundDataFromHook, fetchTeamDecisionsFromHook, setTeamRoundDataDirectly]);
-
+    // Investment engine (CRITICAL: Must NOT include teams, teamDecisions, teamRoundData in dependencies)
     const investmentEngine = useMemo(() => new InvestmentEngine({
         currentDbSession,
         gameStructure,
@@ -127,61 +111,94 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         teamRoundData,
         fetchTeamRoundDataFromHook,
         setTeamRoundDataDirectly,
-    }), [currentDbSession, gameStructure, teams, teamDecisions, teamRoundData, fetchTeamRoundDataFromHook, setTeamRoundDataDirectly]);
+    }), [currentDbSession, gameStructure]); // ✅ CRITICAL: Only stable dependencies to prevent recreation loops
 
-    // Process interactive slides
+    // Update investment engine props dynamically without recreation
+    if (investmentEngine) {
+        investmentEngine.updateProps({
+            currentDbSession,
+            gameStructure,
+            teams,
+            teamDecisions,
+            teamRoundData,
+            fetchTeamRoundDataFromHook,
+            setTeamRoundDataDirectly,
+        });
+    }
+
+    // SIMPLIFIED: Replace DecisionEngine with inline logic
     const processInteractiveSlide = useCallback(async (completedSlide: Slide) => {
         console.log('[useGameProcessing] Processing interactive slide:', completedSlide.id);
+
         if (!currentDbSession?.id || !gameStructure || teams.length === 0) {
             console.warn('[useGameProcessing] Skipping processing - insufficient data');
             return;
         }
+
         try {
-            await decisionEngine.processInteractiveSlide(completedSlide);
+            // This is all DecisionEngine was doing - ensure KPI data exists for all teams
+            for (const team of teams) {
+                await KpiDataUtils.ensureTeamRoundData(
+                    currentDbSession.id,
+                    team.id,
+                    completedSlide.round_number as 1 | 2 | 3,
+                    teamRoundData,
+                    setTeamRoundDataDirectly
+                );
+
+                const decision = teamDecisions[team.id]?.[completedSlide.interactive_data_key || ''];
+                const options = gameStructure.all_challenge_options[completedSlide.interactive_data_key || ''] || [];
+                const selectedOptionId = decision?.selected_challenge_option_id || options.find(opt => opt.is_default_choice)?.id;
+
+                if (selectedOptionId) {
+                    console.log(`[useGameProcessing] Team ${team.name}: Recorded choice '${selectedOptionId}' for ${completedSlide.interactive_data_key}. Consequences will be applied when consequence slides are shown.`);
+                } else {
+                    console.warn(`[useGameProcessing] Team ${team.name}: No option selected for ${completedSlide.interactive_data_key}.`);
+                }
+            }
+
+            // Refresh data to update UI
+            await Promise.all([
+                fetchTeamDecisionsFromHook(currentDbSession.id),
+                fetchTeamRoundDataFromHook(currentDbSession.id)
+            ]);
+
             console.log('[useGameProcessing] Interactive slide processed, decision history updated');
 
-            // Additional decision refresh to ensure timeline updates
-            await fetchTeamDecisionsFromHook(currentDbSession.id);
-            console.log('[useGameProcessing] Forced decision history refresh complete');
         } catch (error) {
             console.error('[useGameProcessing] Slide processing failed:', error);
             throw error;
         }
-    }, [decisionEngine, currentDbSession, gameStructure, teams, fetchTeamDecisionsFromHook]);
+    }, [currentDbSession, gameStructure, teams, teamDecisions, teamRoundData, setTeamRoundDataDirectly, fetchTeamDecisionsFromHook, fetchTeamRoundDataFromHook]);
 
-    // CRITICAL FIX: Stabilized consequence processing
+    // Consequence processing (uses the real ConsequenceProcessor)
     const processConsequenceSlide = useCallback(async (consequenceSlide: Slide) => {
         console.log('[useGameProcessing] Processing consequence slide:', consequenceSlide.id);
         if (!currentDbSession?.id || !gameStructure || teams.length === 0 || !consequenceProcessor) {
-            console.warn('[useGameProcessing] Skipping consequence processing - insufficient data or no processor');
+            console.warn('[useGameProcessing] Skipping consequence processing - insufficient data or processor');
             return;
         }
         try {
             await consequenceProcessor.processConsequenceSlide(consequenceSlide);
-            console.log('[useGameProcessing] Consequence slide processed, refreshing all data');
-
-            // CRITICAL: Refresh both KPI data and decision history after consequence processing
-            await Promise.all([
-                fetchTeamRoundDataFromHook(currentDbSession.id),
-                fetchTeamDecisionsFromHook(currentDbSession.id)
-            ]);
-            console.log('[useGameProcessing] Complete data refresh after consequence processing');
+            console.log('[useGameProcessing] Consequence slide processed successfully');
         } catch (error) {
             console.error('[useGameProcessing] Consequence processing failed:', error);
             throw error;
         }
-    }, [consequenceProcessor, currentDbSession?.id, gameStructure, teams.length, fetchTeamRoundDataFromHook, fetchTeamDecisionsFromHook]);
+    }, [consequenceProcessor, currentDbSession, gameStructure, teams]);
 
     // Process investment payoffs
     const {
         execute: processInvestmentPayoffsExecute,
         isLoading: isProcessingPayoffs,
     } = useSupabaseMutation(
-        (roundNumber: 1 | 2 | 3) => {
+        async (roundNumber: 1 | 2 | 3) => {
             if (!currentDbSession?.id || !gameStructure || teams.length === 0) {
-                throw new Error('Insufficient data for investment processing');
+                throw new Error('Invalid state for investment payoff processing');
             }
-            return investmentEngine.processInvestmentPayoffs(roundNumber);
+            console.log(`[useGameProcessing] Processing investment payoffs for round ${roundNumber}`);
+            await investmentEngine.processInvestmentPayoffs(roundNumber);
+            console.log(`[useGameProcessing] Investment payoffs processed for round ${roundNumber}`);
         }
     );
 
@@ -191,8 +208,8 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         isLoading: isCalculatingKPIs,
     } = useSupabaseMutation(
         async (roundNumber: 1 | 2 | 3) => {
-            if (!currentDbSession?.id || !teams.length) {
-                throw new Error('Cannot finalize KPIs - missing session or teams');
+            if (!currentDbSession?.id || !gameStructure || teams.length === 0) {
+                throw new Error('Invalid state for KPI calculation');
             }
 
             console.log(`[useGameProcessing] Calculating and finalizing KPIs for round ${roundNumber}`);
@@ -214,7 +231,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         }
     );
 
-    // UPDATED: Reset game progress to include consequence applications
+    // Reset game progress
     const {
         execute: resetGameProgressExecute,
         isLoading: isResettingGame,
@@ -229,7 +246,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             }
 
             try {
-                // CRITICAL FIX: Reset consequence processing state
+                // Reset consequence processing state
                 if (consequenceProcessor) {
                     consequenceProcessor.resetProcessedSlides();
                     console.log('[useGameProcessing] Reset consequence processor state');
@@ -240,20 +257,20 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                     db.decisions.deleteBySession(currentDbSession.id),
                     db.kpis.deleteBySession(currentDbSession.id),
                     db.adjustments.deleteBySession(currentDbSession.id),
-                    db.consequenceApplications.deleteBySession(currentDbSession.id) // NEW: Clear consequence applications
+                    db.consequenceApplications.deleteBySession(currentDbSession.id)
                 ]);
 
                 // Reset session to slide 0
                 await updateSessionInDb({
                     current_slide_index: 0,
                     is_complete: false,
-                    teacher_notes: {}
+                    host_notes: {}
                 });
 
                 // Redirect to first slide
                 navigate(`/host/${currentDbSession.id}`);
 
-                console.log('[useGameProcessing] Game progress reset successfully (including consequence applications)');
+                console.log('[useGameProcessing] Game progress reset successfully');
             } catch (error) {
                 console.error('Error resetting game progress:', error);
                 throw error;
@@ -262,11 +279,11 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
     );
 
     return {
-        processInteractiveSlide,
-        processConsequenceSlide,
+        processInteractiveSlide,        // ✅ Simplified inline implementation
+        processConsequenceSlide,        // ✅ Uses ConsequenceProcessor (real logic)
         processInvestmentPayoffs: async (roundNumber: 1 | 2 | 3): Promise<void> => {
             await processInvestmentPayoffsExecute(roundNumber);
-        },
+        }, // ✅ Uses InvestmentEngine (real logic)
         calculateAndFinalizeRoundKPIs: calculateKPIsExecute,
         resetGameProgress: resetGameProgressExecute,
         isLoadingProcessingDecisions: false,
