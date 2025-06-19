@@ -195,7 +195,16 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                     change_value: -1250,
                     timing: 'permanent_next_round_start',
                     applies_to_rounds: [2, 3],
-                    description: "Layoff Penalty",
+                    description: "Layoff Penalty - Capacity",
+                    challenge_id: 'ch3',
+                    option_id: 'A'
+                },
+                {
+                    kpi: 'cost',
+                    change_value: -300000,
+                    timing: 'permanent_next_round_start',
+                    applies_to_rounds: [2, 3],
+                    description: "Layoff Penalty - Cost Savings",
                     challenge_id: 'ch3',
                     option_id: 'A'
                 }
