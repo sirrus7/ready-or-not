@@ -1,5 +1,5 @@
 // src/shared/hooks/useTeamDataManager.ts
-// UNIFIED SYSTEM - Now handles both KPIs AND permanent adjustments in one place
+// Handles both KPIs AND permanent adjustments in one place
 // This extends the proven KPI update system to also handle impact cards
 
 import {useState, useEffect, useCallback, Dispatch, SetStateAction} from 'react';
@@ -237,41 +237,19 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
                     }
                     return updated;
                 });
-            }
-        },
-        !!initialSessionId && initialSessionId !== 'new'
-    );
 
-    // ADDED: Realtime subscription for permanent adjustments (impact cards)
-    // Using the same proven pattern as KPIs above
-    useRealtimeSubscription(
-        `team-adjustments-${initialSessionId}`,
-        {
-            table: 'permanent_kpi_adjustments',
-            filter: `session_id=eq.${initialSessionId}`,
-            onchange: (payload) => {
-                console.log('useTeamDataManager: Adjustment change received:', payload.eventType, payload.new);
-                const newAdjustment = payload.new as PermanentKpiAdjustment;
-                const oldAdjustment = payload.old as PermanentKpiAdjustment;
+                // Refresh permanent adjustments when KPIs change
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                    console.log('🎯 useTeamDataManager: KPI change detected, refreshing permanent adjustments...');
 
-                setPermanentAdjustments(prev => {
-                    const updated = [...prev];
-                    if (payload.eventType === 'INSERT') {
-                        updated.push(newAdjustment);
-                        console.log(`useTeamDataManager: Added adjustment for team ${newAdjustment.team_id}`);
-                    } else if (payload.eventType === 'UPDATE') {
-                        const index = updated.findIndex(adj => adj.id === newAdjustment.id);
-                        if (index >= 0) {
-                            updated[index] = newAdjustment;
-                            console.log(`useTeamDataManager: Updated adjustment ${newAdjustment.id}`);
-                        }
-                    } else if (payload.eventType === 'DELETE') {
-                        const filtered = updated.filter(adj => adj.id !== oldAdjustment?.id);
-                        console.log(`useTeamDataManager: Removed adjustment ${oldAdjustment?.id}`);
-                        return filtered;
-                    }
-                    return updated;
-                });
+                    // Refresh permanent adjustments (don't await to avoid blocking KPI updates)
+                    db.adjustments.getBySession(initialSessionId!).then(adjustmentData => {
+                        setPermanentAdjustments(adjustmentData || []);
+                        console.log(`🎯 useTeamDataManager: Refreshed ${adjustmentData?.length || 0} permanent adjustments`);
+                    }).catch(err => {
+                        console.error('🎯 useTeamDataManager: Error refreshing adjustments:', err);
+                    });
+                }
             }
         },
         !!initialSessionId && initialSessionId !== 'new'

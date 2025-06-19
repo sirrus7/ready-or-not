@@ -1,6 +1,4 @@
 // src/shared/services/supabase/services/adjustmentService.ts
-// PRODUCTION: Updated for new schema with challenge tracking
-
 import {supabase} from '../client';
 import {withRetry} from '../database';
 import {PermanentKpiAdjustment} from "@shared/types";
@@ -16,32 +14,6 @@ export const adjustmentService = {
             if (error) throw error;
             return data || [];
         }, 3, 1000, `Fetch adjustments for session ${sessionId.substring(0, 8)}`);
-    },
-
-    async getByTeam(sessionId: string, teamId: string) {
-        return withRetry(async () => {
-            const {data, error} = await supabase
-                .from('permanent_kpi_adjustments')
-                .select('*')
-                .eq('session_id', sessionId)
-                .eq('team_id', teamId)
-                .order('created_at', {ascending: true});
-            if (error) throw error;
-            return data || [];
-        }, 3, 1000, `Fetch adjustments for team ${teamId.substring(0, 8)}`);
-    },
-
-    async getByChallengeAndTeam(sessionId: string, teamId: string, challengeId: string) {
-        return withRetry(async () => {
-            const {data, error} = await supabase
-                .from('permanent_kpi_adjustments')
-                .select('*')
-                .eq('session_id', sessionId)
-                .eq('team_id', teamId)
-                .eq('challenge_id', challengeId);
-            if (error) throw error;
-            return data || [];
-        }, 3, 1000, `Fetch adjustments for team ${teamId.substring(0, 8)}, challenge ${challengeId}`);
     },
 
     async create(adjustmentData: any) {
@@ -89,15 +61,4 @@ export const adjustmentService = {
             if (error) throw error;
         }, 2, 1000, `Delete adjustments for session ${sessionId.substring(0, 8)}`);
     },
-
-    async deleteByChallenge(sessionId: string, challengeId: string) {
-        return withRetry(async () => {
-            const {error} = await supabase
-                .from('permanent_kpi_adjustments')
-                .delete()
-                .eq('session_id', sessionId)
-                .eq('challenge_id', challengeId);
-            if (error) throw error;
-        }, 2, 1000, `Delete adjustments for session ${sessionId.substring(0, 8)}, challenge ${challengeId}`);
-    }
 };

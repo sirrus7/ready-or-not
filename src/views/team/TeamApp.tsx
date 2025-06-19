@@ -47,7 +47,7 @@ import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import DecisionModeContainer from '@views/team/components/InteractionPanel/DecisionContainer';
 import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards'; // ADDED: Import impact cards
 import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
-import {useTeamGameContext} from '@app/providers/TeamGameProvider'; // ADDED: For centralized adjustments
+import {useTeamGameContext} from '@app/providers/TeamGameProvider';
 
 // ============================================================================
 // MAIN TEAM APP COMPONENT
