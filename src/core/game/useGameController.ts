@@ -105,24 +105,31 @@ export const useGameController = (
         // Early exit if no interactive slide
         if (!currentDataKey) {
             lastAlertDataKeyRef.current = null;
+            setAllTeamsSubmittedCurrentInteractivePhase(false); // Reset when leaving interactive slides
             return;
         }
 
-        // CRITICAL: Reset alert eligibility when moving to a new interactive data key
+        // CRITICAL: Reset submission state when moving to a new interactive data key
         if (currentDataKey !== lastAlertDataKeyRef.current) {
             console.log(`[useGameController] 🔄 Interactive data key changed from "${lastAlertDataKeyRef.current}" to "${currentDataKey}"`);
 
-            // Reset tracking for new slide
+            // FIRST: Reset the submission state to false for the new challenge
+            setAllTeamsSubmittedCurrentInteractivePhase(false);
+
+            // THEN: Update the tracking
             lastAlertDataKeyRef.current = currentDataKey;
 
-            // Reset alert dismissed state for new slide (allow alerts to show again)
+            // FINALLY: Reset alert dismissed state for new slide (allow alerts to show again)
             if (allTeamsAlertDismissed) {
                 console.log('[useGameController] 🔄 Resetting alert dismissed state for new interactive slide');
                 setAllTeamsAlertDismissed(false);
-                setAllTeamsSubmittedCurrentInteractivePhase(false);
             }
+
+            // Don't check for alerts on this render - let the state settle first
+            return;
         }
 
+        // Only check for alerts if we're on the same slide (not switching)
         // SHOW ALERT CONDITIONS:
         // 1. All teams have submitted (for current slide's decision key)
         // 2. We're on an interactive slide (has interactive_data_key)
