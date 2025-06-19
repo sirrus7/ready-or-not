@@ -17,11 +17,7 @@ import {KpiDataUtils} from './KpiDataUtils';
 import {allConsequencesData} from '@core/content/ConsequenceContent';
 import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
-import {
-    getInvestmentForSlide,
-    getRoundForPayoffSlide,
-    getInvestmentDisplayName
-} from '@core/content/InvestmentRegistry';
+import {getInvestmentPhaseBySlideId} from '@core/content/InvestmentRegistry';
 
 interface UnifiedEffectsProcessorProps {
     currentDbSession: GameSession | null;
@@ -257,7 +253,7 @@ export class UnifiedEffectsProcessor {
     }
 
     /**
-     * Process payoff slides (NEW - slide-specific logic with COMPLETE KPI processing)
+     * Process payoff slides (UPDATED - now follows challenge registry pattern with position-based option detection)
      */
     private async processPayoffSlide(payoffSlide: Slide): Promise<void> {
         const {
@@ -276,66 +272,66 @@ export class UnifiedEffectsProcessor {
             return;
         }
 
-        // Get the specific investment this slide is for
-        const investmentId = getInvestmentForSlide(payoffSlide.id);
-        if (!investmentId) {
-            console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine investment for payoff slide ${payoffSlide.id}`);
+        // Get the investment phase this slide belongs to (like challenge mapping)
+        const investmentPhase = getInvestmentPhaseBySlideId(payoffSlide.id);
+        if (!investmentPhase) {
+            console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine investment phase for payoff slide ${payoffSlide.id}`);
             return;
         }
 
-        // Get the round number for this payoff
-        const roundNumber = getRoundForPayoffSlide(payoffSlide.id);
-        if (!roundNumber) {
-            console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine round for payoff slide ${payoffSlide.id}`);
+        // Determine which option this payoff slide is for using position-based detection
+        const slideOption = this.getPayoffSlideOption(payoffSlide.id, investmentPhase);
+        if (!slideOption) {
+            console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine option for payoff slide ${payoffSlide.id}`);
             return;
         }
 
-        console.log(`[UnifiedEffectsProcessor] 🎯 Processing payoff: investment ${investmentId} (${getInvestmentDisplayName(investmentId)}) for round ${roundNumber}`);
+        console.log(`[UnifiedEffectsProcessor] 🎯 Processing payoff: phase ${investmentPhase}, option ${slideOption}`);
 
-        // Get payoff data for this round
-        const payoffKey = `rd${roundNumber}-payoff`;
-        const allPayoffsForRound = allInvestmentPayoffsData[payoffKey] || [];
-        if (allPayoffsForRound.length === 0) {
+        // Get payoff data for this phase (like consequence data)
+        const payoffKey = `${investmentPhase}-payoff`;
+        const allPayoffsForPhase = allInvestmentPayoffsData[payoffKey] || [];
+        if (allPayoffsForPhase.length === 0) {
             console.warn(`[UnifiedEffectsProcessor] ⚠️ No payoffs defined for ${payoffKey}`);
             return;
         }
 
-        // Find the specific payoff for this investment
-        const payoff = allPayoffsForRound.find(p => p.investment_option_id === investmentId);
-        if (!payoff) {
-            console.warn(`[UnifiedEffectsProcessor] ❌ No payoff found for investment ${investmentId} in ${payoffKey}`);
-            return;
-        }
-
-        // Process each team
+        // Process each team (same logic as consequences)
         for (const team of teams) {
             console.log(`[UnifiedEffectsProcessor] 👥 Processing payoff for team: ${team.name}`);
 
-            // Check if team selected this investment
-            const investKey = `rd${roundNumber}-invest`;
-            const investmentDecision = teamDecisions[team.id]?.[investKey];
+            // Get team's investment decision for this phase
+            const investmentDecision = teamDecisions[team.id]?.[investmentPhase];
 
             if (!investmentDecision) {
-                console.log(`[UnifiedEffectsProcessor] ⚠️ No investment decision found for team ${team.name} for round ${roundNumber}. Skipping.`);
+                console.log(`[UnifiedEffectsProcessor] ⚠️ No investment decision found for team ${team.name} for phase ${investmentPhase}. Skipping.`);
                 continue;
             }
 
-            const selectedInvestmentIds = investmentDecision.selected_investment_ids || [];
-            if (!selectedInvestmentIds.includes(investmentId)) {
-                console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} did not select investment ${investmentId}. Skipping.`);
+            // Check if team selected this option (same as consequences)
+            const selectedOptions = investmentDecision.selected_investment_ids || [];
+            if (!selectedOptions.includes(slideOption)) {
+                console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} did not select option ${slideOption}. Skipping.`);
                 continue;
             }
 
-            // Database-backed duplicate prevention
+            // Database-backed duplicate prevention (same as consequences)
             const alreadyApplied = await db.payoffApplications.hasBeenApplied(
                 currentDbSession.id,
                 team.id,
-                investmentId,
-                payoffSlide.id
+                investmentPhase,
+                slideOption
             );
 
             if (alreadyApplied) {
-                console.log(`[UnifiedEffectsProcessor] 🔒 Payoff already applied to team ${team.name} for investment ${investmentId}, slide ${payoffSlide.id}. Skipping.`);
+                console.log(`[UnifiedEffectsProcessor] 🔒 Payoff already applied to team ${team.name} for phase ${investmentPhase}, option ${slideOption}. Skipping.`);
+                continue;
+            }
+
+            // Find the payoff for this option (same as consequences)
+            const payoff = allPayoffsForPhase.find(p => p.investment_option_id === slideOption);
+            if (!payoff) {
+                console.warn(`[UnifiedEffectsProcessor] ❌ No payoff found for option ${slideOption} in ${payoffKey}`);
                 continue;
             }
 
@@ -376,8 +372,8 @@ export class UnifiedEffectsProcessor {
             });
 
             // Handle unspent budget for Round 1 only (PRESERVE EXISTING LOGIC)
-            if (roundNumber === 1) {
-                const budget = gameStructure.investment_phase_budgets['rd1-invest'] || 0;
+            if (kpiRoundNumber === 1) {
+                const budget = gameStructure.investment_phase_budgets[investmentPhase] || 0;
                 const spent = investmentDecision?.total_spent_budget ?? 0;
                 const unspent = budget - spent;
 
@@ -409,15 +405,16 @@ export class UnifiedEffectsProcessor {
                 team.id,
                 currentDbSession.id,
                 effects,
-                'investment', // challengeId for payoffs
-                investmentId  // optionId for payoffs
+                investmentPhase, // challengeId for payoffs
+                slideOption      // optionId for payoffs
             );
 
-            // Record that this payoff has been applied
+            // Record that this payoff has been applied (same as consequences)
             await db.payoffApplications.recordApplication({
                 session_id: currentDbSession.id,
                 team_id: team.id,
-                investment_id: investmentId,
+                investment_phase_id: investmentPhase,
+                option_id: slideOption,
                 slide_id: payoffSlide.id
             });
 
@@ -426,6 +423,36 @@ export class UnifiedEffectsProcessor {
 
         // Refresh team round data to update UI
         await fetchTeamRoundDataFromHook(currentDbSession.id);
+    }
+
+    /**
+     * Position-based option detection for payoff slides
+     * Maps slide position within investment phase to A, B, C, D, E, F options
+     */
+    private getPayoffSlideOption(slideId: number, investmentPhase: string): string | null {
+        const options = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+
+        if (investmentPhase === 'rd1-invest') {
+            // Round 1: Slides 56-61 map to A-F
+            if (slideId >= 56 && slideId <= 61) {
+                const slideIndex = slideId - 56;
+                return options[slideIndex] || null;
+            }
+        } else if (investmentPhase === 'rd2-invest') {
+            // Round 2: Slides 126-137 map to A-L
+            if (slideId >= 126 && slideId <= 137) {
+                const slideIndex = slideId - 126;
+                return options[slideIndex] || null;
+            }
+        } else if (investmentPhase === 'rd3-invest') {
+            // Round 3: Slides 170-181 map to A-L
+            if (slideId >= 170 && slideId <= 181) {
+                const slideIndex = slideId - 170;
+                return options[slideIndex] || null;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -17,8 +17,9 @@ export interface PayoffApplication {
 export interface PayoffApplicationInsert {
     session_id: string;
     team_id: string;
-    investment_id: string;
-    slide_id: number;  // Changed to number to match schema
+    investment_phase_id: string;
+    option_id: string;
+    slide_id: number;
 }
 
 export const payoffApplicationService = {
@@ -28,8 +29,8 @@ export const payoffApplicationService = {
     async hasBeenApplied(
         sessionId: string,
         teamId: string,
-        investmentId: string,
-        slideId: number  // Changed to number
+        investmentPhaseId: string,
+        optionId: string
     ): Promise<boolean> {
         return withRetry(async () => {
             const {data, error} = await supabase
@@ -37,13 +38,13 @@ export const payoffApplicationService = {
                 .select('id')
                 .eq('session_id', sessionId)
                 .eq('team_id', teamId)
-                .eq('investment_id', investmentId)
-                .eq('slide_id', slideId)
+                .eq('investment_phase_id', investmentPhaseId)
+                .eq('option_id', optionId)
                 .limit(1);
 
             if (error) throw error;
             return (data?.length || 0) > 0;
-        }, 2, 1000, `Check payoff application for team ${teamId.substring(0, 8)}, investment ${investmentId}, slide ${slideId}`);
+        }, 2, 1000, `Check payoff application for team ${teamId.substring(0, 8)}, phase ${investmentPhaseId}, option ${optionId}`);
     },
 
     /**
@@ -60,15 +61,15 @@ export const payoffApplicationService = {
             if (error) {
                 // If it's a unique constraint violation, that's actually OK - means already applied
                 if (error.code === '23505') { // Unique violation
-                    console.log(`[PayoffApplicationService] Payoff already recorded for team ${applicationData.team_id.substring(0, 8)}, investment ${applicationData.investment_id}`);
+                    console.log(`[PayoffApplicationService] Payoff already recorded for team ${applicationData.team_id.substring(0, 8)}, phase ${applicationData.investment_phase_id}, option ${applicationData.option_id}`);
                     // Return existing record
                     const {data: existingData, error: fetchError} = await supabase
                         .from('payoff_applications')
                         .select()
                         .eq('session_id', applicationData.session_id)
                         .eq('team_id', applicationData.team_id)
-                        .eq('investment_id', applicationData.investment_id)
-                        .eq('slide_id', applicationData.slide_id)
+                        .eq('investment_phase_id', applicationData.investment_phase_id)
+                        .eq('option_id', applicationData.option_id)
                         .single();
 
                     if (fetchError) throw fetchError;
@@ -78,7 +79,7 @@ export const payoffApplicationService = {
             }
 
             return data;
-        }, 2, 1000, `Record payoff application for team ${applicationData.team_id.substring(0, 8)}`);
+        }, 2, 1000, `Record payoff application for team ${applicationData.team_id.substring(0, 8)}, phase ${applicationData.investment_phase_id}, option ${applicationData.option_id}`);
     },
 
     /**
