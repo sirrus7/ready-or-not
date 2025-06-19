@@ -3,6 +3,7 @@ import React from 'react';
 import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from '@app/providers/AuthProvider';
 import {GameProvider} from '@app/providers/GameProvider';
+import {TeamGameProvider} from '@app/providers/TeamGameProvider';
 import {VideoSettingsProvider} from '@shared/providers/VideoSettingsProvider';
 import AuthGuard from '@routing/guards/AuthGuard';
 import ErrorBoundary from '@shared/components/UI/ErrorBoundary';
@@ -62,7 +63,9 @@ function App() {
                         {/* Publicly accessible team-facing routes - NO AUTH REQUIRED*/}
                         <Route path="/team/:sessionId" element={
                             <ErrorBoundary>
-                                <TeamApp/>
+                                <TeamGameProvider>  {/* ✅ Lightweight provider (no auth required) */}
+                                    <TeamApp/>
+                                </TeamGameProvider>
                             </ErrorBoundary>
                         }/>
 

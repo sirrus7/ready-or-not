@@ -1,7 +1,7 @@
 // src/core/game/ConsequenceProcessor.ts
 // SIMPLIFIED: Uses KpiDataUtils instead of inheritance
 
-import {Slide, GameStructure, GameSession, Team, TeamRoundData, KpiEffect, TeamDecision} from '@shared/types';
+import {Slide, GameStructure, GameSession, Team, TeamRoundData, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
 import {KpiCalculations} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';

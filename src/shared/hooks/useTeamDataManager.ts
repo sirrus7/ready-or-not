@@ -1,21 +1,24 @@
 // src/shared/hooks/useTeamDataManager.ts
-// FIXED VERSION - Updated resetTeamDecisionInDb to protect immediate purchases
+// UNIFIED SYSTEM - Now handles both KPIs AND permanent adjustments in one place
+// This extends the proven KPI update system to also handle impact cards
 
-import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
-import { db, formatSupabaseError, useRealtimeSubscription } from '@shared/services/supabase';
-import { Team, TeamDecision, TeamRoundData } from '@shared/types';
+import {useState, useEffect, useCallback, Dispatch, SetStateAction} from 'react';
+import {db, formatSupabaseError, useRealtimeSubscription} from '@shared/services/supabase';
+import {Team, TeamDecision, TeamRoundData, PermanentKpiAdjustment} from '@shared/types';
 
 interface TeamDataManagerOutput {
     teams: Team[];
     teamDecisions: Record<string, Record<string, TeamDecision>>;
     teamRoundData: Record<string, Record<number, TeamRoundData>>;
+    permanentAdjustments: PermanentKpiAdjustment[]; // ADDED: Impact cards data
     isLoadingTeams: boolean;
     isLoadingDecisions: boolean;
     isLoadingRoundData: boolean;
+    isLoadingAdjustments: boolean; // ADDED: Loading state for adjustments
     error: string | null;
     fetchTeamsForSession: (sessionId: string) => Promise<void>;
     fetchTeamDecisionsForSession: (sessionId: string) => Promise<void>;
-    fetchTeamRoundDataForSession: (sessionId: string) => Promise<void>;
+    fetchTeamRoundDataForSession: (sessionId: string) => Promise<void>; // NOW ALSO FETCHES ADJUSTMENTS
     resetTeamDecisionInDb: (sessionId: string, teamId: string, phaseId: string) => Promise<void>;
     setTeamRoundDataDirectly: Dispatch<SetStateAction<Record<string, Record<number, TeamRoundData>>>>;
 }
@@ -24,6 +27,11 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
     const [teams, setTeams] = useState<Team[]>([]);
     const [teamDecisions, setTeamDecisions] = useState<Record<string, Record<string, TeamDecision>>>({});
     const [teamRoundData, setTeamRoundData] = useState<Record<string, Record<number, TeamRoundData>>>({});
+
+    // ADDED: Permanent adjustments (impact cards) to centralized system
+    const [permanentAdjustments, setPermanentAdjustments] = useState<PermanentKpiAdjustment[]>([]);
+    const [isLoadingAdjustments, setIsLoadingAdjustments] = useState<boolean>(false);
+
     const [isLoadingTeams, setIsLoadingTeams] = useState<boolean>(false);
     const [isLoadingDecisions, setIsLoadingDecisions] = useState<boolean>(false);
     const [isLoadingRoundData, setIsLoadingRoundData] = useState<boolean>(false);
@@ -81,33 +89,51 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         }
     }, []);
 
+    // UNIFIED: This function now fetches BOTH KPIs and adjustments
+    // This is the key to making both systems work with the same reliability
     const fetchTeamRoundDataForSession = useCallback(async (sessionId: string) => {
         if (!sessionId || sessionId === 'new') {
             setTeamRoundData({});
+            setPermanentAdjustments([]);
             return;
         }
 
-        console.log("useTeamDataManager: Fetching team round data for session:", sessionId);
+        console.log("useTeamDataManager: Fetching team round data AND adjustments for session:", sessionId);
         setIsLoadingRoundData(true);
+        setIsLoadingAdjustments(true);
         setError(null);
 
         try {
-            const data = await db.kpis.getBySession(sessionId);
+            // UNIFIED: Fetch both KPIs and adjustments in parallel
+            // This ensures both update together reliably
+            const [kpiData, adjustmentData] = await Promise.all([
+                db.kpis.getBySession(sessionId),
+                db.adjustments.getBySession(sessionId)
+            ]);
 
+            // Update KPIs (existing logic)
             const structuredRoundData: Record<string, Record<number, TeamRoundData>> = {};
-            (data || []).forEach(rd => {
+            (kpiData || []).forEach(rd => {
                 if (!structuredRoundData[rd.team_id]) {
                     structuredRoundData[rd.team_id] = {};
                 }
                 structuredRoundData[rd.team_id][rd.round_number] = rd as TeamRoundData;
             });
             setTeamRoundData(structuredRoundData);
+
+            // ADDED: Update adjustments (for impact cards)
+            setPermanentAdjustments(adjustmentData || []);
+
+            console.log(`useTeamDataManager: Updated ${Object.keys(structuredRoundData).length} teams' KPIs and ${adjustmentData?.length || 0} adjustments`);
+
         } catch (err) {
-            console.error("useTeamDataManager: Error fetching team round data:", err);
-            setError(`Failed to load team KPI data: ${formatSupabaseError(err)}`);
+            console.error("useTeamDataManager: Error fetching team data:", err);
+            setError(`Failed to load team data: ${formatSupabaseError(err)}`);
             setTeamRoundData({});
+            setPermanentAdjustments([]);
         } finally {
             setIsLoadingRoundData(false);
+            setIsLoadingAdjustments(false);
         }
     }, []);
 
@@ -160,15 +186,16 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         if (initialSessionId && initialSessionId !== 'new') {
             fetchTeamsForSession(initialSessionId);
             fetchTeamDecisionsForSession(initialSessionId);
-            fetchTeamRoundDataForSession(initialSessionId);
+            fetchTeamRoundDataForSession(initialSessionId); // Now fetches both KPIs and adjustments
         } else {
             setTeams([]);
             setTeamDecisions({});
             setTeamRoundData({});
+            setPermanentAdjustments([]);
         }
     }, [initialSessionId, fetchTeamsForSession, fetchTeamDecisionsForSession, fetchTeamRoundDataForSession]);
 
-    // Conditional subscription based on parameter
+    // Existing subscription for team decisions
     useRealtimeSubscription(
         `team-decisions-${initialSessionId}`,
         {
@@ -182,11 +209,10 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
                 }
             }
         },
-        // Only enable if both conditions are true
         !!initialSessionId && initialSessionId !== 'new'
     );
 
-    // Real-time subscription for team KPI updates
+    // Existing subscription for team KPI updates
     useRealtimeSubscription(
         `team-kpis-${initialSessionId}`,
         {
@@ -216,11 +242,54 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         !!initialSessionId && initialSessionId !== 'new'
     );
 
+    // ADDED: Realtime subscription for permanent adjustments (impact cards)
+    // Using the same proven pattern as KPIs above
+    useRealtimeSubscription(
+        `team-adjustments-${initialSessionId}`,
+        {
+            table: 'permanent_kpi_adjustments',
+            filter: `session_id=eq.${initialSessionId}`,
+            onchange: (payload) => {
+                console.log('useTeamDataManager: Adjustment change received:', payload.eventType, payload.new);
+                const newAdjustment = payload.new as PermanentKpiAdjustment;
+                const oldAdjustment = payload.old as PermanentKpiAdjustment;
+
+                setPermanentAdjustments(prev => {
+                    const updated = [...prev];
+                    if (payload.eventType === 'INSERT') {
+                        updated.push(newAdjustment);
+                        console.log(`useTeamDataManager: Added adjustment for team ${newAdjustment.team_id}`);
+                    } else if (payload.eventType === 'UPDATE') {
+                        const index = updated.findIndex(adj => adj.id === newAdjustment.id);
+                        if (index >= 0) {
+                            updated[index] = newAdjustment;
+                            console.log(`useTeamDataManager: Updated adjustment ${newAdjustment.id}`);
+                        }
+                    } else if (payload.eventType === 'DELETE') {
+                        const filtered = updated.filter(adj => adj.id !== oldAdjustment?.id);
+                        console.log(`useTeamDataManager: Removed adjustment ${oldAdjustment?.id}`);
+                        return filtered;
+                    }
+                    return updated;
+                });
+            }
+        },
+        !!initialSessionId && initialSessionId !== 'new'
+    );
+
     return {
-        teams, teamDecisions, teamRoundData,
-        isLoadingTeams, isLoadingDecisions, isLoadingRoundData,
+        teams,
+        teamDecisions,
+        teamRoundData,
+        permanentAdjustments, // ADDED: Now available globally
+        isLoadingTeams,
+        isLoadingDecisions,
+        isLoadingRoundData,
+        isLoadingAdjustments, // ADDED: Loading state for adjustments
         error,
-        fetchTeamsForSession, fetchTeamDecisionsForSession, fetchTeamRoundDataForSession,
+        fetchTeamsForSession,
+        fetchTeamDecisionsForSession,
+        fetchTeamRoundDataForSession, // Now updates both KPIs and adjustments
         resetTeamDecisionInDb,
         setTeamRoundDataDirectly: setTeamRoundData
     };

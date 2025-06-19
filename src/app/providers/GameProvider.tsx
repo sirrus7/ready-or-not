@@ -1,7 +1,7 @@
 // src/app/providers/GameProvider.tsx
-// FINAL FIX: Remove the problematic data refresh useEffect that causes infinite loops
+// UPDATED: Now provides permanent adjustments globally from centralized system
 
-import React, {createContext, useContext, useCallback, useEffect} from 'react';
+import React, {createContext, useContext, useCallback} from 'react';
 import {useParams} from 'react-router-dom';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {useGameController} from '@core/game/useGameController';
@@ -9,11 +9,11 @@ import {useGameProcessing} from '@core/game/useGameProcessing';
 import {useTeamDataManager} from '@shared/hooks/useTeamDataManager';
 import {useSessionManager} from '@shared/hooks/useSessionManager';
 import {useAuth} from './AuthProvider';
-import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import {
     AppState,
     GameStructure,
     Slide,
+    PermanentKpiAdjustment // ADDED: For centralized adjustments
 } from '@shared/types';
 
 /**
@@ -23,6 +23,10 @@ import {
  * - Issue #1: Added missing clearHostAlert method to interface
  * - This method is returned by useGameController but was not exposed in the context
  * - clearHostAlert handles advancing slides for "All Teams Have Submitted" alerts
+ *
+ * UNIFIED SYSTEM ADDED:
+ * - Added permanentAdjustments and isLoadingAdjustments to context
+ * - These are now available globally, same as teamRoundData
  */
 interface GameContextType {
     state: AppState;
@@ -38,8 +42,12 @@ interface GameContextType {
     updateHostNotesForCurrentSlide: (notes: string) => void;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
     setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
-    clearHostAlert: () => Promise<void>;
+    clearHostAlert: () => Promise<void>; // ADDED: Missing method from interface
     setAllTeamsAlertDismissed: (dismissed: boolean) => void;
+
+    // ADDED: Centralized permanent adjustments (impact cards)
+    permanentAdjustments: PermanentKpiAdjustment[]; // Now available globally
+    isLoadingAdjustments: boolean; // Loading state for adjustments
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -59,9 +67,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
 
     const {session, updateSessionInDb} = useSessionManager(sessionId, user, authLoading, gameStructure);
 
-    // Initialize team data management
+    // Initialize team data management - NOW INCLUDES PERMANENT ADJUSTMENTS
     const teamDataManager = useTeamDataManager(session?.id || null);
-    const {teams, teamDecisions, teamRoundData} = teamDataManager;
+    const {
+        teams,
+        teamDecisions,
+        teamRoundData,
+        permanentAdjustments, // ADDED: Now available from centralized system
+        isLoadingAdjustments  // ADDED: Loading state
+    } = teamDataManager;
 
     const gameProcessing = useGameProcessing({
         currentDbSession: session,
@@ -70,7 +84,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         teamDecisions,
         teamRoundData,
         updateSessionInDb,
-        fetchTeamRoundDataFromHook: teamDataManager.fetchTeamRoundDataForSession,
+        fetchTeamRoundDataFromHook: teamDataManager.fetchTeamRoundDataForSession, // Now updates both KPIs and adjustments
         fetchTeamDecisionsFromHook: teamDataManager.fetchTeamDecisionsForSession,
         setTeamRoundDataDirectly: teamDataManager.setTeamRoundDataDirectly,
     });
@@ -86,73 +100,42 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
 
     const resetTeamDecision = useCallback(async (teamId: string, interactiveDataKey: string) => {
         if (!session?.id) {
-            console.error('[GameProvider] Cannot reset decision: No active session');
+            console.error('GameProvider: Cannot reset team decision - no session ID');
             return;
         }
 
         try {
-            console.log(`[GameProvider] Resetting decision for team ${teamId}, phase ${interactiveDataKey}`);
+            console.log(`GameProvider: Resetting decision for team ${teamId}, phase ${interactiveDataKey}`);
             await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
-            console.log(`[GameProvider] Reset decision complete for team ${teamId}, phase ${interactiveDataKey}`);
+            console.log('GameProvider: Team decision reset successfully');
         } catch (error) {
-            console.error('[GameProvider] Failed to reset team decision:', error);
+            console.error('GameProvider: Error resetting team decision:', error);
             throw error;
         }
     }, [session?.id, teamDataManager]);
 
-    // Initialize broadcast manager when session changes
-    useEffect(() => {
-        if (session?.id && session.id !== 'new') {
-            const broadcastManager = SimpleBroadcastManager.getInstance(session.id, 'host');
-            console.log('[GameProvider] Initialized broadcast manager for session:', session.id);
-            return () => broadcastManager.destroy();
-        }
-    }, [session?.id]);
-
-    // CRITICAL FIX: REMOVED the problematic auto-refresh useEffect
-    // The old code was:
-    // useEffect(() => {
-    //     if (gameController.currentSlideData?.type === 'consequence_reveal' && session?.id) {
-    //         console.log('[GameProvider] Consequence slide detected, scheduling data refresh');
-    //         setTimeout(async () => {
-    //             await teamDataManager.fetchTeamsForSession(session.id);
-    //         }, 1500);
-    //     }
-    // }, [gameController.currentSlideData?.type, gameController.currentSlideData?.id, session?.id, teamDataManager]);
-    //
-    // This was causing infinite loops because:
-    // 1. teamDataManager changes on every render
-    // 2. This triggers the useEffect repeatedly
-    // 3. Each trigger causes a data fetch
-    // 4. Data fetch triggers re-renders
-    // 5. INFINITE LOOP
-    //
-    // The ConsequenceProcessor already handles its own data refreshes properly,
-    // so this additional refresh is unnecessary and harmful.
-
-    // Build AppState with proper property names
-    const state: AppState = {
-        gameStructure,
+    // Construct the app state - FIXED: gameController returns individual properties, not a state object
+    const appState: AppState = {
         currentSessionId: session?.id || null,
-        current_slide_index: session?.current_slide_index ?? null,
-        hostNotes: gameController.hostNotes,
+        gameStructure,
+        current_slide_index: gameController.currentSlideIndex,
+        hostNotes: {[gameController.currentSlideIndex || 0]: gameController.hostNotes}, // Convert to Record format
         isPlaying: session?.is_playing ?? false,
         teams,
         teamDecisions,
         teamRoundData,
         isPlayerWindowOpen: false,
-        isLoading: !session && !!sessionId,
-        error: null,
+        isLoading: teamDataManager.isLoadingTeams ||
+            teamDataManager.isLoadingDecisions ||
+            teamDataManager.isLoadingRoundData ||
+            teamDataManager.isLoadingAdjustments, // ADDED: Include adjustment loading
+        error: teamDataManager.error,
         currentHostAlert: gameController.currentHostAlert,
     };
 
-    /**
-     * FIXED: Context value now includes clearHostAlert method
-     * This resolves Issue #1 where the "Next" button wasn't working
-     * because clearHostAlert wasn't exposed in the context
-     */
+    // Context value with all game functionality - FIXED: Use gameController properties directly
     const contextValue: GameContextType = {
-        state,
+        state: appState,
         currentSlideData: gameController.currentSlideData,
         nextSlide: gameController.nextSlide,
         previousSlide: gameController.previousSlide,
@@ -165,8 +148,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         updateHostNotesForCurrentSlide: gameController.updateHostNotesForCurrentSlide,
         setAllTeamsSubmittedCurrentInteractivePhase: gameController.setAllTeamsSubmittedCurrentInteractivePhase,
         setCurrentHostAlertState: gameController.setCurrentHostAlertState,
-        clearHostAlert: gameController.clearHostAlert,
+        clearHostAlert: gameController.clearHostAlert, // ADDED: Missing method
         setAllTeamsAlertDismissed: gameController.setAllTeamsAlertDismissed,
+
+        // ADDED: Centralized permanent adjustments (impact cards)
+        permanentAdjustments, // Now available globally
+        isLoadingAdjustments   // Loading state for adjustments
     };
 
     return (
