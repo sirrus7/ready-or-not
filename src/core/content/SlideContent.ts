@@ -1628,7 +1628,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 156,
         round_number: 3,
-        title: "CH8: Option C Consequences",
+        title: "CH8 Option C Consequences",
         type: 'consequence_reveal',
         main_text: "Option C: Don't Pay, Rebuild",
         sub_text: "Rebuilding is slow and customers are furious",
@@ -1639,31 +1639,31 @@ export const allGameSlides: Slide[] = [
     {
         id: 157,
         round_number: 3,
-        title: "CH8 Career Insight",
+        title: "Cyber Attack Insights",
         type: 'video',
         source_path: 'Slide_158.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 158,
         round_number: 3,
-        title: "Year 6 Introduction & Challenge Setup",
+        title: "CH8 Career Insight - IT Manager",
         type: 'video',
         source_path: 'Slide_159.mp4',
-        auto_advance_after_video: true
+        auto_advance_after_video: false
     },
     {
         id: 159,
         round_number: 3,
-        title: "CH9: ERP Crisis Details",
+        title: "Narrative Voicemail",
         type: 'video',
         source_path: 'Slide_160.mp4',
-        auto_advance_after_video: true
+        auto_advance_after_video: true,
     },
     {
         id: 160,
         round_number: 3,
-        title: "CH9: Option A",
+        title: "CH9: ERP Constraint Setup",
         type: 'video',
         source_path: 'Slide_161.mp4',
         auto_advance_after_video: true
@@ -1671,7 +1671,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 161,
         round_number: 3,
-        title: "CH9: Option B",
+        title: "CH9 Option A: Hire ERP Consultant",
         type: 'video',
         source_path: 'Slide_162.mp4',
         auto_advance_after_video: true
@@ -1679,7 +1679,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 162,
         round_number: 3,
-        title: "CH9: Option C",
+        title: "CH9 Option B: Rely on Spreadsheets",
         type: 'video',
         source_path: 'Slide_163.mp4',
         auto_advance_after_video: true
@@ -1687,11 +1687,19 @@ export const allGameSlides: Slide[] = [
     {
         id: 163,
         round_number: 3,
-        title: "CH9: Decision Timer",
-        type: 'interactive_choice',
+        title: "CH9 Option C: ERP Immunity",
+        type: 'video',
         source_path: 'Slide_164.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 164,
+        round_number: 3,
+        title: "CH9 Decision Timer",
+        type: 'interactive_choice',
+        source_path: 'Slide_165.mp4',
         interactive_data_key: 'ch9',
-        main_text: "CHALLENGE 9: ERP System Crisis",
+        main_text: "CHALLENGE 9: ERP System Constraint",
         sub_text: "How will you handle the system failures?",
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
@@ -1701,184 +1709,176 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 164,
-        round_number: 3,
-        title: "CH9 Results",
-        type: 'video',
-        source_path: 'Slide_165.mp4',
-        auto_advance_after_video: true
-    },
-    {
         id: 165,
         round_number: 3,
-        title: "CH9: Option A Consequences",
-        type: 'consequence_reveal',
-        main_text: "Option A: Emergency ERP Implementation",
-        sub_text: "Rushed implementation costs orders & capacity",
-        details: ["-250 Capacity", "+$150k Costs"],
+        title: "CH9 Results Collection",
+        type: 'video',
         source_path: 'Slide_166.mp4',
-        background_css: 'bg-gray-700'
+        auto_advance_after_video: true
     },
     {
         id: 166,
         round_number: 3,
-        title: "CH9: Option B Consequences",
+        title: "CH9 Option A Consequences",
         type: 'consequence_reveal',
-        main_text: "Option B: Rely on Spreadsheets",
-        sub_text: "Firefighting is expensive and you lose orders",
-        details: ["-1000 Orders", "+$50k Costs"],
+        main_text: "Option A: Emergency ERP Implementation",
+        sub_text: "Rushed implementation costs orders & capacity",
+        details: ["-250 Capacity", "+$150k Costs"],
         source_path: 'Slide_167.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 167,
         round_number: 3,
-        title: "CH9: Option C Consequences",
+        title: "CH9 Option B Consequences",
         type: 'consequence_reveal',
-        main_text: "Option C: ERP Investment Immunity",
-        sub_text: "Your foresight paid off!",
-        details: ["+500 Orders (from competitors' failures)"],
+        main_text: "Option B: Rely on Spreadsheets",
+        sub_text: "Firefighting is expensive and you lose orders",
+        details: ["-1000 Orders", "+$50k Costs"],
         source_path: 'Slide_168.mp4',
         background_css: 'bg-gray-700'
     },
     {
         id: 168,
         round_number: 3,
-        title: "CH9 Career Insight",
-        type: 'video',
+        title: "CH9 Option C Consequences",
+        type: 'consequence_reveal',
+        main_text: "Option C: ERP Investment Immunity",
+        sub_text: "Your foresight paid off!",
+        details: ["+500 Orders (from competitors' failures)"],
         source_path: 'Slide_169.mp4',
-        auto_advance_after_video: false
+        background_css: 'bg-gray-700'
     },
     {
         id: 169,
         round_number: 3,
-        title: "RD-3 Investment Payoffs Intro",
+        title: "CH9 Career Insight - Warehouse Manager",
         type: 'video',
         source_path: 'Slide_170.mp4',
-        auto_advance_after_video: true
+        auto_advance_after_video: false
     },
     {
         id: 170,
+        round_number: 3,
+        title: "RD-3 Investment Payoffs Intro",
+        type: 'video',
+        source_path: 'Slide_171.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 171,
         round_number: 3,
         title: "Payoff: #1 Business Growth (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Business Growth Strategy",
         sub_text: "Final round business growth impact",
         details: ["+250 Capacity", "+250 Orders", "+$20 ASP"],
-        source_path: 'Slide_171.mp4'
+        source_path: 'Slide_172.mp4'
     },
     {
-        id: 171,
+        id: 172,
         round_number: 3,
         title: "Payoff: #2 Production Efficiency (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Production Efficiency",
         sub_text: "Maximum efficiency gains",
         details: ["+3000 Capacity", "+$100k Costs"],
-        source_path: 'Slide_172.mp4'
+        source_path: 'Slide_173.mp4'
     },
     {
-        id: 172,
+        id: 173,
         round_number: 3,
         title: "Payoff: #3 Expanded 2nd Shift",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Expanded 2nd Shift",
         sub_text: "Massive capacity expansion",
         details: ["+4250 Capacity", "+$750k Costs"],
-        source_path: 'Slide_173.mp4'
+        source_path: 'Slide_174.mp4'
     },
     {
-        id: 173,
+        id: 174,
         round_number: 3,
         title: "Payoff: #4 Supply Chain (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Supply Chain Optimization",
         sub_text: "Peak supply chain efficiency",
         details: ["+750 Capacity", "-$300k Costs"],
-        source_path: 'Slide_174.mp4'
+        source_path: 'Slide_175.mp4'
     },
     {
-        id: 174,
+        id: 175,
         round_number: 3,
         title: "Payoff: #5 Employee Dev (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Employee Development",
         sub_text: "Maximized workforce potential",
         details: ["+1500 Capacity"],
-        source_path: 'Slide_175.mp4'
+        source_path: 'Slide_176.mp4'
     },
     {
-        id: 175,
+        id: 176,
         round_number: 3,
         title: "Payoff: #6 Boutique Sales (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Maximize Boutique Sales",
         sub_text: "Premium market dominance",
         details: ["+3000 Orders", "+$80 ASP"],
-        source_path: 'Slide_176.mp4'
+        source_path: 'Slide_177.mp4'
     },
     {
-        id: 176,
+        id: 177,
         round_number: 3,
         title: "Payoff: #7 Big Box (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Big Box Expansion",
         sub_text: "Mass market penetration",
         details: ["+4000 Orders", "+$100k Costs", "-$40 ASP"],
-        source_path: 'Slide_177.mp4'
+        source_path: 'Slide_178.mp4'
     },
     {
-        id: 177,
+        id: 178,
         round_number: 3,
         title: "Payoff: #8 ERP (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Enterprise Resource Planning",
         sub_text: "System integration benefits",
         details: ["+250 Capacity", "+250 Orders", "+$25k Costs", "+$10 ASP"],
-        source_path: 'Slide_178.mp4'
+        source_path: 'Slide_179.mp4'
     },
     {
-        id: 178,
+        id: 179,
         round_number: 3,
         title: "Payoff: #9 IT Security (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: IT & Cyber Security",
         sub_text: "Protected from cyber threats",
         details: ["Protection from future cyber attacks"],
-        source_path: 'Slide_179.mp4'
+        source_path: 'Slide_180.mp4'
     },
     {
-        id: 179,
+        id: 180,
         round_number: 3,
         title: "Payoff: #10 Product Line (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Product Line Expansion",
         sub_text: "Diversified product portfolio",
         details: ["+4000 Capacity", "+4000 Orders", "+$200k Costs", "-$80 ASP"],
-        source_path: 'Slide_180.mp4'
+        source_path: 'Slide_181.mp4'
     },
     {
-        id: 180,
+        id: 181,
         round_number: 3,
         title: "Payoff: #11 Automation (RD3)",
         type: 'payoff_reveal',
         main_text: "RD-3 Payoff: Automation & Co-bots",
         sub_text: "Full automation benefits",
         details: ["+3750 Capacity", "+$150k Costs"],
-        source_path: 'Slide_181.mp4'
-    },
-    {
-        id: 181,
-        round_number: 3,
-        title: "Production Efficiency Bonus (RD3)",
-        type: 'video',
-        source_path: 'Slide_182.mp4',
-        auto_advance_after_video: true
+        source_path: 'Slide_182.mp4'
     },
     {
         id: 182,
         round_number: 3,
-        title: "Supply Chain Bonus Impact (RD3)",
+        title: "Production Efficiency Bonus (RD3)",
         type: 'video',
         source_path: 'Slide_183.mp4',
         auto_advance_after_video: true
@@ -1886,22 +1886,22 @@ export const allGameSlides: Slide[] = [
     {
         id: 183,
         round_number: 3,
-        title: "Double Down Payoff",
+        title: "Supply Chain Bonus Impact (RD3)",
         type: 'video',
         source_path: 'Slide_184.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 184,
+        round_number: 3,
+        title: "Double Down Payoff",
+        type: 'video',
+        source_path: 'Slide_185.mp4',
         auto_advance_after_video: false,
         host_alert: {
             title: "Roll the Dice!",
             message: "Have teams who chose Double Down roll their dice now."
         }
-    },
-    {
-        id: 184,
-        round_number: 3,
-        title: "Investment Bonus Slides Intro",
-        type: 'video',
-        source_path: 'Slide_185.mp4',
-        auto_advance_after_video: true
     },
     {
         id: 185,
