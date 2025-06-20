@@ -1,18 +1,18 @@
 // src/views/team/components/DecisionForms/DecisionPanel.tsx
-// UPDATED VERSION - Passes decision reset trigger to submission hook
+// UPDATED: Now uses EnhancedDecisionContent instead of DecisionContent
 import React from 'react';
 import {InvestmentOption, ChallengeOption, Slide, GameStructure} from '@shared/types';
 import {Hourglass, CheckCircle2} from 'lucide-react';
 import {useDecisionMaking} from '@views/team/hooks/useDecisionMaking';
 import {useTeamDecisionSubmission} from '@views/team/hooks/useTeamDecisionSubmission';
 import DecisionHeader from './DecisionHeader';
-import DecisionContent from './DecisionContent';
+import EnhancedDecisionContent from './EnhancedDecisionContent'; // CHANGED: Using EnhancedDecisionContent
 import DecisionFooter from './DecisionFooter';
 import ErrorDisplay from './ErrorDisplay';
 
 interface DecisionPanelProps {
-    sessionId: string | null;
-    teamId: string | null;
+    sessionId: string | null;    // UPDATED: Required for continuation pricing
+    teamId: string | null;       // UPDATED: Required for continuation pricing
     currentSlide: Slide | null;
     investmentOptions?: InvestmentOption[];
     investUpToBudget?: number;
@@ -20,7 +20,7 @@ interface DecisionPanelProps {
     availableRd3Investments?: InvestmentOption[];
     isDecisionTime: boolean;
     gameStructure?: GameStructure;
-    decisionResetTrigger?: number; // NEW: Reset trigger from useTeamGameState
+    decisionResetTrigger?: number;
 }
 
 const DecisionPanel: React.FC<DecisionPanelProps> = ({
@@ -33,7 +33,7 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                                                          availableRd3Investments = [],
                                                          isDecisionTime,
                                                          gameStructure,
-                                                         decisionResetTrigger = 0 // NEW: Default to 0
+                                                         decisionResetTrigger = 0
                                                      }) => {
     const decisionLogic = useDecisionMaking({
         currentSlide,
@@ -53,7 +53,7 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
         investmentOptions,
         challengeOptions,
         gameStructure,
-        decisionResetTrigger // NEW: Pass the reset trigger
+        decisionResetTrigger
     });
 
     if (!isDecisionTime || !currentSlide) {
@@ -81,6 +81,46 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
         );
     }
 
+    // VALIDATION: Ensure sessionId and teamId are available for continuation pricing
+    if (!sessionId || !teamId) {
+        console.warn('[DecisionPanel] Missing sessionId or teamId, falling back to regular DecisionContent');
+        // Import DecisionContent dynamically to avoid circular dependency
+        const DecisionContent = require('./DecisionContent').default;
+        return (
+            <div className="bg-gray-800/50 backdrop-blur-sm text-white rounded-xl shadow-2xl border border-gray-700">
+                <div className="p-4 md:p-6">
+                    <DecisionHeader
+                        currentSlide={currentSlide}
+                        state={decisionLogic.state}
+                        remainingBudget={decisionLogic.remainingBudget}
+                        submissionSummary={decisionLogic.submissionSummary}
+                        isValidSubmission={decisionLogic.isValidSubmission}
+                        investUpToBudget={investUpToBudget}
+                    />
+                    <DecisionContent
+                        currentSlide={currentSlide}
+                        decisionState={decisionLogic.state}
+                        decisionActions={decisionLogic.actions}
+                        investmentOptions={investmentOptions}
+                        challengeOptions={challengeOptions}
+                        availableRd3Investments={availableRd3Investments}
+                        investUpToBudget={investUpToBudget}
+                        isSubmitting={submission.isSubmitting}
+                    />
+                    <ErrorDisplay error={decisionLogic.state.error || submission.submissionError}/>
+                </div>
+                <DecisionFooter
+                    isSubmitDisabled={submission.isSubmitDisabled}
+                    isSubmitting={submission.isSubmitting}
+                    onSubmit={submission.onSubmit}
+                    isValidSubmission={decisionLogic.isValidSubmission}
+                    submissionSummary={decisionLogic.submissionSummary}
+                    hasError={!!(decisionLogic.state.error || submission.submissionError)}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="bg-gray-800/50 backdrop-blur-sm text-white rounded-xl shadow-2xl border border-gray-700">
             <div className="p-4 md:p-6">
@@ -92,7 +132,9 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                     isValidSubmission={decisionLogic.isValidSubmission}
                     investUpToBudget={investUpToBudget}
                 />
-                <DecisionContent
+                <EnhancedDecisionContent
+                    sessionId={sessionId}        // ADDED: Required for continuation pricing
+                    teamId={teamId}             // ADDED: Required for continuation pricing
                     currentSlide={currentSlide}
                     decisionState={decisionLogic.state}
                     decisionActions={decisionLogic.actions}

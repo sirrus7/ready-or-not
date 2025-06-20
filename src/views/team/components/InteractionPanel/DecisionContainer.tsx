@@ -1,5 +1,5 @@
 // src/views/team/components/InteractionPanel/DecisionContainer.tsx
-// UPDATED VERSION - Passes decision reset trigger to DecisionPanel
+// VERIFIED: Ensures sessionId and teamId are passed to DecisionPanel
 import React, {useMemo} from 'react';
 import DecisionPanel from '@views/team/components/DecisionForms/DecisionPanel';
 import {Slide, GameStructure} from '@shared/types';
@@ -9,7 +9,7 @@ interface DecisionModeContainerProps {
     teamId: string;
     currentSlide: Slide | null;
     gameStructure: GameStructure;
-    decisionResetTrigger?: number; // NEW: Reset trigger from useTeamGameState
+    decisionResetTrigger?: number;
 }
 
 const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
@@ -17,7 +17,7 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                                                                          teamId,
                                                                          currentSlide,
                                                                          gameStructure,
-                                                                         decisionResetTrigger = 0 // NEW: Default to 0
+                                                                         decisionResetTrigger = 0
                                                                      }) => {
     if (!currentSlide) {
         return (
@@ -45,8 +45,8 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
     return (
         <div className="flex-1 p-3 md:p-4">
             <DecisionPanel
-                sessionId={sessionId}
-                teamId={teamId}
+                sessionId={sessionId}           // ENSURE THIS IS PASSED for continuation pricing
+                teamId={teamId}                // ENSURE THIS IS PASSED for continuation pricing
                 currentSlide={currentSlide}
                 investmentOptions={phaseData.investmentOptions}
                 investUpToBudget={phaseData.budgetForPhase}
@@ -54,7 +54,7 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                 availableRd3Investments={phaseData.rd3Investments}
                 isDecisionTime={true}
                 gameStructure={gameStructure}
-                decisionResetTrigger={decisionResetTrigger} // NEW: Pass the reset trigger
+                decisionResetTrigger={decisionResetTrigger}
             />
         </div>
     );

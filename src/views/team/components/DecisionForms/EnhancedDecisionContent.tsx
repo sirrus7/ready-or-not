@@ -34,15 +34,8 @@ const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
                                                                              investUpToBudget,
                                                                              isSubmitting
                                                                          }) => {
-    // Determine current round based on slide
-    const getCurrentRound = (): 1 | 2 | 3 => {
-        const roundNumber = currentSlide.round_number;
-        if (roundNumber === 0 || roundNumber === 1) return 1;
-        if (roundNumber === 2) return 2;
-        return 3;
-    };
-
-    const currentRound = getCurrentRound();
+    // Determine current round from slide data
+    const currentRound = (currentSlide.round_number || 1) as 1 | 2 | 3;
 
     switch (currentSlide.type) {
         case 'interactive_invest':
