@@ -17,7 +17,7 @@ import {KpiDataUtils} from './KpiDataUtils';
 import {allConsequencesData} from '@core/content/ConsequenceContent';
 import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
-import {getInvestmentPhaseBySlideId} from '@core/content/InvestmentRegistry';
+import {getInvestmentPhaseBySlideId, getRoundForInvestmentPhase} from '@core/content/InvestmentRegistry';
 
 interface UnifiedEffectsProcessorProps {
     currentDbSession: GameSession | null;
@@ -289,7 +289,8 @@ export class UnifiedEffectsProcessor {
         console.log(`[UnifiedEffectsProcessor] 🎯 Processing payoff: phase ${investmentPhase}, option ${slideOption}`);
 
         // Get payoff data for this phase (like consequence data)
-        const payoffKey = `${investmentPhase}-payoff`;
+        const roundNumber = getRoundForInvestmentPhase(investmentPhase);
+        const payoffKey = `rd${roundNumber}-payoff`;
         const allPayoffsForPhase = allInvestmentPayoffsData[payoffKey] || [];
         if (allPayoffsForPhase.length === 0) {
             console.warn(`[UnifiedEffectsProcessor] ⚠️ No payoffs defined for ${payoffKey}`);
@@ -300,20 +301,33 @@ export class UnifiedEffectsProcessor {
         for (const team of teams) {
             console.log(`[UnifiedEffectsProcessor] 👥 Processing payoff for team: ${team.name}`);
 
-            // Get team's investment decision for this phase
-            const investmentDecision = teamDecisions[team.id]?.[investmentPhase];
+            // Get team's investment decisions for this phase (both regular and immediate)
+            const regularDecision = teamDecisions[team.id]?.[investmentPhase];
+            const immediateDecision = teamDecisions[team.id]?.[`${investmentPhase}_immediate`];
 
-            if (!investmentDecision) {
-                console.log(`[UnifiedEffectsProcessor] ⚠️ No investment decision found for team ${team.name} for phase ${investmentPhase}. Skipping.`);
+            // Combine regular and immediate purchase options
+            const regularOptions = regularDecision?.selected_investment_options || [];
+            const immediateOptions = immediateDecision?.selected_investment_options || [];
+            const selectedOptions = [...regularOptions, ...immediateOptions];
+
+            // Skip if team made no investment decisions at all
+            if (!regularDecision && !immediateDecision) {
+                console.log(`[UnifiedEffectsProcessor] ⚠️ No investment decisions found for team ${team.name} for phase ${investmentPhase}. Skipping.`);
                 continue;
             }
 
-            // Check if team selected this option (same as consequences)
-            const selectedOptions = investmentDecision.selected_investment_options || [];
+            // Check if team selected this option (combining regular and immediate purchases)
             if (!selectedOptions.includes(slideOption)) {
-                console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} did not select option ${slideOption}. Skipping.`);
+                console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} did not select option ${slideOption}. Available options: [${selectedOptions.join(', ')}]. Skipping.`);
                 continue;
             }
+
+            // For budget calculations, combine spent amounts from both decision types
+            const regularSpent = regularDecision?.total_spent_budget ?? 0;
+            const immediateSpent = immediateDecision?.total_spent_budget ?? 0;
+            const totalSpentBudget = regularSpent + immediateSpent;
+
+            console.log(`[UnifiedEffectsProcessor] ✅ Team ${team.name} selected option ${slideOption}. Total selections: [${selectedOptions.join(', ')}], Total spent: $${totalSpentBudget}`);
 
             // Database-backed duplicate prevention (same as consequences)
             const alreadyApplied = await db.payoffApplications.hasBeenApplied(
@@ -371,27 +385,27 @@ export class UnifiedEffectsProcessor {
                 }
             });
 
-            // Handle unspent budget for Round 1 only (PRESERVE EXISTING LOGIC)
-            if (kpiRoundNumber === 1) {
-                const budget = gameStructure.investment_phase_budgets[investmentPhase] || 0;
-                const spent = investmentDecision?.total_spent_budget ?? 0;
-                const unspent = budget - spent;
-
-                if (unspent > 0) {
-                    const oldCost = updatedKpis.current_cost;
-                    updatedKpis.current_cost = oldCost - unspent;
-                    console.log(`[UnifiedEffectsProcessor] 📈 cost: ${oldCost} → ${updatedKpis.current_cost} (unspent budget: -${unspent})`);
-                    hasImmediateChanges = true;
-
-                    // Add unspent budget effect to effects list for permanent tracking
-                    effects.push({
-                        kpi: 'cost',
-                        change_value: -unspent,
-                        timing: 'immediate',
-                        description: 'RD-1 Unspent Budget'
-                    });
-                }
-            }
+            // TODO: Talk to Eric if this should exist
+            // Handle unspent budget for Round 1 only (PRESERVE EXISTING LOGIC - UPDATED to use combined spending)
+            // if (kpiRoundNumber === 1) {
+            //     const budget = gameStructure.investment_phase_budgets[investmentPhase] || 0;
+            //     const unspent = budget - totalSpentBudget;
+            //
+            //     if (unspent > 0) {
+            //         const oldCost = updatedKpis.current_cost;
+            //         updatedKpis.current_cost = oldCost - unspent;
+            //         console.log(`[UnifiedEffectsProcessor] 📈 cost: ${oldCost} → ${updatedKpis.current_cost} (unspent budget: -${unspent})`);
+            //         hasImmediateChanges = true;
+            //
+            //         // Add unspent budget effect to effects list for permanent tracking
+            //         effects.push({
+            //             kpi: 'cost',
+            //             change_value: -unspent,
+            //             timing: 'immediate',
+            //             description: 'RD-1 Unspent Budget'
+            //         });
+            //     }
+            // }
 
             // Update KPIs in database if there were immediate changes
             if (hasImmediateChanges) {
