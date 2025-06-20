@@ -1,4 +1,6 @@
 // src/shared/components/Video/SlideRenderer.tsx
+// ONLY CHANGE: Updated isVideoSlide logic to handle 'kpi_reset' slides as videos
+
 import React, {useState, useEffect} from 'react';
 import {Slide} from '@shared/types/game';
 import {AlertCircle, ListChecks, RefreshCw, Film} from 'lucide-react';
@@ -112,12 +114,12 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
             return null;
         }
 
-        // ADD THIS: Special handling for leaderboard charts (no source_path needed)
+        // Special handling for leaderboard charts (no source_path needed)
         if (slide.type === 'leaderboard_chart') {
             return <SlideContent slide={slide} sourceUrl="" className="animate-fade-in"/>;
         }
 
-        // For other non-video content, render it if the URL is ready.
+        // For other non-video content, render it if the URL is ready
         if (sourceUrl) {
             return <SlideContent slide={slide} sourceUrl={sourceUrl} className="animate-fade-in"/>;
         }

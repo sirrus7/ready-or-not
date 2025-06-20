@@ -75,6 +75,7 @@ export type SlideType =
     | 'interactive_double_down_select'
     | 'consequence_reveal'
     | 'payoff_reveal'
+    | 'kpi_reset'
     | 'double_down_dice_roll'
     | 'kpi_summary_instructional'
     | 'leaderboard_chart'

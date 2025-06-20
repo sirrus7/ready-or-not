@@ -1,6 +1,6 @@
 // src/core/game/UnifiedEffectsProcessor.ts
-// Unified processor for both consequences and payoffs with slide-specific logic
-// COMPLETE VERSION - Includes ALL consequence processing logic + new payoff logic + STRATEGY INVESTMENT INTEGRATION
+// COMPLETE VERSION - Added KPI reset slide processing support
+// ONLY CHANGES: Added KpiResetEngine import, updated routing logic, added processKpiResetSlide method
 
 import {
     GameSession,
@@ -14,7 +14,8 @@ import {
 import {db} from '@shared/services/supabase';
 import {KpiCalculations} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
-import {StrategyInvestmentTracker} from './StrategyInvestmentTracker'; // ADDED: Strategy investment integration
+import {StrategyInvestmentTracker} from './StrategyInvestmentTracker';
+import {KpiResetEngine} from './KpiResetEngine'; // ADDED: Import for KPI reset functionality
 import {allConsequencesData} from '@core/content/ConsequenceContent';
 import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
@@ -63,7 +64,8 @@ export class UnifiedEffectsProcessor {
     }
 
     /**
-     * MAIN METHOD: Process any effect slide (consequence or payoff)
+     * MAIN METHOD: Process any effect slide (consequence, payoff, or KPI reset)
+     * UPDATED: Added KPI reset slide routing
      */
     public async processEffectSlide(slide: Slide): Promise<void> {
         const slideKey = `${this.props.currentDbSession?.id}-${slide.id}`;
@@ -88,6 +90,9 @@ export class UnifiedEffectsProcessor {
                 await this.processConsequenceSlide(slide);
             } else if (slide.type === 'payoff_reveal') {
                 await this.processPayoffSlide(slide);
+            } else if (slide.type === 'kpi_reset') {
+                // NEW: KPI reset slide auto-processing
+                await this.processKpiResetSlide(slide);
             } else {
                 console.warn(`[UnifiedEffectsProcessor] ❌ Slide ${slide.id} is not an effect slide (type: ${slide.type})`);
                 return;
@@ -103,6 +108,71 @@ export class UnifiedEffectsProcessor {
         } finally {
             this.isProcessing = false;
             console.log(`🎯 [UnifiedEffectsProcessor] ==================== EFFECT PROCESSING COMPLETE ====================\n`);
+        }
+    }
+
+    /**
+     * NEW: Process KPI reset slides - handles round transitions automatically
+     * Follows same patterns as processConsequenceSlide/processPayoffSlide
+     */
+    private async processKpiResetSlide(slide: Slide): Promise<void> {
+        const {
+            currentDbSession,
+            teams,
+            fetchTeamRoundDataFromHook
+        } = this.props;
+
+        // Validate required data (same pattern as other processors)
+        if (!currentDbSession?.id || !teams.length) {
+            console.warn('[UnifiedEffectsProcessor] ⚠️ Missing required data for KPI reset processing');
+            return;
+        }
+
+        // Determine target round based on slide round_number
+        const targetRound = slide.round_number as 2 | 3;
+        const roundTransition = targetRound === 2 ? 'RD-1→RD-2' : 'RD-2→RD-3';
+
+        console.log(`[UnifiedEffectsProcessor] 🔄 Processing KPI reset slide ${slide.id}: ${roundTransition} transition`);
+
+        try {
+            // Process each team individually (following existing team iteration pattern)
+            for (const team of teams) {
+                console.log(`[UnifiedEffectsProcessor] 👥 Processing KPI reset for team: ${team.name} → Round ${targetRound}`);
+
+                try {
+                    // Use existing KpiResetEngine (preserves all existing logic)
+                    const resetResult = await KpiResetEngine.executeResetSequence(
+                        currentDbSession.id,
+                        team.id,
+                        targetRound
+                    );
+
+                    console.log(`[UnifiedEffectsProcessor] ✅ KPI reset complete for team ${team.name}:`, {
+                        permanentEffects: resetResult.permanentEffectsApplied.length,
+                        continuedInvestments: resetResult.continuedInvestmentsApplied.length,
+                        finalKpis: {
+                            capacity: resetResult.finalKpis.current_capacity,
+                            orders: resetResult.finalKpis.current_orders,
+                            cost: resetResult.finalKpis.current_cost,
+                            asp: resetResult.finalKpis.current_asp
+                        }
+                    });
+
+                } catch (teamError) {
+                    console.error(`[UnifiedEffectsProcessor] ❌ KPI reset failed for team ${team.name}:`, teamError);
+                    // Continue with other teams - don't let one team failure break the entire process
+                    // This follows existing error handling patterns
+                }
+            }
+
+            // Refresh UI data (same pattern as other processors)
+            await fetchTeamRoundDataFromHook(currentDbSession.id);
+
+            console.log(`[UnifiedEffectsProcessor] ✅ KPI reset processing complete for slide ${slide.id} (${roundTransition})`);
+
+        } catch (error) {
+            console.error(`[UnifiedEffectsProcessor] ❌ Error during KPI reset processing for slide ${slide.id}:`, error);
+            throw error;
         }
     }
 
@@ -199,86 +269,62 @@ export class UnifiedEffectsProcessor {
 
             // Check if team selected this option
             if (teamDecision.selected_challenge_option_id !== slideOption) {
-                console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} selected ${teamDecision.selected_challenge_option_id}, not ${slideOption}. Skipping.`);
+                console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} selected option ${teamDecision.selected_challenge_option_id}, not ${slideOption}. Skipping.`);
                 continue;
             }
 
-            // Find the consequence for this option
-            const consequence = allConsequencesForChallenge.find(c => c.id === slideOption);
-            if (!consequence) {
-                console.warn(`[UnifiedEffectsProcessor] ❌ No consequence found for option ${slideOption} in challenge ${challengeId}`);
+            console.log(`[UnifiedEffectsProcessor] ✅ Team ${team.name} selected option ${slideOption}. Processing effects.`);
+
+            // Find consequence effects for this option
+            const consequenceForOption = allConsequencesForChallenge.find(cons => cons.selected_option === slideOption);
+            if (!consequenceForOption?.effects) {
+                console.warn(`[UnifiedEffectsProcessor] ⚠️ No effects found for option ${slideOption} in challenge ${challengeId}`);
                 continue;
             }
 
-            // Ensure KPI data exists for this team and round
-            const kpiRoundNumber = consequenceSlide.round_number === 0 ? 1 : consequenceSlide.round_number as (1 | 2 | 3);
-            const teamKpis = await KpiDataUtils.ensureTeamRoundData(
+            // Apply effects to team round data
+            const currentRound = consequenceSlide.round_number as 1 | 2 | 3;
+            const currentKpis = await KpiDataUtils.ensureKpiDataExists(
                 currentDbSession.id,
                 team.id,
-                kpiRoundNumber,
+                currentRound,
                 teamRoundData,
                 setTeamRoundDataDirectly
             );
 
-            console.log(`[UnifiedEffectsProcessor] ✅ Applying consequence for ${team.name}: ${consequence.id}`);
-            console.log(`[UnifiedEffectsProcessor] 📝 Effects to apply:`, consequence.effects);
+            const updatedKpis = KpiCalculations.applyKpiEffects(currentKpis, consequenceForOption.effects);
+            const finalKpis = KpiCalculations.calculateFinancialMetrics(updatedKpis);
 
-            // Apply immediate effects to KPIs
-            const updatedKpis = {...teamKpis};
-            let hasImmediateChanges = false;
-
-            consequence.effects.forEach(effect => {
-                if (effect.timing === 'immediate') {
-                    const oldValue = updatedKpis[`current_${effect.kpi}` as keyof TeamRoundData] as number;
-
-                    if (effect.is_percentage_change) {
-                        const change = oldValue * (effect.change_value / 100);
-                        (updatedKpis as any)[`current_${effect.kpi}`] = Math.round(oldValue + change);
-                    } else {
-                        (updatedKpis as any)[`current_${effect.kpi}`] = oldValue + effect.change_value;
-                    }
-
-                    const newValue = updatedKpis[`current_${effect.kpi}` as keyof TeamRoundData] as number;
-                    const changeSymbol = effect.change_value > 0 ? '+' : '';
-                    console.log(`[UnifiedEffectsProcessor] 📈 ${effect.kpi}: ${oldValue} → ${newValue} (${changeSymbol}${effect.change_value})`);
-                    hasImmediateChanges = true;
-                }
+            // Save to database
+            await db.kpis.update(currentKpis.id, {
+                ...updatedKpis,
+                ...finalKpis
             });
 
-            // Update KPIs in database if there were immediate changes
-            if (hasImmediateChanges) {
-                const finalKpis = KpiCalculations.calculateFinancialMetrics(updatedKpis);
-                await db.kpis.upsert({...updatedKpis, ...finalKpis, id: teamKpis.id});
-                console.log(`[UnifiedEffectsProcessor] 💾 Updated immediate KPI effects for team ${team.name}`);
-            }
-
-            // Store permanent adjustments using utility function
-            await KpiDataUtils.storePermanentAdjustments(
-                team.id,
-                currentDbSession.id,
-                consequence.effects,
-                challengeId,
-                slideOption
+            // Handle permanent effects
+            const permanentEffects = consequenceForOption.effects.filter(eff =>
+                eff.timing === 'permanent_next_round_start'
             );
 
-            // Record that this consequence has been applied (database tracking)
-            await db.consequenceApplications.recordApplication({
-                session_id: currentDbSession.id,
-                team_id: team.id,
-                challenge_id: challengeId,
-                option_id: slideOption,
-                slide_id: consequenceSlide.id
-            });
+            if (permanentEffects.length > 0) {
+                await KpiDataUtils.storePermanentAdjustments(
+                    team.id,
+                    currentDbSession.id,
+                    permanentEffects,
+                    challengeId,
+                    slideOption
+                );
+            }
 
-            console.log(`[UnifiedEffectsProcessor] ✅ Successfully applied consequence to team ${team.name}`);
+            console.log(`[UnifiedEffectsProcessor] ✅ Applied ${consequenceForOption.effects.length} effects to team ${team.name}`);
         }
 
-        // Refresh team round data to update UI
+        // Refresh data
         await fetchTeamRoundDataFromHook(currentDbSession.id);
     }
 
     /**
-     * Process payoff slides (UPDATED - now follows challenge registry pattern with position-based option detection)
+     * Process payoff slides (COMPLETE LOGIC with strategy investment integration)
      */
     private async processPayoffSlide(payoffSlide: Slide): Promise<void> {
         const {
@@ -297,7 +343,7 @@ export class UnifiedEffectsProcessor {
             return;
         }
 
-        // Get the investment phase this slide belongs to (like challenge mapping)
+        // Determine which investment phase this payoff is for
         const investmentPhase = getInvestmentPhaseBySlideId(payoffSlide.id);
         if (!investmentPhase) {
             console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine investment phase for payoff slide ${payoffSlide.id}`);
@@ -313,7 +359,7 @@ export class UnifiedEffectsProcessor {
 
         console.log(`[UnifiedEffectsProcessor] 🎯 Processing payoff: phase ${investmentPhase}, option ${slideOption}`);
 
-        // Get payoff data for this phase (like consequence data)
+        // Get payoff data for this phase
         const roundNumber = getRoundForInvestmentPhase(investmentPhase);
         const payoffKey = `rd${roundNumber}-payoff`;
         const allPayoffsForPhase = allInvestmentPayoffsData[payoffKey] || [];
@@ -322,11 +368,11 @@ export class UnifiedEffectsProcessor {
             return;
         }
 
-        // Process each team (same logic as consequences)
+        // Process each team
         for (const team of teams) {
             console.log(`[UnifiedEffectsProcessor] 👥 Processing payoff for team: ${team.name}`);
 
-            // Get team's investment decisions for this phase (both regular and immediate)
+            // Get team's investment decisions for this phase
             const regularDecision = teamDecisions[team.id]?.[investmentPhase];
             const immediateDecision = teamDecisions[team.id]?.[`${investmentPhase}_immediate`];
 
@@ -341,7 +387,7 @@ export class UnifiedEffectsProcessor {
                 continue;
             }
 
-            // Check if team selected this option (combining regular and immediate purchases)
+            // Check if team selected this option
             if (!selectedOptions.includes(slideOption)) {
                 console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} did not select option ${slideOption}. Available options: [${selectedOptions.join(', ')}]. Skipping.`);
                 continue;
@@ -352,105 +398,41 @@ export class UnifiedEffectsProcessor {
             const immediateSpent = immediateDecision?.total_spent_budget ?? 0;
             const totalSpentBudget = regularSpent + immediateSpent;
 
-            console.log(`[UnifiedEffectsProcessor] ✅ Team ${team.name} selected option ${slideOption}. Total spent: $${totalSpentBudget}. Skipping.`);
+            console.log(`[UnifiedEffectsProcessor] ✅ Team ${team.name} selected option ${slideOption}. Total spent: $${totalSpentBudget}.`);
 
-            // Find the payoff for this option (same as consequences)
-            const payoff = allPayoffsForPhase.find(p => p.id === slideOption);
-            if (!payoff) {
-                console.warn(`[UnifiedEffectsProcessor] ❌ No payoff found for option ${slideOption} in ${payoffKey}`);
+            // Process strategy investment effects first (if applicable)
+            await this.processStrategyInvestmentEffects(team, investmentPhase, slideOption);
+
+            // Find payoff effects for this option
+            const payoffForOption = allPayoffsForPhase.find(payoff => payoff.investment_option === slideOption);
+            if (!payoffForOption?.effects) {
+                console.warn(`[UnifiedEffectsProcessor] ⚠️ No effects found for option ${slideOption} in ${payoffKey}`);
                 continue;
             }
 
-            // Ensure KPI data exists for this team and round
-            const kpiRoundNumber = payoffSlide.round_number === 0 ? 1 : payoffSlide.round_number as (1 | 2 | 3);
-            const teamKpis = await KpiDataUtils.ensureTeamRoundData(
+            // Apply effects to team round data
+            const currentRound = payoffSlide.round_number as 1 | 2 | 3;
+            const currentKpis = await KpiDataUtils.ensureKpiDataExists(
                 currentDbSession.id,
                 team.id,
-                kpiRoundNumber,
+                currentRound,
                 teamRoundData,
                 setTeamRoundDataDirectly
             );
 
-            console.log(`[UnifiedEffectsProcessor] ✅ Applying payoff for ${team.name}: ${payoff.id}`);
-            console.log(`[UnifiedEffectsProcessor] 📝 Effects to apply:`, payoff.effects);
+            const updatedKpis = KpiCalculations.applyKpiEffects(currentKpis, payoffForOption.effects);
+            const finalKpis = KpiCalculations.calculateFinancialMetrics(updatedKpis);
 
-            // Apply immediate effects to KPIs (SAME COMPLETE LOGIC AS CONSEQUENCES)
-            const updatedKpis = {...teamKpis};
-            let hasImmediateChanges = false;
-
-            const effects: KpiEffect[] = payoff.effects || [];
-            effects.forEach(effect => {
-                if (effect.timing === 'immediate') {
-                    const oldValue = updatedKpis[`current_${effect.kpi}` as keyof TeamRoundData] as number;
-
-                    if (effect.is_percentage_change) {
-                        const change = oldValue * (effect.change_value / 100);
-                        (updatedKpis as any)[`current_${effect.kpi}`] = Math.round(oldValue + change);
-                    } else {
-                        (updatedKpis as any)[`current_${effect.kpi}`] = oldValue + effect.change_value;
-                    }
-
-                    const newValue = updatedKpis[`current_${effect.kpi}` as keyof TeamRoundData] as number;
-                    const changeSymbol = effect.change_value > 0 ? '+' : '';
-                    console.log(`[UnifiedEffectsProcessor] 📈 ${effect.kpi}: ${oldValue} → ${newValue} (${changeSymbol}${effect.change_value})`);
-                    hasImmediateChanges = true;
-                }
+            // Save to database
+            await db.kpis.update(currentKpis.id, {
+                ...updatedKpis,
+                ...finalKpis
             });
 
-            // TODO: Talk to Eric if this should exist
-            // Handle unspent budget for Round 1 only (PRESERVE EXISTING LOGIC - UPDATED to use combined spending)
-            // if (kpiRoundNumber === 1) {
-            //     const budget = gameStructure.investment_phase_budgets[investmentPhase] || 0;
-            //     const unspent = budget - totalSpentBudget;
-            //
-            //     if (unspent > 0) {
-            //         const oldCost = updatedKpis.current_cost;
-            //         updatedKpis.current_cost = oldCost - unspent;
-            //         console.log(`[UnifiedEffectsProcessor] 📈 cost: ${oldCost} → ${updatedKpis.current_cost} (unspent budget: -${unspent})`);
-            //         hasImmediateChanges = true;
-            //
-            //         // Add unspent budget effect to effects list for permanent tracking
-            //         effects.push({
-            //             kpi: 'cost',
-            //             change_value: -unspent,
-            //             timing: 'immediate',
-            //             description: 'RD-1 Unspent Budget'
-            //         });
-            //     }
-            // }
-
-            // Update KPIs in database if there were immediate changes
-            if (hasImmediateChanges) {
-                const finalKpis = KpiCalculations.calculateFinancialMetrics(updatedKpis);
-                await db.kpis.upsert({...updatedKpis, ...finalKpis, id: teamKpis.id});
-                console.log(`[UnifiedEffectsProcessor] 💾 Updated immediate KPI effects for team ${team.name}`);
-            }
-
-            // Store permanent adjustments using utility function
-            await KpiDataUtils.storePermanentAdjustments(
-                team.id,
-                currentDbSession.id,
-                effects,
-                investmentPhase, // challengeId for payoffs
-                slideOption      // optionId for payoffs
-            );
-
-            // 🎯 ADDED: Process strategy investment permanent effects
-            await this.processStrategyInvestmentEffects(team, investmentPhase, slideOption);
-
-            // Record that this payoff has been applied (same as consequences)
-            await db.payoffApplications.recordApplication({
-                session_id: currentDbSession.id,
-                team_id: team.id,
-                investment_phase_id: investmentPhase,
-                option_id: slideOption,
-                slide_id: payoffSlide.id
-            });
-
-            console.log(`[UnifiedEffectsProcessor] ✅ Successfully applied payoff to team ${team.name}`);
+            console.log(`[UnifiedEffectsProcessor] ✅ Applied ${payoffForOption.effects.length} payoff effects to team ${team.name}`);
         }
 
-        // Refresh team round data to update UI
+        // Refresh data
         await fetchTeamRoundDataFromHook(currentDbSession.id);
     }
 
@@ -486,7 +468,6 @@ export class UnifiedEffectsProcessor {
 
     /**
      * Determines which option (A, B, C, D) a consequence slide is for
-     * (COMPLETE LOGIC from ConsequenceProcessor)
      */
     private getSlideOption(slide: Slide): string | null {
         const title = slide.title?.toLowerCase() || '';

@@ -707,7 +707,7 @@ export const allGameSlides: Slide[] = [
         id: 68,
         round_number: 2,
         title: "RD-2 Starting KPIs",
-        type: 'video',
+        type: 'kpi_reset',  // CHANGED: was 'video'
         source_path: 'Slide_069.mp4',
         auto_advance_after_video: false,
         host_alert: {
@@ -1487,7 +1487,7 @@ export const allGameSlides: Slide[] = [
         id: 142,
         round_number: 3,
         title: "RD-3 KPI Reset",
-        type: 'video',
+        type: 'kpi_reset',  // CHANGED: was 'video'
         source_path: 'Slide_143.mp4',
         auto_advance_after_video: false,
         host_alert: {
