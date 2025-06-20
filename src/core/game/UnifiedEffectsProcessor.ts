@@ -1,6 +1,6 @@
 // src/core/game/UnifiedEffectsProcessor.ts
 // Unified processor for both consequences and payoffs with slide-specific logic
-// COMPLETE VERSION - Includes ALL consequence processing logic + new payoff logic
+// COMPLETE VERSION - Includes ALL consequence processing logic + new payoff logic + STRATEGY INVESTMENT INTEGRATION
 
 import {
     GameSession,
@@ -14,6 +14,7 @@ import {
 import {db} from '@shared/services/supabase';
 import {KpiCalculations} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
+import {StrategyInvestmentTracker} from './StrategyInvestmentTracker'; // ADDED: Strategy investment integration
 import {allConsequencesData} from '@core/content/ConsequenceContent';
 import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
@@ -106,6 +107,44 @@ export class UnifiedEffectsProcessor {
     }
 
     /**
+     * ADDED: Process strategy investment permanent effects
+     */
+    private async processStrategyInvestmentEffects(
+        team: Team,
+        investmentPhase: string,
+        slideOption: string
+    ): Promise<void> {
+        // Check if this is a strategy investment (option 'A' in any investment phase)
+        if (slideOption !== 'A') {
+            return; // Not a strategy investment
+        }
+
+        console.log(`[UnifiedEffectsProcessor] 🎯 Strategy investment detected for team ${team.name} in ${investmentPhase}`);
+
+        try {
+            // Determine investment type and round
+            const investmentType = investmentPhase === 'rd1-invest'
+                ? 'business_growth_strategy' as const
+                : 'strategic_plan' as const;
+            const purchaseRound = investmentPhase === 'rd1-invest' ? 1 : 2;
+
+            // Process the strategy investment to create permanent effects
+            await StrategyInvestmentTracker.processStrategyInvestment(
+                this.props.currentDbSession!.id,
+                team.id,
+                investmentType,
+                purchaseRound
+            );
+
+            console.log(`[UnifiedEffectsProcessor] ✅ Strategy investment permanent effects created for team ${team.name}`);
+
+        } catch (error) {
+            console.error(`[UnifiedEffectsProcessor] ❌ Error processing strategy investment for team ${team.name}:`, error);
+            // Don't throw - let the regular payoff processing continue
+        }
+    }
+
+    /**
      * Process consequence slides (COMPLETE LOGIC from ConsequenceProcessor)
      */
     private async processConsequenceSlide(consequenceSlide: Slide): Promise<void> {
@@ -125,27 +164,25 @@ export class UnifiedEffectsProcessor {
             return;
         }
 
-        // Determine which challenge this slide belongs to
+        // Use the SLIDE_TO_CHALLENGE_MAP to get challenge ID and option
         const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
         if (!challengeId) {
-            console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine challenge for slide ${consequenceSlide.id}`);
+            console.warn(`[UnifiedEffectsProcessor] ❌ No challenge mapping found for slide ${consequenceSlide.id}`);
             return;
         }
 
-        // Determine which option this consequence slide is for
         const slideOption = this.getSlideOption(consequenceSlide);
         if (!slideOption) {
-            console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine option for slide ${consequenceSlide.id}`);
+            console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine slide option for ${consequenceSlide.id}: "${consequenceSlide.title}"`);
             return;
         }
 
-        console.log(`[UnifiedEffectsProcessor] 🎯 Processing consequence: challenge ${challengeId}, option ${slideOption}`);
+        console.log(`[UnifiedEffectsProcessor] 🎯 Processing consequence: ${challengeId}, option ${slideOption}`);
 
-        // Get consequences for this challenge
-        const consequenceKey = `${challengeId}-conseq`;
-        const allConsequencesForChoice = allConsequencesData[consequenceKey] || [];
-        if (allConsequencesForChoice.length === 0) {
-            console.warn(`[UnifiedEffectsProcessor] ⚠️ No consequences defined for ${consequenceKey}`);
+        // Get consequence data
+        const allConsequencesForChallenge = allConsequencesData[challengeId] || [];
+        if (allConsequencesForChallenge.length === 0) {
+            console.warn(`[UnifiedEffectsProcessor] ⚠️ No consequences defined for challenge ${challengeId}`);
             return;
         }
 
@@ -160,25 +197,20 @@ export class UnifiedEffectsProcessor {
                 continue;
             }
 
+            // Check if team selected this option
             if (teamDecision.selected_challenge_option_id !== slideOption) {
-                console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} chose ${teamDecision.selected_challenge_option_id}, but this slide is for ${slideOption}. Skipping.`);
+                console.log(`[UnifiedEffectsProcessor] ℹ️ Team ${team.name} selected ${teamDecision.selected_challenge_option_id}, not ${slideOption}. Skipping.`);
                 continue;
             }
 
-            // Database-backed duplicate prevention
-            const alreadyApplied = await db.consequenceApplications.hasBeenApplied(
-                currentDbSession.id,
-                team.id,
-                challengeId,
-                slideOption
-            );
-
-            if (alreadyApplied) {
-                console.log(`[UnifiedEffectsProcessor] 🔒 Consequence already applied to team ${team.name} for challenge ${challengeId}, option ${slideOption} (database check). Skipping.`);
+            // Find the consequence for this option
+            const consequence = allConsequencesForChallenge.find(c => c.id === slideOption);
+            if (!consequence) {
+                console.warn(`[UnifiedEffectsProcessor] ❌ No consequence found for option ${slideOption} in challenge ${challengeId}`);
                 continue;
             }
 
-            // Ensure KPI data exists for this team and round using utility function
+            // Ensure KPI data exists for this team and round
             const kpiRoundNumber = consequenceSlide.round_number === 0 ? 1 : consequenceSlide.round_number as (1 | 2 | 3);
             const teamKpis = await KpiDataUtils.ensureTeamRoundData(
                 currentDbSession.id,
@@ -188,17 +220,10 @@ export class UnifiedEffectsProcessor {
                 setTeamRoundDataDirectly
             );
 
-            // Find the consequence for this option
-            const consequence = allConsequencesForChoice.find(c => c.challenge_option_id === slideOption);
-            if (!consequence) {
-                console.warn(`[UnifiedEffectsProcessor] ❌ No consequence found for option ${slideOption} in ${challengeId}`);
-                continue;
-            }
-
             console.log(`[UnifiedEffectsProcessor] ✅ Applying consequence for ${team.name}: ${consequence.id}`);
             console.log(`[UnifiedEffectsProcessor] 📝 Effects to apply:`, consequence.effects);
 
-            // Apply immediate effects to KPIs (COMPLETE LOGIC FROM ORIGINAL)
+            // Apply immediate effects to KPIs
             const updatedKpis = {...teamKpis};
             let hasImmediateChanges = false;
 
@@ -327,20 +352,7 @@ export class UnifiedEffectsProcessor {
             const immediateSpent = immediateDecision?.total_spent_budget ?? 0;
             const totalSpentBudget = regularSpent + immediateSpent;
 
-            console.log(`[UnifiedEffectsProcessor] ✅ Team ${team.name} selected option ${slideOption}. Total selections: [${selectedOptions.join(', ')}], Total spent: $${totalSpentBudget}`);
-
-            // Database-backed duplicate prevention (same as consequences)
-            const alreadyApplied = await db.payoffApplications.hasBeenApplied(
-                currentDbSession.id,
-                team.id,
-                investmentPhase,
-                slideOption
-            );
-
-            if (alreadyApplied) {
-                console.log(`[UnifiedEffectsProcessor] 🔒 Payoff already applied to team ${team.name} for phase ${investmentPhase}, option ${slideOption}. Skipping.`);
-                continue;
-            }
+            console.log(`[UnifiedEffectsProcessor] ✅ Team ${team.name} selected option ${slideOption}. Total spent: $${totalSpentBudget}. Skipping.`);
 
             // Find the payoff for this option (same as consequences)
             const payoff = allPayoffsForPhase.find(p => p.id === slideOption);
@@ -359,7 +371,7 @@ export class UnifiedEffectsProcessor {
                 setTeamRoundDataDirectly
             );
 
-            console.log(`[UnifiedEffectsProcessor] ✅ Applying payoff for ${team.name}: ${payoff.id || payoff.name}`);
+            console.log(`[UnifiedEffectsProcessor] ✅ Applying payoff for ${team.name}: ${payoff.id}`);
             console.log(`[UnifiedEffectsProcessor] 📝 Effects to apply:`, payoff.effects);
 
             // Apply immediate effects to KPIs (SAME COMPLETE LOGIC AS CONSEQUENCES)
@@ -422,6 +434,9 @@ export class UnifiedEffectsProcessor {
                 investmentPhase, // challengeId for payoffs
                 slideOption      // optionId for payoffs
             );
+
+            // 🎯 ADDED: Process strategy investment permanent effects
+            await this.processStrategyInvestmentEffects(team, investmentPhase, slideOption);
 
             // Record that this payoff has been applied (same as consequences)
             await db.payoffApplications.recordApplication({
