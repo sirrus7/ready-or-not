@@ -2,7 +2,7 @@
 import React, {useState, useEffect} from 'react';
 import {Slide} from '@shared/types/game';
 import {AlertCircle, ListChecks, RefreshCw, Film} from 'lucide-react';
-import LeaderboardChartDisplay from '@shared/components/UI/LeaderboardChart';
+import {LeaderboardChartDisplay} from '@shared/components/UI/Leaderboard';
 import {isVideo, useHostVideo, usePresentationVideo} from '@shared/utils/video';
 import HostVideoControls from '@shared/components/Video/HostVideoControls';
 import {useSignedMediaUrl} from '@shared/hooks/useSignedMediaUrl';
@@ -33,7 +33,10 @@ const SlideContent: React.FC<{ slide: Slide, sourceUrl: string, className?: stri
         case 'leaderboard_chart':
             return (
                 <div className={`w-full h-full ${className}`}>
-                    <LeaderboardChartDisplay slideId={slide.id} currentRoundForDisplay={slide.round_number}/>
+                    <LeaderboardChartDisplay
+                        slideId={slide.id}
+                        currentRoundForDisplay={slide.round_number}
+                    />
                 </div>
             );
         default:
