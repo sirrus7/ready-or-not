@@ -618,7 +618,6 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Leaderboard: Capacity & Orders",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd1_leaderboard_capord',
         main_text: "Round 1 Leaderboard: Capacity & Orders",
         sub_text: "Comparison of production capability and market demand."
     },
@@ -627,7 +626,6 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Leaderboard: Cost Per Board",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd1_leaderboard_cpb',
         main_text: "Round 1 Leaderboard: Cost Per Board",
         sub_text: "Efficiency comparison among teams."
     },
@@ -636,7 +634,6 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Leaderboard: Total Costs",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd1_leaderboard_costs',
         main_text: "Round 1 Leaderboard: Total Operational Costs",
         sub_text: "Overall spending by each team."
     },
@@ -645,7 +642,6 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Leaderboard: ASP",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd1_leaderboard_asp',
         main_text: "Round 1 Leaderboard: Average Selling Price",
         sub_text: "Pricing strategy comparison."
     },
@@ -654,7 +650,6 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Leaderboard: Revenue",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd1_leaderboard_revenue',
         main_text: "Round 1 Leaderboard: Total Revenue",
         sub_text: "Revenue generation comparison."
     },
@@ -663,7 +658,6 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Leaderboard: Net Margin",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd1_leaderboard_margin',
         main_text: "Round 1 Leaderboard: Net Profit Margin",
         sub_text: "Profitability percentage comparison."
     },
@@ -672,7 +666,6 @@ export const allGameSlides: Slide[] = [
         round_number: 1,
         title: "RD-1 Leaderboard: Net Income",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd1_leaderboard_income',
         main_text: "Round 1 Leaderboard: Net Income",
         sub_text: "Overall profitability ranking after Round 1."
     },

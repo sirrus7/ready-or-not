@@ -15,9 +15,8 @@ interface LeaderboardItem {
 }
 
 interface LeaderboardChartDisplayProps {
-    dataKey: string; // e.g., "rd1_leaderboard_income", "rd1_leaderboard_capord"
-    currentRoundForDisplay: number | null; // To fetch data for the correct round
-    // Optional props to provide data directly when AppContext isn't available
+    slideId: number; // Changed from dataKey to slideId
+    currentRoundForDisplay: number | null;
     teams?: Team[];
     teamRoundData?: Record<string, Record<number, TeamRoundData>>;
 }
@@ -132,11 +131,51 @@ const useSafeGameContext = () => {
 };
 
 const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
-                                                                             dataKey,
+                                                                             slideId, // Changed prop name
                                                                              currentRoundForDisplay,
                                                                              teams: propTeams,
                                                                              teamRoundData: propTeamRoundData
                                                                          }) => {
+    // Generate dataKey from slideId
+    const dataKey = useMemo(() => {
+        const getDataKey = (slideId: number): string => {
+            switch(slideId) {
+                // Round 1 leaderboards
+                case 63.1: return 'rd1_leaderboard_capord';
+                case 63.2: return 'rd1_leaderboard_cpb';
+                case 63.3: return 'rd1_leaderboard_costs';
+                case 63.4: return 'rd1_leaderboard_asp';
+                case 63.5: return 'rd1_leaderboard_revenue';
+                case 63.6: return 'rd1_leaderboard_margin';
+                case 63.7: return 'rd1_leaderboard_income';
+
+                // Round 2 leaderboards
+                case 140.1: return 'rd2_leaderboard_capord';
+                case 140.2: return 'rd2_leaderboard_cpb';
+                case 140.3: return 'rd2_leaderboard_costs';
+                case 140.4: return 'rd2_leaderboard_asp';
+                case 140.5: return 'rd2_leaderboard_revenue';
+                case 140.6: return 'rd2_leaderboard_margin';
+                case 140.7: return 'rd2_leaderboard_income';
+
+                // Round 3 leaderboards
+                case 196.1: return 'rd3_leaderboard_capord';
+                case 196.2: return 'rd3_leaderboard_cpb';
+                case 196.3: return 'rd3_leaderboard_costs';
+                case 196.4: return 'rd3_leaderboard_asp';
+                case 196.5: return 'rd3_leaderboard_revenue';
+                case 196.6: return 'rd3_leaderboard_margin';
+                case 196.7: return 'rd3_leaderboard_income';
+
+                default:
+                    console.warn(`Unknown leaderboard slide ID: ${slideId}`);
+                    return '';
+            }
+        };
+
+        return getDataKey(slideId);
+    }, [slideId]);
+
     // Safely try to get data from AppContext
     const gameContext = useSafeGameContext();
     const contextState = gameContext?.state;

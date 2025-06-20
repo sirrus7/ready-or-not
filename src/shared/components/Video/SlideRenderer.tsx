@@ -33,8 +33,7 @@ const SlideContent: React.FC<{ slide: Slide, sourceUrl: string, className?: stri
         case 'leaderboard_chart':
             return (
                 <div className={`w-full h-full ${className}`}>
-                    <LeaderboardChartDisplay dataKey={slide.interactive_data_key!}
-                                             currentRoundForDisplay={slide.round_number}/>
+                    <LeaderboardChartDisplay slideId={slide.id} currentRoundForDisplay={slide.round_number}/>
                 </div>
             );
         default:
@@ -107,16 +106,19 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
         }
 
         if (isVideoSlide) {
-            // For video, the <video> tag handles display. No extra content needed unless loading.
             return null;
         }
 
-        // For non-video content, render it if the URL is ready.
+        // ADD THIS: Special handling for leaderboard charts (no source_path needed)
+        if (slide.type === 'leaderboard_chart') {
+            return <SlideContent slide={slide} sourceUrl="" className="animate-fade-in"/>;
+        }
+
+        // For other non-video content, render it if the URL is ready.
         if (sourceUrl) {
             return <SlideContent slide={slide} sourceUrl={sourceUrl} className="animate-fade-in"/>;
         }
 
-        // This case handles non-video slides that are currently loading their URL.
         return null;
     };
 
@@ -134,7 +136,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
 
             {/* Overlay for Non-Video Content */}
             <div
-                className={`absolute inset-0 transition-opacity duration-300 flex items-center justify-center ${!isVideoSlide && sourceUrl ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                className={`absolute inset-0 transition-opacity duration-300 flex items-center justify-center ${
+                    (!isVideoSlide || slide?.type === 'leaderboard_chart') && renderContent() ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}>
                 {renderContent()}
             </div>
 
