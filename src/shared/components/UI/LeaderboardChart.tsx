@@ -1,4 +1,5 @@
-// src/components/Display/LeaderboardChartDisplay.tsx
+// src/shared/components/UI/LeaderboardChart.tsx
+// UPDATED to handle all RD-1, RD-2, and RD-3 leaderboard types
 import React, {useMemo} from 'react';
 import {useGameContext} from '@app/providers/GameProvider.tsx';
 import {KpiKey} from '@shared/types/game';
@@ -10,24 +11,27 @@ interface LeaderboardItem {
     value: number;
     formattedValue: string;
     rank: number;
+    secondaryValue?: string; // For capacity & orders display
 }
 
 interface LeaderboardChartDisplayProps {
-    dataKey: string; // e.g., "rd1_leaderboard_income", "rd1_leaderboard_cap_ord"
+    dataKey: string; // e.g., "rd1_leaderboard_income", "rd1_leaderboard_capord"
     currentRoundForDisplay: number | null; // To fetch data for the correct round
     // Optional props to provide data directly when AppContext isn't available
     teams?: Team[];
     teamRoundData?: Record<string, Record<number, TeamRoundData>>;
 }
 
-const formatValueForDisplay = (value: number, metric: KpiKey | 'net_margin' | 'cost_per_board'): string => {
+const formatValueForDisplay = (value: number, metric: KpiKey | 'net_margin' | 'cost_per_board' | 'revenue' | 'net_income'): string => {
     if (isNaN(value) || value === null || value === undefined) return 'N/A';
+
     switch (metric) {
         case 'cost':
         case 'revenue':
         case 'net_income':
+            return `$${value.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
         case 'asp':
-        case 'cost_per_board': // Assuming cost per board is also currency
+        case 'cost_per_board':
             return `$${value.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
         case 'capacity':
         case 'orders':
@@ -40,16 +44,16 @@ const formatValueForDisplay = (value: number, metric: KpiKey | 'net_margin' | 'c
 };
 
 const getMetricAndSortOrder = (dataKey: string): {
-    metric: KpiKey | 'net_margin' | 'cost_per_board',
+    metric: KpiKey | 'net_margin' | 'cost_per_board' | 'revenue' | 'net_income',
     kpiLabel: string,
     higherIsBetter: boolean,
     secondaryMetric?: KpiKey,
     secondaryKpiLabel?: string
 } => {
-    // Example: "rd1_leaderboard_income" -> metric: net_income, label: "Net Income"
-    // Example: "rd1_leaderboard_cap_ord" -> metric: capacity, secondaryMetric: orders
+    // Parse the dataKey to extract the metric
+    // Format: "rd1_leaderboard_income", "rd2_leaderboard_capord", etc.
     const parts = dataKey.split('_');
-    const metricKey = parts[parts.length - 1]; // last part e.g. "income", "capord", "cpb"
+    const metricKey = parts[parts.length - 1]; // Get the last part (income, capord, cpb, etc.)
 
     switch (metricKey) {
         case 'income':
@@ -69,9 +73,9 @@ const getMetricAndSortOrder = (dataKey: string): {
                 secondaryKpiLabel: 'Orders'
             };
         case 'capacity':
-            return {metric: 'capacity', kpiLabel: 'Capacity', higherIsBetter: true}; // if just capacity
+            return {metric: 'capacity', kpiLabel: 'Capacity', higherIsBetter: true};
         case 'orders':
-            return {metric: 'orders', kpiLabel: 'Orders Filled', higherIsBetter: true}; // if just orders
+            return {metric: 'orders', kpiLabel: 'Orders Filled', higherIsBetter: true};
         case 'costs':
             return {metric: 'cost', kpiLabel: 'Total Costs', higherIsBetter: false}; // Lower costs are better
         case 'cpb':
@@ -81,6 +85,51 @@ const getMetricAndSortOrder = (dataKey: string): {
     }
 };
 
+const calculateKpiValue = (roundData: TeamRoundData, metric: KpiKey | 'net_margin' | 'cost_per_board' | 'revenue' | 'net_income'): number => {
+    if (!roundData) return 0;
+
+    switch (metric) {
+        case 'capacity':
+            return roundData.current_capacity || 0;
+        case 'orders':
+            return roundData.current_orders || 0;
+        case 'cost':
+            return roundData.current_cost || 0;
+        case 'asp':
+            return roundData.current_asp || 0;
+        case 'revenue':
+            // Revenue = Orders × ASP
+            return (roundData.current_orders || 0) * (roundData.current_asp || 0);
+        case 'net_income': {
+            // Net Income = Revenue - Cost
+            const revenue = (roundData.current_orders || 0) * (roundData.current_asp || 0);
+            return revenue - (roundData.current_cost || 0);
+        }
+        case 'net_margin': {
+            // Net Margin = (Revenue - Cost) / Revenue
+            const rev = (roundData.current_orders || 0) * (roundData.current_asp || 0);
+            const cost = roundData.current_cost || 0;
+            return rev > 0 ? (rev - cost) / rev : 0; // Return as decimal (0.15 = 15%)
+        }
+        case 'cost_per_board': {
+            // Cost Per Board = Total Cost / Orders
+            const orders = roundData.current_orders || 1; // Avoid division by zero
+            return (roundData.current_cost || 0) / orders;
+        }
+        default:
+            return 0;
+    }
+};
+
+// Hook to safely get game context
+const useSafeGameContext = () => {
+    try {
+        return useGameContext();
+    } catch (error) {
+        // Context not available, return null
+        return null;
+    }
+};
 
 const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
                                                                              dataKey,
@@ -88,14 +137,9 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
                                                                              teams: propTeams,
                                                                              teamRoundData: propTeamRoundData
                                                                          }) => {
-    // Try to get data from AppContext, but fall back to props if not available
-    let contextState = null;
-    try {
-        const {state} = useGameContext();
-        contextState = state;
-    } catch (error) {
-        console.log('[LeaderboardChartDisplay] AppContext not available, using prop data');
-    }
+    // Safely try to get data from AppContext
+    const gameContext = useSafeGameContext();
+    const contextState = gameContext?.state;
 
     const teams = propTeams || contextState?.teams || [];
     const teamRoundData = propTeamRoundData || contextState?.teamRoundData || {};
@@ -116,53 +160,64 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
             roundData: teamRoundData[team.id]?.[currentRoundForDisplay]
         }));
 
-        const valuedData = dataForRound.map(item => {
-            let value: number | undefined;
-            let secondaryValue: number | undefined;
+        const itemsWithValues = dataForRound
+            .map(({team, roundData}) => {
+                if (!roundData) return null;
 
-            if (item.roundData) {
-                if (metric === 'cost_per_board') {
-                    // Cost per board = total cost / total orders (if orders > 0)
-                    value = (item.roundData.current_orders > 0) ? (item.roundData.current_cost / item.roundData.current_orders) : Infinity; // Higher if no orders to rank last
-                    if (value === Infinity && !higherIsBetter) value = Number.MAX_SAFE_INTEGER; // Effectively last for lowerIsBetter
-                } else {
-                    value = item.roundData[metric as keyof TeamRoundData] as number | undefined;
+                const value = calculateKpiValue(roundData, metric);
+                const formattedValue = formatValueForDisplay(value, metric);
+
+                // For capacity & orders, show both values
+                let secondaryValue: string | undefined;
+                if (secondaryMetric) {
+                    const secValue = calculateKpiValue(roundData, secondaryMetric);
+                    secondaryValue = formatValueForDisplay(secValue, secondaryMetric);
                 }
-                if (secondaryMetric && item.roundData) {
-                    secondaryValue = item.roundData[secondaryMetric as keyof TeamRoundData] as number | undefined;
-                }
-            }
-            return {
-                teamName: item.team.name,
-                value: value ?? (higherIsBetter ? -Infinity : Infinity), // Default for sorting if no data
-                formattedValue: value !== undefined ? formatValueForDisplay(value, metric) : 'N/A',
-                secondaryValue: secondaryValue !== undefined && secondaryMetric ? formatValueForDisplay(secondaryValue, secondaryMetric) : undefined,
-            };
-        });
 
-        const sortedData = valuedData.sort((a, b) => {
-            return higherIsBetter ? b.value - a.value : a.value - b.value;
-        });
+                return {
+                    teamName: team.name,
+                    value,
+                    formattedValue,
+                    secondaryValue,
+                    rank: 0 // Will be set after sorting
+                };
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null);
 
-        return sortedData.map((item, index) => ({
+        // Sort by value
+        const sortedItems = itemsWithValues.sort((a, b) =>
+            higherIsBetter ? b.value - a.value : a.value - b.value
+        );
+
+        // Assign ranks
+        return sortedItems.map((item, index) => ({
             ...item,
             rank: index + 1
         }));
+    }, [teams, teamRoundData, currentRoundForDisplay, metric, secondaryMetric, higherIsBetter]);
 
-    }, [teams, teamRoundData, currentRoundForDisplay, metric, higherIsBetter, secondaryMetric]);
+    // Determine round display text
+    const roundDisplay = useMemo(() => {
+        if (!currentRoundForDisplay) return 'Round';
 
-    if (!currentRoundForDisplay) {
-        return <div className="p-8 text-center text-xl text-gray-400">Leaderboard data not available for this
-            context.</div>;
-    }
+        // Check if this is a final leaderboard
+        if (dataKey.includes('rd3_leaderboard')) {
+            return 'Final Round 3';
+        }
+
+        return `Round ${currentRoundForDisplay}`;
+    }, [currentRoundForDisplay, dataKey]);
+
     if (leaderboardData.length === 0) {
-        return <div className="p-8 text-center text-xl text-gray-400">Loading leaderboard data or no teams
-            present...</div>;
+        return (
+            <div
+                className="h-full w-full flex flex-col items-center justify-center p-4 md:p-8 bg-gray-800 text-white rounded-lg shadow-2xl">
+                <Trophy size={48} className="text-yellow-400 mb-4"/>
+                <h2 className="text-2xl md:text-3xl font-bold mb-2 text-center">No Data Available</h2>
+                <p className="text-gray-400 text-center">Leaderboard data not yet available for this round.</p>
+            </div>
+        );
     }
-
-    const titleParts = dataKey.split('_');
-    const roundDisplay = titleParts[0].toUpperCase(); // RD1, RD2, etc.
-
 
     return (
         <div
