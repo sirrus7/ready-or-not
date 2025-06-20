@@ -1,8 +1,9 @@
 // src/shared/components/UI/Leaderboard/UnifiedLeaderboard.tsx
-// Modern styled component with epic Net Income winner reveal
-
-import React, {useState, useEffect} from 'react';
-import {Crown, Trophy, TrendingUp, TrendingDown, DollarSign, Target, Package, Zap} from 'lucide-react';
+import React, {useState, useEffect, useMemo} from 'react';
+import {
+    Trophy, TrendingUp, DollarSign, BarChart2, Target, Package,
+    Zap, Crown, Medal, Award
+} from 'lucide-react';
 import {LeaderboardItem} from './types';
 
 interface UnifiedLeaderboardProps {
@@ -11,179 +12,187 @@ interface UnifiedLeaderboardProps {
     secondaryKpiLabel?: string;
     roundDisplay: string;
     dataKey: string;
-    isDualBar: boolean;
+    isDualBar?: boolean;
     isNetIncomeReveal?: boolean;
 }
 
 const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                                    leaderboardData,
                                                                    kpiLabel,
+                                                                   secondaryKpiLabel,
                                                                    roundDisplay,
                                                                    dataKey,
-                                                                   isDualBar,
+                                                                   isDualBar = false,
                                                                    isNetIncomeReveal = false
                                                                }) => {
-    // Animation states
     const [isVisible, setIsVisible] = useState(false);
     const [hoveredTeam, setHoveredTeam] = useState<string | null>(null);
+    const [revealStage, setRevealStage] = useState(0);
 
-    // Net Income reveal state
-    const [revealStage, setRevealStage] = useState(-1);
+    // Calculate responsive sizing based on team count
+    const teamCount = leaderboardData.length;
+    const barSpacing = teamCount > 5 ? '2' : '4';
 
-    // Reset reveal stage when isNetIncomeReveal changes
     useEffect(() => {
-        if (isNetIncomeReveal) {
-            setRevealStage(0); // Start the reveal
+        // Don't set visible immediately for Net Income reveal
+        if (!isNetIncomeReveal) {
+            setIsVisible(true);
         }
     }, [isNetIncomeReveal]);
 
-    // Get metric icon
-    const getMetricIcon = () => {
-        if (dataKey.includes('capacity') || dataKey.includes('capord')) return <Package className="w-6 h-6"/>;
-        if (dataKey.includes('cost') || dataKey.includes('cpb')) return <TrendingDown className="w-6 h-6"/>;
-        if (dataKey.includes('asp')) return <DollarSign className="w-6 h-6"/>;
-        if (dataKey.includes('revenue')) return <TrendingUp className="w-6 h-6"/>;
-        if (dataKey.includes('margin')) return <Target className="w-6 h-6"/>;
-        if (dataKey.includes('income')) return <Trophy className="w-6 h-6"/>;
-        return <Zap className="w-6 h-6"/>;
-    };
+    // Sort data appropriately
+    const sortedData = useMemo(() => {
+        return [...leaderboardData].sort((a, b) => a.rank - b.rank);
+    }, [leaderboardData]);
 
-    // Get gradient color scheme
+    // Calculate max values for bar scaling
+    const maxPrimary = useMemo(() =>
+        Math.max(...sortedData.map(item => item.value)), [sortedData]
+    );
+
+    const maxSecondary = useMemo(() => {
+        if (!isDualBar) return 0;
+        return Math.max(...sortedData.map(item =>
+            parseFloat(item.secondaryValue?.replace(/,/g, '') || '0')
+        ));
+    }, [sortedData, isDualBar]);
+
+    // Get appropriate gradient colors based on KPI
     const getGradientScheme = () => {
-        if (dataKey.includes('capord')) return 'from-blue-500 to-blue-600';
-        if (dataKey.includes('cpb')) return 'from-red-500 to-red-600';
-        if (dataKey.includes('costs')) return 'from-orange-500 to-orange-600';
-        if (dataKey.includes('asp')) return 'from-green-500 to-green-600';
         if (dataKey.includes('revenue')) return 'from-orange-500 to-orange-600';
-        if (dataKey.includes('margin')) return 'from-purple-500 to-purple-600';
         if (dataKey.includes('income')) return 'from-yellow-400 to-yellow-600';
-        return 'from-gray-500 to-gray-600';
+        if (dataKey.includes('margin')) return 'from-purple-500 to-purple-600';
+        if (dataKey.includes('asp')) return 'from-green-500 to-green-600';
+        if (dataKey.includes('cpb') || dataKey.includes('cost')) return 'from-red-500 to-red-600';
+        if (dataKey.includes('capord')) return 'from-blue-500 to-blue-600';
+        return 'from-indigo-500 to-indigo-600';
     };
 
-    // Animation triggers
-    useEffect(() => {
-        setIsVisible(true);
-    }, []);
+    // Get appropriate icon for the metric
+    const getMetricIcon = () => {
+        if (dataKey.includes('revenue')) return <TrendingUp className="w-6 h-6"/>;
+        if (dataKey.includes('income')) return <DollarSign className="w-6 h-6"/>;
+        if (dataKey.includes('margin')) return <BarChart2 className="w-6 h-6"/>;
+        if (dataKey.includes('asp')) return <Target className="w-6 h-6"/>;
+        if (dataKey.includes('cpb') || dataKey.includes('cost')) return <Package className="w-6 h-6"/>;
+        if (dataKey.includes('capord')) return <Zap className="w-6 h-6"/>;
+        return <Trophy className="w-6 h-6"/>;
+    };
 
-    // Handle Net Income reveal animation sequence
+    // Handle special Net Income reveal animation
     useEffect(() => {
-        if (isNetIncomeReveal && revealStage >= 0 && revealStage < 4) {
-            const delays = [500, 1500, 2000, 2500]; // Timing for each reveal
+        if (isNetIncomeReveal) {
+            setRevealStage(0);
+        }
+    }, [isNetIncomeReveal]);
+
+    useEffect(() => {
+        if (isNetIncomeReveal && revealStage < sortedData.length) {
             const timer = setTimeout(() => {
-                setRevealStage(revealStage + 1);
-            }, delays[revealStage]);
-
+                setRevealStage(prev => prev + 1);
+            }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [revealStage, isNetIncomeReveal]);
+    }, [isNetIncomeReveal, revealStage, sortedData.length]);
 
-    // Sort data appropriately
-    const sortedData = [...leaderboardData].sort((a, b) => a.rank - b.rank);
-    // For Net Income reveal, only show top 3 teams in reverse order (3rd, 2nd, 1st)
-    const revealData = isNetIncomeReveal
-        ? [...leaderboardData].filter(team => team.rank <= 3).sort((a, b) => b.rank - a.rank)
-        : sortedData;
-
-    const maxPrimary = Math.max(...leaderboardData.map(item => item.value));
-    const maxSecondary = Math.max(...leaderboardData.map(item => {
-        const secVal = item.secondaryValue ? parseFloat(item.secondaryValue.replace(/,/g, '')) : 0;
-        return secVal;
-    }));
-
+    // Special rendering for Net Income (bottom-up reveal)
     if (isNetIncomeReveal) {
-        // Special Net Income Winner Reveal with Podium
         return (
             <div
-                className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-indigo-900 to-purple-900 relative overflow-hidden">
-                {/* Animated background patterns */}
-                <div className="absolute inset-0 opacity-10">
-                    <div
-                        className="absolute top-0 left-0 w-96 h-96 bg-purple-500 rounded-full filter blur-3xl animate-pulse"/>
-                    <div
-                        className="absolute bottom-0 right-0 w-96 h-96 bg-indigo-500 rounded-full filter blur-3xl animate-pulse"
-                        style={{animationDelay: '2s'}}/>
-                </div>
-
-                {/* Header */}
-                <div className="text-center mb-12 relative z-10">
-                    <h1 className="text-6xl md:text-7xl font-black text-white mb-4">
-                        🏆 {roundDisplay.toUpperCase()} WINNER! 🏆
-                    </h1>
-                    <p className="text-2xl md:text-3xl text-yellow-400 font-bold">
-                        NET INCOME
+                className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-8">
+                {/* Header with icon */}
+                <div className={`text-center mb-10 transform transition-all duration-700 opacity-100 translate-y-0`}>
+                    <div className="flex items-center justify-center gap-3 mb-2">
+                        <div className={`p-3 bg-gradient-to-r ${getGradientScheme()} rounded-lg text-white`}>
+                            {getMetricIcon()}
+                        </div>
+                        <h1 className="text-5xl md:text-6xl font-black text-white">
+                            {roundDisplay.toUpperCase()}
+                        </h1>
+                    </div>
+                    <p className={`text-3xl font-bold bg-gradient-to-r ${getGradientScheme()} bg-clip-text text-transparent`}>
+                        {kpiLabel.toUpperCase()}
                     </p>
                 </div>
 
-                {/* Podium-style reveal */}
-                <div className="relative z-10 w-full max-w-5xl px-8">
-                    {revealData.length === 0 ? (
-                        <div className="text-center text-white">
-                            <p className="text-xl">Loading teams...</p>
-                        </div>
-                    ) : (
-                        <div className="flex items-end justify-center gap-4 h-[400px]">
-                            {revealData.map((team, index) => {
-                                const shouldShow = revealStage > index;
-                                const isWinner = team.rank === 1;
-                                const isLatest = revealStage === index + 1;
+                {/* Leaderboard with bottom-up reveal */}
+                <div className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing}`}>
+                    {sortedData.map((team, index) => {
+                        const width = (team.value / maxPrimary) * 100;
+                        const isLeader = team.rank === 1;
 
-                                // Podium heights
-                                const heights: { [key: number]: string } = {1: 'h-72', 2: 'h-56', 3: 'h-40'};
-                                const podiumHeight = heights[team.rank] || 'h-40';
+                        // Reverse reveal order: show last place first, first place last
+                        const revealIndex = sortedData.length - index - 1;
+                        const shouldShow = revealStage > revealIndex;
 
-                                // Calculate flex order to position podiums correctly (2nd, 1st, 3rd)
-                                const flexOrder = team.rank === 2 ? 0 : team.rank === 1 ? 1 : 2;
-
-                                return (
+                        return (
+                            <div
+                                key={team.teamName}
+                                className={`transform hover:scale-[1.02] ${
+                                    shouldShow
+                                        ? 'translate-x-0 opacity-100 transition-all duration-700'
+                                        : 'translate-x-[-100%] opacity-0'
+                                }`}
+                                style={{
+                                    transitionDelay: shouldShow ? `${revealIndex * 300}ms` : '0ms'
+                                }}
+                                onMouseEnter={() => setHoveredTeam(team.teamName)}
+                                onMouseLeave={() => setHoveredTeam(null)}
+                            >
+                                <div className="relative">
+                                    {/* Rank badge */}
                                     <div
-                                        key={team.teamName}
-                                        className={`flex-1 transform transition-all duration-1000 ${
-                                            shouldShow ? 'opacity-100' : 'opacity-0'
-                                        }`}
-                                        style={{
-                                            transform: shouldShow ? 'translateY(0)' : 'translateY(20px)',
-                                            transitionDelay: `${index * 200}ms`,
-                                            order: flexOrder
-                                        }}
-                                    >
-                                        {/* Team name and value */}
-                                        <div className={`text-center mb-4 ${isLatest ? 'animate-pulse' : ''}`}>
-                                            <p className={`text-xl font-bold mb-2 ${
-                                                isWinner ? 'text-yellow-400' : 'text-white'
-                                            }`}>
-                                                {team.teamName}
-                                            </p>
-                                            <p className={`text-3xl font-black ${
-                                                isWinner ? 'text-yellow-400' : 'text-gray-300'
-                                            }`}>
-                                                {team.formattedValue}
-                                            </p>
-                                            {isWinner && revealStage >= 3 && (
-                                                <Crown className="w-12 h-12 text-yellow-400 mx-auto mt-2"/>
-                                            )}
-                                        </div>
-
-                                        {/* Podium */}
-                                        <div className={`${podiumHeight} relative rounded-t-lg ${
-                                            isWinner
-                                                ? 'bg-gradient-to-b from-yellow-400 to-yellow-600 shadow-2xl shadow-yellow-400/50'
-                                                : team.rank === 2
-                                                    ? 'bg-gradient-to-b from-gray-400 to-gray-600'
-                                                    : 'bg-gradient-to-b from-orange-700 to-orange-900'
+                                        className={`absolute -left-16 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full flex items-center justify-center font-black text-xl ${
+                                            isLeader
+                                                ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-yellow-900'
+                                                : 'bg-gray-700 text-gray-300'
                                         }`}>
-                                            <div className="absolute inset-x-0 top-4 text-center">
-                                                <span className={`text-5xl font-black ${
-                                                    isWinner ? 'text-yellow-900' : 'text-white'
-                                                }`}>
-                                                    {team.rank}
-                                                </span>
+                                        {team.rank}
+                                    </div>
+
+                                    {/* Main bar */}
+                                    <div className="bg-gray-800 rounded-lg overflow-hidden">
+                                        <div className="relative">
+                                            {/* Gray background bar */}
+                                            <div className="h-16 bg-gray-700">
+                                                {/* Progress bar */}
+                                                <div
+                                                    className={`h-full bg-gradient-to-r ${getGradientScheme()} transition-all duration-1000 ease-out relative overflow-hidden`}
+                                                    style={{width: `${Math.max(width, 15)}%`}}
+                                                >
+                                                    {/* Value inside colored bar */}
+                                                    <div
+                                                        className="absolute inset-0 flex items-center justify-end px-6">
+                                                        <span className="text-2xl font-black text-white drop-shadow-md">
+                                                            {team.formattedValue}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Shimmer effect on hover */}
+                                                    {hoveredTeam === team.teamName && (
+                                                        <div
+                                                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-shimmer"/>
+                                                    )}
+                                                </div>
+
+                                                {/* Team name overlay */}
+                                                <div className="absolute inset-0 flex items-center px-6">
+                                                    <span className={`text-xl font-bold ${
+                                                        hoveredTeam === team.teamName ? 'text-white' : 'text-gray-200'
+                                                    } transition-colors drop-shadow-md`}>
+                                                        {team.teamName}
+                                                        {isLeader &&
+                                                            <Trophy
+                                                                className="inline-block ml-2 w-6 h-6 text-yellow-900 drop-shadow-lg"/>}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         );
@@ -210,74 +219,96 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                 </p>
             </div>
 
-            {/* Leaderboard */}
-            <div className="w-full max-w-4xl space-y-4">
-                {isDualBar ? (
-                    // Dual bar mode for Capacity & Orders
-                    sortedData.map((team, index) => {
+            {/* Leaderboard with responsive sizing */}
+            <div className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing}`}>
+                {sortedData.map((team, index) => {
+                    const isLeader = team.rank === 1;
+
+                    if (isDualBar) {
+                        // Dual bar mode for Capacity & Orders - compact stacked layout
                         const capWidth = (team.value / maxPrimary) * 100;
                         const ordWidth = (parseFloat(team.secondaryValue?.replace(/,/g, '') || '0') / maxSecondary) * 100;
-                        const isLeader = team.rank === 1;
 
                         return (
                             <div
                                 key={team.teamName}
-                                className={`transform transition-all duration-700 ${
+                                className={`transform transition-all duration-700 hover:scale-[1.02] ${
                                     isVisible ? 'translate-x-0 opacity-100' : '-translate-x-20 opacity-0'
                                 }`}
                                 style={{transitionDelay: `${index * 100}ms`}}
+                                onMouseEnter={() => setHoveredTeam(team.teamName)}
+                                onMouseLeave={() => setHoveredTeam(null)}
                             >
-                                {/* Rank badge and team name */}
-                                <div className="flex items-center gap-4 mb-3">
+                                <div className="relative">
+                                    {/* Rank badge */}
                                     <div
-                                        className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl ${
+                                        className={`absolute -left-16 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full flex items-center justify-center font-black text-xl ${
                                             isLeader
                                                 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-yellow-900'
                                                 : 'bg-gray-700 text-gray-300'
                                         }`}>
                                         {team.rank}
                                     </div>
-                                    <span className="text-xl font-bold text-white flex-1">
-                                        {team.teamName}
-                                        {isLeader && <Trophy className="inline-block ml-2 w-5 h-5 text-yellow-400"/>}
-                                    </span>
-                                </div>
 
-                                {/* Capacity bar */}
-                                <div className="mb-2 pl-16">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-sm font-bold text-blue-400">CAPACITY</span>
-                                        <span className="text-sm font-bold text-gray-400">{team.formattedValue}</span>
-                                    </div>
-                                    <div className="bg-gray-800 rounded-lg overflow-hidden h-8">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-blue-500 to-blue-600"
-                                            style={{width: `${Math.max(capWidth, 15)}%`}}
-                                        />
-                                    </div>
-                                </div>
+                                    {/* Main bar container */}
+                                    <div className="bg-gray-800 rounded-lg overflow-hidden">
+                                        {/* Stacked bars */}
+                                        <div className="relative">
+                                            {/* Capacity bar (top half) */}
+                                            <div className="h-8 relative bg-gray-700">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-1000 ease-out relative overflow-hidden"
+                                                    style={{width: `${Math.max(capWidth, 15)}%`}}
+                                                >
+                                                    <div
+                                                        className="absolute inset-0 flex items-center justify-end px-3">
+                                                        <span
+                                                            className="text-xs font-bold text-white drop-shadow-md">Capacity: {team.formattedValue}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                {/* Orders bar */}
-                                <div className="pl-16">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-sm font-bold text-yellow-400">ORDERS</span>
-                                        <span className="text-sm font-bold text-gray-400">{team.secondaryValue}</span>
-                                    </div>
-                                    <div className="bg-gray-800 rounded-lg overflow-hidden h-8">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-yellow-400 to-yellow-600"
-                                            style={{width: `${Math.max(ordWidth, 15)}%`}}
-                                        />
+                                            {/* Orders bar (bottom half) */}
+                                            <div className="h-8 relative bg-gray-700">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-yellow-400 to-yellow-600 transition-all duration-1000 ease-out relative overflow-hidden"
+                                                    style={{width: `${Math.max(ordWidth, 15)}%`}}
+                                                >
+                                                    <div
+                                                        className="absolute inset-0 flex items-center justify-end px-3">
+                                                        <span
+                                                            className="text-xs font-bold text-gray-900">Orders: {team.secondaryValue}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Team name overlay - positioned within the shorter bar */}
+                                            <div
+                                                className="absolute inset-0 flex items-center px-4 pointer-events-none">
+                                                <div
+                                                    className="relative"
+                                                    style={{maxWidth: `${Math.min(capWidth, ordWidth)}%`}}
+                                                >
+                                                    <div
+                                                        className="bg-gray-900/80 backdrop-blur-sm rounded-md px-3 py-1 inline-block">
+                                                        <span className={`text-lg font-bold ${
+                                                            hoveredTeam === team.teamName ? 'text-white' : 'text-gray-100'
+                                                        } transition-colors`}>
+                                                            {team.teamName}
+                                                            {isLeader && <Trophy
+                                                                className="inline-block ml-2 w-4 h-4 text-yellow-400"/>}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         );
-                    })
-                ) : (
-                    // Single bar mode
-                    sortedData.map((team, index) => {
+                    } else {
+                        // Single bar mode (standard leaderboard)
                         const width = (team.value / maxPrimary) * 100;
-                        const isLeader = team.rank === 1;
 
                         return (
                             <div
@@ -303,38 +334,47 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                     {/* Main bar */}
                                     <div className="bg-gray-800 rounded-lg overflow-hidden">
                                         <div className="relative">
-                                            {/* Progress bar */}
-                                            <div
-                                                className={`h-16 bg-gradient-to-r ${getGradientScheme()} transition-all duration-1000 ease-out`}
-                                                style={{width: `${Math.max(width, 15)}%`}}
-                                            >
-                                                {/* Shimmer effect on hover */}
-                                                {hoveredTeam === team.teamName && (
+                                            {/* Gray background bar */}
+                                            <div className="h-16 bg-gray-700">
+                                                {/* Progress bar */}
+                                                <div
+                                                    className={`h-full bg-gradient-to-r ${getGradientScheme()} transition-all duration-1000 ease-out relative overflow-hidden`}
+                                                    style={{width: `${Math.max(width, 15)}%`}}
+                                                >
+                                                    {/* Value inside colored bar */}
                                                     <div
-                                                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-shimmer"/>
-                                                )}
-                                            </div>
+                                                        className="absolute inset-0 flex items-center justify-end px-6">
+                                                        <span className="text-2xl font-black text-white drop-shadow-md">
+                                                            {team.formattedValue}
+                                                        </span>
+                                                    </div>
 
-                                            {/* Team info overlay */}
-                                            <div className="absolute inset-0 flex items-center justify-between px-6">
-                                                <span className={`text-xl font-bold ${
-                                                    hoveredTeam === team.teamName ? 'text-white' : 'text-gray-200'
-                                                } transition-colors`}>
-                                                    {team.teamName}
-                                                    {isLeader &&
-                                                        <Trophy className="inline-block ml-2 w-5 h-5 text-yellow-400"/>}
-                                                </span>
-                                                <span className="text-2xl font-black text-white">
-                                                    {team.formattedValue}
-                                                </span>
+                                                    {/* Shimmer effect on hover */}
+                                                    {hoveredTeam === team.teamName && (
+                                                        <div
+                                                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-shimmer"/>
+                                                    )}
+                                                </div>
+
+                                                {/* Team name overlay */}
+                                                <div className="absolute inset-0 flex items-center px-6">
+                                                    <span className={`text-xl font-bold ${
+                                                        hoveredTeam === team.teamName ? 'text-white' : 'text-gray-200'
+                                                    } transition-colors drop-shadow-md`}>
+                                                        {team.teamName}
+                                                        {isLeader &&
+                                                            <Trophy
+                                                                className="inline-block ml-2 w-5 h-5 text-yellow-400"/>}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         );
-                    })
-                )}
+                    }
+                })}
             </div>
 
             {/* Footer with leader info */}
