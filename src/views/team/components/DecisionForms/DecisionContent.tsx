@@ -8,7 +8,6 @@ import InvestmentPanel from './InvestmentPanel';
 import ChoicePanel from './ChoicePanel';
 import DoubleDownPromptPanel from './DoubleDownPrompt';
 import DoubleDownSelectPanel from './DoubleDownSelect';
-import DoubleDownFlowWrapper from "@views/team/components/DecisionForms/DoubleDownFlowWrapper.tsx";
 
 interface DecisionContentProps {
     currentSlide: Slide;
@@ -55,7 +54,7 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
                     isSubmitting={isSubmitting}
                 />
             );
-        case 'interactive_double_down_select':
+        case 'interactive_double_down_select': {
             // Check if we're in the prompt phase or select phase
             const showSelectPhase = decisionState.selectedChallengeOptionId === 'yes_dd';
 
@@ -69,17 +68,14 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
                     />
                 );
             } else {
-                // User selected "yes_dd", show the investment selection
-                // Get team's actual RD3 investments from decisionState
+                // Filter RD3 investments to only what team owns
                 const teamRd3Letters = decisionState.immediatePurchases || [];
-
-                // Filter to only show investments this team owns
                 const teamOwnedInvestments = availableRd3Investments.filter(inv => {
-                    // Extract letter from investment name (e.g., "A. Production..." -> "A")
                     const invLetter = inv.name.match(/^([A-Z])\./)?.[1];
                     return invLetter && teamRd3Letters.includes(invLetter);
                 });
 
+                // User selected "yes_dd", show the investment selection
                 return (
                     <DoubleDownSelectPanel
                         availableRd3Investments={teamOwnedInvestments}
@@ -91,6 +87,7 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
                     />
                 );
             }
+        }
         default:
             return (
                 <div className="text-center text-gray-400">

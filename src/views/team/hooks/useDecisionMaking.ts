@@ -3,7 +3,6 @@
 
 import {useState, useEffect, useMemo, useCallback} from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
-import {db} from '@shared/services/supabase';
 import {supabase} from '@shared/services/supabase';
 
 export interface DecisionState {
@@ -78,8 +77,6 @@ export const useDecisionMaking = ({
             case 'interactive_invest':
                 return state.selectedInvestmentOptions.length > 0 || state.immediatePurchases.length > 0;  // CHANGED
             case 'interactive_choice':
-            case 'interactive_double_down_prompt':
-                return !!state.selectedChallengeOptionId;
             case 'interactive_double_down_select':
                 return !!(state.sacrificeInvestmentId && state.doubleDownOnInvestmentId);
             default:
@@ -116,10 +113,6 @@ export const useDecisionMaking = ({
                 const option = challengeOptions.find(opt => opt.id === state.selectedChallengeOptionId);
                 return option ? `Selected: ${option.id} - ${option.text.substring(0, 50)}...` : 'No selection made';
             }
-            case 'interactive_double_down_prompt': {
-                const ddOption = challengeOptions.find(opt => opt.id === state.selectedChallengeOptionId);
-                return ddOption ? `Double Down: ${ddOption.text}` : 'No selection made';
-            }
             case 'interactive_double_down_select': {
                 if (!state.sacrificeInvestmentId || !state.doubleDownOnInvestmentId) return 'Incomplete selection';
                 const sacrificeOpt = investmentOptions.find(opt => opt.id === state.sacrificeInvestmentId);
@@ -138,10 +131,10 @@ export const useDecisionMaking = ({
                 return;
             }
 
-            // Special handling for double down select
-            if (currentSlide.type === 'interactive_double_down_select') {
+            // Add this inside the loadExistingDecisions function
+            if (currentSlide?.type === 'interactive_double_down_select') {
                 try {
-                    // Load team's RD3 investment decisions
+                    // Load team's RD3 investment decisions to filter available options
                     const { data: rd3Decision } = await supabase
                         .from('team_decisions')
                         .select('selected_investment_options')
@@ -151,14 +144,14 @@ export const useDecisionMaking = ({
                         .single();
 
                     if (rd3Decision?.selected_investment_options) {
-                        // Store these in immediatePurchases for easy access
+                        // Store these so DecisionContent can filter investments
                         setState(prev => ({
                             ...prev,
                             immediatePurchases: rd3Decision.selected_investment_options
                         }));
                     }
                 } catch (error) {
-                    console.error('Error loading RD3 investments:', error);
+                    console.log('Error loading RD3 investments:', error);
                 }
             }
 
@@ -213,7 +206,7 @@ export const useDecisionMaking = ({
         if (currentSlide?.type === 'interactive_choice' && challengeOptions.length > 0) {
             const defaultChoice = challengeOptions.find(opt => opt.is_default_choice);
             newState.selectedChallengeOptionId = defaultChoice?.id || challengeOptions[challengeOptions.length - 1].id;
-        } else if (currentSlide?.type === 'interactive_double_down_prompt' && challengeOptions.length > 0) {
+        } else if (currentSlide?.type === 'interactive_double_down_select' && challengeOptions.length > 0) {
             const defaultOptOut = challengeOptions.find(opt => opt.id === 'no_dd') || challengeOptions.find(opt => opt.is_default_choice);
             newState.selectedChallengeOptionId = defaultOptOut?.id || null;
         }
@@ -338,43 +331,37 @@ export const useDecisionMaking = ({
     }, []);
 
     const handleSacrificeSelect = useCallback((investmentId: string | null) => {
-        if (!investmentId) {
-            setState(prev => ({
-                ...prev,
-                sacrificeInvestmentId: null,
-                error: null
-            }));
-            return;
+        // Extract the letter from the investment name if needed
+        let letterToStore = investmentId;
+        if (investmentId && investmentOptions.length > 0) {
+            const investment = investmentOptions.find(inv => inv.id === investmentId);
+            if (investment) {
+                const letter = investment.name.match(/^([A-Z])\./)?.[1];
+                letterToStore = letter || investmentId;
+            }
         }
-
-        // Find the investment and extract its letter
-        const investment = investmentOptions.find(inv => inv.id === investmentId);
-        const invLetter = investment?.name.match(/^([A-Z])\./)?.[1];
 
         setState(prev => ({
             ...prev,
-            sacrificeInvestmentId: invLetter || investmentId,
+            sacrificeInvestmentId: letterToStore,
             error: null
         }));
     }, [investmentOptions]);
 
     const handleDoubleDownSelect = useCallback((investmentId: string | null) => {
-        if (!investmentId) {
-            setState(prev => ({
-                ...prev,
-                doubleDownOnInvestmentId: null,
-                error: null
-            }));
-            return;
+        // Extract the letter from the investment name if needed
+        let letterToStore = investmentId;
+        if (investmentId && investmentOptions.length > 0) {
+            const investment = investmentOptions.find(inv => inv.id === investmentId);
+            if (investment) {
+                const letter = investment.name.match(/^([A-Z])\./)?.[1];
+                letterToStore = letter || investmentId;
+            }
         }
-
-        // Find the investment and extract its letter
-        const investment = investmentOptions.find(inv => inv.id === investmentId);
-        const invLetter = investment?.name.match(/^([A-Z])\./)?.[1];
 
         setState(prev => ({
             ...prev,
-            doubleDownOnInvestmentId: invLetter || investmentId,
+            doubleDownOnInvestmentId: letterToStore,
             error: null
         }));
     }, [investmentOptions]);

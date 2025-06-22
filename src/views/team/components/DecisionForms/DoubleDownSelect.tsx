@@ -1,6 +1,6 @@
 // src/components/Game/DecisionPanel/components/DoubleDownSelectPanel.tsx
 import React from 'react';
-import {InvestmentOption} from '@shared/types/common';
+import {InvestmentOption} from '@shared/types';
 
 const formatCurrency = (value: number | undefined): string => {
     if (value === undefined || value === null) return 'N/A';
@@ -84,6 +84,24 @@ const DoubleDownSelectPanel: React.FC<DoubleDownSelectPanelProps> = ({
                     </select>
                 </div>
             </div>
+            {sacrificeInvestmentId && doubleDownOnInvestmentId && (
+                <div className="mt-6 p-4 bg-gray-800 rounded-lg border border-gray-600">
+                    <h3 className="text-lg font-semibold text-white mb-2">Confirmation</h3>
+                    <p className="text-sm text-gray-300">
+                        You will sacrifice: <span className="text-red-400 font-medium">
+                        {availableRd3Investments.find(i => i.id === sacrificeInvestmentId)?.name || sacrificeInvestmentId}
+                    </span>
+                    </p>
+                    <p className="text-sm text-gray-300 mt-1">
+                        You will double down on: <span className="text-green-400 font-medium">
+                        {availableRd3Investments.find(i => i.id === doubleDownOnInvestmentId)?.name || doubleDownOnInvestmentId}
+                    </span>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-3">
+                        Click Submit to confirm your Double Down choice.
+                    </p>
+                </div>
+            )}
         </div>
     );
 };

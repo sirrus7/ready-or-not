@@ -31,12 +31,17 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
     }
 
     const phaseData = useMemo(() => {
-        const dataKey = currentSlide.interactive_data_key;
-        if (!dataKey) return {investmentOptions: [], challengeOptions: [], rd3Investments: [], budgetForPhase: 0};
+        if (!currentSlide || !gameStructure) return { investmentOptions: [], challengeOptions: [], rd3Investments: [], budgetForPhase: 0 };
 
+        const dataKey = currentSlide.interactive_data_key || '';
         const investmentOptions = currentSlide.type === 'interactive_invest' ? gameStructure.all_investment_options[dataKey] || [] : [];
-        const challengeOptions = (currentSlide.type === 'interactive_choice' || currentSlide.type === 'interactive_double_down_prompt') ? gameStructure.all_challenge_options[dataKey] || [] : [];
-        const rd3Investments = currentSlide.type === 'interactive_double_down_select' ? gameStructure.all_investment_options['rd3-invest'] || [] : [];
+        const challengeOptions = (currentSlide.type === 'interactive_choice' || currentSlide.type === 'interactive_double_down_select') ?
+            gameStructure.all_challenge_options[dataKey] || [] : [];
+
+        const rd3Investments = currentSlide.type === 'interactive_double_down_select' ?
+            gameStructure.all_investment_options['rd3-invest'] || [] : [];
+
+        // For now, pass all RD3 investments - filtering will happen in DecisionPanel/useDecisionMaking
         const budgetForPhase = currentSlide.type === 'interactive_invest' ? gameStructure.investment_phase_budgets[dataKey] || 0 : 0;
 
         return {investmentOptions, challengeOptions, rd3Investments, budgetForPhase};
@@ -45,8 +50,8 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
     return (
         <div className="flex-1 p-3 md:p-4">
             <DecisionPanel
-                sessionId={sessionId}           // ENSURE THIS IS PASSED for continuation pricing
-                teamId={teamId}                // ENSURE THIS IS PASSED for continuation pricing
+                sessionId={sessionId}
+                teamId={teamId}
                 currentSlide={currentSlide}
                 investmentOptions={phaseData.investmentOptions}
                 investUpToBudget={phaseData.budgetForPhase}
