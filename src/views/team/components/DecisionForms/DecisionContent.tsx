@@ -8,6 +8,7 @@ import InvestmentPanel from './InvestmentPanel';
 import ChoicePanel from './ChoicePanel';
 import DoubleDownPromptPanel from './DoubleDownPrompt';
 import DoubleDownSelectPanel from './DoubleDownSelect';
+import DoubleDownFlowWrapper from "@views/team/components/DecisionForms/DoubleDownFlowWrapper.tsx";
 
 interface DecisionContentProps {
     currentSlide: Slide;
@@ -54,28 +55,42 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
                     isSubmitting={isSubmitting}
                 />
             );
-        case 'interactive_double_down_prompt':
-            return (
-                <DoubleDownPromptPanel
-                    challengeOptions={challengeOptions}
-                    selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
-                    onChallengeSelect={decisionActions.handleChallengeSelect}
-                    currentSlide={currentSlide}
-                    isSubmitting={isSubmitting}
-                />
-            );
         case 'interactive_double_down_select':
-            return (
-                <DoubleDownSelectPanel
-                    availableRd3Investments={availableRd3Investments}
-                    sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
-                    doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
-                    onSacrificeSelect={decisionActions.handleSacrificeSelect}
-                    onDoubleDownSelect={decisionActions.handleDoubleDownSelect}
-                    currentSlide={currentSlide}
-                    isSubmitting={isSubmitting}
-                />
-            );
+            // Check if we're in the prompt phase or select phase
+            const showSelectPhase = decisionState.selectedChallengeOptionId === 'yes_dd';
+
+            if (!showSelectPhase) {
+                // Show the prompt with Yes/No options
+                return (
+                    <DoubleDownPromptPanel
+                        challengeOptions={challengeOptions}
+                        selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
+                        onChallengeSelect={decisionActions.handleChallengeSelect}
+                    />
+                );
+            } else {
+                // User selected "yes_dd", show the investment selection
+                // Get team's actual RD3 investments from decisionState
+                const teamRd3Letters = decisionState.immediatePurchases || [];
+
+                // Filter to only show investments this team owns
+                const teamOwnedInvestments = availableRd3Investments.filter(inv => {
+                    // Extract letter from investment name (e.g., "A. Production..." -> "A")
+                    const invLetter = inv.name.match(/^([A-Z])\./)?.[1];
+                    return invLetter && teamRd3Letters.includes(invLetter);
+                });
+
+                return (
+                    <DoubleDownSelectPanel
+                        availableRd3Investments={teamOwnedInvestments}
+                        sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
+                        doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
+                        onSacrificeChange={decisionActions.handleSacrificeSelect}
+                        onDoubleDownChange={decisionActions.handleDoubleDownSelect}
+                        isSubmitting={isSubmitting}
+                    />
+                );
+            }
         default:
             return (
                 <div className="text-center text-gray-400">

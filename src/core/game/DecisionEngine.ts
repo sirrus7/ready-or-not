@@ -11,7 +11,7 @@ import {
     Slide
 } from '@shared/types';
 import {db} from '@shared/services/supabase';
-import {KpiCalculations} from './ScoringEngine';
+import {ScoringEngine} from './ScoringEngine';
 
 interface DecisionEngineProps {
     currentDbSession: GameSession | null;
@@ -51,9 +51,9 @@ export class DecisionEngine {
             console.log(`[DecisionEngine] No existing round data found for team ${teamId} round ${roundNumber}, creating new.`);
         }
 
-        const newRoundData = KpiCalculations.createNewRoundData(currentDbSession.id, teamId, roundNumber, teamRoundData[teamId]);
+        const newRoundData = ScoringEngine.createNewRoundData(currentDbSession.id, teamId, roundNumber, teamRoundData[teamId]);
         const adjustments = await db.adjustments.getBySession(currentDbSession.id);
-        const adjustedData = KpiCalculations.applyPermanentAdjustments(newRoundData, adjustments, teamId, roundNumber);
+        const adjustedData = ScoringEngine.applyPermanentAdjustments(newRoundData, adjustments, teamId, roundNumber);
         const insertedData = await db.kpis.create(adjustedData);
 
         setTeamRoundDataDirectly(prev => ({
@@ -64,7 +64,7 @@ export class DecisionEngine {
     }
 
     private async storePermanentAdjustments(teamId: string, sessionId: string, effects: KpiEffect[], sourceLabel: string) {
-        const adjustmentsToUpsert = KpiCalculations.createPermanentAdjustments(effects, sessionId, teamId, sourceLabel);
+        const adjustmentsToUpsert = ScoringEngine.createPermanentAdjustments(effects, sessionId, teamId, sourceLabel);
         if (adjustmentsToUpsert.length > 0) {
             // Use the new idempotent upsert method
             await db.adjustments.upsert(adjustmentsToUpsert);

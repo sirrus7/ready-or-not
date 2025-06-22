@@ -13,7 +13,7 @@ import {
     GameSession,
     Slide
 } from '@shared/types';
-import {KpiCalculations} from './ScoringEngine';
+import {ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
 import {UnifiedEffectsProcessor} from './UnifiedEffectsProcessor';
 
@@ -223,7 +223,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             for (const team of teams) {
                 const kpis = teamRoundData[team.id]?.[roundNumber];
                 if (kpis?.id) {
-                    const financialMetrics = KpiCalculations.calculateFinancialMetrics(kpis);
+                    const financialMetrics = ScoringEngine.calculateFinancialMetrics(kpis);
                     await db.kpis.update(kpis.id, {
                         ...kpis,
                         ...financialMetrics,

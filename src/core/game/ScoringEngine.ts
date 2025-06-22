@@ -15,7 +15,7 @@ const ROUND_BASE_VALUES = {
     3: {orders: 7250, cost: 1350000}                     // ✅ FIXED: RD-2→RD-3 Reset values
 };
 
-export class KpiCalculations {
+export class ScoringEngine {
 
     /**
      * Applies KPI effects to a team's round data

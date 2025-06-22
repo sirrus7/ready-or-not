@@ -66,20 +66,16 @@ export interface InvestmentPayoff {
 }
 
 export type SlideType =
-    | 'image'
-    | 'video'
-    | 'content_page'
-    | 'interactive_invest'
-    | 'interactive_choice'
-    | 'interactive_double_down_prompt'
-    | 'interactive_double_down_select'
-    | 'consequence_reveal'
-    | 'payoff_reveal'
-    | 'kpi_reset'
-    | 'double_down_dice_roll'
-    | 'kpi_summary_instructional'
-    | 'leaderboard_chart'
-    | 'game_end_summary';
+    | 'image'                               // Flat image slides
+    | 'video'                               // Standard video slides
+    | 'interactive_invest'                  // Investment slides
+    | 'payoff_reveal'                       // Payoff to Invest
+    | 'interactive_choice'                  // Choice slides
+    | 'consequence_reveal'                  // Consequence to choices
+    | 'interactive_double_down_select'      // Double Down Select slide
+    | 'double_down_dice_roll'               // Double Down Dice Roll Slides
+    | 'kpi_reset'                           // Reset KPI slides after Rounds 1 and 2
+    | 'leaderboard_chart';                  // Leaderboard slides at end of rounds
 
 export interface Slide {
     id: number;

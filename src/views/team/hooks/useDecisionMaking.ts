@@ -138,6 +138,30 @@ export const useDecisionMaking = ({
                 return;
             }
 
+            // Special handling for double down select
+            if (currentSlide.type === 'interactive_double_down_select') {
+                try {
+                    // Load team's RD3 investment decisions
+                    const { data: rd3Decision } = await supabase
+                        .from('team_decisions')
+                        .select('selected_investment_options')
+                        .eq('session_id', sessionId)
+                        .eq('team_id', teamId)
+                        .eq('phase_id', 'rd3-invest')
+                        .single();
+
+                    if (rd3Decision?.selected_investment_options) {
+                        // Store these in immediatePurchases for easy access
+                        setState(prev => ({
+                            ...prev,
+                            immediatePurchases: rd3Decision.selected_investment_options
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error loading RD3 investments:', error);
+                }
+            }
+
             try {
                 // Create the immediate purchase phase_id
                 const immediatePhaseId = `${currentSlide.interactive_data_key}_immediate`;
@@ -313,21 +337,47 @@ export const useDecisionMaking = ({
         }));
     }, []);
 
-    const handleSacrificeSelect = useCallback((optionId: string) => {
-        setState(prev => ({
-            ...prev,
-            sacrificeInvestmentId: optionId,
-            error: null
-        }));
-    }, []);
+    const handleSacrificeSelect = useCallback((investmentId: string | null) => {
+        if (!investmentId) {
+            setState(prev => ({
+                ...prev,
+                sacrificeInvestmentId: null,
+                error: null
+            }));
+            return;
+        }
 
-    const handleDoubleDownSelect = useCallback((optionId: string) => {
+        // Find the investment and extract its letter
+        const investment = investmentOptions.find(inv => inv.id === investmentId);
+        const invLetter = investment?.name.match(/^([A-Z])\./)?.[1];
+
         setState(prev => ({
             ...prev,
-            doubleDownOnInvestmentId: optionId,
+            sacrificeInvestmentId: invLetter || investmentId,
             error: null
         }));
-    }, []);
+    }, [investmentOptions]);
+
+    const handleDoubleDownSelect = useCallback((investmentId: string | null) => {
+        if (!investmentId) {
+            setState(prev => ({
+                ...prev,
+                doubleDownOnInvestmentId: null,
+                error: null
+            }));
+            return;
+        }
+
+        // Find the investment and extract its letter
+        const investment = investmentOptions.find(inv => inv.id === investmentId);
+        const invLetter = investment?.name.match(/^([A-Z])\./)?.[1];
+
+        setState(prev => ({
+            ...prev,
+            doubleDownOnInvestmentId: invLetter || investmentId,
+            error: null
+        }));
+    }, [investmentOptions]);
 
     const clearError = useCallback(() => {
         setState(prev => ({

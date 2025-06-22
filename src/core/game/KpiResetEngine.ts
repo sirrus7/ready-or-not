@@ -3,7 +3,7 @@
 
 import {TeamRoundData, KpiEffect} from '@shared/types';
 import {db} from '@shared/services/supabase';
-import {KpiCalculations} from './ScoringEngine';
+import {ScoringEngine} from './ScoringEngine';
 
 /**
  * Strategy Investment Effects (permanent across all resets)
@@ -141,7 +141,7 @@ export class KpiResetEngine {
         console.log(`[KpiResetEngine] Step 1: Resetting KPIs to baseline for team ${teamId}, round ${targetRound}`);
 
         // Use existing method to get clean baseline values
-        const baselineKpis = KpiCalculations.createNewRoundData(sessionId, teamId, targetRound);
+        const baselineKpis = ScoringEngine.createNewRoundData(sessionId, teamId, targetRound);
 
         console.log(`[KpiResetEngine] ✅ Baseline KPIs set:`, {
             capacity: baselineKpis.current_capacity,
@@ -272,7 +272,7 @@ export class KpiResetEngine {
     static calculateFinalKpis(roundData: Omit<TeamRoundData, 'id'>): Omit<TeamRoundData, 'id'> {
         console.log(`[KpiResetEngine] Step 4: Calculating final KPIs`);
 
-        const financialMetrics = KpiCalculations.calculateFinancialMetrics(roundData as TeamRoundData);
+        const financialMetrics = ScoringEngine.calculateFinancialMetrics(roundData as TeamRoundData);
 
         const finalKpis = {
             ...roundData,

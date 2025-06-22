@@ -3,7 +3,7 @@
 
 import {TeamRoundData, KpiEffect} from '@shared/types';
 import {db} from '@shared/services/supabase';
-import {KpiCalculations} from './ScoringEngine';
+import {ScoringEngine} from './ScoringEngine';
 
 export class KpiDataUtils {
     /**
@@ -44,7 +44,7 @@ export class KpiDataUtils {
         }
 
         // Create new round data with permanent adjustments applied
-        const newRoundData = KpiCalculations.createNewRoundData(
+        const newRoundData = ScoringEngine.createNewRoundData(
             sessionId,
             teamId,
             roundNumber,
@@ -53,7 +53,7 @@ export class KpiDataUtils {
 
         // Apply any existing permanent adjustments
         const adjustments = await db.adjustments.getBySession(sessionId);
-        const adjustedData = KpiCalculations.applyPermanentAdjustments(
+        const adjustedData = ScoringEngine.applyPermanentAdjustments(
             newRoundData,
             adjustments,
             teamId,
@@ -84,7 +84,7 @@ export class KpiDataUtils {
         challengeId: string,
         optionId: string
     ): Promise<void> {
-        const adjustmentsToUpsert = KpiCalculations.createPermanentAdjustments(
+        const adjustmentsToUpsert = ScoringEngine.createPermanentAdjustments(
             effects,
             sessionId,
             teamId,

@@ -3,7 +3,7 @@
 
 import {Slide, GameStructure, GameSession, Team, TeamRoundData, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
-import {KpiCalculations} from './ScoringEngine';
+import {ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
 import {SLIDE_TO_CHALLENGE_MAP, getChallengeBySlideId} from '@core/content/ChallengeRegistry';
 import {allConsequencesData} from '@core/content/ConsequenceContent';
@@ -195,7 +195,7 @@ export class ConsequenceProcessor {
 
                 // Update KPIs in database if there were immediate changes
                 if (hasImmediateChanges) {
-                    const finalKpis = KpiCalculations.calculateFinancialMetrics(updatedKpis);
+                    const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
                     await db.kpis.upsert({...updatedKpis, ...finalKpis, id: teamKpis.id});
                     console.log(`[ConsequenceProcessor] 💾 Updated immediate KPI effects for team ${team.name}`);
                 }

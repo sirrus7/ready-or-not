@@ -707,7 +707,7 @@ export const allGameSlides: Slide[] = [
         id: 68,
         round_number: 2,
         title: "RD-2 Starting KPIs",
-        type: 'kpi_reset',  // CHANGED: was 'video'
+        type: 'kpi_reset',
         source_path: 'Slide_069.mp4',
         auto_advance_after_video: false,
         host_alert: {
@@ -1487,7 +1487,7 @@ export const allGameSlides: Slide[] = [
         id: 142,
         round_number: 3,
         title: "RD-3 KPI Reset",
-        type: 'kpi_reset',  // CHANGED: was 'video'
+        type: 'kpi_reset',
         source_path: 'Slide_143.mp4',
         auto_advance_after_video: false,
         host_alert: {
@@ -1514,10 +1514,15 @@ export const allGameSlides: Slide[] = [
     {
         id: 144,
         round_number: 3,
-        title: "Double Down Introduction",
-        type: 'video',
+        title: "Double Down Decision",
+        type: 'interactive_double_down_select',
+        interactive_data_key: 'ch-dd-prompt',
         source_path: 'Slide_145.mp4',
+        main_text: "DOUBLE DOWN OPPORTUNITY",
+        sub_text: "Teams have 5 minutes to decide on their Double Down strategy",
+        timer_duration_seconds: 300,
         auto_advance_after_video: false,
+        background_css: 'bg-slate-800',
         host_alert: {
             title: "Double Down Decision",
             message: "Teams have 5 minutes to decide on their Double Down strategy. This is their only chance."
@@ -1907,81 +1912,91 @@ export const allGameSlides: Slide[] = [
         id: 185,
         round_number: 3,
         title: "Bonus: Production Efficiency",
-        type: 'image',
-        source_path: 'Slide_186.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'A',
+        main_text: "Production Efficiency Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 186,
         round_number: 3,
         title: "Bonus: Expanded 2nd Shift",
-        type: 'image',
-        source_path: 'Slide_187.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'B',
+        main_text: "Expanded 2nd Shift Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 187,
         round_number: 3,
         title: "Bonus: Supply Chain",
-        type: 'image',
-        source_path: 'Slide_188.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'C',
+        main_text: "Supply Chain Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 188,
         round_number: 3,
         title: "Bonus: Employee Development",
-        type: 'image',
-        source_path: 'Slide_189.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'D',
+        main_text: "Employee Development Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 189,
         round_number: 3,
         title: "Bonus: Maximize Boutique",
-        type: 'image',
-        source_path: 'Slide_190.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'E',
+        main_text: "Maximize Boutique Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 190,
         round_number: 3,
         title: "Bonus: Big Box Expansion",
-        type: 'image',
-        source_path: 'Slide_191.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'F',
+        main_text: "Big Box Expansion Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 191,
         round_number: 3,
         title: "Bonus: ERP",
-        type: 'image',
-        source_path: 'Slide_192.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'G',
+        main_text: "ERP Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 192,
         round_number: 3,
         title: "Bonus: IT Security",
-        type: 'image',
-        source_path: 'Slide_193.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'H',
+        main_text: "IT Security Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 193,
         round_number: 3,
         title: "Bonus: Product Line",
-        type: 'image',
-        source_path: 'Slide_194.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'I',
+        main_text: "Product Line Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 194,
         round_number: 3,
         title: "Bonus: Automation",
-        type: 'image',
-        source_path: 'Slide_195.jpg',
-        background_css: 'bg-gray-200'
+        type: 'double_down_dice_roll',
+        interactive_data_key: 'J',
+        main_text: "Automation Double Down",
+        background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 195,
@@ -2068,7 +2083,7 @@ export const allGameSlides: Slide[] = [
         type: 'leaderboard_chart',
         interactive_data_key: 'rd3_leaderboard_income',
         main_text: "🏆 FINAL RANKINGS 🏆",
-        sub_text: "The ultimate winners of Ready or Not 2.0! Congratulations to all teams!",
+        sub_text: "The ultimate winners of Ready or Not! Congratulations to all teams!",
         host_alert: {
             title: "Game Complete!",
             message: "The simulation is finished! Congratulations to all teams!"

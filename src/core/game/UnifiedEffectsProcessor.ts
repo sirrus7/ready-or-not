@@ -12,7 +12,7 @@ import {
     KpiEffect
 } from '@shared/types';
 import {db} from '@shared/services/supabase';
-import {KpiCalculations} from './ScoringEngine';
+import {ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
 import {StrategyInvestmentTracker} from './StrategyInvestmentTracker';
 import {KpiResetEngine} from './KpiResetEngine'; // ADDED: Import for KPI reset functionality
@@ -292,8 +292,8 @@ export class UnifiedEffectsProcessor {
                 setTeamRoundDataDirectly
             );
 
-            const updatedKpis = KpiCalculations.applyKpiEffects(currentKpis, consequenceForOption.effects);
-            const finalKpis = KpiCalculations.calculateFinancialMetrics(updatedKpis);
+            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, consequenceForOption.effects);
+            const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
 
             // Save to database
             await db.kpis.update(currentKpis.id, {
@@ -420,8 +420,8 @@ export class UnifiedEffectsProcessor {
                 setTeamRoundDataDirectly
             );
 
-            const updatedKpis = KpiCalculations.applyKpiEffects(currentKpis, payoffForOption.effects);
-            const finalKpis = KpiCalculations.calculateFinancialMetrics(updatedKpis);
+            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, payoffForOption.effects);
+            const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
 
             // Save to database
             await db.kpis.update(currentKpis.id, {

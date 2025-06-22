@@ -8,6 +8,7 @@ import {LeaderboardChartDisplay} from '@shared/components/UI/Leaderboard';
 import {isVideo, useHostVideo, usePresentationVideo} from '@shared/utils/video';
 import HostVideoControls from '@shared/components/Video/HostVideoControls';
 import {useSignedMediaUrl} from '@shared/hooks/useSignedMediaUrl';
+import DoubleDownDiceDisplay from '@shared/components/DoubleDownDice/DoubleDownDiceDisplay';
 
 interface SlideRendererProps {
     slide: Slide | null;
@@ -16,11 +17,12 @@ interface SlideRendererProps {
     onVideoEnd?: () => void;
 }
 
-const SlideContent: React.FC<{ slide: Slide, sourceUrl: string, className?: string }> = ({
-                                                                                             slide,
-                                                                                             sourceUrl,
-                                                                                             className
-                                                                                         }) => {
+const SlideContent: React.FC<{
+    slide: Slide,
+    sourceUrl: string,
+    className?: string,
+    sessionId?: string | null
+}> = ({slide, sourceUrl, className, sessionId}) => {
     switch (slide.type) {
         case 'image':
             return (
@@ -41,6 +43,42 @@ const SlideContent: React.FC<{ slide: Slide, sourceUrl: string, className?: stri
                     />
                 </div>
             );
+        case 'double_down_dice_roll': {
+            // Map slide ID to investment option (A-J)
+            const investmentMapping: Record<number, { optionId: string; name: string }> = {
+                185: {optionId: 'A', name: 'Production Efficiency'},
+                186: {optionId: 'B', name: 'Expanded 2nd Shift'},
+                187: {optionId: 'C', name: 'Supply Chain Optimization'},
+                188: {optionId: 'D', name: 'Employee Development'},
+                189: {optionId: 'E', name: 'Maximize Boutique Retail'},
+                190: {optionId: 'F', name: 'Big Box Expansion'},
+                191: {optionId: 'G', name: 'Enterprise Resource Planning'},
+                192: {optionId: 'H', name: 'IT & Cyber Security'},
+                193: {optionId: 'I', name: 'Product Line Expansion'},
+                194: {optionId: 'J', name: 'Automation & Co-bots'}
+            };
+
+            const investment = investmentMapping[slide.id];
+
+            if (!investment || !sessionId) {
+                return (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                        <p className="text-white text-2xl">Investment data not found</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`w-full h-full ${className}`}>
+                    <DoubleDownDiceDisplay
+                        sessionId={sessionId}
+                        investmentId={investment.optionId}
+                        investmentName={investment.name}
+                        slideId={slide.id}
+                    />
+                </div>
+            );
+        }
         default:
             return (
                 <div className={`w-full h-full flex items-center justify-center p-4 ${className}`}>
@@ -116,12 +154,12 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
 
         // Special handling for leaderboard charts (no source_path needed)
         if (slide.type === 'leaderboard_chart') {
-            return <SlideContent slide={slide} sourceUrl="" className="animate-fade-in"/>;
+            return <SlideContent slide={slide} sourceUrl="" className="animate-fade-in" sessionId={sessionId}/>;
         }
 
         // For other non-video content, render it if the URL is ready
         if (sourceUrl) {
-            return <SlideContent slide={slide} sourceUrl={sourceUrl} className="animate-fade-in"/>;
+            return <SlideContent slide={slide} sourceUrl={sourceUrl} className="animate-fade-in" sessionId={sessionId}/>;
         }
 
         return null;
