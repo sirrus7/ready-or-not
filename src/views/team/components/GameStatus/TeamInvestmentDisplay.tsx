@@ -1,30 +1,35 @@
 // src/views/team/components/GameStatus/TeamInvestmentDisplay.tsx
-// Shows purchased investments for the current round on team app
+// FIXED: Shows actual continuation prices instead of original prices
 
 import React, {useEffect, useState} from 'react';
 import {ShoppingBag, DollarSign, CheckCircle} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
+import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
 
 interface InvestmentDisplayProps {
     sessionId: string;
     teamId: string;
     currentRound: number;
     gameStructure: any;
+    refreshTrigger?: number;
 }
 
 interface PurchasedInvestment {
     id: string;
     name: string;
-    cost: number;
+    originalCost: number;
+    actualCost: number; // ✅ The price actually paid (with continuation discount)
     isImmediate: boolean;
+    isContinuation: boolean; // ✅ Whether this was a continuation purchase
 }
 
 const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                                                                      sessionId,
                                                                      teamId,
                                                                      currentRound,
-                                                                     gameStructure
+                                                                     gameStructure,
+                                                                     refreshTrigger = 0
                                                                  }) => {
     const [investments, setInvestments] = useState<PurchasedInvestment[]>([]);
     const [totalSpent, setTotalSpent] = useState(0);
@@ -33,7 +38,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
     const currentInvestmentPhase = `rd${currentRound}-invest`;
 
     // Fetch regular investment decisions
-    const {data: regularDecisions} = useSupabaseQuery(
+    const {data: regularDecisions, refresh: refreshRegular} = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId) return [];
 
@@ -51,12 +56,12 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
         [sessionId, teamId, currentInvestmentPhase],
         {
             cacheKey: `team-regular-investments-${sessionId}-${teamId}-${currentRound}`,
-            cacheTimeout: 3000
+            cacheTimeout: 1000
         }
     );
 
     // Fetch immediate purchase decisions
-    const {data: immediateDecisions} = useSupabaseQuery(
+    const {data: immediateDecisions, refresh: refreshImmediate} = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId) return [];
 
@@ -75,68 +80,126 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
         [sessionId, teamId, currentInvestmentPhase],
         {
             cacheKey: `team-immediate-investments-${sessionId}-${teamId}-${currentRound}`,
-            cacheTimeout: 3000
+            cacheTimeout: 1000
         }
     );
 
-    // Process and combine investment data
+    // ✅ CENTRALIZED REFRESH: Listen to trigger from useTeamGameState
     useEffect(() => {
-        if (!gameStructure || (!regularDecisions && !immediateDecisions)) {
-            setInvestments([]);
-            setTotalSpent(0);
-            return;
+        if (refreshTrigger > 0) {
+            console.log(`[TeamInvestmentDisplay] Refresh trigger received (${refreshTrigger}), refreshing data...`);
+
+            setTimeout(() => {
+                refreshRegular();
+                refreshImmediate();
+            }, 100);
         }
+    }, [refreshTrigger, refreshRegular, refreshImmediate]);
 
-        const processedInvestments: PurchasedInvestment[] = [];
-        let totalCost = 0;
+    // ✅ Process and combine investment data WITH CONTINUATION PRICING
+    useEffect(() => {
+        const processInvestments = async () => {
+            if (!gameStructure || (!regularDecisions && !immediateDecisions)) {
+                setInvestments([]);
+                setTotalSpent(0);
+                return;
+            }
 
-        // Get investment options for this round
-        const investmentOptions = gameStructure.all_investment_options?.[currentInvestmentPhase] || [];
+            const processedInvestments: PurchasedInvestment[] = [];
+            let totalCost = 0;
 
-        // Process regular decisions
-        (regularDecisions || []).forEach(decision => {
-            const selectedOptions = decision.selected_investment_options || [];
-            const budget = decision.total_spent_budget || 0;
-            totalCost += budget;
+            // Get investment options for this round
+            const investmentOptions = gameStructure.all_investment_options?.[currentInvestmentPhase] || [];
 
-            selectedOptions.forEach((optionId: string) => {
-                const option = investmentOptions.find((opt: any) => opt.id === optionId);
-                if (option) {
-                    processedInvestments.push({
-                        id: optionId,
-                        name: option.name.split('.')[0].trim(),
-                        cost: option.cost || 0,
-                        isImmediate: false
-                    });
+            // ✅ Get continuation pricing for this team and round (for rounds 2+)
+            let continuationPricing: any = null;
+            if (currentRound > 1) {
+                try {
+                    continuationPricing = await ContinuationPricingEngine.calculateContinuationPricing(
+                        sessionId,
+                        teamId,
+                        currentRound as 2 | 3
+                    );
+                } catch (error) {
+                    console.error('[TeamInvestmentDisplay] Error getting continuation pricing:', error);
                 }
+            }
+
+            // Helper function to get actual cost for an investment
+            const getActualCost = (investmentId: string, originalCost: number) => {
+                if (!continuationPricing) return originalCost;
+
+                const pricing = continuationPricing.investmentPricing.find((p: any) => p.investmentId === investmentId);
+                return pricing?.finalPrice ?? originalCost;
+            };
+
+            // Helper function to check if investment is continuation
+            const isContinuation = (investmentId: string) => {
+                if (!continuationPricing) return false;
+
+                const pricing = continuationPricing.investmentPricing.find((p: any) => p.investmentId === investmentId);
+                return pricing?.availability === 'continue';
+            };
+
+            // Process regular decisions
+            (regularDecisions || []).forEach(decision => {
+                const selectedOptions = decision.selected_investment_options || [];
+                const budget = decision.total_spent_budget || 0;
+                totalCost += budget;
+
+                selectedOptions.forEach((optionId: string) => {
+                    const option = investmentOptions.find((opt: any) => opt.id === optionId);
+                    if (option) {
+                        const originalCost = option.cost || 0;
+                        const actualCost = getActualCost(optionId, originalCost);
+
+                        processedInvestments.push({
+                            id: optionId,
+                            name: option.name.split('.')[1]?.trim() || option.name.trim(),
+                            originalCost,
+                            actualCost,
+                            isImmediate: false,
+                            isContinuation: isContinuation(optionId)
+                        });
+                    }
+                });
             });
-        });
 
-        // Process immediate decisions
-        (immediateDecisions || []).forEach(decision => {
-            const selectedOptions = decision.selected_investment_options || [];
-            const budget = decision.total_spent_budget || 0;
-            totalCost += budget;
+            // Process immediate decisions
+            (immediateDecisions || []).forEach(decision => {
+                const selectedOptions = decision.selected_investment_options || [];
+                const budget = decision.total_spent_budget || 0;
+                totalCost += budget;
 
-            selectedOptions.forEach((optionId: string) => {
-                const option = investmentOptions.find((opt: any) => opt.id === optionId);
-                if (option) {
-                    processedInvestments.push({
-                        id: optionId,
-                        name: option.name.split('.')[0].trim(),
-                        cost: option.cost || 0,
-                        isImmediate: true
-                    });
-                }
+                selectedOptions.forEach((optionId: string) => {
+                    const option = investmentOptions.find((opt: any) => opt.id === optionId);
+                    if (option) {
+                        const originalCost = option.cost || 0;
+                        const actualCost = getActualCost(optionId, originalCost);
+
+                        processedInvestments.push({
+                            id: optionId,
+                            name: option.name.split('.')[1]?.trim() || option.name.trim(),
+                            originalCost,
+                            actualCost,
+                            isImmediate: true,
+                            isContinuation: isContinuation(optionId)
+                        });
+                    }
+                });
             });
-        });
 
-        // Sort alphabetically by ID
-        processedInvestments.sort((a, b) => a.id.localeCompare(b.id));
+            // Sort alphabetically by ID
+            processedInvestments.sort((a, b) => a.id.localeCompare(b.id));
 
-        setInvestments(processedInvestments);
-        setTotalSpent(totalCost);
-    }, [regularDecisions, immediateDecisions, gameStructure, currentInvestmentPhase]);
+            setInvestments(processedInvestments);
+            setTotalSpent(totalCost);
+
+            console.log(`[TeamInvestmentDisplay] Updated investments for ${teamId}:`, processedInvestments);
+        };
+
+        processInvestments();
+    }, [regularDecisions, immediateDecisions, gameStructure, currentInvestmentPhase, teamId, sessionId, currentRound]);
 
     // Don't render if no investments
     if (investments.length === 0) {
@@ -173,34 +236,40 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                                     Immediate
                                 </span>
                             )}
+                            {investment.isContinuation && (
+                                <span className="bg-green-600 text-green-100 px-1 py-0.5 rounded text-xs">
+                                    Continued
+                                </span>
+                            )}
                         </div>
-                        <span className="text-green-400 font-semibold text-sm">
-                            ${investment.cost.toLocaleString()}
-                        </span>
+
+                        <div className="text-right">
+                            {/* ✅ Show actual cost (with continuation discount if applicable) */}
+                            <span className="text-green-400 font-semibold text-sm">
+                                ${investment.actualCost.toLocaleString()}
+                            </span>
+
+                            {/* ✅ Show savings if continuation */}
+                            {investment.isContinuation && investment.actualCost < investment.originalCost && (
+                                <div className="text-xs text-gray-400 line-through">
+                                    ${investment.originalCost.toLocaleString()}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
 
             {/* Total Spent */}
-            <div className="flex items-center justify-between pt-2 border-t border-gray-600/50">
+            <div className="flex items-center justify-between pt-2 border-t border-gray-600/30">
                 <div className="flex items-center gap-2">
                     <DollarSign className="text-green-400" size={16}/>
-                    <span className="text-gray-300 font-semibold">Total Spent:</span>
+                    <span className="text-gray-300 font-medium">Total Spent:</span>
                 </div>
-                <span className="text-green-400 font-bold text-lg">
+                <span className="text-green-400 font-bold">
                     ${totalSpent.toLocaleString()}
                 </span>
             </div>
-
-            {/* Budget Remaining (assumes $250k budget for R1, can be made dynamic) */}
-            {currentRound === 1 && (
-                <div className="flex items-center justify-between text-sm mt-1">
-                    <span className="text-gray-400">Unspent Budget:</span>
-                    <span className="text-gray-300">
-                        ${(250000 - totalSpent).toLocaleString()}
-                    </span>
-                </div>
-            )}
         </div>
     );
 };

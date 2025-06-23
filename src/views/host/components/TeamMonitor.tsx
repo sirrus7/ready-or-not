@@ -1,17 +1,12 @@
-import React, {useState, useMemo, useEffect} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
 import {TeamDecision} from '@shared/types';
-import {
-    CheckCircle2,
-    Clock,
-    Info,
-    AlertTriangle,
-    FileText,
-} from 'lucide-react';
+import {AlertTriangle, CheckCircle2, Clock, Info,} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
 import Modal from '@shared/components/UI/Modal';
 import SelectionDisplay, {SelectionData} from './SelectionDisplay';
+import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
 
 interface ImmediatePurchaseData {
     id: string;
@@ -29,6 +24,7 @@ const TeamMonitor: React.FC = () => {
     // Modal states
     const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
     const [teamToReset, setTeamToReset] = useState<{ id: string, name: string } | null>(null);
+    const [continuationPricingCache, setContinuationPricingCache] = useState<Record<string, any>>({});
 
     const decisionKey = currentSlideData?.interactive_data_key;
     const isInvestmentPeriod = currentSlideData?.type === 'interactive_invest';
@@ -105,6 +101,35 @@ const TeamMonitor: React.FC = () => {
         };
     }, [currentSessionId, isInvestmentPeriod, refreshImmediatePurchases]);
 
+    // Load continuation pricing for all teams
+    useEffect(() => {
+        const loadContinuationPricing = async () => {
+            if (!currentSessionId || !currentSlideData || !teams.length) return;
+
+            const currentRound = currentSlideData.round_number || 1;
+            if (currentRound <= 1) return; // No continuation pricing for Round 1
+
+            const pricingCache: Record<string, any> = {};
+
+            // Calculate continuation pricing for each team
+            for (const team of teams) {
+                try {
+                    pricingCache[team.id] = await ContinuationPricingEngine.calculateContinuationPricing(
+                        currentSessionId,
+                        team.id,
+                        currentRound as 2 | 3
+                    );
+                } catch (error) {
+                    console.error(`[TeamMonitor] Error loading continuation pricing for team ${team.id}:`, error);
+                }
+            }
+
+            setContinuationPricingCache(pricingCache);
+        };
+
+        loadContinuationPricing();
+    }, [currentSessionId, currentSlideData, teams]);
+
     // Safe immediate purchases array
     const safeImmediatePurchases = immediatePurchases || [];
 
@@ -139,46 +164,51 @@ const TeamMonitor: React.FC = () => {
                 const selectedIds = decision?.selected_investment_options || [];
                 const investmentOptions = gameStructure.all_investment_options[decisionKey] || [];
 
-                // Get immediate purchases for this team - FIXED to use correct team ID
+                // Get immediate purchases for this team
                 const teamImmediatePurchases = safeImmediatePurchases.filter(purchase =>
                     purchase.team_id === teamId
                 );
 
-                console.log('[TeamMonitor] Debug immediate purchases for team:', teamId, teamImmediatePurchases);
-
                 const immediateLetters: string[] = [];
                 let immediateBudget = 0;
 
-                // FIXED: Properly extract immediate purchase data
+                // Extract immediate purchase data
                 teamImmediatePurchases.forEach(purchase => {
-                    console.log('[TeamMonitor] Processing immediate purchase:', purchase);
-                    // Add the actual letters from the database record
                     if (purchase.selected_investment_options && Array.isArray(purchase.selected_investment_options)) {
                         immediateLetters.push(...purchase.selected_investment_options);
                     }
                     immediateBudget += purchase.cost;
                 });
 
-                console.log('[TeamMonitor] Immediate letters found:', immediateLetters);
-                console.log('[TeamMonitor] Regular selections:', selectedIds);
-
                 // Combine regular selections and immediate purchases
                 const allSelectedIds = [...immediateLetters, ...selectedIds];
                 const totalBudget = (decision?.total_spent_budget || 0) + immediateBudget;
 
-                console.log('[TeamMonitor] All selected IDs:', allSelectedIds);
-                console.log('[TeamMonitor] Total budget:', totalBudget);
+                // ✅ GET CONTINUATION PRICING from cache
+                const teamContinuationPricing = teamId ? continuationPricingCache[teamId] : null;
 
-                // Sort alphabetically and create investment objects
+                // Helper function to get actual cost for an investment
+                const getActualCost = (investmentId: string, originalCost: number) => {
+                    if (!teamContinuationPricing) return originalCost;
+
+                    const pricing = teamContinuationPricing.investmentPricing?.find((p: any) => p.investmentId === investmentId);
+                    return pricing?.finalPrice ?? originalCost;
+                };
+
+                // Sort alphabetically and create investment objects WITH CORRECT PRICING
                 const sortedSelectedIds = [...allSelectedIds].sort();
                 const investments = sortedSelectedIds.map(id => {
                     const opt = investmentOptions.find(o => o.id === id);
                     const optionName = opt ? opt.name.split('.')[0].trim() : 'Unknown';
-                    console.log(`[TeamMonitor] Investment ${id}: cost = ${opt?.cost}, name = ${optionName}`);
+                    const originalCost = opt?.cost || 0;
+                    const actualCost = getActualCost(id, originalCost); // ✅ Use continuation pricing
+
+                    console.log(`[TeamMonitor] Investment ${id}: original=${originalCost}, actual=${actualCost}, name=${optionName}`);
+
                     return {
                         id,
                         name: optionName,
-                        cost: opt?.cost || 0,
+                        cost: actualCost, // ✅ Use actual cost (with continuation discount)
                         isImmediate: immediateLetters.includes(id)
                     };
                 });
@@ -187,7 +217,7 @@ const TeamMonitor: React.FC = () => {
                     type: 'investment',
                     investments,
                     totalBudget,
-                    hasSubmission: !!decision || teamImmediatePurchases.length > 0 // FIXED: Show submission if immediate purchases exist
+                    hasSubmission: !!decision || teamImmediatePurchases.length > 0
                 };
             }
 

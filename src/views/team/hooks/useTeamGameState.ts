@@ -191,6 +191,26 @@ export const useTeamGameState = ({
         }
     }, [currentActiveSlide?.round_number, currentTeamKpis?.round_number]);
 
+    const handleTeamDecisionUpdate = useCallback((payload: any) => {
+        const record = payload.new || payload.old;
+        const currentTeamId = stableTeamId.current;
+
+        console.log('💰 [useTeamGameState] Team decision change detected:', {
+            eventType: payload.eventType,
+            teamId: record?.team_id,
+            currentTeamId,
+            phase: record?.phase_id
+        });
+
+        // Only trigger refresh if this change affects our team
+        if (record?.team_id === currentTeamId) {
+            console.log('✅ [useTeamGameState] Decision change is for our team - triggering investment refresh');
+
+            // Increment a decision change trigger that components can listen to
+            setDecisionResetTrigger(prev => prev + 1);
+        }
+    }, []);
+
     // ========================================================================
     // REAL-TIME SUBSCRIPTIONS - CLEAN (no adjustment subscription)
     // ========================================================================
@@ -227,6 +247,18 @@ export const useTeamGameState = ({
             event: '*',
             filter: `session_id=eq.${sessionId}`,
             onchange: handleKpiUpdate
+        },
+        !!sessionId && !!loggedInTeamId
+    );
+
+    // 4. Team Decision Updates (for investment display refresh)
+    useRealtimeSubscription(
+        `team-decisions-${sessionId}-${loggedInTeamId}`,
+        {
+            table: 'team_decisions',
+            event: '*', // Listen to INSERT, UPDATE, DELETE
+            filter: `session_id=eq.${sessionId}`,
+            onchange: handleTeamDecisionUpdate
         },
         !!sessionId && !!loggedInTeamId
     );

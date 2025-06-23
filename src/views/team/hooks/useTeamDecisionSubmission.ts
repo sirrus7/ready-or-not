@@ -7,6 +7,7 @@ import {db, supabase} from '@shared/services/supabase';
 import {Slide, InvestmentOption, ChallengeOption, GameStructure} from '@shared/types';
 import {DecisionState} from './useDecisionMaking';
 import {InvestmentPurchaseHandler} from '@core/game/InvestmentPurchaseHandler';
+import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
 
 interface UseTeamDecisionSubmissionProps {
     sessionId: string | null;
@@ -203,19 +204,56 @@ export const useTeamDecisionSubmission = ({
                 decisionState
             });
 
-            // FIXED: Calculate total cost from selected investment options (letters)
-            const totalCost = decisionState.selectedInvestmentOptions.reduce((sum, optionLetter) => {
-                const gameStructureWithData = gameStructure as GameStructure & {
-                    all_investment_options?: Record<string, Array<{ id: string; name: string; cost: number }>>;
+            // ✅ FIXED: Calculate total cost using CONTINUATION PRICING
+            let totalCost = 0;
+
+            if (decisionState.selectedInvestmentOptions.length > 0) {
+                const currentRound = currentSlide?.round_number || 1;
+
+                // Helper function for original price calculation
+                const calculateOriginalTotalCost = () => {
+                    return decisionState.selectedInvestmentOptions.reduce((sum, optionLetter) => {
+                        const gameStructureWithData = gameStructure as GameStructure & {
+                            all_investment_options?: Record<string, Array<{ id: string; name: string; cost: number }>>;
+                        };
+                        const investmentOptions = gameStructureWithData?.all_investment_options?.[decisionKey] || [];
+
+                        const optionIndex = optionLetter.charCodeAt(0) - 65;
+                        const investment = investmentOptions[optionIndex];
+
+                        return sum + (investment?.cost || 0);
+                    }, 0);
                 };
-                const investmentOptions = gameStructureWithData?.all_investment_options?.[decisionKey] || [];
 
-                // Convert letter to array index (A=0, B=1, C=2, etc.)
-                const optionIndex = optionLetter.charCodeAt(0) - 65;
-                const investment = investmentOptions[optionIndex];
+                // For rounds 2+, use continuation pricing
+                if (currentRound > 1) {
+                    try {
+                        const continuationPricing = await ContinuationPricingEngine.calculateContinuationPricing(
+                            sessionId,
+                            teamId,
+                            currentRound as 2 | 3
+                        );
 
-                return sum + (investment?.cost || 0);
-            }, 0);
+                        // Calculate total using continuation prices
+                        totalCost = decisionState.selectedInvestmentOptions.reduce((sum, optionLetter) => {
+                            const pricing = continuationPricing.investmentPricing.find(
+                                (p: any) => p.investmentId === optionLetter
+                            );
+                            const actualCost = pricing?.finalPrice || 0;
+
+                            console.log(`[Submission] Investment ${optionLetter}: using continuation price ${actualCost}`);
+                            return sum + actualCost;
+                        }, 0);
+
+                    } catch (error) {
+                        console.error('Error getting continuation pricing, falling back to original prices:', error);
+                        totalCost = calculateOriginalTotalCost();
+                    }
+                } else {
+                    // Round 1: Use original prices
+                    totalCost = calculateOriginalTotalCost();
+                }
+            }
 
             // And the submission data object should be updated to:
             const submissionData = {

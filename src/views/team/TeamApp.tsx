@@ -288,14 +288,15 @@ const TeamApp: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* NEW: INVESTMENT DISPLAY - Show purchased investments for current round */}
+                        {/* INVESTMENT DISPLAY - Show purchased investments for current round */}
                         {currentActiveSlide && teamGameState.gameStructure && loggedInTeamId && (
                             <TeamInvestmentDisplay
-                                key={`investments-${loggedInTeamId}-${resetTrigger}`}
+                                key={`investments-${loggedInTeamId}-${currentActiveSlide.round_number}`} // ✅ Only remount on team/round change
                                 sessionId={sessionId || ''}
                                 teamId={loggedInTeamId}
                                 currentRound={currentActiveSlide.round_number || 1}
                                 gameStructure={teamGameState.gameStructure}
+                                refreshTrigger={resetTrigger} // ✅ Prop triggers useEffect refresh
                             />
                         )}
 
