@@ -10,6 +10,7 @@ interface VideoElementProps {
     autoPlay: boolean;
     muted: boolean;
     preload: string;
+    crossOrigin?: string;
     style: React.CSSProperties;
 }
 
@@ -126,6 +127,7 @@ export const usePresentationVideo = ({
             autoPlay: true,
             muted: false,
             preload: 'auto',
+            crossOrigin: 'anonymous',
             style: {width: '100%', height: '100%', objectFit: 'contain'}
         };
     }, []);

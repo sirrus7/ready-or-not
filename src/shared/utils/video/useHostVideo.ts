@@ -9,6 +9,7 @@ interface VideoElementProps {
     autoPlay: boolean;
     muted: boolean;
     preload: string;
+    crossOrigin?: string;
     style: React.CSSProperties;
 }
 
@@ -145,6 +146,7 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
             autoPlay: true,
             muted: isConnectedToPresentation,
             preload: 'auto',
+            crossOrigin: 'anonymous',
             style: {width: '100%', height: '100%', objectFit: 'contain'}
         };
     }, [isConnectedToPresentation]);

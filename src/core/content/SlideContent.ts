@@ -1415,7 +1415,6 @@ export const allGameSlides: Slide[] = [
         round_number: 2,
         title: "RD-2 Leaderboard: Capacity & Orders",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_capord',
         main_text: "Round 2 Leaderboard: Capacity & Orders",
         sub_text: "Production capability and market demand after Round 2."
     },
@@ -1424,7 +1423,6 @@ export const allGameSlides: Slide[] = [
         round_number: 2,
         title: "RD-2 Leaderboard: Cost Per Board",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_cpb',
         main_text: "Round 2 Leaderboard: Cost Per Board",
         sub_text: "Efficiency comparison after Round 2."
     },
@@ -1433,7 +1431,6 @@ export const allGameSlides: Slide[] = [
         round_number: 2,
         title: "RD-2 Leaderboard: Total Costs",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_costs',
         main_text: "Round 2 Leaderboard: Total Operational Costs",
         sub_text: "Overall spending by each team in Round 2."
     },
@@ -1442,7 +1439,6 @@ export const allGameSlides: Slide[] = [
         round_number: 2,
         title: "RD-2 Leaderboard: ASP",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_asp',
         main_text: "Round 2 Leaderboard: Average Selling Price",
         sub_text: "Pricing strategy results after Round 2."
     },
@@ -1451,7 +1447,6 @@ export const allGameSlides: Slide[] = [
         round_number: 2,
         title: "RD-2 Leaderboard: Revenue",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_revenue',
         main_text: "Round 2 Leaderboard: Total Revenue",
         sub_text: "Revenue generation comparison after Round 2."
     },
@@ -1460,7 +1455,6 @@ export const allGameSlides: Slide[] = [
         round_number: 2,
         title: "RD-2 Leaderboard: Net Margin",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_margin',
         main_text: "Round 2 Leaderboard: Net Profit Margin",
         sub_text: "Profitability percentage after Round 2."
     },
@@ -1469,7 +1463,6 @@ export const allGameSlides: Slide[] = [
         round_number: 2,
         title: "RD-2 Leaderboard: Cumulative Net Income",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd2_leaderboard_income',
         main_text: "Round 2 Leaderboard: Cumulative Net Income",
         sub_text: "Total profitability ranking after Rounds 1 & 2."
     },
@@ -2027,7 +2020,6 @@ export const allGameSlides: Slide[] = [
         round_number: 3,
         title: "Final Leaderboard: Capacity & Orders",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd3_leaderboard_capord',
         main_text: "Final Leaderboard: Capacity & Orders",
         sub_text: "Final comparison of production capability and market demand."
     },
@@ -2036,7 +2028,6 @@ export const allGameSlides: Slide[] = [
         round_number: 3,
         title: "Final Leaderboard: Cost Per Board",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd3_leaderboard_cpb',
         main_text: "Final Leaderboard: Cost Per Board",
         sub_text: "Final efficiency comparison among all teams."
     },
@@ -2045,7 +2036,6 @@ export const allGameSlides: Slide[] = [
         round_number: 3,
         title: "Final Leaderboard: Total Costs",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd3_leaderboard_costs',
         main_text: "Final Leaderboard: Total Operational Costs",
         sub_text: "Overall spending by each team in Round 3."
     },
@@ -2054,7 +2044,6 @@ export const allGameSlides: Slide[] = [
         round_number: 3,
         title: "Final Leaderboard: ASP",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd3_leaderboard_asp',
         main_text: "Final Leaderboard: Average Selling Price",
         sub_text: "Final pricing strategy results."
     },
@@ -2063,7 +2052,6 @@ export const allGameSlides: Slide[] = [
         round_number: 3,
         title: "Final Leaderboard: Revenue",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd3_leaderboard_revenue',
         main_text: "Final Leaderboard: Total Revenue",
         sub_text: "Final revenue generation comparison."
     },
@@ -2072,7 +2060,6 @@ export const allGameSlides: Slide[] = [
         round_number: 3,
         title: "Final Leaderboard: Net Margin",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd3_leaderboard_margin',
         main_text: "Final Leaderboard: Net Profit Margin",
         sub_text: "Final profitability percentage comparison."
     },
@@ -2081,7 +2068,6 @@ export const allGameSlides: Slide[] = [
         round_number: 3,
         title: "FINAL LEADERBOARD: Net Income (WINNERS!)",
         type: 'leaderboard_chart',
-        interactive_data_key: 'rd3_leaderboard_income',
         main_text: "🏆 FINAL RANKINGS 🏆",
         sub_text: "The ultimate winners of Ready or Not! Congratulations to all teams!",
         host_alert: {

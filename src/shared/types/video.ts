@@ -30,6 +30,7 @@ export interface VideoProps {
     autoPlay: boolean;
     muted: boolean;
     preload: string;
+    crossOrigin?: string;
     onClick?: () => void;
     className?: string;
     style: {

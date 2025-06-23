@@ -57,7 +57,7 @@ export const useGameController = (
         currentSlideIndex,
         {
             precacheCount: 3,
-            enabled: !!currentSlideData?.source_path
+            enabled: true
         }
     );
 
