@@ -48,6 +48,7 @@ import DecisionModeContainer from '@views/team/components/InteractionPanel/Decis
 import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards'; // ADDED: Import impact cards
 import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
 import {useTeamGameContext} from '@app/providers/TeamGameProvider';
+import {BASE_VALUES, ROUND_BASE_VALUES} from "@core/game/ScoringEngine.ts";
 
 // ============================================================================
 // MAIN TEAM APP COMPONENT
@@ -60,6 +61,14 @@ const TeamApp: React.FC = () => {
     // ADDED: Get centralized adjustment data from TeamGameProvider (lightweight, no auth)
     const teamGameContext = useTeamGameContext();
     const {permanentAdjustments, isLoadingAdjustments} = teamGameContext;
+
+    // Base values
+    const baseValues = {
+        capacity: BASE_VALUES.CAPACITY.toString(),
+        orders: ROUND_BASE_VALUES["1"].orders.toString(),
+        cost: ROUND_BASE_VALUES["1"].cost.toString(),
+        asp: BASE_VALUES.ASP.toString()
+    }
 
     console.log('🏢 TeamApp initialized:', {
         sessionId,
@@ -184,10 +193,10 @@ const TeamApp: React.FC = () => {
                                                             ? 'text-green-400'
                                                             : 'text-red-400'
                                                 }`}>
-                                                    {currentTeamKpis?.current_capacity?.toLocaleString() || '4,750'}
+                                                    {currentTeamKpis?.current_capacity?.toLocaleString() || baseValues.capacity}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
-                                                    Start: {currentTeamKpis?.start_capacity?.toLocaleString() || '4,750'}
+                                                    Start: {currentTeamKpis?.start_capacity?.toLocaleString() || baseValues.capacity}
                                                 </div>
                                             </div>
                                         </div>
@@ -210,10 +219,10 @@ const TeamApp: React.FC = () => {
                                                             ? 'text-green-400'
                                                             : 'text-red-400'
                                                 }`}>
-                                                    {currentTeamKpis?.current_orders?.toLocaleString() || '5,000'}
+                                                    {currentTeamKpis?.current_orders?.toLocaleString() || baseValues.orders}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
-                                                    Start: {currentTeamKpis?.start_orders?.toLocaleString() || '5,000'}
+                                                    Start: {currentTeamKpis?.start_orders?.toLocaleString() || baseValues.orders}
                                                 </div>
                                             </div>
                                         </div>
@@ -236,11 +245,11 @@ const TeamApp: React.FC = () => {
                                                             ? 'text-green-400'
                                                             : 'text-red-400'
                                                 }`}>
-                                                    ${currentTeamKpis?.current_cost?.toLocaleString() || '1,250,000'}
+                                                    ${currentTeamKpis?.current_cost?.toLocaleString() || baseValues.cost}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
                                                     Start:
-                                                    ${currentTeamKpis?.start_cost?.toLocaleString() || '1,250,000'}
+                                                    ${currentTeamKpis?.start_cost?.toLocaleString() || baseValues.cost}
                                                 </div>
                                             </div>
                                         </div>
@@ -263,10 +272,10 @@ const TeamApp: React.FC = () => {
                                                             ? 'text-green-400'
                                                             : 'text-red-400'
                                                 }`}>
-                                                    ${currentTeamKpis?.current_asp?.toLocaleString() || '950'}
+                                                    ${currentTeamKpis?.current_asp?.toLocaleString() || baseValues.asp}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
-                                                    Start: ${currentTeamKpis?.start_asp?.toLocaleString() || '950'}
+                                                    Start: ${currentTeamKpis?.start_asp?.toLocaleString() || baseValues.asp}
                                                 </div>
                                             </div>
                                         </div>
@@ -310,8 +319,7 @@ const TeamApp: React.FC = () => {
                                             {currentActiveSlide.type === 'consequence_reveal' ? 'Check your KPIs on the left.' :
                                                 currentActiveSlide.type === 'payoff_reveal' ? 'Check your KPIs on the left.' :
                                                     currentActiveSlide.type === 'leaderboard_chart' ? 'See how your team is performing compared to others.' :
-                                                        currentActiveSlide.type === 'kpi_summary_instructional' ? 'Review your current performance metrics on the left.' :
-                                                            'Follow along with the presentation. Your next decision opportunity will appear here.'}
+                                                        'Follow along with the presentation. Your next decision opportunity will appear here.'}
                                         </p>
                                     </>
                                 ) : (

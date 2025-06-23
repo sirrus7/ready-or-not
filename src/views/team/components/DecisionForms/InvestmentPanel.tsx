@@ -1,9 +1,9 @@
 // src/views/team/components/DecisionForms/InvestmentPanel.tsx
-// Updated to use standalone ImmediatePurchaseModal component
+// FIXED: Added proper checkboxes like ChoicePanel for visual selection clarity
 
 import React, {useState} from 'react';
-import {Zap, CheckCircle} from 'lucide-react';
 import {InvestmentOption} from '@shared/types';
+import {CheckCircle, Zap} from 'lucide-react';
 import ImmediatePurchaseModal from './ImmediatePurchaseModal';
 
 interface InvestmentPanelProps {
@@ -11,8 +11,8 @@ interface InvestmentPanelProps {
     selectedInvestmentIds: string[];
     spentBudget: number;
     investUpToBudget: number;
-    onInvestmentToggle: (optionIndex: number) => void;
-    onImmediatePurchase: (optionIndex: number) => Promise<void>;
+    onInvestmentToggle: (optionIndex: number, cost: number) => void;
+    onImmediatePurchase: (optionIndex: number, cost: number) => Promise<void>;
     isSubmitting: boolean;
     immediatePurchases: string[];
 }
@@ -39,23 +39,24 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
 
         setIsPurchasing(true);
         try {
-            await onImmediatePurchase(showImmediateModal);
+            const option = investmentOptions[showImmediateModal];
+            await onImmediatePurchase(showImmediateModal, option.cost);
             setShowImmediateModal(null);
         } catch (error) {
-            console.error('Immediate purchase failed:', error);
+            console.error('[InvestmentPanel] Immediate purchase failed:', error);
         } finally {
             setIsPurchasing(false);
         }
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             {/* Budget Display */}
-            <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-4">
+            <div className="bg-gray-700/50 rounded-lg p-4">
                 <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Budget Remaining:</span>
+                    <span className="text-sm font-medium text-gray-300">Remaining Budget:</span>
                     <span className={`text-lg font-bold ${
-                        (investUpToBudget - spentBudget) < 0 ? 'text-red-400' : 'text-green-400'
+                        spentBudget > investUpToBudget ? 'text-red-400' : 'text-green-400'
                     }`}>
                         {formatCurrency(investUpToBudget - spentBudget)}
                     </span>
@@ -76,25 +77,37 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                     return (
                         <div
                             key={opt.id}
-                            className={`relative border-2 rounded-lg p-4 transition-all duration-200 ${
+                            className={`relative border-2 rounded-lg transition-all duration-200 ${
                                 isDisabled
-                                    ? 'border-gray-600 bg-gray-800/50 opacity-60 cursor-not-allowed'
+                                    ? 'border-gray-600 bg-gray-800/50 opacity-60'
                                     : isSelected
-                                        ? 'border-blue-400 bg-blue-900/30 shadow-lg cursor-pointer'
-                                        : 'border-gray-500 bg-gray-800/50 hover:bg-gray-700/50 cursor-pointer'
+                                        ? 'border-blue-400 bg-blue-900/30 shadow-lg'
+                                        : 'border-gray-500 bg-gray-800/50 hover:bg-gray-700/50'
                             }`}
-                            onClick={() => {
-                                if (isDisabled || isSubmitting) return;
-
-                                if (isImmediate && !isImmediatePurchased) {
-                                    setShowImmediateModal(optionIndex);
-                                } else {
-                                    onInvestmentToggle(optionIndex);
-                                }
-                            }}
                         >
-                            <div className="flex items-start justify-between">
-                                <div className="flex-1 min-w-0">
+                            {/* FIXED: Added proper checkbox/selection interface */}
+                            <label className={`flex items-start p-4 cursor-pointer ${
+                                isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'
+                            }`}>
+                                {/* FIXED: Added checkbox like ChoicePanel */}
+                                <input
+                                    type="checkbox"
+                                    className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded"
+                                    checked={isSelected}
+                                    disabled={isDisabled || isSubmitting}
+                                    onChange={() => {
+                                        if (isDisabled || isSubmitting) return;
+
+                                        if (isImmediate && !isImmediatePurchased) {
+                                            setShowImmediateModal(optionIndex);
+                                        } else {
+                                            onInvestmentToggle(optionIndex, opt.cost);
+                                        }
+                                    }}
+                                />
+
+                                {/* Investment Content */}
+                                <div className="ml-4 flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                                         <span className="font-medium text-white">
                                             {opt.id}. {opt.name}
@@ -114,24 +127,29 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                             </span>
                                         )}
                                     </div>
+
                                     {opt.description && (
-                                        <p className="text-xs text-gray-300 leading-relaxed">
+                                        <p className="text-xs text-gray-300 leading-relaxed mb-2">
                                             {opt.description}
                                         </p>
                                     )}
-                                </div>
-                                <span className={`text-lg font-bold flex-shrink-0 ml-4 ${
-                                    isImmediatePurchased
-                                        ? 'text-green-400'
-                                        : isSelected
-                                            ? 'text-blue-200'
-                                            : 'text-yellow-300'
-                                }`}>
-                                    {formatCurrency(opt.cost)}
-                                </span>
-                            </div>
 
-                            {/* Selection Indicator */}
+                                    {/* Cost Display */}
+                                    <div className="flex justify-between items-center">
+                                        <span className={`text-lg font-bold ${
+                                            isImmediatePurchased
+                                                ? 'text-green-400'
+                                                : isSelected
+                                                    ? 'text-blue-200'
+                                                    : 'text-yellow-300'
+                                        }`}>
+                                            {formatCurrency(opt.cost)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </label>
+
+                            {/* Selection Indicator - Keep for additional visual feedback */}
                             {isSelected && !isDisabled && (
                                 <div className="absolute top-2 right-2">
                                     <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
@@ -144,7 +162,7 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                 })}
             </div>
 
-            {/* Immediate Purchase Modal - Now using standalone component */}
+            {/* Immediate Purchase Modal */}
             {showImmediateModal !== null && (
                 <ImmediatePurchaseModal
                     option={investmentOptions[showImmediateModal]}

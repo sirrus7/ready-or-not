@@ -4,12 +4,12 @@
 import {KpiEffect, TeamRoundData} from '@shared/types';
 import {PermanentKpiAdjustment} from '@shared/types/database';
 
-const BASE_VALUES = {
+export const BASE_VALUES = {
     CAPACITY: 5000,
     ASP: 1000  // ✅ FIXED: Changed from 950 to 1000
 };
 
-const ROUND_BASE_VALUES = {
+export const ROUND_BASE_VALUES = {
     1: {orders: 5000, cost: 1200000},                    // Initial round 1 values
     2: {orders: 6750, cost: 1275000},                    // ✅ FIXED: RD-1→RD-2 Reset values
     3: {orders: 7250, cost: 1350000}                     // ✅ FIXED: RD-2→RD-3 Reset values
