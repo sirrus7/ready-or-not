@@ -170,7 +170,7 @@ const TeamApp: React.FC = () => {
                         {/* Team Status with Vertical KPI Layout for Sidebar */}
                         <div className="flex-shrink-0">
                             <div
-                                className="p-4 bg-gray-800/80 backdrop-blur-sm text-white rounded-t-xl shadow-lg border-b border-gray-700">
+                                className="p-4 bg-gray-800/80 backdrop-blur-sm text-white rounded-xl shadow-lg border-b border-gray-700 overflow-hidden">
                                 <h2 className="text-xl font-bold text-center text-sky-300 mb-4">
                                     Team: <span className="text-white">{loggedInTeamName || 'N/A'}</span>
                                 </h2>
@@ -204,7 +204,8 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* Orders - RESTORED */}
-                                    <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30 hover:border-yellow-500/50 transition-colors">
+                                    <div
+                                        className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30 hover:border-yellow-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="text-yellow-400 text-xl">📦</div>
@@ -229,7 +230,8 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* Cost - RESTORED */}
-                                    <div className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
+                                    <div
+                                        className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="text-green-400 text-xl">💰</div>
@@ -255,7 +257,8 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* ASP - RESTORED */}
-                                    <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
+                                    <div
+                                        className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="text-red-400 text-xl">💎</div>
@@ -273,7 +276,8 @@ const TeamApp: React.FC = () => {
                                                     ${currentTeamKpis?.current_asp?.toLocaleString() || baseValues.asp}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
-                                                    Start: ${currentTeamKpis?.start_asp?.toLocaleString() || baseValues.asp}
+                                                    Start:
+                                                    ${currentTeamKpis?.start_asp?.toLocaleString() || baseValues.asp}
                                                 </div>
                                             </div>
                                         </div>
