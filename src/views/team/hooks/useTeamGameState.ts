@@ -71,8 +71,19 @@ export const useTeamGameState = ({
 
         setIsLoadingKpis(true);
         try {
-            const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, currentActiveSlide.round_number || 1);
-            setCurrentTeamKpis(kpis);
+            // MODIFIED: Don't immediately jump to new round - check if new round data exists first
+            let targetRound = (currentActiveSlide?.round_number as 1 | 2 | 3) || 1;
+
+            // If we're on a new round slide but no data exists for that round, keep showing previous round
+            if (targetRound > 1) {
+                const newRoundData = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
+                if (!newRoundData) {
+                    console.log(`[useTeamGameState] Round ${targetRound} slide detected but no R${targetRound} data exists, keeping R${targetRound - 1} display`);
+                    targetRound = (targetRound - 1) as 1 | 2 | 3;
+                }
+            }
+
+            const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
             console.log('📊 [useTeamGameState] KPIs fetched:', kpis?.current_round);
         } catch (error) {
             console.error('📊 [useTeamGameState] Error fetching KPIs:', error);

@@ -92,7 +92,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         gameStructure,
         gameProcessing.processInteractiveSlide,
         gameProcessing.processConsequenceSlide,
-        gameProcessing.processPayoffSlide
+        gameProcessing.processPayoffSlide,
+        gameProcessing.processKpiResetSlide,
     );
 
     const resetTeamDecision = useCallback(async (teamId: string, interactiveDataKey: string) => {

@@ -33,6 +33,7 @@ interface UseGameProcessingReturn {
     processInteractiveSlide: (completedSlide: Slide) => Promise<void>;
     processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>;
     processPayoffSlide: (payoffSlide: Slide) => Promise<void>;
+    processKpiResetSlide: (kpiResetSlide: Slide) => Promise<void>;
     calculateAndFinalizeRoundKPIs: (roundNumber: 1 | 2 | 3) => void;
     resetGameProgress: () => void;
     isLoadingProcessingDecisions: boolean;
@@ -208,6 +209,22 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         }
     }, [unifiedEffectsProcessor, currentDbSession, gameStructure, teams]);
 
+    // Add this method alongside processConsequenceSlide and processPayoffSlide
+    const processKpiResetSlide = useCallback(async (kpiResetSlide: Slide) => {
+        console.log('[useGameProcessing] Processing KPI reset slide:', kpiResetSlide.id);
+        if (!currentDbSession?.id || !gameStructure || teams.length === 0 || !unifiedEffectsProcessor) {
+            console.warn('[useGameProcessing] Skipping KPI reset processing - insufficient data or processor');
+            return;
+        }
+        try {
+            await unifiedEffectsProcessor.processEffectSlide(kpiResetSlide);
+            console.log('[useGameProcessing] KPI reset slide processed successfully');
+        } catch (error) {
+            console.error('[useGameProcessing] KPI reset processing failed:', error);
+            throw error;
+        }
+    }, [unifiedEffectsProcessor, currentDbSession, gameStructure, teams]);
+
     // Calculate and finalize KPIs
     const {
         execute: calculateKPIsExecute,
@@ -289,6 +306,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         processInteractiveSlide,        // ✅ Simplified inline implementation
         processConsequenceSlide,        // ✅ Uses UnifiedEffectsProcessor (real logic)
         processPayoffSlide,             // ✅ NEW: Slide-specific payoff processing
+        processKpiResetSlide,
         calculateAndFinalizeRoundKPIs: calculateKPIsExecute,
         resetGameProgress: resetGameProgressExecute,
         isLoadingProcessingDecisions: false,

@@ -11,7 +11,8 @@ export const useGameController = (
     gameStructure: GameStructure | null,
     processInteractiveSlide: (completedSlide: Slide) => Promise<void>,
     processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>,
-    processPayoffSlide: (payoffSlide: Slide) => Promise<void> // NEW: Added payoff slide processing
+    processPayoffSlide: (payoffSlide: Slide) => Promise<void>,
+    processKpiResetSlide: (kpiResetSlide: Slide) => Promise<void>
 ) => {
     // STATE MANAGEMENT
     const [dbSession, setDbSession] = useState<GameSession | null>(initialDbSession);
@@ -146,6 +147,36 @@ export const useGameController = (
                     });
                 } finally {
                     // Always reset processing flag
+                    processingRef.current = false;
+                }
+            }
+
+            // Handle KPI reset slides (NEW - minimal addition)
+            if (currentSlideData.type === 'kpi_reset') {
+                if (lastProcessedSlideRef.current === currentSlideData.id) {
+                    console.log(`[useGameController] ⚪ KPI reset slide ${currentSlideData.id} already processed`);
+                    return;
+                }
+
+                if (processingRef.current) {
+                    console.log(`[useGameController] ⏸️ Already processing slide ${currentSlideData.id}, skipping`);
+                    return;
+                }
+
+                console.log(`[useGameController] 🎯 NEW KPI reset slide detected: ${currentSlideData.id}`);
+
+                try {
+                    processingRef.current = true;
+                    await processKpiResetSlide(currentSlideData);
+                    lastProcessedSlideRef.current = currentSlideData.id;
+                    console.log(`[useGameController] ✅ Successfully processed KPI reset slide: ${currentSlideData.id}`);
+                } catch (error) {
+                    console.error(`[useGameController] ❌ Error processing KPI reset slide:`, error);
+                    setCurrentHostAlertState({
+                        title: "Processing Error",
+                        message: `Failed to process KPI reset slide: ${error instanceof Error ? error.message : "Unknown error"}`
+                    });
+                } finally {
                     processingRef.current = false;
                 }
             }
