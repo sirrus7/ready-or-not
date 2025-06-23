@@ -50,6 +50,7 @@ import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
 import {useTeamGameContext} from '@app/providers/TeamGameProvider';
 import {BASE_VALUES, ROUND_BASE_VALUES} from "@core/game/ScoringEngine.ts";
 import TeamInvestmentDisplay from "@views/team/components/GameStatus/TeamInvestmentDisplay.tsx";
+import { Building, ShoppingCart, DollarSign, TrendingUp } from 'lucide-react';
 
 // ============================================================================
 // MAIN TEAM APP COMPONENT
@@ -183,7 +184,7 @@ const TeamApp: React.FC = () => {
                                         className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 backdrop-blur-sm rounded-lg p-3 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="text-blue-400 text-xl">🏢</div>
+                                                <Building className="text-blue-400" size={20} />
                                                 <span className="text-sm font-semibold text-slate-200">Capacity</span>
                                             </div>
                                             <div className="text-right">
@@ -209,7 +210,7 @@ const TeamApp: React.FC = () => {
                                         className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30 hover:border-yellow-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="text-yellow-400 text-xl">📦</div>
+                                                <ShoppingCart className="text-yellow-400" size={20} />
                                                 <span className="text-sm font-semibold text-slate-200">Orders</span>
                                             </div>
                                             <div className="text-right">
@@ -235,7 +236,7 @@ const TeamApp: React.FC = () => {
                                         className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="text-green-400 text-xl">💰</div>
+                                                <DollarSign className="text-green-400" size={20} />
                                                 <span className="text-sm font-semibold text-slate-200">Cost</span>
                                             </div>
                                             <div className="text-right">
@@ -262,7 +263,7 @@ const TeamApp: React.FC = () => {
                                         className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="text-red-400 text-xl">💎</div>
+                                                <TrendingUp className="text-red-400" size={20} />
                                                 <span className="text-sm font-semibold text-slate-200">ASP</span>
                                             </div>
                                             <div className="text-right">
@@ -290,6 +291,7 @@ const TeamApp: React.FC = () => {
                         {/* NEW: INVESTMENT DISPLAY - Show purchased investments for current round */}
                         {currentActiveSlide && teamGameState.gameStructure && loggedInTeamId && (
                             <TeamInvestmentDisplay
+                                key={`investments-${loggedInTeamId}-${resetTrigger}`}
                                 sessionId={sessionId || ''}
                                 teamId={loggedInTeamId}
                                 currentRound={currentActiveSlide.round_number || 1}
