@@ -699,7 +699,7 @@ export const allGameSlides: Slide[] = [
         id: 67,
         round_number: 2,
         title: "KPI Reset Example",
-        type: 'video',
+        type: 'kpi_reset',
         source_path: 'Slide_068.mp4',
         auto_advance_after_video: true
     },
@@ -707,7 +707,7 @@ export const allGameSlides: Slide[] = [
         id: 68,
         round_number: 2,
         title: "RD-2 Starting KPIs",
-        type: 'kpi_reset',
+        type: 'video',
         source_path: 'Slide_069.mp4',
         auto_advance_after_video: false,
         host_alert: {
@@ -891,7 +891,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 87,
         round_number: 2,
-        title: "CH5: Capacity Crisis Setup",
+        title: "CH5: Option A",
         type: 'video',
         source_path: 'Slide_088.mp4',
         auto_advance_after_video: true
@@ -899,7 +899,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 88,
         round_number: 2,
-        title: "CH5: Option A",
+        title: "CH5: Option B",
         type: 'video',
         source_path: 'Slide_089.mp4',
         auto_advance_after_video: true
@@ -907,7 +907,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 89,
         round_number: 2,
-        title: "CH5: Option B/C/D",
+        title: "CH5: Option C",
         type: 'video',
         source_path: 'Slide_090.mp4',
         auto_advance_after_video: true
@@ -915,9 +915,17 @@ export const allGameSlides: Slide[] = [
     {
         id: 90,
         round_number: 2,
+        title: "CH5: Option D",
+        type: 'video',
+        source_path: 'Slide_091.mp4',
+        auto_advance_after_video: true
+    },
+    {
+        id: 91,
+        round_number: 2,
         title: "CH5 Decision Timer",
         type: 'interactive_choice',
-        source_path: 'Slide_091.mp4',
+        source_path: 'Slide_092.mp4',
         interactive_data_key: 'ch5',
         main_text: "CHALLENGE 5: Capacity Crisis",
         sub_text: "How will you meet the increased demand?",
@@ -929,17 +937,9 @@ export const allGameSlides: Slide[] = [
         }
     },
     {
-        id: 91,
-        round_number: 2,
-        title: "CH5 Results",
-        type: 'video',
-        source_path: 'Slide_092.mp4',
-        auto_advance_after_video: true
-    },
-    {
         id: 92,
         round_number: 2,
-        title: "CH5 Consequences Intro",
+        title: "CH5 Results",
         type: 'video',
         source_path: 'Slide_093.mp4',
         auto_advance_after_video: true

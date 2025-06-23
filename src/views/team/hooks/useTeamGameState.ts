@@ -71,20 +71,55 @@ export const useTeamGameState = ({
 
         setIsLoadingKpis(true);
         try {
-            // MODIFIED: Don't immediately jump to new round - check if new round data exists first
             let targetRound = (currentActiveSlide?.round_number as 1 | 2 | 3) || 1;
 
-            // If we're on a new round slide but no data exists for that round, keep showing previous round
+            // PRODUCTION FIX: For KPI reset slides, wait for processing to complete
             if (targetRound > 1) {
-                const newRoundData = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
-                if (!newRoundData) {
-                    console.log(`[useTeamGameState] Round ${targetRound} slide detected but no R${targetRound} data exists, keeping R${targetRound - 1} display`);
+                let newRoundData = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
+
+                // CRITICAL FIX: If this is a KPI reset slide and no data exists yet, wait for it
+                if (!newRoundData && currentActiveSlide.type === 'kpi_reset') {
+                    console.log(`[useTeamGameState] 🔄 KPI reset slide detected for Round ${targetRound}, waiting for host processing...`);
+
+                    // Retry logic: Wait up to 3 seconds for KPI reset processing to complete
+                    let attempts = 0;
+                    const maxAttempts = 6; // 6 attempts * 500ms = 3 seconds
+
+                    while (attempts < maxAttempts && !newRoundData) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        attempts++;
+
+                        newRoundData = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
+                        if (newRoundData) {
+                            console.log(`[useTeamGameState] ✅ Round ${targetRound} data appeared after ${attempts * 500}ms`);
+                            break;
+                        }
+                    }
+
+                    if (!newRoundData) {
+                        console.warn(`[useTeamGameState] ⚠️ Round ${targetRound} data still missing after ${maxAttempts * 500}ms, falling back to R${targetRound - 1}`);
+                        targetRound = (targetRound - 1) as 1 | 2 | 3;
+                    }
+                }
+                // For non-reset slides, fall back immediately if no new data
+                else if (!newRoundData) {
+                    console.log(`[useTeamGameState] Round ${targetRound} slide but no data exists, keeping R${targetRound - 1}`);
                     targetRound = (targetRound - 1) as 1 | 2 | 3;
+                }
+
+                // If we found new round data, use it and exit early
+                if (newRoundData) {
+                    console.log(`📊 [useTeamGameState] Using Round ${targetRound} data:`, newRoundData.current_round);
+                    setCurrentTeamKpis(newRoundData);
+                    return;
                 }
             }
 
+            // Fetch data for the determined target round
             const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
-            console.log('📊 [useTeamGameState] KPIs fetched:', kpis?.current_round);
+            console.log(`📊 [useTeamGameState] KPIs fetched for Round ${targetRound}:`, kpis?.current_round);
+            setCurrentTeamKpis(kpis);
+
         } catch (error) {
             console.error('📊 [useTeamGameState] Error fetching KPIs:', error);
             setCurrentTeamKpis(null);
@@ -142,13 +177,19 @@ export const useTeamGameState = ({
             teamId: updatedKpis?.team_id,
             currentTeamId,
             roundNumber: updatedKpis?.round_number,
+            currentSlideRound: currentActiveSlide?.round_number
         });
 
         if (updatedKpis?.team_id === currentTeamId) {
             console.log('✅ [useTeamGameState] KPI update is for our team - applying update');
             setCurrentTeamKpis(updatedKpis);
+
+            // PRODUCTION FIX: Log round transitions for debugging
+            if (updatedKpis.round_number !== currentTeamKpis?.round_number) {
+                console.log(`🔄 [useTeamGameState] Real-time round transition: R${currentTeamKpis?.round_number} → R${updatedKpis.round_number}`);
+            }
         }
-    }, []);
+    }, [currentActiveSlide?.round_number, currentTeamKpis?.round_number]);
 
     // ========================================================================
     // REAL-TIME SUBSCRIPTIONS - CLEAN (no adjustment subscription)
@@ -199,16 +240,19 @@ export const useTeamGameState = ({
     // CRITICAL: Controlled KPI refresh on slide changes - OPTIMIZED to prevent loading flashes
     useEffect(() => {
         if (currentActiveSlide && sessionId && loggedInTeamId) {
-            // Only refresh if we don't have KPIs or the round changed
-            const needsRefresh = !currentTeamKpis ||
-                currentTeamKpis.round_number !== (currentActiveSlide.round_number || 1);
+            // PRODUCTION FIX: Always refresh for KPI reset slides to handle round transitions
+            const isKpiResetSlide = currentActiveSlide.type === 'kpi_reset';
+            const roundChanged = currentTeamKpis?.round_number !== (currentActiveSlide.round_number || 1);
+            const needsRefresh = !currentTeamKpis || roundChanged || isKpiResetSlide;
 
             if (needsRefresh) {
-                console.log(`🎬 [useTeamGameState] Slide changed to ${currentActiveSlide.id}, refreshing KPIs`);
+                const refreshReason = isKpiResetSlide ? 'KPI reset slide' :
+                    roundChanged ? 'round changed' : 'no KPI data';
+                console.log(`🎬 [useTeamGameState] Slide ${currentActiveSlide.id} refresh needed: ${refreshReason}`);
                 fetchCurrentKpis();
             }
         }
-    }, [currentActiveSlide?.id, currentActiveSlide?.round_number, fetchCurrentKpis, currentTeamKpis?.round_number]);
+    }, [currentActiveSlide?.id, currentActiveSlide?.round_number, currentActiveSlide?.type, fetchCurrentKpis, currentTeamKpis?.round_number]);
 
     // Load game structure and initialize slide
     useEffect(() => {

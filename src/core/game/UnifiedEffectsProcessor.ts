@@ -112,7 +112,7 @@ export class UnifiedEffectsProcessor {
 
     /**
      * NEW: Process KPI reset slides - handles round transitions automatically
-     * Follows same patterns as processConsequenceSlide/processPayoffSlide
+     * FIXED: Now actually saves the computed KPIs to database for real-time updates
      */
     private async processKpiResetSlide(slide: Slide): Promise<void> {
         const {
@@ -139,14 +139,25 @@ export class UnifiedEffectsProcessor {
                 console.log(`[UnifiedEffectsProcessor] 👥 Processing KPI reset for team: ${team.name} → Round ${targetRound}`);
 
                 try {
-                    // Use existing KpiResetEngine (preserves all existing logic)
+                    // STEP 1: Check if Round data already exists (shouldn't during normal gameplay)
+                    const existingRoundData = await db.kpis.getForTeamRound(
+                        currentDbSession.id,
+                        team.id,
+                        targetRound
+                    );
+
+                    if (existingRoundData) {
+                        console.log(`[UnifiedEffectsProcessor] ⚠️ Round ${targetRound} data already exists for team ${team.name}, will update`);
+                    }
+
+                    // STEP 2: Execute KPI reset calculations (preserves all existing logic)
                     const resetResult = await KpiResetEngine.executeResetSequence(
                         currentDbSession.id,
                         team.id,
                         targetRound
                     );
 
-                    console.log(`[UnifiedEffectsProcessor] ✅ KPI reset complete for team ${team.name}:`, {
+                    console.log(`[UnifiedEffectsProcessor] ✅ KPI reset computed for team ${team.name}:`, {
                         permanentEffects: resetResult.permanentEffectsApplied.length,
                         continuedInvestments: resetResult.continuedInvestmentsApplied.length,
                         finalKpis: {
@@ -157,6 +168,27 @@ export class UnifiedEffectsProcessor {
                         }
                     });
 
+                    // STEP 3: Save computed KPIs to database (CRITICAL FIX)
+                    let savedKpis;
+                    if (existingRoundData) {
+                        // Update existing data
+                        savedKpis = await db.kpis.update(existingRoundData.id, resetResult.finalKpis);
+                    } else {
+                        // Create new Round data
+                        savedKpis = await db.kpis.create(resetResult.finalKpis);
+                    }
+
+                    console.log(`[UnifiedEffectsProcessor] 💾 Saved Round ${targetRound} KPIs to database for team ${team.name}:`, {
+                        id: savedKpis.id,
+                        round: savedKpis.round_number,
+                        capacity: savedKpis.current_capacity,
+                        orders: savedKpis.current_orders,
+                        cost: savedKpis.current_cost,
+                        asp: savedKpis.current_asp,
+                        revenue: savedKpis.revenue,
+                        net_income: savedKpis.net_income
+                    });
+
                 } catch (teamError) {
                     console.error(`[UnifiedEffectsProcessor] ❌ KPI reset failed for team ${team.name}:`, teamError);
                     // Continue with other teams - don't let one team failure break the entire process
@@ -164,7 +196,7 @@ export class UnifiedEffectsProcessor {
                 }
             }
 
-            // Refresh UI data (same pattern as other processors)
+            // STEP 4: Refresh UI data (triggers real-time updates to team apps)
             await fetchTeamRoundDataFromHook(currentDbSession.id);
 
             console.log(`[UnifiedEffectsProcessor] ✅ KPI reset processing complete for slide ${slide.id} (${roundTransition})`);

@@ -63,14 +63,6 @@ const TeamApp: React.FC = () => {
     const teamGameContext = useTeamGameContext();
     const {permanentAdjustments, isLoadingAdjustments} = teamGameContext;
 
-    // Base values
-    const baseValues = {
-        capacity: BASE_VALUES.CAPACITY.toString(),
-        orders: ROUND_BASE_VALUES["1"].orders.toString(),
-        cost: ROUND_BASE_VALUES["1"].cost.toString(),
-        asp: BASE_VALUES.ASP.toString()
-    }
-
     console.log('🏢 TeamApp initialized:', {
         sessionId,
         loggedInTeamId,
@@ -95,6 +87,15 @@ const TeamApp: React.FC = () => {
     const isDecisionPhaseActive = teamGameState.isDecisionTime;
     const resetTrigger = teamGameState.decisionResetTrigger;
     const connectionStatus = teamGameState.connectionStatus;
+
+    // Base values
+    const currentRound = (currentActiveSlide?.round_number as 1 | 2 | 3) || 1;
+    const baseValues = {
+        capacity: BASE_VALUES.CAPACITY.toString(),
+        orders: ROUND_BASE_VALUES[currentRound].orders.toString(),
+        cost: ROUND_BASE_VALUES[currentRound].cost.toString(),
+        asp: BASE_VALUES.ASP.toString()
+    };
 
     // ========================================================================
     // CONDITIONAL RENDERING

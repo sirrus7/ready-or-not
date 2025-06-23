@@ -6,16 +6,6 @@ import {db} from '@shared/services/supabase';
 import {ScoringEngine} from './ScoringEngine';
 
 /**
- * Strategy Investment Effects (permanent across all resets)
- * Applied when Strategy Investment is purchased, survives all resets
- */
-const STRATEGY_INVESTMENT_EFFECTS: KpiEffect[] = [
-    {kpi: 'capacity', change_value: 250, timing: 'immediate', description: 'Strategy Investment - Capacity'},
-    {kpi: 'orders', change_value: 250, timing: 'immediate', description: 'Strategy Investment - Orders'},
-    {kpi: 'asp', change_value: 20, timing: 'immediate', description: 'Strategy Investment - ASP'}
-];
-
-/**
  * Continuation Effects - Applied when teams continue investments from previous round
  * These are the effects teams get when they continue an investment at reduced cost
  */
@@ -127,7 +117,7 @@ const CONTINUATION_EFFECTS: Record<string, Record<string, KpiEffect[]>> = {
 export interface KpiResetResult {
     resetKpis: TeamRoundData;
     permanentEffectsApplied: KpiEffect[];
-    continuedInvestmentsApplied: Array<{ investmentId: string; effects: KpiEffect[] }>;
+    continuedInvestmentsApplied: Array<{ investmentId: string; effects: KpiEffect[] }>; // Will be empty at reset time
     finalKpis: TeamRoundData;
 }
 
@@ -171,20 +161,10 @@ export class KpiResetEngine {
         const allAdjustments = await db.adjustments.getBySession(sessionId);
         const teamAdjustments = allAdjustments.filter(adj => adj.team_id === teamId);
 
-        // Check if team has Strategy Investment (permanent effect)
-        const hasStrategyInvestment = teamAdjustments.some(adj =>
-            adj.challenge_id === 'strategy' || adj.description?.includes('Strategy')
-        );
+        console.log(`[KpiResetEngine] Found ${teamAdjustments.length} permanent adjustments for team ${teamId}`);
 
-        if (hasStrategyInvestment) {
-            console.log(`[KpiResetEngine] Applying Strategy Investment permanent effects`);
-            STRATEGY_INVESTMENT_EFFECTS.forEach(effect => {
-                (updatedKpis as any)[`current_${effect.kpi}`] += effect.change_value;
-                effectsApplied.push(effect);
-            });
-        }
-
-        // Apply other permanent KPI cards (from events/consequences with permanent timing)
+        // FIXED: Apply all permanent adjustments (including Strategy Investment) from database
+        // Don't double-apply with hardcoded effects
         const permanentAdjustments = teamAdjustments.filter(adj =>
             adj.applies_to_round_start === roundData.round_number
         );
@@ -194,12 +174,16 @@ export class KpiResetEngine {
                 kpi: adj.kpi_key as any,
                 change_value: adj.change_value,
                 timing: 'immediate',
-                description: adj.description || 'Permanent KPI Card Effect'
+                description: adj.description || 'Permanent Effect'
             };
 
+            console.log(`[KpiResetEngine] Applying: ${adj.description} - ${adj.kpi_key}: ${adj.change_value > 0 ? '+' : ''}${adj.change_value}`);
             (updatedKpis as any)[`current_${adj.kpi_key}`] += adj.change_value;
             effectsApplied.push(effect);
         });
+
+        // REMOVED: Hardcoded STRATEGY_INVESTMENT_EFFECTS application
+        // This was causing double-application since Strategy effects are already in database
 
         console.log(`[KpiResetEngine] ✅ Applied ${effectsApplied.length} permanent effects`);
         return {updatedKpis, effectsApplied};
@@ -313,19 +297,19 @@ export class KpiResetEngine {
             const {updatedKpis: afterPermanent, effectsApplied: permanentEffectsApplied} =
                 await this.applyPermanentEffects(resetKpis, sessionId, teamId);
 
-            // STEP 3: Apply continued investments only (at continuation pricing)
-            const {updatedKpis: afterContinued, continuedInvestments: continuedInvestmentsApplied} =
-                await this.applyContinuedInvestments(afterPermanent, sessionId, teamId, targetRound);
+            // REMOVED STEP 3: Don't apply continued investments at reset time
+            // Continuation effects should only be applied AFTER teams decide to continue
+            // This was the bug - we were giving bonuses before teams made decisions
 
-            // STEP 4: Calculate final KPIs
-            const finalKpis = this.calculateFinalKpis(afterContinued);
+            // STEP 3 (was 4): Calculate final KPIs
+            const finalKpis = this.calculateFinalKpis(afterPermanent);
 
-            console.log(`[KpiResetEngine] ✅ Reset sequence complete for team ${teamId}`);
+            console.log(`[KpiResetEngine] ✅ Reset sequence complete for team ${teamId} (NO continuation effects)`);
 
             return {
                 resetKpis: resetKpis as TeamRoundData,
                 permanentEffectsApplied,
-                continuedInvestmentsApplied,
+                continuedInvestmentsApplied: [], // Empty - no continuation effects at reset
                 finalKpis: finalKpis as TeamRoundData
             };
 
