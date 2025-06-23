@@ -9,7 +9,6 @@ import {
     TeamRoundData,
     GameStructure,
     Slide,
-    KpiEffect
 } from '@shared/types';
 import {db} from '@shared/services/supabase';
 import {ScoringEngine} from './ScoringEngine';
@@ -250,9 +249,10 @@ export class UnifiedEffectsProcessor {
         console.log(`[UnifiedEffectsProcessor] 🎯 Processing consequence: ${challengeId}, option ${slideOption}`);
 
         // Get consequence data
-        const allConsequencesForChallenge = allConsequencesData[challengeId] || [];
+        const consequenceKey = `${challengeId}-conseq`;
+        const allConsequencesForChallenge = allConsequencesData[consequenceKey] || [];
         if (allConsequencesForChallenge.length === 0) {
-            console.warn(`[UnifiedEffectsProcessor] ⚠️ No consequences defined for challenge ${challengeId}`);
+            console.warn(`[UnifiedEffectsProcessor] ⚠️ No consequences defined for challenge ${consequenceKey}`);
             return;
         }
 
@@ -275,16 +275,16 @@ export class UnifiedEffectsProcessor {
 
             console.log(`[UnifiedEffectsProcessor] ✅ Team ${team.name} selected option ${slideOption}. Processing effects.`);
 
-            // Find consequence effects for this option
-            const consequenceForOption = allConsequencesForChallenge.find(cons => cons.selected_option === slideOption);
+            // Find consequence effects for this option - FIXED: Use challenge_option_id not selected_option
+            const consequenceForOption = allConsequencesForChallenge.find(cons => cons.challenge_option_id === slideOption);
             if (!consequenceForOption?.effects) {
                 console.warn(`[UnifiedEffectsProcessor] ⚠️ No effects found for option ${slideOption} in challenge ${challengeId}`);
                 continue;
             }
 
-            // Apply effects to team round data
+            // Apply effects to team round data - FIXED: Use ensureTeamRoundData not ensureKpiDataExists
             const currentRound = consequenceSlide.round_number as 1 | 2 | 3;
-            const currentKpis = await KpiDataUtils.ensureKpiDataExists(
+            const currentKpis = await KpiDataUtils.ensureTeamRoundData(
                 currentDbSession.id,
                 team.id,
                 currentRound,
@@ -301,7 +301,7 @@ export class UnifiedEffectsProcessor {
                 ...finalKpis
             });
 
-            // Handle permanent effects
+            // Handle permanent effects (if any)
             const permanentEffects = consequenceForOption.effects.filter(eff =>
                 eff.timing === 'permanent_next_round_start'
             );
@@ -316,7 +316,7 @@ export class UnifiedEffectsProcessor {
                 );
             }
 
-            console.log(`[UnifiedEffectsProcessor] ✅ Applied ${consequenceForOption.effects.length} effects to team ${team.name}`);
+            console.log(`[UnifiedEffectsProcessor] ✅ Processed consequence for team ${team.name}: ${consequenceForOption.id}`);
         }
 
         // Refresh data
@@ -403,16 +403,16 @@ export class UnifiedEffectsProcessor {
             // Process strategy investment effects first (if applicable)
             await this.processStrategyInvestmentEffects(team, investmentPhase, slideOption);
 
-            // Find payoff effects for this option
-            const payoffForOption = allPayoffsForPhase.find(payoff => payoff.investment_option === slideOption);
+            // Find payoff effects for this option - FIXED: Use 'id' not 'investment_option'
+            const payoffForOption = allPayoffsForPhase.find(payoff => payoff.id === slideOption);
             if (!payoffForOption?.effects) {
                 console.warn(`[UnifiedEffectsProcessor] ⚠️ No effects found for option ${slideOption} in ${payoffKey}`);
                 continue;
             }
 
-            // Apply effects to team round data
+            // Apply effects to team round data - FIXED: Use ensureTeamRoundData not ensureKpiDataExists
             const currentRound = payoffSlide.round_number as 1 | 2 | 3;
-            const currentKpis = await KpiDataUtils.ensureKpiDataExists(
+            const currentKpis = await KpiDataUtils.ensureTeamRoundData(
                 currentDbSession.id,
                 team.id,
                 currentRound,
