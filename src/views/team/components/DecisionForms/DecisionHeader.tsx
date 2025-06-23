@@ -58,10 +58,15 @@ const DecisionHeader: React.FC<DecisionHeaderProps> = ({
                     <div className="text-center"><p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Total
                         Budget</p><p className="font-bold text-green-400 text-lg">{formatCurrency(investUpToBudget)}</p>
                     </div>
-                    <div className="text-center"><p
-                        className="text-gray-400 text-xs uppercase tracking-wide mb-1">Spent</p><p
-                        className="font-bold text-yellow-400 text-lg">{formatCurrency(state.spentBudget)}</p><p
-                        className="text-xs text-gray-400">{state.selectedInvestmentOptions.length} investment{state.selectedInvestmentOptions.length !== 1 ? 's' : ''}</p>
+                    <div className="text-center">
+                        <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Spent</p>
+                        <p className="font-bold text-yellow-400 text-lg">{formatCurrency(state.spentBudget)}</p>
+                        <p className="text-xs text-gray-400">
+                            {(() => {
+                                const totalInvestments = state.selectedInvestmentOptions.length + state.immediatePurchases.length;
+                                return `${totalInvestments} investment${totalInvestments !== 1 ? 's' : ''}`;
+                            })()}
+                        </p>
                     </div>
                     <div className="text-center"><p
                         className="text-gray-400 text-xs uppercase tracking-wide mb-1">Remaining</p><p

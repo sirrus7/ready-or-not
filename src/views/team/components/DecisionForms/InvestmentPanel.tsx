@@ -1,10 +1,9 @@
 // src/views/team/components/DecisionForms/InvestmentPanel.tsx
-// FIXED: Added proper checkboxes like ChoicePanel for visual selection clarity
+// FIXED: Restored better UX - gray out unaffordable options, improved immediate purchase modal
 
 import React, {useState} from 'react';
 import {InvestmentOption} from '@shared/types';
-import {CheckCircle, Zap} from 'lucide-react';
-import ImmediatePurchaseModal from './ImmediatePurchaseModal';
+import {CheckCircle, Zap, X} from 'lucide-react';
 
 interface InvestmentPanelProps {
     investmentOptions: InvestmentOption[];
@@ -16,6 +15,91 @@ interface InvestmentPanelProps {
     isSubmitting: boolean;
     immediatePurchases: string[];
 }
+
+// Simple modal component for immediate purchases
+const ImmediatePurchaseModal: React.FC<{
+    option: InvestmentOption;
+    isOpen: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+    isPurchasing: boolean;
+}> = ({option, isOpen, onConfirm, onCancel, isPurchasing}) => {
+    if (!isOpen || !option) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-800 rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 border-b border-gray-600">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-yellow-400"/>
+                        Immediate Purchase
+                    </h3>
+                    <button
+                        onClick={onCancel}
+                        className="text-gray-400 hover:text-white"
+                        disabled={isPurchasing}
+                    >
+                        <X className="w-5 h-5"/>
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-4 space-y-4">
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-yellow-400 mb-2">
+                            ${(option.cost / 1000).toFixed(0)}K
+                        </div>
+                        <h4 className="text-lg font-semibold text-white mb-2">
+                            {option.id}. {option.name}
+                        </h4>
+                        {option.description && (
+                            <p className="text-sm text-gray-300 leading-relaxed">
+                                {option.description}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-3">
+                        <p className="text-sm text-yellow-200">
+                            <strong>Immediate Purchase:</strong> This investment will be applied instantly
+                            and cannot be undone. You'll receive the effects immediately.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 p-4 border-t border-gray-600">
+                    <button
+                        onClick={onCancel}
+                        disabled={isPurchasing}
+                        className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={isPurchasing}
+                        className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        {isPurchasing ? (
+                            <>
+                                <div
+                                    className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
+                                Processing...
+                            </>
+                        ) : (
+                            <>
+                                <Zap className="w-4 h-4"/>
+                                Confirm Purchase
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const formatCurrency = (amount: number): string => {
     return `$${(amount / 1000).toFixed(0)}K`;
@@ -33,6 +117,8 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                                          }) => {
     const [showImmediateModal, setShowImmediateModal] = useState<number | null>(null);
     const [isPurchasing, setIsPurchasing] = useState(false);
+
+    const remainingBudget = investUpToBudget - spentBudget;
 
     const handleImmediatePurchaseConfirm = async () => {
         if (showImmediateModal === null) return;
@@ -56,9 +142,9 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                 <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-300">Remaining Budget:</span>
                     <span className={`text-lg font-bold ${
-                        spentBudget > investUpToBudget ? 'text-red-400' : 'text-green-400'
+                        remainingBudget < 0 ? 'text-red-400' : 'text-green-400'
                     }`}>
-                        {formatCurrency(investUpToBudget - spentBudget)}
+                        {formatCurrency(remainingBudget)}
                     </span>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
@@ -72,31 +158,41 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                     const isSelected = selectedInvestmentIds.includes(opt.id);
                     const isImmediatePurchased = immediatePurchases.includes(opt.id);
                     const isImmediate = opt.is_immediate_purchase || false;
-                    const isDisabled = isImmediatePurchased;
+                    const isDisabled = isImmediatePurchased || isSubmitting;
+
+                    // FIXED: Include immediate purchases as "selected" for checkbox display
+                    const isChecked = isSelected || isImmediatePurchased;
+
+                    // FIXED: Gray out if unaffordable (unless already selected or purchased)
+                    const isUnaffordable = !isChecked && (remainingBudget < opt.cost);
+                    const isInteractable = !isDisabled && !isUnaffordable;
 
                     return (
                         <div
                             key={opt.id}
                             className={`relative border-2 rounded-lg transition-all duration-200 ${
-                                isDisabled
-                                    ? 'border-gray-600 bg-gray-800/50 opacity-60'
-                                    : isSelected
-                                        ? 'border-blue-400 bg-blue-900/30 shadow-lg'
-                                        : 'border-gray-500 bg-gray-800/50 hover:bg-gray-700/50'
+                                isImmediatePurchased
+                                    ? 'border-green-400 bg-green-900/30 shadow-lg'  // Green for purchased immediate purchases
+                                    : isDisabled
+                                        ? 'border-gray-600 bg-gray-800/50 opacity-60'
+                                        : isUnaffordable
+                                            ? 'border-gray-600 bg-gray-800/30 opacity-50'
+                                            : isChecked
+                                                ? 'border-blue-400 bg-blue-900/30 shadow-lg'
+                                                : 'border-gray-500 bg-gray-800/50 hover:bg-gray-700/50'
                             }`}
                         >
-                            {/* FIXED: Added proper checkbox/selection interface */}
-                            <label className={`flex items-start p-4 cursor-pointer ${
-                                isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'
+                            <label className={`flex items-start p-4 ${
+                                isInteractable ? 'cursor-pointer' : 'cursor-not-allowed'
                             }`}>
-                                {/* FIXED: Added checkbox like ChoicePanel */}
+                                {/* Checkbox */}
                                 <input
                                     type="checkbox"
-                                    className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded"
-                                    checked={isSelected}
-                                    disabled={isDisabled || isSubmitting}
+                                    className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded disabled:opacity-50"
+                                    checked={isChecked}
+                                    disabled={!isInteractable}
                                     onChange={() => {
-                                        if (isDisabled || isSubmitting) return;
+                                        if (!isInteractable) return;
 
                                         if (isImmediate && !isImmediatePurchased) {
                                             setShowImmediateModal(optionIndex);
@@ -109,7 +205,13 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                 {/* Investment Content */}
                                 <div className="ml-4 flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                        <span className="font-medium text-white">
+                                        <span className={`font-medium ${
+                                            isImmediatePurchased
+                                                ? 'text-green-100'  // Green text for purchased immediate purchases
+                                                : isUnaffordable
+                                                    ? 'text-gray-400'
+                                                    : 'text-white'
+                                        }`}>
                                             {opt.id}. {opt.name}
                                         </span>
                                         {isImmediate && !isImmediatePurchased && (
@@ -129,9 +231,24 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                     </div>
 
                                     {opt.description && (
-                                        <p className="text-xs text-gray-300 leading-relaxed mb-2">
+                                        <p className={`text-xs leading-relaxed mb-2 ${
+                                            isImmediatePurchased
+                                                ? 'text-green-200'  // Green text for purchased immediate purchases
+                                                : isUnaffordable
+                                                    ? 'text-gray-500'
+                                                    : 'text-gray-300'
+                                        }`}>
                                             {opt.description}
                                         </p>
+                                    )}
+
+                                    {/* Next Step Notification for purchased Business Growth Strategy */}
+                                    {isImmediatePurchased && opt.id === 'A' && (
+                                        <div className="bg-green-800/30 rounded-lg p-3 mb-3">
+                                            <p className="text-green-100 text-sm font-medium">
+                                                📋 Next Step: Get your Business Growth Strategy Report from the host
+                                            </p>
+                                        </div>
                                     )}
 
                                     {/* Cost Display */}
@@ -139,20 +256,29 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                         <span className={`text-lg font-bold ${
                                             isImmediatePurchased
                                                 ? 'text-green-400'
-                                                : isSelected
+                                                : isChecked
                                                     ? 'text-blue-200'
-                                                    : 'text-yellow-300'
+                                                    : isUnaffordable
+                                                        ? 'text-gray-500'
+                                                        : 'text-yellow-300'
                                         }`}>
                                             {formatCurrency(opt.cost)}
                                         </span>
+                                        {isUnaffordable && !isChecked && (
+                                            <span className="text-xs text-red-400 font-medium">
+                                                Insufficient Budget
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </label>
 
-                            {/* Selection Indicator - Keep for additional visual feedback */}
-                            {isSelected && !isDisabled && (
+                            {/* Selection Indicator */}
+                            {isChecked && (
                                 <div className="absolute top-2 right-2">
-                                    <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                                        isImmediatePurchased ? 'bg-green-500' : 'bg-blue-500'
+                                    }`}>
                                         <CheckCircle className="w-3 h-3 text-white"/>
                                     </div>
                                 </div>

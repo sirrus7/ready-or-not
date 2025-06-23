@@ -203,11 +203,10 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* Orders - RESTORED */}
-                                    <div
-                                        className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
+                                    <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30 hover:border-yellow-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="text-green-400 text-xl">📦</div>
+                                                <div className="text-yellow-400 text-xl">📦</div>
                                                 <span className="text-sm font-semibold text-slate-200">Orders</span>
                                             </div>
                                             <div className="text-right">
@@ -229,11 +228,10 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* Cost - RESTORED */}
-                                    <div
-                                        className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
+                                    <div className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="text-red-400 text-xl">💰</div>
+                                                <div className="text-green-400 text-xl">💰</div>
                                                 <span className="text-sm font-semibold text-slate-200">Cost</span>
                                             </div>
                                             <div className="text-right">
@@ -256,11 +254,10 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* ASP - RESTORED */}
-                                    <div
-                                        className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 backdrop-blur-sm rounded-lg p-3 border border-purple-500/30 hover:border-purple-500/50 transition-colors">
+                                    <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="text-purple-400 text-xl">💎</div>
+                                                <div className="text-red-400 text-xl">💎</div>
                                                 <span className="text-sm font-semibold text-slate-200">ASP</span>
                                             </div>
                                             <div className="text-right">

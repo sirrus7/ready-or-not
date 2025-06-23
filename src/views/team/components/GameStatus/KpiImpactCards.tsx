@@ -98,11 +98,11 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
             case 'capacity':
                 return <Building className="w-4 h-4 text-blue-400"/>;
             case 'orders':
-                return <ShoppingCart className="w-4 h-4 text-green-400"/>;
+                return <ShoppingCart className="w-4 h-4 text-yellow-400"/>;
             case 'cost':
-                return <DollarSign className="w-4 h-4 text-red-400"/>;
+                return <DollarSign className="w-4 h-4 text-green-400"/>;
             case 'asp':
-                return <TrendingUp className="w-4 h-4 text-purple-400"/>;
+                return <TrendingUp className="w-4 h-4 text-red-400"/>;
             default:
                 return <AlertCircle className="w-4 h-4 text-gray-400"/>;
         }
@@ -216,18 +216,18 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                                             };
                                         case 'orders':
                                             return {
-                                                bg: 'bg-gradient-to-r from-green-500/20 to-green-600/20',
-                                                border: 'border-green-500/30'
+                                                bg: 'bg-gradient-to-r from-yellow-500/20 to-yellow-600/20',  // Changed from green to yellow
+                                                border: 'border-yellow-500/30'
                                             };
                                         case 'cost':
                                             return {
-                                                bg: 'bg-gradient-to-r from-red-500/20 to-red-600/20',
-                                                border: 'border-red-500/30'
+                                                bg: 'bg-gradient-to-r from-green-500/20 to-green-600/20',    // Changed from red to green
+                                                border: 'border-green-500/30'
                                             };
                                         case 'asp':
                                             return {
-                                                bg: 'bg-gradient-to-r from-purple-500/20 to-purple-600/20',
-                                                border: 'border-purple-500/30'
+                                                bg: 'bg-gradient-to-r from-red-500/20 to-red-600/20',       // Changed from purple to red
+                                                border: 'border-red-500/30'
                                             };
                                         default:
                                             return {
