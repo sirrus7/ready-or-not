@@ -84,6 +84,11 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
         return Object.values(cardMap);
     }, [permanentAdjustments, teamId]);
 
+    // ✅ ADD THIS: Don't render anything if no impact cards
+    if (!impactCards.length && !isLoadingAdjustments) {
+        return null;
+    }
+
     // ========================================================================
     // HELPER FUNCTIONS
     // ========================================================================
