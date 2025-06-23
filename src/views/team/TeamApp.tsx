@@ -49,6 +49,7 @@ import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards'; /
 import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
 import {useTeamGameContext} from '@app/providers/TeamGameProvider';
 import {BASE_VALUES, ROUND_BASE_VALUES} from "@core/game/ScoringEngine.ts";
+import TeamInvestmentDisplay from "@views/team/components/GameStatus/TeamInvestmentDisplay.tsx";
 
 // ============================================================================
 // MAIN TEAM APP COMPONENT
@@ -280,6 +281,16 @@ const TeamApp: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* NEW: INVESTMENT DISPLAY - Show purchased investments for current round */}
+                        {currentActiveSlide && teamGameState.gameStructure && loggedInTeamId && (
+                            <TeamInvestmentDisplay
+                                sessionId={sessionId || ''}
+                                teamId={loggedInTeamId}
+                                currentRound={currentActiveSlide.round_number || 1}
+                                gameStructure={teamGameState.gameStructure}
+                            />
+                        )}
 
                         {/* ADDED: KPI IMPACT CARDS SECTION - Only show if team has impact cards */}
                         {loggedInTeamId && permanentAdjustments.filter(adj => adj.team_id === loggedInTeamId).length > 0 && (
