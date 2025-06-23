@@ -6,6 +6,7 @@ import {useSupabaseMutation, useSupabaseQuery} from '@shared/hooks/supabase';
 import {db, supabase} from '@shared/services/supabase';
 import {Slide, InvestmentOption, ChallengeOption, GameStructure} from '@shared/types';
 import {DecisionState} from './useDecisionMaking';
+import {InvestmentPurchaseHandler} from '@core/game/InvestmentPurchaseHandler';
 
 interface UseTeamDecisionSubmissionProps {
     sessionId: string | null;
@@ -246,6 +247,20 @@ export const useTeamDecisionSubmission = ({
             if (error) throw error;
 
             console.log('🎯 Decision submitted successfully:', data);
+
+            if (decisionState.selectedInvestmentOptions?.length > 0) {
+                await InvestmentPurchaseHandler.processInvestmentPurchases({
+                    sessionId,
+                    teamId,
+                    investmentPhase: decisionKey,
+                    selectedInvestments: decisionState.selectedInvestmentOptions,
+                    teamRoundData: {}, // Will be fetched inside the processor
+                    setTeamRoundDataDirectly: () => {} // No direct UI update needed here
+                });
+
+                console.log('🎯 Continuation effects applied after investment submission');
+            }
+
             return data;
         },
         {
