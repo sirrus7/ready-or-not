@@ -2,29 +2,6 @@
 import {KpiKey} from '@shared/types/game';
 import {TeamRoundData} from '@shared/types/database';
 
-// Color schemes for different metrics
-export const getColorScheme = (dataKey: string) => {
-    if (dataKey.includes('capord')) return {primary: 'bg-sky-500', secondary: 'bg-yellow-500'};
-    if (dataKey.includes('cpb')) return {primary: 'bg-red-500'};
-    if (dataKey.includes('costs')) return {primary: 'bg-orange-600'};
-    if (dataKey.includes('asp')) return {primary: 'bg-green-500'};
-    if (dataKey.includes('revenue')) return {primary: 'bg-orange-500'};
-    if (dataKey.includes('margin')) return {primary: 'bg-purple-500'};
-    if (dataKey.includes('income')) return {primary: 'bg-gradient-to-r from-yellow-400 to-yellow-600'};
-    return {primary: 'bg-blue-500'};
-};
-
-// Get text color for headers based on metric type
-export const getHeaderTextColor = (dataKey: string): string => {
-    if (dataKey.includes('cpb')) return 'text-red-400';
-    if (dataKey.includes('costs')) return 'text-orange-400';
-    if (dataKey.includes('asp')) return 'text-green-400';
-    if (dataKey.includes('revenue')) return 'text-orange-400';
-    if (dataKey.includes('margin')) return 'text-purple-400';
-    if (dataKey.includes('income')) return 'text-yellow-400';
-    return 'text-blue-400';
-};
-
 // Format values for display
 export const formatValueForDisplay = (value: number, metric: KpiKey | 'net_margin' | 'cost_per_board' | 'revenue' | 'net_income'): string => {
     if (isNaN(value) || value === null || value === undefined) return 'N/A';
