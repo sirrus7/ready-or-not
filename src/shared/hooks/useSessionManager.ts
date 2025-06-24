@@ -1,7 +1,8 @@
 // src/shared/hooks/useSessionManager.ts
 import {useState, useEffect, useCallback} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {GameSession, GameSessionInsert, User, GameStructure, NewGameData} from '@shared/types';
+import {GameSession, GameSessionInsert, GameStructure, NewGameData} from '@shared/types';
+import {User} from '@shared/services/supabase'
 import {GameSessionManager} from '@core/game/GameSessionManager';
 
 interface SessionManagerOutput {
@@ -33,16 +34,12 @@ export const useSessionManager = (
     const sessionManager = GameSessionManager.getInstance();
 
     useEffect(() => {
-        console.log("useSessionManager EFFECT - Passed SessionId:", passedSessionId, "AuthLoading:", authLoading, "User:", !!user);
-
         if (authLoading) {
-            console.log("useSessionManager: Auth is loading. Waiting.");
             setIsLoading(true);
             return;
         }
 
         if (!passedSessionId) {
-            console.log("useSessionManager: No passedSessionId. Hook inactive for this route context.");
             setSession(null);
             setError(null);
             setIsLoading(false);
@@ -53,8 +50,6 @@ export const useSessionManager = (
         setError(null);
 
         const initializeOrLoadSession = async (sessionIdToProcess: string) => {
-            console.log(`useSessionManager: Initializing/Loading session: ${sessionIdToProcess}`);
-
             try {
                 let currentSession: GameSession;
 
@@ -72,8 +67,6 @@ export const useSessionManager = (
                         setIsLoading(false);
                         return;
                     }
-
-                    console.log("useSessionManager: [NEW] Attempting to create new session...");
                     // Construct NewGameData payload for GameSessionManager.createSession
                     // This is a minimal payload for initial creation via the game route
                     const newGameDataPayload: NewGameData = {
@@ -91,13 +84,10 @@ export const useSessionManager = (
                         user.id,
                         gameStructure
                     );
-
-                    console.log("useSessionManager: [NEW] Session CREATED, ID:", currentSession.id, ". Navigating now...");
                     navigate(`/game/${currentSession.id}`, {replace: true});
 
                 } else {
                     // Existing session ID (UUID)
-                    console.log("useSessionManager: [EXISTING] Loading session:", sessionIdToProcess);
                     currentSession = await sessionManager.loadSession(sessionIdToProcess);
                 }
 
@@ -130,11 +120,8 @@ export const useSessionManager = (
             return;
         }
 
-        console.log("useSessionManager: Updating session in DB:", session.id, updates);
-
         try {
             const updatedData = await sessionManager.updateSession(session.id, updates);
-            console.log("useSessionManager: Session updated in DB successfully. New data:", updatedData);
             setSession(updatedData);
             setError(null);
         } catch (err) {

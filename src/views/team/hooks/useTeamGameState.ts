@@ -2,6 +2,7 @@
 import {useEffect, useCallback, useState, useRef} from 'react';
 import {useRealtimeSubscription} from '@shared/services/supabase';
 import {db} from '@shared/services/supabase';
+import { readyOrNotGame_2_0_DD } from '@core/content/GameStructure';
 import {
     Slide,
     TeamRoundData,
@@ -283,12 +284,11 @@ export const useTeamGameState = ({
                 if (!session) return;
 
                 // Load game structure
-                const structure = (await import('@core/content/GameStructure')).readyOrNotGame_2_0_DD;
-                setGameStructure(structure);
+                setGameStructure(readyOrNotGame_2_0_DD);
 
                 // Set initial slide
                 const slideIndex = session.current_slide_index || 0;
-                const initialSlide = structure.slides[slideIndex];
+                const initialSlide = readyOrNotGame_2_0_DD.slides[slideIndex];
                 if (initialSlide) {
                     setCurrentActiveSlide(initialSlide);
                 }

@@ -1,5 +1,7 @@
 // src/utils/supabase/auth.ts - Authentication utilities (for future use)
 import { supabase } from './client';
+import { User } from '@supabase/supabase-js';
+export type { User };
 
 export const auth = {
     async signIn(email: string, password: string) {

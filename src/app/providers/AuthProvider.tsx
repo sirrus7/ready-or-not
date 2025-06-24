@@ -1,7 +1,6 @@
 // src/app/providers/AuthProvider.tsx
 import React, {createContext, useContext, useEffect, useState} from 'react';
-import {User} from '@shared/types/api';
-import {auth} from '@shared/services/supabase';
+import {auth, User} from '@shared/services/supabase';
 
 interface AuthContextType {
     user: User | null;

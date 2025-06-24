@@ -30,7 +30,7 @@ export {
 } from './realtime';
 
 // Auth operations
-export {auth} from './auth';
+export {auth, type User} from './auth';
 
 // Legacy compatibility (deprecated - will be removed in future version)
 export const addConnectionListener = () => {

@@ -1,7 +1,6 @@
 // src/shared/types/index.ts - Main barrel file for all shared types
 
 // Export all types from their respective domain files
-export * from './api';
 export * from './database';
 export * from './game';
 export * from './ui';

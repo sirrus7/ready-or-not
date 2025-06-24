@@ -1,5 +1,5 @@
-// src/app/App.tsx - Updated to include RONBotWidget only on authenticated host pages
-import React from 'react';
+// src/app/App.tsx - Optimized with Route-Based Code Splitting
+import React, {lazy, Suspense} from 'react';
 import {BrowserRouter, Routes, Route, Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from '@app/providers/AuthProvider';
 import {GameProvider} from '@app/providers/GameProvider';
@@ -7,27 +7,78 @@ import {TeamGameProvider} from '@app/providers/TeamGameProvider';
 import {VideoSettingsProvider} from '@shared/providers/VideoSettingsProvider';
 import AuthGuard from '@routing/guards/AuthGuard';
 import ErrorBoundary from '@shared/components/UI/ErrorBoundary';
-import LoginPage from '@views/host/pages/LoginPage';
-import HostApp from '@views/host/HostApp';
-import PresentationApp from '@views/presentation/PresentationApp';
-import DashboardPage from '@views/host/pages/DashboardPage';
-import CreateGamePage from '@views/host/pages/CreateGamePage';
-import TeamApp from '@views/team/TeamApp';
 import {PDFGenerationProvider} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
+
+// ============================================================================
+// LAZY LOADED COMPONENTS - Code Splitting by Route
+// ============================================================================
+
+// Host-related components (largest bundle)
+const HostApp = lazy(() => import('@views/host/HostApp'));
+const DashboardPage = lazy(() => import('@views/host/pages/DashboardPage'));
+const CreateGamePage = lazy(() => import('@views/host/pages/CreateGamePage'));
+
+// Team components (second largest)
+const TeamApp = lazy(() => import('@views/team/TeamApp'));
+
+// Presentation components (third largest)
+const PresentationApp = lazy(() => import('@views/presentation/PresentationApp'));
+
+// Login page - keep static since it's small and needed immediately
+import LoginPage from '@views/host/pages/LoginPage';
+
+// ============================================================================
+// LOADING COMPONENTS
+// ============================================================================
+
+const RouteLoadingFallback: React.FC<{ message?: string }> = ({
+                                                                  message = "Loading application..."
+                                                              }) => (
+    <div
+        className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
+        <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 text-lg font-medium">{message}</p>
+            <p className="text-gray-500 text-sm mt-2">Please wait while we prepare your experience</p>
+        </div>
+    </div>
+);
+
+const GameLoadingFallback: React.FC = () => (
+    <RouteLoadingFallback message="Loading game interface..."/>
+);
+
+const DashboardLoadingFallback: React.FC = () => (
+    <RouteLoadingFallback message="Loading dashboard..."/>
+);
+
+const TeamLoadingFallback: React.FC = () => (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-white text-lg font-medium">Loading team interface...</p>
+            <p className="text-gray-400 text-sm mt-2">Connecting to your game session</p>
+        </div>
+    </div>
+);
+
+// ============================================================================
+// WRAPPER COMPONENTS
+// ============================================================================
 
 // Wrapper component to extract sessionId and pass it to providers
 const SessionAwareProviders: React.FC<{ children: React.ReactNode }> = ({children}) => {
     const {sessionId} = useParams<{ sessionId: string | undefined }>();
     return (
         <VideoSettingsProvider sessionId={sessionId}>
-            <GameProvider passedSessionId={sessionId}>
+            <GameProvider>
                 {children}
             </GameProvider>
         </VideoSettingsProvider>
     );
 };
 
-// Special wrapper for PresentationApp that handles auth gracefully (NO RONBotWidget)
+// Special wrapper for PresentationApp that handles auth gracefully
 const DisplayWrapper: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string | undefined }>();
 
@@ -35,24 +86,25 @@ const DisplayWrapper: React.FC = () => {
         <AuthProvider>
             <ErrorBoundary>
                 <VideoSettingsProvider sessionId={sessionId}>
-                    <GameProvider passedSessionId={sessionId}>
+                    <Suspense fallback={<RouteLoadingFallback message="Loading presentation..."/>}>
                         <PresentationApp/>
-                    </GameProvider>
+                    </Suspense>
                 </VideoSettingsProvider>
             </ErrorBoundary>
         </AuthProvider>
     );
 };
 
-const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = ({children}) => {
-    return (
-        <AuthGuard>
-            <ErrorBoundary>
-                {children}
-            </ErrorBoundary>
-        </AuthGuard>
-    );
-};
+// Authenticated page wrapper with enhanced loading
+const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = ({children}) => (
+    <AuthGuard>
+        {children}
+    </AuthGuard>
+);
+
+// ============================================================================
+// MAIN APP COMPONENT
+// ============================================================================
 
 function App() {
     return (
@@ -60,63 +112,75 @@ function App() {
             <PDFGenerationProvider>
                 <BrowserRouter>
                     <Routes>
-                        {/* Publicly accessible team-facing routes - NO AUTH REQUIRED*/}
+                        {/* ============================================================ */}
+                        {/* PUBLIC ROUTES (No Authentication Required) */}
+                        {/* ============================================================ */}
+
+                        {/* Team Routes - Lightweight provider, no auth */}
                         <Route path="/team/:sessionId" element={
-                            <ErrorBoundary>
-                                <TeamGameProvider>  {/* ✅ Lightweight provider (no auth required) */}
+                            <TeamGameProvider>
+                                <Suspense fallback={<TeamLoadingFallback/>}>
                                     <TeamApp/>
-                                </TeamGameProvider>
-                            </ErrorBoundary>
+                                </Suspense>
+                            </TeamGameProvider>
                         }/>
 
-                        {/* Student Display - Special handling for same-browser different tab */}
-                        <Route path="/student-display/:sessionId" element={<DisplayWrapper/>}/>
+                        {/* Display/Presentation Routes - Graceful auth handling */}
+                        <Route path="/display/:sessionId" element={<DisplayWrapper/>}/>
 
-                        {/* All other routes wrapped in AuthProvider */}
+                        {/* ============================================================ */}
+                        {/* AUTHENTICATED ROUTES (Require Login) */}
+                        {/* ============================================================ */}
+
+                        {/* Login Page - Static import since it's small and needed quickly */}
+                        <Route path="/login" element={
+                            <AuthProvider>
+                                <LoginPage/>
+                            </AuthProvider>
+                        }/>
+
+                        {/* Protected Routes with Full Authentication */}
                         <Route path="/*" element={
                             <AuthProvider>
                                 <Routes>
-                                    {/* Host Login - Publicly accessible */}
-                                    <Route path="/login" element={
-                                        <ErrorBoundary>
-                                            <LoginPage/>
-                                        </ErrorBoundary>
-                                    }/>
-
-                                    {/* Host-only authenticated routes */}
+                                    {/* Dashboard - Lazy loaded */}
                                     <Route path="/dashboard" element={
                                         <AuthenticatedPage>
-                                            <VideoSettingsProvider>
-                                                <GameProvider>
-                                                    <DashboardPage/>
-                                                </GameProvider>
-                                            </VideoSettingsProvider>
+                                            <Suspense fallback={<DashboardLoadingFallback/>}>
+                                                <DashboardPage/>
+                                            </Suspense>
                                         </AuthenticatedPage>
                                     }/>
 
-                                    <Route path="/create-game" element={
+                                    {/* Create Game Wizard - Lazy loaded */}
+                                    <Route path="/create" element={
                                         <AuthenticatedPage>
-                                            <VideoSettingsProvider>
-                                                <SessionAwareProviders>
-                                                    <CreateGamePage/>
-                                                </SessionAwareProviders>
-                                            </VideoSettingsProvider>
+                                            <Suspense fallback={<RouteLoadingFallback
+                                                message="Loading game creation wizard..."/>}>
+                                                <CreateGamePage/>
+                                            </Suspense>
                                         </AuthenticatedPage>
                                     }/>
 
+                                    {/* Host Game Interface - Lazy loaded with full provider stack */}
                                     <Route path="/game/:sessionId" element={
                                         <AuthenticatedPage>
                                             <SessionAwareProviders>
-                                                <HostApp/>
+                                                <Suspense fallback={<GameLoadingFallback/>}>
+                                                    <HostApp/>
+                                                </Suspense>
                                             </SessionAwareProviders>
                                         </AuthenticatedPage>
                                     }/>
 
+                                    {/* New Game Route (creates draft session) */}
                                     <Route path="/game" element={
                                         <AuthenticatedPage>
                                             <VideoSettingsProvider>
-                                                <GameProvider passedSessionId="new">
-                                                    <HostApp/>
+                                                <GameProvider>
+                                                    <Suspense fallback={<GameLoadingFallback/>}>
+                                                        <HostApp/>
+                                                    </Suspense>
                                                 </GameProvider>
                                             </VideoSettingsProvider>
                                         </AuthenticatedPage>
