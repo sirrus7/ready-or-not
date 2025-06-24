@@ -65,7 +65,7 @@ const PresentationButton: React.FC = () => {
             return;
         }
 
-        const url = `/student-display/${state.currentSessionId}`;
+        const url = `/display/${state.currentSessionId}`;
         console.log('[PresentationButton] Opening presentation display:', url);
 
         // Open new window for presentation
