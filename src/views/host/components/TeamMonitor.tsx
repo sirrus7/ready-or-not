@@ -67,8 +67,6 @@ const TeamMonitor: React.FC = () => {
     useEffect(() => {
         if (!currentSessionId || !isInvestmentPeriod) return;
 
-        console.log('[TeamMonitor] Setting up real-time subscription for immediate purchases');
-
         const channel = supabase
             .channel(`immediate-purchases-${currentSessionId}`)
             .on(
@@ -80,23 +78,17 @@ const TeamMonitor: React.FC = () => {
                     filter: `session_id=eq.${currentSessionId}`,
                 },
                 (payload: any) => {
-                    console.log('[TeamMonitor] Database change detected:', payload);
-
                     const record = payload.new || payload.old;
                     if (record &&
                         typeof record === 'object' && record.is_immediate_purchase &&
                         record.immediate_purchase_type === 'business_growth_strategy') {
-                        console.log('[TeamMonitor] Immediate purchase detected, refreshing data');
                         refreshImmediatePurchases();
                     }
                 }
             )
-            .subscribe((status: any) => {
-                console.log('[TeamMonitor] Subscription status:', status);
-            });
+            .subscribe((_u: any) => {});
 
         return () => {
-            console.log('[TeamMonitor] Cleaning up real-time subscription');
             channel.unsubscribe();
         };
     }, [currentSessionId, isInvestmentPeriod, refreshImmediatePurchases]);
@@ -202,8 +194,6 @@ const TeamMonitor: React.FC = () => {
                     const optionName = opt ? opt.name.split('.')[0].trim() : 'Unknown';
                     const originalCost = opt?.cost || 0;
                     const actualCost = getActualCost(id, originalCost); // ✅ Use continuation pricing
-
-                    console.log(`[TeamMonitor] Investment ${id}: original=${originalCost}, actual=${actualCost}, name=${optionName}`);
 
                     return {
                         id,

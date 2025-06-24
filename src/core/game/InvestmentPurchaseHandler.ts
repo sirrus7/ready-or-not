@@ -42,13 +42,11 @@ export class InvestmentPurchaseHandler {
             setTeamRoundDataDirectly
         } = context;
 
-        console.log(`[InvestmentPurchaseHandler] Processing investment purchases for team ${teamId}, phase ${investmentPhase}`);
-        console.log(`[InvestmentPurchaseHandler] Selected investments:`, selectedInvestments);
-
         // Determine target round from investment phase
         const targetRound = this.getTargetRoundFromPhase(investmentPhase);
+
+        // If round 1 set defaults
         if (!targetRound) {
-            console.warn(`[InvestmentPurchaseHandler] Could not determine target round from phase ${investmentPhase}`);
             return {continuationEffectsApplied: [], totalContinuationEffects: 0};
         }
 
@@ -81,12 +79,8 @@ export class InvestmentPurchaseHandler {
                 strategyStatus.hasStrategy
             );
 
-            console.log(`[InvestmentPurchaseHandler] Investment ${investmentId} availability: ${availability}`);
-
             // If this is a continuation, apply continuation effects immediately
             if (availability === 'continue') {
-                console.log(`[InvestmentPurchaseHandler] Applying continuation effects for investment ${investmentId}`);
-
                 const result = await ContinuationEffectsProcessor.applyContinuationEffects(
                     sessionId,
                     teamId,
@@ -102,18 +96,11 @@ export class InvestmentPurchaseHandler {
                         effects: result.effects,
                         appliedAt: result.appliedAt
                     });
-
-                    console.log(`[InvestmentPurchaseHandler] ✅ Applied continuation effects for ${investmentId}:`,
-                        result.effects.map(e => `${e.description}: ${e.change_value}`).join(', '));
                 } else {
                     console.warn(`[InvestmentPurchaseHandler] Failed to apply continuation effects for ${investmentId}`);
                 }
-            } else {
-                console.log(`[InvestmentPurchaseHandler] Investment ${investmentId} is not a continuation (${availability}), no continuation effects to apply`);
             }
         }
-
-        console.log(`[InvestmentPurchaseHandler] ✅ Processed ${selectedInvestments.length} investments, applied continuation effects for ${continuationEffectsApplied.length}`);
 
         return {
             continuationEffectsApplied,

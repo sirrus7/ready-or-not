@@ -670,10 +670,10 @@ export const allGameSlides: Slide[] = [
         sub_text: "Overall profitability ranking after Round 1."
     },
 
-    // --- Round 2 ---
+    // --- Round 2 Transition (but still showing Round 1 KPIs) ---
     {
         id: 64,
-        round_number: 2,
+        round_number: 1,  // ✅ CHANGED: Keep showing Round 1 KPIs
         title: "Heading to Round 2",
         type: 'video',
         source_path: 'Slide_065.mp4',
@@ -681,7 +681,7 @@ export const allGameSlides: Slide[] = [
     },
     {
         id: 65,
-        round_number: 2,
+        round_number: 1,  // ✅ CHANGED: Keep showing Round 1 KPIs
         title: "Round Progress Reminder",
         type: 'video',
         source_path: 'Slide_066.mp4',
@@ -689,7 +689,7 @@ export const allGameSlides: Slide[] = [
     },
     {
         id: 66,
-        round_number: 2,
+        round_number: 1,  // ✅ CHANGED: Keep showing Round 1 KPIs
         title: "RD-2 KPI Reset Explanation",
         type: 'video',
         source_path: 'Slide_067.mp4',
@@ -697,7 +697,7 @@ export const allGameSlides: Slide[] = [
     },
     {
         id: 67,
-        round_number: 2,
+        round_number: 2,  // ✅ CORRECT: This is where Round 2 actually starts
         title: "KPI Reset Example",
         type: 'kpi_reset',
         source_path: 'Slide_068.mp4',
@@ -705,7 +705,7 @@ export const allGameSlides: Slide[] = [
     },
     {
         id: 68,
-        round_number: 2,
+        round_number: 2,  // ✅ CORRECT: Now showing Round 2 KPIs
         title: "RD-2 Starting KPIs",
         type: 'video',
         source_path: 'Slide_069.mp4',
@@ -1467,10 +1467,10 @@ export const allGameSlides: Slide[] = [
         sub_text: "Total profitability ranking after Rounds 1 & 2."
     },
 
-    // --- Round 3 ---
+    // --- Round 3 Transition (but still showing Round 2 KPIs) ---
     {
         id: 141,
-        round_number: 3,
+        round_number: 2,  // ✅ CHANGED: Keep showing Round 2 KPIs
         title: "Welcome to Round 3",
         type: 'video',
         source_path: 'Slide_142.mp4',
@@ -1478,7 +1478,7 @@ export const allGameSlides: Slide[] = [
     },
     {
         id: 142,
-        round_number: 3,
+        round_number: 3,  // ✅ CORRECT: This is where Round 3 actually starts
         title: "RD-3 KPI Reset",
         type: 'kpi_reset',
         source_path: 'Slide_143.mp4',
