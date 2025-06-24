@@ -1,6 +1,7 @@
 // src/shared/utils/video/useHostVideo.ts - FINAL: Corrected state management for reliable playback
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
+import {createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -33,68 +34,12 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
     const [isConnectedToPresentation, setIsConnectedToPresentation] = useState(false);
     const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'host') : null;
 
+    // Store callback refs for the shared props function
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
     const isManuallyPaused = useRef(false);
 
-    // For chrome issues
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video || !sourceUrl) return;
-
-        const isChrome = navigator.userAgent.includes('Chrome');
-        if (!isChrome) return;
-
-        // Chrome + Supabase connection optimization
-        const handleLoadStart = () => {
-            // Pre-connect to Supabase domain for better connection handling
-            const supabaseUrl = new URL(sourceUrl);
-            const link = document.createElement('link');
-            link.rel = 'preconnect';
-            link.href = supabaseUrl.origin;
-            if (!document.head.contains(link)) {
-                document.head.appendChild(link);
-            }
-        };
-
-        // Chrome stall detection for Supabase
-        let stallCount = 0;
-        let lastBufferedEnd = 0;
-
-        const checkBufferHealth = () => {
-            if (video.buffered.length > 0) {
-                const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-
-                // If buffer hasn't grown and we're not at the end
-                if (bufferedEnd === lastBufferedEnd &&
-                    video.currentTime < video.duration - 1 &&
-                    !video.paused) {
-                    stallCount++;
-
-                    if (stallCount > 2) { // 2 seconds of no buffer growth
-                        console.log('[Chrome+Supabase Fix] Buffer stall detected, nudging playback');
-                        // Gentle nudge - just seek to current position to trigger new range request
-                        const currentTime = video.currentTime;
-                        video.currentTime = currentTime + 0.01;
-                        video.currentTime = currentTime;
-                        stallCount = 0;
-                    }
-                } else {
-                    stallCount = 0;
-                }
-
-                lastBufferedEnd = bufferedEnd;
-            }
-        };
-
-        video.addEventListener('loadstart', handleLoadStart);
-        const healthCheckInterval = setInterval(checkBufferHealth, 1000);
-
-        return () => {
-            video.removeEventListener('loadstart', handleLoadStart);
-            clearInterval(healthCheckInterval);
-        };
-    }, [sourceUrl]);
+    useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
     useEffect(() => {
         if (!broadcastManager) return;
@@ -202,25 +147,13 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
         onEndedRef.current = onVideoEnd;
         onErrorRef.current = onError;
 
-        // Chrome + Supabase specific optimizations
-        const isChrome = navigator.userAgent.includes('Chrome');
-
-        return {
-            ref: videoRef,
-            playsInline: true,
-            controls: false,
-            autoPlay: true,
-            muted: isConnectedToPresentation,
-            // Chrome + Supabase fix: Force more aggressive preloading
-            preload: isChrome ? 'auto' : 'metadata',
-            // Chrome + Supabase fix: Add CORS for better range request handling
-            crossOrigin: 'anonymous',
-            style: {
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain'
-            }
-        };
+        // Use shared props function
+        return createVideoProps({
+            videoRef,
+            muted: isConnectedToPresentation, // Host is muted when connected to presentation
+            onVideoEnd,
+            onError
+        });
     }, [isConnectedToPresentation]);
 
     return {videoRef, play, pause, seek, isConnectedToPresentation, getVideoProps};
