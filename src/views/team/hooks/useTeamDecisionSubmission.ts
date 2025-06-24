@@ -47,7 +47,8 @@ const parseInvestmentIds = (ids: string | string[] | null | undefined): string[]
     try {
         const parsed = JSON.parse(ids);
         return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
+    } catch (error) {
+        if (import.meta.env.DEV) console.warn(error);
         return [];
     }
 };
