@@ -1,6 +1,4 @@
-// src/shared/services/supabase/services/kpiService.ts
-// FIXED VERSION - Added missing deleteBySession method
-
+// 1. FIXED: src/shared/services/supabase/services/kpiService.ts
 import {supabase} from '../client';
 import {withRetry} from '../database';
 
@@ -17,6 +15,7 @@ export const kpiService = {
         }, 3, 1000, `Fetch KPIs for session ${sessionId.substring(0, 8)}`);
     },
 
+    // ✅ FIXED: Removed RPC call, replaced with direct query
     async getForTeamRound(sessionId: string, teamId: string, roundNumber: number) {
         return withRetry(async () => {
             const {data, error} = await supabase
@@ -26,7 +25,13 @@ export const kpiService = {
                 .eq('team_id', teamId)
                 .eq('round_number', roundNumber)
                 .single();
-            if (error) throw error;
+            if (error) {
+                // If no data found, return null instead of throwing
+                if (error.code === 'PGRST116') {
+                    return null;
+                }
+                throw error;
+            }
             return data;
         }, 3, 1000, `Get KPIs for team ${teamId.substring(0, 8)} round ${roundNumber}`);
     },
@@ -68,7 +73,6 @@ export const kpiService = {
         }, 2, 1000, `Upsert KPI data for team ${kpiData.team_id?.substring(0, 8)}`);
     },
 
-    // ADDED: Missing deleteBySession method
     async deleteBySession(sessionId: string) {
         return withRetry(async () => {
             const {error} = await supabase

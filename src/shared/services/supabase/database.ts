@@ -1,5 +1,4 @@
-// src/shared/services/supabase/database.ts - Enhanced with circuit breaker and timeout
-import {supabase} from './client';
+// src/shared/services/supabase/database.ts - Cleaned version without RPC support
 
 // Circuit breaker state (shared across all operations)
 const circuitBreakerState = {
@@ -8,6 +7,23 @@ const circuitBreakerState = {
     lastFailureTime: null as number | null,
     threshold: 5,
     resetTimeoutMs: 30000 // 30 seconds
+};
+
+// CRITICAL OPERATIONS that should bypass circuit breaker
+const CRITICAL_OPERATIONS = [
+    'auth',
+    'authentication',
+    'login',
+    'sign in',
+    'sign up',
+    'sign out',
+    'session verification',
+    'user profile'
+];
+
+const isCriticalOperation = (context: string): boolean => {
+    const lowerContext = context.toLowerCase();
+    return CRITICAL_OPERATIONS.some(op => lowerContext.includes(op));
 };
 
 // Enhanced error formatter with specific Supabase error handling
@@ -52,10 +68,13 @@ export const withRetry = async <T>(
     maxRetries: number = 3,
     baseDelay: number = 1000,
     context: string = 'Database operation',
-    timeoutMs: number = 10000 // NEW: Add timeout parameter
+    timeoutMs: number = 10000
 ): Promise<T> => {
-    // Circuit breaker check
-    if (circuitBreakerState.isOpen) {
+    // ✅ CRITICAL FIX: Don't block authentication operations
+    const bypassCircuitBreaker = isCriticalOperation(context);
+
+    // Circuit breaker check (but allow critical operations through)
+    if (circuitBreakerState.isOpen && !bypassCircuitBreaker) {
         const now = Date.now();
         if (circuitBreakerState.lastFailureTime &&
             now - circuitBreakerState.lastFailureTime > circuitBreakerState.resetTimeoutMs) {
@@ -80,8 +99,8 @@ export const withRetry = async <T>(
 
             const result = await Promise.race([operation(), timeoutPromise]);
 
-            // Success - reset circuit breaker
-            if (circuitBreakerState.failureCount > 0) {
+            // Success - reset circuit breaker (but only if this wasn't a bypassed operation)
+            if (circuitBreakerState.failureCount > 0 && !bypassCircuitBreaker) {
                 circuitBreakerState.failureCount = 0;
                 console.log(`✅ [Supabase DB] Circuit breaker reset after successful ${context}`);
             }
@@ -93,25 +112,28 @@ export const withRetry = async <T>(
         } catch (error) {
             lastError = error;
 
-            // Update circuit breaker on failure
-            circuitBreakerState.failureCount++;
+            // ✅ CRITICAL FIX: Only update circuit breaker for non-critical operations
+            if (!bypassCircuitBreaker) {
+                // Update circuit breaker on failure
+                circuitBreakerState.failureCount++;
 
-            const isConnectionError =
-                error.name === 'TypeError' ||
-                error.message?.includes('fetch') ||
-                error.message?.includes('timeout') ||
-                error.message?.includes('network') ||
-                error.code === 'PGRST301';
+                const isConnectionError =
+                    error.name === 'TypeError' ||
+                    error.message?.includes('fetch') ||
+                    error.message?.includes('timeout') ||
+                    error.message?.includes('network') ||
+                    error.code === 'PGRST301';
 
-            if (isConnectionError && circuitBreakerState.failureCount >= circuitBreakerState.threshold) {
-                circuitBreakerState.isOpen = true;
-                circuitBreakerState.lastFailureTime = Date.now();
-                console.log(`🔌 [Supabase DB] Circuit breaker opened after ${circuitBreakerState.failureCount} failures`);
+                if (isConnectionError && circuitBreakerState.failureCount >= circuitBreakerState.threshold) {
+                    circuitBreakerState.isOpen = true;
+                    circuitBreakerState.lastFailureTime = Date.now();
+                    console.log(`🔌 [Supabase DB] Circuit breaker opened after ${circuitBreakerState.failureCount} failures (${context})`);
+                }
             }
 
             console.warn(`[Supabase DB] ${context} attempt ${attempt + 1} failed:`, formatSupabaseError(error));
 
-            if (attempt < maxRetries && !circuitBreakerState.isOpen) {
+            if (attempt < maxRetries && (!circuitBreakerState.isOpen || bypassCircuitBreaker)) {
                 // Exponential backoff with jitter
                 const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
                 await new Promise(resolve => setTimeout(resolve, delay));
@@ -138,38 +160,9 @@ export const resetCircuitBreaker = () => {
     console.log('🔌 [Supabase DB] Circuit breaker manually reset');
 };
 
-// Type-safe RPC wrapper
-export const callRPC = async <T = any>(
-    functionName: string,
-    params: Record<string, any> = {},
-    options: {
-        expectedSingle?: boolean;
-        context?: string;
-        maxRetries?: number;
-        timeoutMs?: number; // NEW: Add timeout to RPC calls
-    } = {}
-): Promise<T> => {
-    const {
-        expectedSingle = false,
-        context = `RPC ${functionName}`,
-        maxRetries = 2,
-        timeoutMs = 8000 // Default 8 second timeout for RPC
-    } = options;
-
-    return withRetry(async () => {
-        console.log(`[Supabase RPC] Calling ${functionName} with params:`, params);
-
-        const {data, error} = await supabase.rpc(functionName, params);
-
-        if (error) {
-            console.error(`[Supabase RPC] ${functionName} error:`, error);
-            throw error;
-        }
-
-        if (expectedSingle) {
-            return (data && data.length > 0) ? data[0] : null;
-        }
-
-        return data || [];
-    }, maxRetries, 1000, context, timeoutMs);
-};
+// ============================================================================
+// RPC FUNCTION REMOVED - All database operations now use direct queries
+// ============================================================================
+// The callRPC function has been completely removed since we're not using
+// any RPC functions anymore. All operations now use direct table queries
+// which are faster, more reliable, and easier to debug.

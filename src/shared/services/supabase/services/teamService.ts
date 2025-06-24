@@ -1,6 +1,6 @@
 // src/utils/supabase/services/teamService.ts - Team CRUD operations
 import { supabase } from '../client';
-import { withRetry, callRPC } from '../database';
+import { withRetry } from '../database';
 
 export const teamService = {
     async getBySession(sessionId: string) {
@@ -16,15 +16,23 @@ export const teamService = {
     },
 
     async verifyLogin(teamId: string, sessionId: string, passcode: string) {
-        return callRPC('verify_team_login', {
-            p_team_id: teamId,
-            p_session_id: sessionId,
-            p_passcode: passcode.trim()
-        }, {
-            expectedSingle: true,
-            context: `Team login verification for ${teamId}`,
-            maxRetries: 2
-        });
+        return withRetry(async () => {
+            const { data, error } = await supabase
+                .from('teams')
+                .select('*')
+                .eq('id', teamId)
+                .eq('session_id', sessionId)
+                .eq('passcode', passcode.trim())
+                .single();
+            if (error) {
+                // If no matching team found, return null instead of throwing
+                if (error.code === 'PGRST116') {
+                    return null;
+                }
+                throw error;
+            }
+            return data;
+        }, 2, 1000, `Team login verification for ${teamId.substring(0, 8)}`);
     },
 
     async create(teamData: any) {

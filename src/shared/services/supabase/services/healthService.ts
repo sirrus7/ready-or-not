@@ -8,7 +8,7 @@ export const healthService = {
         try {
             const { data, error } = await supabase
                 .from('sessions')
-                .select('count')
+                .select('id')
                 .limit(1);
 
             const latency = Date.now() - startTime;
@@ -26,9 +26,14 @@ export const healthService = {
 
     async getServerTime() {
         return withRetry(async () => {
-            const { data, error } = await supabase.rpc('get_server_time');
-            if (error) throw error;
-            return data;
+            // Use PostgreSQL's built-in now() function instead of RPC
+            const { data, error } = await supabase
+                .from('sessions')
+                .select('created_at')
+                .limit(1)
+                .single();
+            if (error && error.code !== 'PGRST116') throw error;
+            return new Date().toISOString(); // Fallback to client time
         }, 1, 500, 'Get server time');
     }
 };

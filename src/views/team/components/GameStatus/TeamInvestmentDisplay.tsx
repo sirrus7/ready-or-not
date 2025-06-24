@@ -92,7 +92,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                 refreshImmediate();
             }, 100);
         }
-    }, [refreshTrigger, refreshRegular, refreshImmediate]);
+    }, [refreshTrigger]);
 
     // ✅ Process and combine investment data WITH CONTINUATION PRICING
     useEffect(() => {

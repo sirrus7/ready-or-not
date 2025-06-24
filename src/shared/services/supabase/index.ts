@@ -1,4 +1,4 @@
-// src/shared/services/supabase/index.ts - Complete Supabase Integration
+// src/shared/services/supabase/index.ts - Updated exports without RPC support
 // Clean, organized exports with enhanced functionality
 
 // Core client
@@ -6,11 +6,10 @@ export {supabase} from './client';
 
 export {db} from './services';
 
-// Enhanced database operations with circuit breaker
+// Enhanced database operations with circuit breaker (RPC REMOVED)
 export {
     formatSupabaseError,
     withRetry,
-    callRPC,
     getCircuitBreakerStatus,
     resetCircuitBreaker
 } from './database';
