@@ -36,7 +36,6 @@ export const useGameController = (
         if (initialDbSession?.id !== dbSession?.id) {
             lastProcessedSlideRef.current = null;
             processingRef.current = false;
-            console.log('[useGameController] 🔄 Session changed, reset processing state');
         }
     }, [initialDbSession?.id, dbSession?.id]);
 
@@ -76,31 +75,16 @@ export const useGameController = (
             // Handle consequence slides
             if (currentSlideData.type === 'consequence_reveal') {
                 // ULTIMATE FIX: Only process if this is a new slide and we're not already processing
-                if (lastProcessedSlideRef.current === currentSlideData.id) {
-                    console.log(`[useGameController] ⚪ Consequence slide ${currentSlideData.id} already processed, ignoring data refresh`);
-                    return;
-                }
-
-                if (processingRef.current) {
-                    console.log(`[useGameController] ⏸️ Already processing slide ${currentSlideData.id}, skipping`);
-                    return;
-                }
-
-                console.log(`[useGameController] 🎯 NEW consequence slide detected: ${currentSlideData.id} (previous: ${lastProcessedSlideRef.current})`);
+                if (lastProcessedSlideRef.current === currentSlideData.id || processingRef.current) return;
 
                 try {
                     // Mark as processing to prevent concurrent calls
                     processingRef.current = true;
-
                     await processConsequenceSlide(currentSlideData);
-
                     // Mark as processed AFTER successful completion
                     lastProcessedSlideRef.current = currentSlideData.id;
-
-                    console.log(`[useGameController] ✅ Successfully processed NEW consequence slide: ${currentSlideData.id}`);
                 } catch (error) {
                     console.error(`[useGameController] ❌ Error processing consequence slide:`, error);
-
                     // Don't mark as processed on error so it can be retried
                     setCurrentHostAlertState({
                         title: "Processing Error",
@@ -115,31 +99,16 @@ export const useGameController = (
             // Handle payoff slides (NEW)
             if (currentSlideData.type === 'payoff_reveal') {
                 // Same duplicate prevention logic as consequences
-                if (lastProcessedSlideRef.current === currentSlideData.id) {
-                    console.log(`[useGameController] ⚪ Payoff slide ${currentSlideData.id} already processed, ignoring data refresh`);
-                    return;
-                }
-
-                if (processingRef.current) {
-                    console.log(`[useGameController] ⏸️ Already processing slide ${currentSlideData.id}, skipping`);
-                    return;
-                }
-
-                console.log(`[useGameController] 🎯 NEW payoff slide detected: ${currentSlideData.id} (previous: ${lastProcessedSlideRef.current})`);
+                if (lastProcessedSlideRef.current === currentSlideData.id || processingRef.current) return;
 
                 try {
                     // Mark as processing to prevent concurrent calls
                     processingRef.current = true;
-
                     await processPayoffSlide(currentSlideData);
-
                     // Mark as processed AFTER successful completion
                     lastProcessedSlideRef.current = currentSlideData.id;
-
-                    console.log(`[useGameController] ✅ Successfully processed NEW payoff slide: ${currentSlideData.id}`);
                 } catch (error) {
                     console.error(`[useGameController] ❌ Error processing payoff slide:`, error);
-
                     // Don't mark as processed on error so it can be retried
                     setCurrentHostAlertState({
                         title: "Processing Error",
@@ -153,23 +122,12 @@ export const useGameController = (
 
             // Handle KPI reset slides (NEW - minimal addition)
             if (currentSlideData.type === 'kpi_reset') {
-                if (lastProcessedSlideRef.current === currentSlideData.id) {
-                    console.log(`[useGameController] ⚪ KPI reset slide ${currentSlideData.id} already processed`);
-                    return;
-                }
-
-                if (processingRef.current) {
-                    console.log(`[useGameController] ⏸️ Already processing slide ${currentSlideData.id}, skipping`);
-                    return;
-                }
-
-                console.log(`[useGameController] 🎯 NEW KPI reset slide detected: ${currentSlideData.id}`);
+                if (lastProcessedSlideRef.current === currentSlideData.id || processingRef.current) return;
 
                 try {
                     processingRef.current = true;
                     await processKpiResetSlide(currentSlideData);
                     lastProcessedSlideRef.current = currentSlideData.id;
-                    console.log(`[useGameController] ✅ Successfully processed KPI reset slide: ${currentSlideData.id}`);
                 } catch (error) {
                     console.error(`[useGameController] ❌ Error processing KPI reset slide:`, error);
                     setCurrentHostAlertState({
@@ -185,7 +143,6 @@ export const useGameController = (
             if (lastProcessedSlideRef.current !== null &&
                 currentSlideData.type !== 'consequence_reveal' &&
                 currentSlideData.type !== 'payoff_reveal') {
-                console.log(`[useGameController] 🔄 Left effect slides, resetting processed state`);
                 lastProcessedSlideRef.current = null;
             }
         };
@@ -208,6 +165,7 @@ export const useGameController = (
             await sessionManager.updateSession(dbSession.id, {current_slide_index: nextSlideIndex});
             setDbSession(prev => prev ? {...prev, current_slide_index: nextSlideIndex} : null);
         } catch (error) {
+            if (import.meta.env.DEV) console.warn(error);
             setCurrentHostAlertState({
                 title: "Navigation Error",
                 message: "Failed to change slide."
@@ -222,12 +180,9 @@ export const useGameController = (
             return;
         }
 
-        console.log(`[useGameController] Advancing from slide ${currentSlideIndex}`);
-
         // Process interactive slides on completion
         if (currentSlideData.interactive_data_key && currentSlideData.type.startsWith('interactive_')) {
             try {
-                console.log(`[useGameController] Processing interactive slide: ${currentSlideData.id}`);
                 await processInteractiveSlide(currentSlideData);
 
                 // Add small delay if this was a choice slide to let auto-submissions settle
@@ -252,9 +207,6 @@ export const useGameController = (
             if (nextIndex <= maxIndex) {
                 await sessionManager.updateSession(dbSession!.id, {current_slide_index: nextIndex});
                 setDbSession(prev => prev ? {...prev, current_slide_index: nextIndex} : null);
-                console.log(`[useGameController] Advanced to slide ${nextIndex}`);
-            } else {
-                console.log('[useGameController] Already at last slide');
             }
         } catch (error) {
             console.error('[useGameController] Error advancing slide:', error);
@@ -271,13 +223,10 @@ export const useGameController = (
             return;
         }
 
-        console.log(`[useGameController] Going back from slide ${currentSlideIndex}`);
-
         try {
             const prevIndex = Math.max(currentSlideIndex - 1, 0);
             await sessionManager.updateSession(dbSession.id, {current_slide_index: prevIndex});
             setDbSession(prev => prev ? {...prev, current_slide_index: prevIndex} : null);
-            console.log(`[useGameController] Went back to slide ${prevIndex}`);
         } catch (error) {
             console.error('[useGameController] Error going to previous slide:', error);
             setCurrentHostAlertState({
@@ -293,12 +242,9 @@ export const useGameController = (
             return;
         }
 
-        console.log(`[useGameController] Jumping to slide ${targetIndex}`);
-
         try {
             await sessionManager.updateSession(dbSession.id, {current_slide_index: targetIndex});
             setDbSession(prev => prev ? {...prev, current_slide_index: targetIndex} : null);
-            console.log(`[useGameController] Jumped to slide ${targetIndex}`);
         } catch (error) {
             console.error('[useGameController] Error jumping to slide:', error);
             setCurrentHostAlertState({
