@@ -3,8 +3,9 @@ import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {Slide} from '@shared/types/game';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
-import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize, Play} from 'lucide-react';
-import {SimpleBroadcastManager, HostCommand} from '@core/sync/SimpleBroadcastManager';
+import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from 'lucide-react';
+import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
+import {HostCommand} from "@core/sync/types";
 
 /**
  * Simplified presentation app that immediately displays content from the host.
@@ -26,7 +27,6 @@ const PresentationApp: React.FC = () => {
 
     const handleVideoEnd = () => {
         if (!currentSlide) return;
-        console.log('[PresentationApp] Video ended for slide:', currentSlide.id);
     };
 
     const toggleFullscreen = async () => {
@@ -54,11 +54,7 @@ const PresentationApp: React.FC = () => {
 
     useEffect(() => {
         if (!broadcastManager) return;
-
-        console.log('[PresentationApp] Setting up slide and command listeners');
-
         const unsubscribeSlides = broadcastManager.onSlideUpdate((slide: Slide) => {
-            console.log('[PresentationApp] Received slide update:', slide.id, slide.title);
             setCurrentSlide(slide);
             setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
@@ -67,15 +63,11 @@ const PresentationApp: React.FC = () => {
 
         const handleHostCommand = (command: HostCommand) => {
             if (command.action === 'close_presentation') {
-                console.log('[PresentationApp] Received close_presentation command from host. Closing window.');
                 window.close();
             }
         };
-
         const unsubscribeCommands = broadcastManager.onHostCommand(handleHostCommand);
-
         return () => {
-            console.log('[PresentationApp] Cleaning up listeners');
             unsubscribeSlides();
             unsubscribeCommands();
         };
@@ -95,15 +87,8 @@ const PresentationApp: React.FC = () => {
     }, [sessionId, broadcastManager, isConnectedToHost]);
 
     useEffect(() => {
-        if (broadcastManager) {
-            console.log('[PresentationApp] Presentation initialized and ready');
-        }
-    }, [broadcastManager]);
-
-    useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && broadcastManager && !isConnectedToHost) {
-                console.log('[PresentationApp] Page became visible, announcing ready');
                 broadcastManager.sendStatus('ready');
             }
         };

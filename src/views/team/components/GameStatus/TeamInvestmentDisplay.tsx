@@ -87,8 +87,6 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
     // ✅ CENTRALIZED REFRESH: Listen to trigger from useTeamGameState
     useEffect(() => {
         if (refreshTrigger > 0) {
-            console.log(`[TeamInvestmentDisplay] Refresh trigger received (${refreshTrigger}), refreshing data...`);
-
             setTimeout(() => {
                 refreshRegular();
                 refreshImmediate();
@@ -194,8 +192,6 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
 
             setInvestments(processedInvestments);
             setTotalSpent(totalCost);
-
-            console.log(`[TeamInvestmentDisplay] Updated investments for ${teamId}:`, processedInvestments);
         };
 
         processInvestments();

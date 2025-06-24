@@ -163,8 +163,6 @@ export class ContinuationPricingEngine {
         teamId: string,
         targetRound: 2 | 3
     ): Promise<string[]> {
-        console.log(`[ContinuationPricingEngine] Getting previous investments for team ${teamId}, target round ${targetRound}`);
-
         const previousRoundPhase = targetRound === 2 ? 'rd1-invest' : 'rd2-invest';
 
         try {
@@ -198,9 +196,7 @@ export class ContinuationPricingEngine {
             // Remove duplicates and sort
             const uniqueInvestments = [...new Set(investments)].sort();
 
-            console.log(`[ContinuationPricingEngine] Previous investments found:`, uniqueInvestments);
             return uniqueInvestments;
-
         } catch (error) {
             console.error(`[ContinuationPricingEngine] Error getting previous investments:`, error);
             return [];
@@ -315,20 +311,20 @@ export class ContinuationPricingEngine {
                 }
                 return 'Not available';
 
-            case 'continue':
+            case 'continue': {
                 const hadPreviousInvestment = previousInvestments.includes(investmentId);
                 if (hadPreviousInvestment) {
                     return `Continuing ${investmentId} from RD-${previousRoundNumber}`;
                 }
                 return 'Continuing from previous round';
-
-            case 'fresh':
+            }
+            case 'fresh': {
                 const hadThisBefore = previousInvestments.includes(investmentId);
                 if (hadThisBefore) {
                     return 'Fresh investment (had previously)';
                 }
                 return 'Fresh investment';
-
+            }
             default:
                 return '';
         }
@@ -363,8 +359,6 @@ export class ContinuationPricingEngine {
         teamId: string,
         targetRound: 2 | 3
     ): Promise<ContinuationPricingResult> {
-        console.log(`[ContinuationPricingEngine] 💰 Calculating continuation pricing for team ${teamId} → Round ${targetRound}`);
-
         try {
             // Get previous investments and strategy status
             const [previousInvestments, hasStrategy] = await Promise.all([
@@ -400,14 +394,7 @@ export class ContinuationPricingEngine {
                 totalBudget: ROUND_BUDGETS[targetRound]
             };
 
-            console.log(`[ContinuationPricingEngine] ✅ Pricing calculated for team ${teamId}:`);
-            console.log(`  - Previous investments: ${previousInvestments.join(', ') || 'None'}`);
-            console.log(`  - Has strategy: ${hasStrategy}`);
-            console.log(`  - Available investments: ${investmentPricing.filter(p => p.availability !== 'not_available').length}`);
-            console.log(`  - Continuation investments: ${investmentPricing.filter(p => p.availability === 'continue').length}`);
-
             return result;
-
         } catch (error) {
             console.error(`[ContinuationPricingEngine] ❌ Error calculating pricing for team ${teamId}:`, error);
             throw error;
@@ -421,8 +408,6 @@ export class ContinuationPricingEngine {
         sessionId: string,
         targetRound: 2 | 3
     ): Promise<Record<string, ContinuationPricingResult>> {
-        console.log(`[ContinuationPricingEngine] 💰 Calculating batch continuation pricing → Round ${targetRound}`);
-
         try {
             const teams = await db.teams.getBySession(sessionId);
             const results: Record<string, ContinuationPricingResult> = {};
@@ -430,12 +415,9 @@ export class ContinuationPricingEngine {
             // Calculate pricing for each team
             for (const team of teams) {
                 results[team.id] = await this.calculateContinuationPricing(sessionId, team.id, targetRound);
-                console.log(`[ContinuationPricingEngine] ✅ Pricing complete for team: ${team.name}`);
             }
 
-            console.log(`[ContinuationPricingEngine] ✅ Batch pricing complete for ${teams.length} teams`);
             return results;
-
         } catch (error) {
             console.error(`[ContinuationPricingEngine] ❌ Batch pricing failed:`, error);
             throw error;

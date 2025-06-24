@@ -152,7 +152,7 @@ export const useDecisionMaking = ({
                         }));
                     }
                 } catch (error) {
-                    console.log('Error loading RD3 investments:', error);
+                    console.warn('Error loading RD3 investments:', error);
                 }
             }
 
@@ -187,12 +187,11 @@ export const useDecisionMaking = ({
                     }));
                 }
             } catch (error) {
-                console.log('No existing immediate purchases found:', error);
+                console.warn('No existing immediate purchases found:', error);
             }
         };
 
         // Reset state when slide changes
-        console.log(`[useDecisionMaking] Slide changed to: ${currentSlide?.id}, type: ${currentSlide?.type}`);
         const newState: DecisionState = {
             selectedInvestmentOptions: [],  // CHANGED
             spentBudget: 0,
@@ -319,7 +318,6 @@ export const useDecisionMaking = ({
                         immediateType as StrategyInvestmentType,
                         purchaseRound as 1 | 2
                     );
-                    console.log(`[useDecisionMaking] Strategy investment processed for team ${teamId}`);
                 } catch (strategyError) {
                     console.error('Strategy investment processing failed:', strategyError);
                     // Don't throw - the purchase was successful, strategy processing is bonus
