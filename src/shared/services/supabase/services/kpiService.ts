@@ -2,7 +2,7 @@
 // FIXED VERSION - Added missing deleteBySession method
 
 import {supabase} from '../client';
-import {withRetry, callRPC} from '../database';
+import {withRetry} from '../database';
 
 export const kpiService = {
     async getBySession(sessionId: string) {
@@ -18,15 +18,17 @@ export const kpiService = {
     },
 
     async getForTeamRound(sessionId: string, teamId: string, roundNumber: number) {
-        return callRPC('get_team_kpis_for_student', {
-            target_session_id: sessionId,
-            target_team_id: teamId,
-            target_round_number: roundNumber
-        }, {
-            expectedSingle: true,
-            context: `Get KPIs for team ${teamId.substring(0, 8)} round ${roundNumber}`,
-            maxRetries: 2
-        });
+        return withRetry(async () => {
+            const {data, error} = await supabase
+                .from('team_round_data')
+                .select('*')
+                .eq('session_id', sessionId)
+                .eq('team_id', teamId)
+                .eq('round_number', roundNumber)
+                .single();
+            if (error) throw error;
+            return data;
+        }, 3, 1000, `Get KPIs for team ${teamId.substring(0, 8)} round ${roundNumber}`);
     },
 
     async create(kpiData: any) {

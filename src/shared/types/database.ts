@@ -35,14 +35,14 @@ export interface TeamRoundData {
 export interface GameSession {
     id: string;
     name: string;
-    host_id: string;  // Changed from teacher_id
+    host_id: string;
     current_slide_index: number | null;
     game_version: string;
     class_name: string | null;
     grade_level: string | null;
     is_playing: boolean;
     is_complete: boolean;
-    host_notes: Record<string, string>;  // Changed from teacher_notes
+    host_notes: Record<string, string>;
     status: 'draft' | 'active' | 'completed';
     wizard_state: Record<string, any> | null;
     created_at: string;
@@ -55,7 +55,7 @@ export interface Team {
     id: string;
     session_id: string;
     name: string;
-    access_code: string;
+    passcode: string;
     created_at: string;
 }
 
