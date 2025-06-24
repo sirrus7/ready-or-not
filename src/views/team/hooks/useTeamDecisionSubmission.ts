@@ -266,7 +266,7 @@ export const useTeamDecisionSubmission = ({
                 team_id: teamId,
                 phase_id: decisionKey,
                 round_number: currentSlide?.round_number || 1,
-                selected_investment_ids: decisionState.selectedInvestmentOptions?.length > 0
+                selected_investment_options: decisionState.selectedInvestmentOptions?.length > 0
                     ? decisionState.selectedInvestmentOptions
                     : null,  // CHANGED: stores ['A', 'B', 'C'] directly
                 selected_challenge_option_id: decisionState.selectedChallengeOptionId || null,
@@ -344,12 +344,12 @@ export const useTeamDecisionSubmission = ({
             const parts: string[] = [];
 
             // Add investment selections
-            if (existingDecision.selected_investment_ids?.length > 0) {
+            if (existingDecision.selected_investment_options?.length > 0) {
                 const decisionKey = currentSlide.interactive_data_key;
                 const investmentOptions = decisionKey ?
                     gameStructureWithData.all_investment_options?.[decisionKey] || [] : [];
 
-                const selectedInvestments = parseInvestmentIds(existingDecision.selected_investment_ids)
+                const selectedInvestments = parseInvestmentIds(existingDecision.selected_investment_options)
                     .map(id => investmentOptions.find(inv => inv.id === id))
                     .filter(Boolean);
 

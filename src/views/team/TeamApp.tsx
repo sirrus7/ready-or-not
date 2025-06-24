@@ -64,13 +64,6 @@ const TeamApp: React.FC = () => {
     const teamGameContext = useTeamGameContext();
     const {permanentAdjustments, isLoadingAdjustments} = teamGameContext;
 
-    console.log('🏢 TeamApp initialized:', {
-        sessionId,
-        loggedInTeamId,
-        loggedInTeamName,
-        adjustmentsCount: permanentAdjustments.length
-    });
-
     // ========================================================================
     // GAME STATE HOOK - SIMPLIFIED (uses centralized adjustments)
     // This now receives adjustments from the centralized system
