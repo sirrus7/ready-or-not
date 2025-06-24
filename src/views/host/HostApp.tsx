@@ -28,6 +28,62 @@ const HostApp: React.FC = () => {
         broadcastManager.sendSlideUpdate(currentSlideData);
     }, [currentSessionId, currentSlideData]);
 
+    const isFirstSlideOverall = current_slide_index === 0;
+    const isLastSlideOverall = current_slide_index === (gameStructure.slides.length - 1);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            // Only handle keyboard events when the host app is focused
+            // Ignore if user is typing in an input field
+            if (event.target instanceof HTMLInputElement ||
+                event.target instanceof HTMLTextAreaElement ||
+                event.target instanceof HTMLSelectElement) {
+                return;
+            }
+
+            switch (event.key) {
+                case ' ':           // Space bar (most common clicker button)
+                case 'Enter':       // Enter key
+                case 'ArrowRight':  // Right arrow key
+                case 'PageDown':    // Page Down key
+                    event.preventDefault();
+                    if (!isLastSlideOverall) {
+                        console.log('[HostApp] Keyboard navigation: Next slide');
+                        nextSlide();
+                    }
+                    break;
+
+                case 'ArrowLeft':   // Left arrow key
+                case 'PageUp':      // Page Up key
+                case 'Backspace':   // Backspace key
+                    event.preventDefault();
+                    if (!isFirstSlideOverall) {
+                        console.log('[HostApp] Keyboard navigation: Previous slide');
+                        previousSlide();
+                    }
+                    break;
+
+                case 'Escape':      // Escape key (useful for troubleshooting)
+                    event.preventDefault();
+                    console.log('[HostApp] Keyboard navigation: Escape pressed');
+                    // Could add pause/stop functionality here if needed
+                    break;
+            }
+        };
+
+        // Add event listener
+        window.addEventListener('keydown', handleKeyDown);
+
+        // Add visual indicator that keyboard navigation is active
+        console.log('[HostApp] Keyboard navigation enabled - Space/Enter/Arrows for slide control');
+
+        // Cleanup function
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            console.log('[HostApp] Keyboard navigation disabled');
+        };
+    }, [nextSlide, previousSlide, isFirstSlideOverall, isLastSlideOverall]);
+
     const handleVideoEnd = () => {
         if (!currentSlideData) return;
         if (currentSlideData.host_alert) {
@@ -40,9 +96,6 @@ const HostApp: React.FC = () => {
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
         return <div className="min-h-screen ..."><AlertCircle/>Session Not Fully Loaded</div>;
     }
-
-    const isFirstSlideOverall = current_slide_index === 0;
-    const isLastSlideOverall = current_slide_index === (gameStructure.slides.length - 1);
 
     return (
         <div
