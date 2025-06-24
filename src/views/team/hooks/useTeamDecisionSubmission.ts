@@ -77,14 +77,6 @@ export const useTeamDecisionSubmission = ({
 
     const decisionKey = currentSlide?.interactive_data_key;
 
-    console.log('🎯 useTeamDecisionSubmission initialized:', {
-        sessionId,
-        teamId,
-        decisionKey,
-        slideType: currentSlide?.type,
-        resetTrigger: decisionResetTrigger
-    });
-
     // ========================================================================
     // DATA FETCHING - REGULAR DECISIONS
     // ========================================================================
@@ -94,12 +86,7 @@ export const useTeamDecisionSubmission = ({
     } = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId || !decisionKey) return null;
-
-            console.log('🎯 Fetching existing decision for phase:', decisionKey);
-            const decision = await db.decisions.getForPhase(sessionId, teamId, decisionKey);
-            console.log('🎯 Existing decision found:', !!decision?.submitted_at);
-
-            return decision;
+            return await db.decisions.getForPhase(sessionId, teamId, decisionKey);
         },
         [sessionId, teamId, decisionKey],
         {
@@ -117,10 +104,7 @@ export const useTeamDecisionSubmission = ({
     } = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId || !decisionKey) return [];
-
             const immediatePhaseId = `${decisionKey}_immediate`;
-            console.log('🎯 Fetching immediate purchases for phase:', immediatePhaseId);
-
             const {data, error} = await supabase
                 .from('team_decisions')
                 .select('*')
@@ -128,9 +112,7 @@ export const useTeamDecisionSubmission = ({
                 .eq('team_id', teamId)
                 .eq('phase_id', immediatePhaseId)
                 .eq('is_immediate_purchase', true);
-
             if (error) throw error;
-            console.log('🎯 Immediate purchases found:', data?.length || 0);
             return data || [];
         },
         [sessionId, teamId, decisionKey],
@@ -145,10 +127,7 @@ export const useTeamDecisionSubmission = ({
     // ✅ CIRCUIT BREAKER WRAPPER - ONLY NEW ADDITION
     // ========================================================================
     const withCircuitBreaker = useCallback(async (fn: () => Promise<any>, context: string) => {
-        if (isCircuitOpen) {
-            console.log(`🔌 Circuit breaker open - skipping ${context}`);
-            return;
-        }
+        if (isCircuitOpen) return;
 
         try {
             await Promise.race([
@@ -160,19 +139,13 @@ export const useTeamDecisionSubmission = ({
 
             // Success - reset failure count
             failureCountRef.current = 0;
-
         } catch (error) {
             console.error(`🚨 ${context} failed:`, error);
-
             failureCountRef.current += 1;
 
             if (failureCountRef.current >= 3) {
-                console.log(`🔌 Opening circuit breaker after ${failureCountRef.current} failures`);
                 setIsCircuitOpen(true);
-
-                // Reset circuit after 30 seconds
                 setTimeout(() => {
-                    console.log('🔌 Resetting circuit breaker');
                     setIsCircuitOpen(false);
                     failureCountRef.current = 0;
                 }, 30000);
@@ -212,8 +185,6 @@ export const useTeamDecisionSubmission = ({
     useEffect(() => {
         // Only process if this is a new reset trigger
         if (decisionResetTrigger > 0 && decisionResetTrigger !== lastProcessedResetTrigger.current) {
-            console.log('🔄 Decision reset trigger detected, refreshing decision data');
-
             // Mark this trigger as processed to prevent duplicate processing
             lastProcessedResetTrigger.current = decisionResetTrigger;
 
@@ -226,7 +197,6 @@ export const useTeamDecisionSubmission = ({
             setTimeout(() => {
                 withCircuitBreaker(checkForExistingDecision, 'reset decision check');
                 withCircuitBreaker(refreshImmediatePurchases, 'reset immediate purchases');
-                console.log('🔄 Decision data refresh complete after reset');
             }, 50); // Very short delay to break the loop
         }
     }, [decisionResetTrigger]); // ⚠️  CRITICAL: ONLY this dependency - DO NOT ADD MORE!
@@ -239,14 +209,6 @@ export const useTeamDecisionSubmission = ({
             if (!sessionId || !teamId || !decisionKey) {
                 throw new Error('Missing required data for submission');
             }
-
-            console.log('🎯 Submitting decision:', {
-                sessionId,
-                teamId,
-                decisionKey,
-                decisionState
-            });
-
             // ✅ FIXED: Calculate total cost using CONTINUATION PRICING
             let totalCost = 0;
 
@@ -283,12 +245,8 @@ export const useTeamDecisionSubmission = ({
                                 (p: any) => p.investmentId === optionLetter
                             );
                             const actualCost = pricing?.finalPrice || 0;
-
-                            console.log(`[Submission] Investment ${optionLetter}: using continuation price ${actualCost}`);
                             return sum + actualCost;
                         }, 0);
-
-                        console.log('🎯 Using continuation pricing - Total cost:', totalCost);
                     } catch (error) {
                         console.error('🎯 Continuation pricing failed, using original costs:', error);
                         totalCost = calculateOriginalTotalCost();
@@ -328,9 +286,6 @@ export const useTeamDecisionSubmission = ({
                 .single();
 
             if (error) throw error;
-
-            console.log('🎯 Decision submitted successfully:', data);
-
             if (decisionState.selectedInvestmentOptions?.length > 0) {
                 await InvestmentPurchaseHandler.processInvestmentPurchases({
                     sessionId,
@@ -340,15 +295,12 @@ export const useTeamDecisionSubmission = ({
                     teamRoundData: {}, // Will be fetched inside the processor
                     setTeamRoundDataDirectly: () => {} // No direct UI update needed here
                 });
-
-                console.log('🎯 Continuation effects applied after investment submission');
             }
 
             return data;
         },
         {
             onSuccess: () => {
-                console.log('🎯 Decision submission successful');
                 setSubmissionSuccess(true);
                 setSubmissionError(null);
 
@@ -381,9 +333,6 @@ export const useTeamDecisionSubmission = ({
 
         const key = currentSlide.interactive_data_key;
         if (!key) return null;
-
-        console.log('🎯 Formatting submission summary for:', key);
-
         try {
             const gameStructureWithData = gameStructure as GameStructure & {
                 all_investment_options?: Record<string, Array<{ id: string; name: string; cost: number }>>;
