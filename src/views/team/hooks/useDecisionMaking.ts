@@ -285,7 +285,7 @@ export const useDecisionMaking = ({
                     team_id: teamId,
                     phase_id: immediatePhaseId,
                     round_number: currentSlide.round_number || 1,
-                    selected_investment_options: [optionLetter],  // Store letter for new system
+                    selected_investment_options: [optionLetter],
                     selected_challenge_option_id: null,
                     total_spent_budget: cost,
                     submitted_at: new Date().toISOString(),
@@ -293,7 +293,7 @@ export const useDecisionMaking = ({
                     // DATA-DRIVEN: Use the option's immediate_purchase_type
                     immediate_purchase_type: immediateType,
                     immediate_purchase_data: {
-                        option_letter: optionLetter,  // New letter system
+                        option_letter: optionLetter,
                         option_index: optionIndex,
                         option_name: option.name,
                         immediate_purchase_type: immediateType,
