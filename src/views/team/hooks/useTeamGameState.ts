@@ -30,6 +30,7 @@ interface UseTeamGameStateReturn {
     connectionStatus: 'connected' | 'connecting' | 'disconnected';
     decisionResetTrigger: number;
     fetchCurrentKpis: () => Promise<void>;
+    sessionStatus: 'active' | 'deleted' | 'unknown';
 }
 
 export const useTeamGameState = ({
@@ -48,6 +49,7 @@ export const useTeamGameState = ({
     const [isLoadingKpis, setIsLoadingKpis] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting');
     const [decisionResetTrigger, setDecisionResetTrigger] = useState(0);
+    const [sessionStatus, setSessionStatus] = useState<'active' | 'deleted' | 'unknown'>('unknown');
 
     // Stable refs to prevent subscription recreation
     const stableSessionId = useRef<string | null>(null);
@@ -211,6 +213,11 @@ export const useTeamGameState = ({
         }
     }, []);
 
+    const handleSessionDelete = useCallback((payload: any) => {
+        console.log('🗑️ [useTeamGameState] Session deleted by host');
+        setSessionStatus('deleted');
+    }, []);
+
     // ========================================================================
     // REAL-TIME SUBSCRIPTIONS - CLEAN (no adjustment subscription)
     // ========================================================================
@@ -227,7 +234,19 @@ export const useTeamGameState = ({
         !!sessionId && !!loggedInTeamId
     );
 
-    // 2. Decision Deletes (for reset handling)
+    // 2. Add a new subscription for session deletions
+    useRealtimeSubscription(
+        `team-session-delete-${sessionId}`,
+        {
+            table: 'sessions',
+            event: 'DELETE',
+            filter: `id=eq.${sessionId}`,
+            onchange: handleSessionDelete
+        },
+        !!sessionId && !!loggedInTeamId
+    );
+
+    // 3. Decision Deletes (for reset handling)
     useRealtimeSubscription(
         `team-deletes-${sessionId}`,
         {
@@ -239,7 +258,7 @@ export const useTeamGameState = ({
         !!sessionId && !!loggedInTeamId
     );
 
-    // 3. KPI Updates - Team-specific filter
+    // 4. KPI Updates - Team-specific filter
     useRealtimeSubscription(
         `team-kpis-${sessionId}-${loggedInTeamId}`,
         {
@@ -251,7 +270,7 @@ export const useTeamGameState = ({
         !!sessionId && !!loggedInTeamId
     );
 
-    // 4. Team Decision Updates (for investment display refresh)
+    // 5. Team Decision Updates (for investment display refresh)
     useRealtimeSubscription(
         `team-decisions-${sessionId}-${loggedInTeamId}`,
         {
@@ -330,6 +349,26 @@ export const useTeamGameState = ({
         };
     }, []);
 
+    useEffect(() => {
+        const verifySessionExists = async () => {
+            if (!sessionId) {
+                setSessionStatus('unknown');
+                return;
+            }
+
+            try {
+                const session = await db.sessions.getById(sessionId)
+                setSessionStatus(session ? 'active' : 'deleted');
+            } catch (error: any) {
+                console.error('Error verifying session:', error);
+                // If session not found, mark as deleted
+                setSessionStatus(error.code === 'PGRST116' ? 'deleted' : 'unknown');
+            }
+        };
+
+        verifySessionExists();
+    }, [sessionId]);
+
     // ========================================================================
     // COMPUTED VALUES
     // ========================================================================
@@ -354,6 +393,7 @@ export const useTeamGameState = ({
         isLoadingAdjustments, // From centralized system
         connectionStatus,
         decisionResetTrigger,
-        fetchCurrentKpis
+        fetchCurrentKpis,
+        sessionStatus,
     };
 };

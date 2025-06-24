@@ -4,6 +4,7 @@
 import {useState, useEffect, useMemo, useCallback} from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
 import {supabase} from '@shared/services/supabase';
+import {StrategyInvestmentTracker, StrategyInvestmentType} from "@core/game/StrategyInvestmentTracker.ts";
 
 export interface DecisionState {
     selectedInvestmentOptions: string[];  // CHANGED: now stores ['A', 'B', 'C']
@@ -307,6 +308,23 @@ export const useDecisionMaking = ({
                 .single();
 
             if (error) throw error;
+
+            // NEW: Process strategy investment if this is a strategy purchase
+            if (immediateType === 'business_growth_strategy' || immediateType === 'strategic_plan') {
+                try {
+                    const purchaseRound = currentSlide.round_number || 1;
+                    await StrategyInvestmentTracker.processStrategyInvestment(
+                        sessionId,
+                        teamId,
+                        immediateType as StrategyInvestmentType,
+                        purchaseRound as 1 | 2
+                    );
+                    console.log(`[useDecisionMaking] Strategy investment processed for team ${teamId}`);
+                } catch (strategyError) {
+                    console.error('Strategy investment processing failed:', strategyError);
+                    // Don't throw - the purchase was successful, strategy processing is bonus
+                }
+            }
 
             // Update local state with letter
             setState(prev => ({

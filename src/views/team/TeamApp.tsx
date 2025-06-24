@@ -41,7 +41,7 @@
  * ============================================================================
  */
 
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import DecisionModeContainer from '@views/team/components/InteractionPanel/DecisionContainer';
@@ -50,7 +50,7 @@ import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
 import {useTeamGameContext} from '@app/providers/TeamGameProvider';
 import {BASE_VALUES, ROUND_BASE_VALUES} from "@core/game/ScoringEngine.ts";
 import TeamInvestmentDisplay from "@views/team/components/GameStatus/TeamInvestmentDisplay.tsx";
-import { Building, ShoppingCart, DollarSign, TrendingUp } from 'lucide-react';
+import {Building, ShoppingCart, DollarSign, TrendingUp, AlertTriangle} from 'lucide-react';
 
 // ============================================================================
 // MAIN TEAM APP COMPONENT
@@ -81,6 +81,63 @@ const TeamApp: React.FC = () => {
         permanentAdjustments, // ADDED: Pass centralized adjustments
         isLoadingAdjustments  // ADDED: Pass centralized loading state
     });
+
+    useEffect(() => {
+        // Clear team login when session is deleted
+        if (teamGameState.sessionStatus === 'deleted') {
+            setLoggedInTeamId(null);
+            setLoggedInTeamName(null);
+        }
+    }, [teamGameState.sessionStatus]);
+
+    // Show session ended screen if session was deleted
+    if (teamGameState.sessionStatus === 'deleted') {
+        return (
+            <div
+                className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+                <div className="max-w-md w-full">
+                    <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 text-center shadow-2xl">
+                        {/* Warning Icon */}
+                        <div
+                            className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <AlertTriangle className="w-8 h-8 text-orange-400"/>
+                        </div>
+
+                        {/* Title */}
+                        <h1 className="text-2xl font-bold text-slate-100 mb-4">
+                            Game Session Ended
+                        </h1>
+
+                        {/* Message */}
+                        <p className="text-slate-300 mb-8 leading-relaxed">
+                            This game session has been ended by your instructor.
+                            Thank you for participating in Ready or Not!
+                        </p>
+
+                        {/* Additional Info */}
+                        <p className="text-slate-500 text-sm mt-6">
+                            Contact your instructor if you need to join a different session.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Show login if not logged in
+    if (!loggedInTeamId || !sessionId) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+                <TeamLogin
+                    sessionId={sessionId || ''}
+                    onLoginSuccess={(teamId, teamName) => {
+                        setLoggedInTeamId(teamId);
+                        setLoggedInTeamName(teamName);
+                    }}
+                />
+            </div>
+        );
+    }
 
     // Extract key values for easier access
     const currentActiveSlide = teamGameState.currentActiveSlide;
@@ -184,7 +241,7 @@ const TeamApp: React.FC = () => {
                                         className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 backdrop-blur-sm rounded-lg p-3 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <Building className="text-blue-400" size={20} />
+                                                <Building className="text-blue-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">Capacity</span>
                                             </div>
                                             <div className="text-right">
@@ -210,7 +267,7 @@ const TeamApp: React.FC = () => {
                                         className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30 hover:border-yellow-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <ShoppingCart className="text-yellow-400" size={20} />
+                                                <ShoppingCart className="text-yellow-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">Orders</span>
                                             </div>
                                             <div className="text-right">
@@ -236,7 +293,7 @@ const TeamApp: React.FC = () => {
                                         className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <DollarSign className="text-green-400" size={20} />
+                                                <DollarSign className="text-green-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">Cost</span>
                                             </div>
                                             <div className="text-right">
@@ -263,7 +320,7 @@ const TeamApp: React.FC = () => {
                                         className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <TrendingUp className="text-red-400" size={20} />
+                                                <TrendingUp className="text-red-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">ASP</span>
                                             </div>
                                             <div className="text-right">
