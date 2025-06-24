@@ -1,6 +1,7 @@
 // src/shared/utils/video/useHostVideo.ts - FINAL: Corrected state management for reliable playback
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
+import {createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -33,9 +34,12 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
     const [isConnectedToPresentation, setIsConnectedToPresentation] = useState(false);
     const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'host') : null;
 
+    // Store callback refs for the shared props function
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
     const isManuallyPaused = useRef(false);
+
+    useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
     useEffect(() => {
         if (!broadcastManager) return;
@@ -136,19 +140,20 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
 
     const seek = useCallback((time: number) => executeCommand('seek', time), [executeCommand]);
 
+// File: src/shared/utils/video/useHostVideo.ts
+// Add this Chrome/Supabase-specific fix to the getVideoProps function
+
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
         onEndedRef.current = onVideoEnd;
         onErrorRef.current = onError;
-        return {
-            ref: videoRef,
-            playsInline: true,
-            controls: false,
-            autoPlay: true,
-            muted: isConnectedToPresentation,
-            preload: 'auto',
-            crossOrigin: 'anonymous',
-            style: {width: '100%', height: '100%', objectFit: 'contain'}
-        };
+
+        // Use shared props function
+        return createVideoProps({
+            videoRef,
+            muted: isConnectedToPresentation, // Host is muted when connected to presentation
+            onVideoEnd,
+            onError
+        });
     }, [isConnectedToPresentation]);
 
     return {videoRef, play, pause, seek, isConnectedToPresentation, getVideoProps};

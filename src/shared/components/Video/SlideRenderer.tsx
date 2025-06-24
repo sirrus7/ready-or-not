@@ -173,6 +173,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
             {/* Stable Video Player - always in the DOM, gets its src updated */}
             <video
                 key="stable-video-player"
+                // preload="auto"
+                // crossOrigin="anonymous"
                 {...videoProps}
                 className={`transition-opacity duration-300 w-full h-full object-contain ${isVideoSlide && sourceUrl ? 'opacity-100' : 'opacity-0'}`}
             />

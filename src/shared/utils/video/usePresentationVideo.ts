@@ -2,6 +2,7 @@
 import {useRef, useCallback, useState, useEffect} from 'react';
 import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
 import {HostCommand} from '@core/sync/types';
+import {createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -35,8 +36,13 @@ export const usePresentationVideo = ({
     const [isConnectedToHost, setIsConnectedToHost] = useState(false);
     const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
 
+    // Store callback refs
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
+
+    // Use shared Chrome/Supabase optimizations
+    useChromeSupabaseOptimizations(videoRef, sourceUrl);
+
 
     const executeCommand = useCallback(async (command: HostCommand): Promise<void> => {
         const video = videoRef.current;
@@ -120,16 +126,14 @@ export const usePresentationVideo = ({
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
         onEndedRef.current = onVideoEnd;
         onErrorRef.current = onError;
-        return {
-            ref: videoRef,
-            playsInline: true,
-            controls: false,
-            autoPlay: true,
-            muted: false,
-            preload: 'auto',
-            crossOrigin: 'anonymous',
-            style: {width: '100%', height: '100%', objectFit: 'contain'}
-        };
+
+        // Use shared props function
+        return createVideoProps({
+            videoRef,
+            muted: false, // Presentation videos should have audio
+            onVideoEnd,
+            onError
+        });
     }, []);
 
     return {videoRef, isConnectedToHost, getVideoProps};
