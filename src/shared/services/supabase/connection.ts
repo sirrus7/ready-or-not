@@ -1,7 +1,6 @@
 // src/utils/supabase/connection.ts - Enhanced Connection Management
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './client';
-import { db } from './services';
 import {healthService} from "@shared/services/supabase/services/healthService.ts";
 
 export interface ConnectionStatus {
@@ -25,6 +24,7 @@ class SupabaseConnectionManager {
     private static instance: SupabaseConnectionManager;
     private listeners: Set<(status: ConnectionStatus) => void> = new Set();
     private metricsListeners: Set<(metrics: ConnectionMetrics) => void> = new Set();
+    private isTabVisible: boolean = true;
 
     private currentStatus: ConnectionStatus = {
         status: 'connecting',
@@ -48,6 +48,12 @@ class SupabaseConnectionManager {
 
     private constructor() {
         this.initialize();
+
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', () => {
+                this.isTabVisible = !document.hidden;
+            });
+        }
     }
 
     static getInstance(): SupabaseConnectionManager {
@@ -177,6 +183,8 @@ class SupabaseConnectionManager {
     }
 
     private scheduleReconnect() {
+        if (!this.isTabVisible) return;
+
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
         }

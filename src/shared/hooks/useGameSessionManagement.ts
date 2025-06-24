@@ -28,17 +28,14 @@ export const useGameSessionManagement = (): GameSessionManagementReturn => {
     const sessionManager = GameSessionManager.getInstance();
 
     const deleteSession = useCallback(async (sessionId: string) => {
-        console.log('[useGameSessionManagement] Deleting session:', sessionId);
         await sessionManager.deleteSession(sessionId);
     }, [sessionManager]);
 
     const resetSessionProgress = useCallback(async (sessionId: string, gameStructure: GameStructure) => {
-        console.log('[useGameSessionManagement] Resetting session progress:', sessionId);
         return await sessionManager.resetSessionProgress(sessionId, gameStructure);
     }, [sessionManager]);
 
     const completeSession = useCallback(async (sessionId: string) => {
-        console.log('[useGameSessionManagement] Completing session:', sessionId);
         return await sessionManager.completeSession(sessionId);
     }, [sessionManager]);
 
@@ -47,7 +44,6 @@ export const useGameSessionManagement = (): GameSessionManagementReturn => {
         phaseId: string,
         slideIndex: number
     ) => {
-        console.log('[useGameSessionManagement] Navigating to phase/slide:', sessionId, phaseId, slideIndex);
         return await sessionManager.navigateToPhaseSlide(sessionId, phaseId, slideIndex);
     }, [sessionManager]);
 

@@ -30,7 +30,6 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
     useEffect(() => {
         const newPlayersValue = gameData.num_players > 0 ? gameData.num_players.toString() : '';
         if (newPlayersValue !== playersInput) {
-            console.log('Syncing players input:', newPlayersValue);
             setPlayersInput(newPlayersValue);
         }
     }, [gameData.num_players]);
@@ -39,7 +38,6 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
         if (!userEditedTeams) {
             const newTeamsValue = gameData.num_teams > 0 ? gameData.num_teams.toString() : '';
             if (newTeamsValue !== teamsInput) {
-                console.log('Syncing teams input (auto):', newTeamsValue);
                 setTeamsInput(newTeamsValue);
             }
         }
@@ -47,7 +45,6 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
 
     const handlePlayersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        console.log('Players input changed to:', value);
 
         // Update local state immediately
         setPlayersInput(value);
@@ -57,7 +54,6 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
 
         // Parse and update parent state immediately
         const numValue = value === '' ? 0 : parseInt(value, 10);
-        console.log('Parsed players value:', numValue, 'from input:', value);
 
         // Always update the parent state with the parsed number
         if (!isNaN(numValue) && numValue >= 0) {
@@ -72,7 +68,6 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
 
     const handleTeamsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        console.log('Teams input changed to:', value);
 
         // Mark that user has manually edited teams
         setUserEditedTeams(true);
@@ -82,7 +77,6 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
 
         // Parse and update parent state immediately
         const numValue = value === '' ? 0 : parseInt(value, 10);
-        console.log('Parsed teams value:', numValue, 'from input:', value);
 
         // Always update the parent state with the parsed number
         if (!isNaN(numValue) && numValue >= 0) {

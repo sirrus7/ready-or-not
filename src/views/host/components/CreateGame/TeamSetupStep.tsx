@@ -1,6 +1,6 @@
 // src/views/host/components/CreateGame/TeamSetupStep.tsx - Cleaned up version
 import React, {useState, useEffect} from 'react';
-import {NewGameData, TeamConfig as AppTeamConfig} from '@shared/types';
+import {TeamConfig} from '@shared/types';
 import {TeamSetupStepProps} from './types';
 import {
     ArrowLeft,
@@ -16,7 +16,7 @@ import QRCode from 'qrcode';
 import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
 
 // Internal state for this component can use an 'id' for React keys
-interface LocalTeamConfig extends AppTeamConfig {
+interface LocalTeamConfig extends TeamConfig {
     id: number; // Client-side temporary ID for list mapping and editing state
 }
 
@@ -60,7 +60,6 @@ const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
 
     // Initialize or re-initialize teams when gameData.num_teams changes
     useEffect(() => {
-        console.log("TeamSetup: useEffect for gameData.num_teams change.", gameData);
         const numTeams = gameData.num_teams || 0;
         const existingTeamsConfig = gameData.teams_config || [];
         const newLocalTeams: LocalTeamConfig[] = [];
@@ -77,7 +76,6 @@ const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
         // Update parent if the generated/retrieved teams differ
         const newAppTeamConfigs = newLocalTeams.map(({id, ...rest}) => rest);
         if (JSON.stringify(gameData.teams_config) !== JSON.stringify(newAppTeamConfigs)) {
-            console.log("TeamSetup: Updating parent teams_config due to initialization/change.");
             onDataChange('teams_config', newAppTeamConfigs);
         }
     }, [gameData.num_teams]);
@@ -87,7 +85,6 @@ const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
         if (localTeams.length > 0 && localTeams.length === gameData.num_teams) {
             const appTeamConfigs = localTeams.map(({id, ...rest}) => rest);
             if (JSON.stringify(gameData.teams_config) !== JSON.stringify(appTeamConfigs)) {
-                console.log("TeamSetup: Local teams changed by user, updating parent teams_config.");
                 onDataChange('teams_config', appTeamConfigs);
             }
         }

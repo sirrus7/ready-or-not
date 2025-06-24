@@ -19,16 +19,13 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
     const teamRecommendations = useTeamRecommendations({
         numPlayers: gameData.num_players,
         onTeamCountChange: (newTeamCount: number) => {
-            console.log(`GameDetailsStep: Team recommendation suggests ${newTeamCount} teams`);
             onDataChange('num_teams', newTeamCount);
         }
     });
 
     // Handle form field changes
     const handleFieldChange = (field: keyof NewGameData, value: any) => {
-        console.log(`GameDetailsStep: handleFieldChange - ${field} = ${value}`);
         onDataChange(field, value);
-
         // Clear error when user makes changes
         if (error) setError(null);
     };
@@ -55,8 +52,6 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
 
     // Simple validation function
     const validateFormData = (data: NewGameData): { isValid: boolean; error: string | null } => {
-        console.log('Validating form data:', data);
-
         if (!data.name || data.name.trim().length === 0) {
             return {isValid: false, error: 'Game name is required.'};
         }
@@ -78,16 +73,11 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
 
         // Get the current form data directly from DOM
         const currentFormData = getCurrentFormData();
-        console.log('Current form data:', currentFormData);
-
         const validation = validateFormData(currentFormData);
         if (!validation.isValid) {
-            console.log('Validation failed:', validation.error);
             setError(validation.error);
             return;
         }
-
-        console.log('Validation passed, proceeding with data:', currentFormData);
         onNext(currentFormData);
     };
 

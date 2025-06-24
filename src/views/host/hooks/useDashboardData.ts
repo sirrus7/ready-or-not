@@ -30,16 +30,7 @@ export const useDashboardData = (userId?: string): UseDashboardDataReturn => {
     } = useSupabaseQuery(
         async () => {
             if (!userId) return {draft: [], active: [], completed: []};
-
-            console.log('[useDashboardData] Fetching categorized sessions for user:', userId);
-            const result = await sessionManager.getCategorizedSessionsForHost(userId);
-            console.log('[useDashboardData] Fetched games:', {
-                draft: result.draft.length,
-                active: result.active.length,
-                completed: result.completed.length
-            });
-
-            return result;
+            return await sessionManager.getCategorizedSessionsForHost(userId);
         },
         [userId],
         {
@@ -59,7 +50,6 @@ export const useDashboardData = (userId?: string): UseDashboardDataReturn => {
     // FIXED: Simple refetch function that doesn't clear cache automatically
     // The caller (DashboardPage) will handle cache clearing when needed
     const enhancedRefetchGames = async () => {
-        console.log('[useDashboardData] Refetching games data');
         return await refetchGames();
     };
 

@@ -51,9 +51,6 @@ class MediaManager {
             return cached.url;
         }
 
-        // Otherwise, fetch a new signed URL from Supabase.
-        console.log(`[MediaManager] Cache miss or expired for "${fileName}". Fetching new signed URL.`);
-
         const {data, error} = await supabase.storage
             .from(this.BUCKET_NAME)
             .createSignedUrl(fileName, this.SIGNED_URL_EXPIRY_SECONDS);
@@ -125,12 +122,7 @@ class MediaManager {
         const startIndex = currentSlideIndex + 1;
         const endIndex = Math.min(startIndex + precacheCount, slides.length);
 
-        if (startIndex >= slides.length) {
-            console.log('[MediaManager] No upcoming slides to precache');
-            return;
-        }
-
-        console.log(`[MediaManager] Precaching slides ${startIndex} to ${endIndex - 1} (${endIndex - startIndex} slides)`);
+        if (startIndex >= slides.length) return;
 
         // Precache upcoming slides asynchronously without blocking
         for (let i = startIndex; i < endIndex; i++) {
@@ -162,9 +154,7 @@ class MediaManager {
      */
     public async precacheSingleSlide(fileName: string): Promise<void> {
         try {
-            console.log(`[MediaManager] Precaching slide: ${fileName}`);
             await this.getSignedUrl(fileName);
-            console.log(`[MediaManager] Successfully precached: ${fileName}`);
         } catch (error) {
             console.warn(`[MediaManager] Failed to precache ${fileName}:`,
                 error instanceof Error ? error.message : 'Unknown error');
@@ -177,17 +167,10 @@ class MediaManager {
      */
     public cleanupExpiredCache(): void {
         const now = Date.now();
-        let removedCount = 0;
-
         for (const [fileName, cached] of this.urlCache.entries()) {
             if (cached.expiresAt <= now) {
                 this.urlCache.delete(fileName);
-                removedCount++;
             }
-        }
-
-        if (removedCount > 0) {
-            console.log(`[MediaManager] Cleaned up ${removedCount} expired cache entries`);
         }
     }
 
@@ -222,7 +205,6 @@ class MediaManager {
         this.urlCache.clear();
         this.precachingInProgress.clear();
         this.lastPrecacheSlideIndex = null;
-        console.log('[MediaManager] Cache cleared');
     }
 }
 
