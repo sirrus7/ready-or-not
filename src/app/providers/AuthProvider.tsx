@@ -1,6 +1,6 @@
 // src/app/providers/AuthProvider.tsx
 import React, {createContext, useContext, useEffect, useState} from 'react';
-import {User} from '@supabase/supabase-js';
+import {User} from '@shared/types/api';
 import {auth} from '@shared/services/supabase';
 
 interface AuthContextType {
@@ -31,10 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
     useEffect(() => {
         const initializeAuth = async () => {
             try {
-                console.log('[AuthProvider] Initializing auth...');
                 const session = await auth.getSession();
-
-                console.log('[AuthProvider] Session loaded:', !!session);
                 setUser(session?.user ?? null);
                 setError(null);
             } catch (err) {
@@ -50,7 +47,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
 
         // Set up auth state change listener
         const {data: {subscription}} = auth.onAuthStateChange((event, session) => {
-            console.log('[AuthProvider] Auth state change:', event, !!session);
+            // Only log in development for critical auth state changes
+            if (import.meta.env.DEV && (event === 'SIGNED_OUT' || event === 'SIGNED_IN')) {
+                console.warn('[AuthProvider] Auth state change:', event);
+            }
 
             if (event === 'SIGNED_IN') {
                 setUser(session?.user ?? null);
@@ -67,7 +67,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         });
 
         return () => {
-            console.log('[AuthProvider] Cleaning up auth subscription');
             subscription?.unsubscribe();
         };
     }, []);
@@ -76,12 +75,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         try {
             setError(null);
             setLoading(true);
-            console.log('[AuthProvider] Attempting sign in for:', email);
-
             await auth.signIn(email, password);
-            console.log('[AuthProvider] Sign in successful');
-
-            // Don't manually set user here - let the onAuthStateChange handle it
+            // Success handled by onAuthStateChange
         } catch (err) {
             console.error('[AuthProvider] Sign in error:', err);
             const errorMessage = err instanceof Error ? err.message : 'Sign in failed';
@@ -96,12 +91,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         try {
             setError(null);
             setLoading(true);
-            console.log('[AuthProvider] Attempting sign up for:', email);
-
             await auth.signUp(email, password);
-            console.log('[AuthProvider] Sign up successful');
-
-            // Don't manually set user here - let the onAuthStateChange handle it
+            // Success handled by onAuthStateChange
         } catch (err) {
             console.error('[AuthProvider] Sign up error:', err);
             const errorMessage = err instanceof Error ? err.message : 'Sign up failed';
@@ -116,12 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         try {
             setError(null);
             setLoading(true);
-            console.log('[AuthProvider] Attempting sign out');
-
             await auth.signOut();
-            console.log('[AuthProvider] Sign out successful');
-
-            // Don't manually set user here - let the onAuthStateChange handle it
+            // Success handled by onAuthStateChange
         } catch (err) {
             console.error('[AuthProvider] Sign out error:', err);
             const errorMessage = err instanceof Error ? err.message : 'Sign out failed';
@@ -136,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         setError(null);
     };
 
-    const value = {
+    const value: AuthContextType = {
         user,
         loading,
         error,

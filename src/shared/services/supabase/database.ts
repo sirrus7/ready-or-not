@@ -1,5 +1,14 @@
-// src/utils/supabase/database.ts - Simplified shared utilities
-import { supabase } from './client';
+// src/shared/services/supabase/database.ts - Enhanced with circuit breaker and timeout
+import {supabase} from './client';
+
+// Circuit breaker state (shared across all operations)
+const circuitBreakerState = {
+    isOpen: false,
+    failureCount: 0,
+    lastFailureTime: null as number | null,
+    threshold: 5,
+    resetTimeoutMs: 30000 // 30 seconds
+};
 
 // Enhanced error formatter with specific Supabase error handling
 export const formatSupabaseError = (error: any): string => {
@@ -37,27 +46,72 @@ export const formatSupabaseError = (error: any): string => {
     return error.message || error.toString();
 };
 
-// Enhanced retry wrapper with exponential backoff
+// Enhanced retry wrapper with circuit breaker, timeout, and exponential backoff
 export const withRetry = async <T>(
     operation: () => Promise<T>,
     maxRetries: number = 3,
     baseDelay: number = 1000,
-    context: string = 'Database operation'
+    context: string = 'Database operation',
+    timeoutMs: number = 10000 // NEW: Add timeout parameter
 ): Promise<T> => {
+    // Circuit breaker check
+    if (circuitBreakerState.isOpen) {
+        const now = Date.now();
+        if (circuitBreakerState.lastFailureTime &&
+            now - circuitBreakerState.lastFailureTime > circuitBreakerState.resetTimeoutMs) {
+            // Reset circuit breaker
+            circuitBreakerState.isOpen = false;
+            circuitBreakerState.failureCount = 0;
+            console.log(`🔌 [Supabase DB] Circuit breaker reset for ${context}`);
+        } else {
+            const remainingTime = Math.ceil((circuitBreakerState.resetTimeoutMs - (now - circuitBreakerState.lastFailureTime!)) / 1000);
+            throw new Error(`Circuit breaker open for ${context}. Retry in ${remainingTime} seconds.`);
+        }
+    }
+
     let lastError: any;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            const result = await operation();
+            // Add timeout to operation
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error(`Operation timeout after ${timeoutMs}ms`)), timeoutMs);
+            });
+
+            const result = await Promise.race([operation(), timeoutPromise]);
+
+            // Success - reset circuit breaker
+            if (circuitBreakerState.failureCount > 0) {
+                circuitBreakerState.failureCount = 0;
+                console.log(`✅ [Supabase DB] Circuit breaker reset after successful ${context}`);
+            }
+
             if (attempt > 0) {
                 console.log(`[Supabase DB] ${context} succeeded on attempt ${attempt + 1}`);
             }
             return result;
         } catch (error) {
             lastError = error;
+
+            // Update circuit breaker on failure
+            circuitBreakerState.failureCount++;
+
+            const isConnectionError =
+                error.name === 'TypeError' ||
+                error.message?.includes('fetch') ||
+                error.message?.includes('timeout') ||
+                error.message?.includes('network') ||
+                error.code === 'PGRST301';
+
+            if (isConnectionError && circuitBreakerState.failureCount >= circuitBreakerState.threshold) {
+                circuitBreakerState.isOpen = true;
+                circuitBreakerState.lastFailureTime = Date.now();
+                console.log(`🔌 [Supabase DB] Circuit breaker opened after ${circuitBreakerState.failureCount} failures`);
+            }
+
             console.warn(`[Supabase DB] ${context} attempt ${attempt + 1} failed:`, formatSupabaseError(error));
 
-            if (attempt < maxRetries) {
+            if (attempt < maxRetries && !circuitBreakerState.isOpen) {
                 // Exponential backoff with jitter
                 const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
                 await new Promise(resolve => setTimeout(resolve, delay));
@@ -69,6 +123,21 @@ export const withRetry = async <T>(
     throw lastError;
 };
 
+// Circuit breaker status check (useful for health checks)
+export const getCircuitBreakerStatus = () => ({
+    isOpen: circuitBreakerState.isOpen,
+    failureCount: circuitBreakerState.failureCount,
+    lastFailureTime: circuitBreakerState.lastFailureTime
+});
+
+// Manual circuit breaker reset (for admin/debugging)
+export const resetCircuitBreaker = () => {
+    circuitBreakerState.isOpen = false;
+    circuitBreakerState.failureCount = 0;
+    circuitBreakerState.lastFailureTime = null;
+    console.log('🔌 [Supabase DB] Circuit breaker manually reset');
+};
+
 // Type-safe RPC wrapper
 export const callRPC = async <T = any>(
     functionName: string,
@@ -77,14 +146,20 @@ export const callRPC = async <T = any>(
         expectedSingle?: boolean;
         context?: string;
         maxRetries?: number;
+        timeoutMs?: number; // NEW: Add timeout to RPC calls
     } = {}
 ): Promise<T> => {
-    const { expectedSingle = false, context = `RPC ${functionName}`, maxRetries = 2 } = options;
+    const {
+        expectedSingle = false,
+        context = `RPC ${functionName}`,
+        maxRetries = 2,
+        timeoutMs = 8000 // Default 8 second timeout for RPC
+    } = options;
 
     return withRetry(async () => {
         console.log(`[Supabase RPC] Calling ${functionName} with params:`, params);
 
-        const { data, error } = await supabase.rpc(functionName, params);
+        const {data, error} = await supabase.rpc(functionName, params);
 
         if (error) {
             console.error(`[Supabase RPC] ${functionName} error:`, error);
@@ -96,5 +171,5 @@ export const callRPC = async <T = any>(
         }
 
         return data || [];
-    }, maxRetries, 1000, context);
+    }, maxRetries, 1000, context, timeoutMs);
 };

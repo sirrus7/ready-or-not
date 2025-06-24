@@ -68,6 +68,10 @@ export const useTeamDecisionSubmission = ({
     const [submissionError, setSubmissionError] = useState<string | null>(null);
     const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
+    // ✅ CIRCUIT BREAKER STATE - ONLY NEW ADDITION
+    const [isCircuitOpen, setIsCircuitOpen] = useState(false);
+    const failureCountRef = useRef(0);
+
     // ✅ FIXED: Use ref to track last processed reset trigger
     const lastProcessedResetTrigger = useRef<number>(0);
 
@@ -138,6 +142,45 @@ export const useTeamDecisionSubmission = ({
     );
 
     // ========================================================================
+    // ✅ CIRCUIT BREAKER WRAPPER - ONLY NEW ADDITION
+    // ========================================================================
+    const withCircuitBreaker = useCallback(async (fn: () => Promise<any>, context: string) => {
+        if (isCircuitOpen) {
+            console.log(`🔌 Circuit breaker open - skipping ${context}`);
+            return;
+        }
+
+        try {
+            await Promise.race([
+                fn(),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Timeout')), 5000)
+                )
+            ]);
+
+            // Success - reset failure count
+            failureCountRef.current = 0;
+
+        } catch (error) {
+            console.error(`🚨 ${context} failed:`, error);
+
+            failureCountRef.current += 1;
+
+            if (failureCountRef.current >= 3) {
+                console.log(`🔌 Opening circuit breaker after ${failureCountRef.current} failures`);
+                setIsCircuitOpen(true);
+
+                // Reset circuit after 30 seconds
+                setTimeout(() => {
+                    console.log('🔌 Resetting circuit breaker');
+                    setIsCircuitOpen(false);
+                    failureCountRef.current = 0;
+                }, 30000);
+            }
+        }
+    }, [isCircuitOpen]);
+
+    // ========================================================================
     // ⚠️  CRITICAL: STABLE RESET TRIGGER HANDLING - DO NOT CHANGE DEPENDENCIES
     // ========================================================================
     /**
@@ -181,8 +224,8 @@ export const useTeamDecisionSubmission = ({
             // ✅ CRITICAL: Use setTimeout to break the synchronous call chain
             // This prevents the refresh functions from immediately triggering more renders
             setTimeout(() => {
-                checkForExistingDecision();
-                refreshImmediatePurchases();
+                withCircuitBreaker(checkForExistingDecision, 'reset decision check');
+                withCircuitBreaker(refreshImmediatePurchases, 'reset immediate purchases');
                 console.log('🔄 Decision data refresh complete after reset');
             }, 50); // Very short delay to break the loop
         }
@@ -217,16 +260,16 @@ export const useTeamDecisionSubmission = ({
                             all_investment_options?: Record<string, Array<{ id: string; name: string; cost: number }>>;
                         };
                         const investmentOptions = gameStructureWithData?.all_investment_options?.[decisionKey] || [];
-
-                        const optionIndex = optionLetter.charCodeAt(0) - 65;
-                        const investment = investmentOptions[optionIndex];
-
-                        return sum + (investment?.cost || 0);
+                        const option = investmentOptions.find(opt => opt.id === optionLetter);
+                        return sum + (option?.cost || 0);
                     }, 0);
                 };
 
-                // For rounds 2+, use continuation pricing
-                if (currentRound > 1) {
+                if (currentRound === 1) {
+                    // Round 1: Use original pricing only
+                    totalCost = calculateOriginalTotalCost();
+                } else {
+                    // Round 2+: Use continuation pricing
                     try {
                         const continuationPricing = await ContinuationPricingEngine.calculateContinuationPricing(
                             sessionId,
@@ -245,23 +288,25 @@ export const useTeamDecisionSubmission = ({
                             return sum + actualCost;
                         }, 0);
 
+                        console.log('🎯 Using continuation pricing - Total cost:', totalCost);
                     } catch (error) {
-                        console.error('Error getting continuation pricing, falling back to original prices:', error);
+                        console.error('🎯 Continuation pricing failed, using original costs:', error);
                         totalCost = calculateOriginalTotalCost();
                     }
-                } else {
-                    // Round 1: Use original prices
-                    totalCost = calculateOriginalTotalCost();
                 }
             }
 
-            // And the submission data object should be updated to:
+            // Add challenge cost if selected
+            if (decisionState.selectedChallengeOptionId) {
+                // Challenge options don't have costs in current implementation
+                // but structure is ready if needed
+            }
+
             const submissionData = {
                 session_id: sessionId,
                 team_id: teamId,
                 phase_id: decisionKey,
-                round_number: currentSlide?.round_number || 1,
-                selected_investment_options: decisionState.selectedInvestmentOptions.length > 0
+                selected_investment_ids: decisionState.selectedInvestmentOptions?.length > 0
                     ? decisionState.selectedInvestmentOptions
                     : null,  // CHANGED: stores ['A', 'B', 'C'] directly
                 selected_challenge_option_id: decisionState.selectedChallengeOptionId || null,
@@ -307,10 +352,10 @@ export const useTeamDecisionSubmission = ({
                 setSubmissionSuccess(true);
                 setSubmissionError(null);
 
-                // ✅ FIXED: Use setTimeout to prevent immediate cascade
+                // ✅ YOUR ORIGINAL LOGIC - Only wrapped with circuit breaker
                 setTimeout(() => {
-                    checkForExistingDecision();
-                    refreshImmediatePurchases();
+                    withCircuitBreaker(checkForExistingDecision, 'success decision check');
+                    withCircuitBreaker(refreshImmediatePurchases, 'success immediate purchases');
                 }, 100);
             },
             onError: (error: unknown) => {

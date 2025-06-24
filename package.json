@@ -4,9 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "lint:supabase": "eslint . --format=compact | grep -E 'supabase|@supabase' || true",
+    "lint:check-services": "echo '🔍 Checking for direct Supabase usage...' && npm run lint:supabase && echo '✅ Check complete! Any violations shown above.'",
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
