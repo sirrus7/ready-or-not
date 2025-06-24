@@ -14,7 +14,6 @@ export interface RealtimeSubscriptionConfig {
 
 // Simple channel creation with enhanced error handling
 export const createChannel = (channelName: string) => {
-    console.log(`[Supabase Realtime] Creating channel: ${channelName}`);
     return supabase.channel(channelName);
 };
 
@@ -38,14 +37,11 @@ export const useRealtimeSubscription = (
         if (!enabled) {
             // Clean up when disabled
             if (channelRef.current) {
-                console.log(`[Supabase Realtime] Cleaning up disabled subscription: ${channelName}`);
                 supabase.removeChannel(channelRef.current);
                 channelRef.current = null;
             }
             return;
         }
-
-        console.log(`[Supabase Realtime] Setting up subscription: ${channelName}`);
 
         // CRITICAL FIX: Enhanced subscription setup with error handling
         const setupSubscription = () => {
@@ -67,13 +63,10 @@ export const useRealtimeSubscription = (
                     }
                 })
                 .subscribe((status: string) => {
-                    console.log(`[Supabase Realtime] ${channelName} status: ${status}`);
-
                     // CRITICAL FIX: Handle subscription errors with retry logic
                     if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
                         if (retryCountRef.current < maxRetries) {
                             retryCountRef.current++;
-                            console.log(`[Supabase Realtime] Retrying subscription ${channelName} (${retryCountRef.current}/${maxRetries})`);
 
                             // Clean up failed subscription
                             if (channelRef.current) {
@@ -100,7 +93,6 @@ export const useRealtimeSubscription = (
         // Cleanup function
         return () => {
             if (channelRef.current) {
-                console.log(`[Supabase Realtime] Cleaning up: ${channelName}`);
                 supabase.removeChannel(channelRef.current);
                 channelRef.current = null;
             }

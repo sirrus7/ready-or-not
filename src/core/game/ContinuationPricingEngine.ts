@@ -64,6 +64,37 @@ const CONTINUATION_PRICING_TABLES = {
             continuationPrice: 100000,
             requiresPrevious: false,
             name: 'Maximize Boutique Sales & Distribution'
+        },
+        // 🎯 ADDED: Missing investments G-K from PDF
+        'G': { // Big Box Expansion
+            freshPrice: 125000,
+            continuationPrice: null, // Fresh only - not available in RD-1
+            requiresPrevious: false,
+            name: 'Expand Distribution Channels: Big Box'
+        },
+        'H': { // ERP
+            freshPrice: 100000,
+            continuationPrice: null, // Fresh only - not available in RD-1
+            requiresPrevious: false,
+            name: 'Enterprise Resource Planning'
+        },
+        'I': { // IT Security
+            freshPrice: 50000,
+            continuationPrice: null, // Fresh only - not available in RD-1
+            requiresPrevious: false,
+            name: 'IT & Cyber Security'
+        },
+        'J': { // Product Line
+            freshPrice: 150000,
+            continuationPrice: null, // Fresh only - not available in RD-1
+            requiresPrevious: false,
+            name: 'Product Line Expansion: Inflatables'
+        },
+        'K': { // Automation
+            freshPrice: 100000,
+            continuationPrice: null, // Fresh only - not available in RD-1
+            requiresPrevious: false,
+            name: 'Automation & Co-Bots'
         }
     },
     // RD-2→RD-3 Continuation Pricing Table
@@ -75,71 +106,65 @@ const CONTINUATION_PRICING_TABLES = {
             name: 'Strategic Plan II - 5 Year Vision',
             notAvailable: true
         },
-        'B': { // Production Efficiency - Available only if RD-2 investment
+        'B': { // Production Efficiency - Continuation only
             freshPrice: null,
             continuationPrice: 75000,
             requiresPrevious: true, // Must have made RD-2 investment
             name: 'Production Efficiency III - Lean Manufacturing'
         },
-        'C': { // Expanded 2nd Shift
+        'C': { // Expanded 2nd Shift - Both fresh and continuation
             freshPrice: 100000,
             continuationPrice: 25000,
             requiresPrevious: false,
             name: 'Add 3rd Shift - 24/7 Operations'
         },
-        'D': { // Supply Chain - Available only if RD-2 investment
+        'D': { // Supply Chain - Continuation only
             freshPrice: null,
             continuationPrice: 75000,
             requiresPrevious: true, // Must have made RD-2 investment
             name: 'Supply Chain III - Vertical Integration'
         },
-        'E': { // Employee Development
+        'E': { // Employee Development - Both fresh and continuation
             freshPrice: 300000,
             continuationPrice: 75000,
             requiresPrevious: false,
             name: 'Employee Development III - Leadership Program'
         },
-        'F': { // Maximize Sales
+        'F': { // Maximize Sales - Both fresh and continuation
             freshPrice: 225000,
             continuationPrice: 75000,
             requiresPrevious: false,
             name: 'Premium Brand Development'
         },
-        'G': { // Big Box
+        'G': { // Big Box - Both fresh and continuation
             freshPrice: 300000,
             continuationPrice: 50000,
             requiresPrevious: false,
-            name: 'Global Market Expansion'
+            name: 'Expand Distribution Channels: Big Box III'
         },
-        'H': { // ERP
+        'H': { // ERP - Both fresh and continuation
             freshPrice: 125000,
             continuationPrice: 25000,
             requiresPrevious: false,
-            name: 'Digital Transformation Initiative'
+            name: 'Enterprise Resource Planning III'
         },
-        'I': { // IT Security
+        'I': { // IT Security - Both fresh and continuation
             freshPrice: 75000,
             continuationPrice: 25000,
             requiresPrevious: false,
-            name: 'Sustainability & Green Manufacturing'
+            name: 'IT & Cyber Security III'
         },
-        'J': { // Inflatables
+        'J': { // Product Line - Both fresh and continuation
             freshPrice: 150000,
             continuationPrice: 50000,
             requiresPrevious: false,
-            name: 'Innovation Lab & R&D Center'
+            name: 'Product Line Expansion: Inflatables III'
         },
-        'K': { // Automation
+        'K': { // Automation - Both fresh and continuation
             freshPrice: 300000,
             continuationPrice: 200000,
             requiresPrevious: false,
-            name: 'Customer Experience Platform'
-        },
-        'L': { // Strategic Acquisition - Fresh only
-            freshPrice: 350000,
-            continuationPrice: null,
-            requiresPrevious: false,
-            name: 'Strategic Acquisition'
+            name: 'Automation & Co-Bots III'
         }
     }
 };

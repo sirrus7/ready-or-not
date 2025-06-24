@@ -48,7 +48,6 @@ const HostApp: React.FC = () => {
                 case 'PageDown':    // Page Down key
                     event.preventDefault();
                     if (!isLastSlideOverall) {
-                        console.log('[HostApp] Keyboard navigation: Next slide');
                         nextSlide();
                     }
                     break;
@@ -58,14 +57,12 @@ const HostApp: React.FC = () => {
                 case 'Backspace':   // Backspace key
                     event.preventDefault();
                     if (!isFirstSlideOverall) {
-                        console.log('[HostApp] Keyboard navigation: Previous slide');
                         previousSlide();
                     }
                     break;
 
                 case 'Escape':      // Escape key (useful for troubleshooting)
                     event.preventDefault();
-                    console.log('[HostApp] Keyboard navigation: Escape pressed');
                     // Could add pause/stop functionality here if needed
                     break;
             }
@@ -73,14 +70,9 @@ const HostApp: React.FC = () => {
 
         // Add event listener
         window.addEventListener('keydown', handleKeyDown);
-
-        // Add visual indicator that keyboard navigation is active
-        console.log('[HostApp] Keyboard navigation enabled - Space/Enter/Arrows for slide control');
-
         // Cleanup function
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
-            console.log('[HostApp] Keyboard navigation disabled');
         };
     }, [nextSlide, previousSlide, isFirstSlideOverall, isLastSlideOverall]);
 

@@ -27,13 +27,10 @@ export const useSupabaseQuery = <T = any>(
             const now = Date.now();
 
             if (cached && (now - cached.timestamp) < cacheTimeout) {
-                console.log(`[useSupabaseQuery] Using cached data for key: ${cacheKey}`);
                 // Use cached data but still return the operation state
                 return cached.data;
             }
         }
-
-        console.log(`[useSupabaseQuery] Executing fresh query for key: ${cacheKey || 'no-cache'}`);
         const result = await operation.execute();
 
         // Cache the result if cacheKey is provided
@@ -50,17 +47,14 @@ export const useSupabaseQuery = <T = any>(
     // Clear cache function
     const clearCache = useCallback(() => {
         if (cacheKey) {
-            console.log(`[useSupabaseQuery] Clearing cache for key: ${cacheKey}`);
             cacheRef.current.delete(cacheKey);
         } else {
-            console.log(`[useSupabaseQuery] Clearing entire cache`);
             cacheRef.current.clear();
         }
     }, [cacheKey]);
 
     // Enhanced refresh function that bypasses cache
     const refresh = useCallback(async () => {
-        console.log(`[useSupabaseQuery] Refresh called - bypassing cache for key: ${cacheKey || 'no-cache'}`);
         clearCache(); // Clear cache first
         return await operation.execute();
     }, [clearCache, operation]);
