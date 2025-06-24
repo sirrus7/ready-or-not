@@ -265,6 +265,7 @@ export const useTeamDecisionSubmission = ({
                 session_id: sessionId,
                 team_id: teamId,
                 phase_id: decisionKey,
+                round_number: currentSlide?.round_number || 1,
                 selected_investment_ids: decisionState.selectedInvestmentOptions?.length > 0
                     ? decisionState.selectedInvestmentOptions
                     : null,  // CHANGED: stores ['A', 'B', 'C'] directly

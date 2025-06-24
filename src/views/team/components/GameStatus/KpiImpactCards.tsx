@@ -142,13 +142,17 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     // Show loading state
     if (isLoadingAdjustments) {
         return (
-            <div className="space-y-3">
+            <div className="space-y-4" style={{perspective: '1200px', perspectiveOrigin: 'center top'}}>
                 <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-amber-400"/>
                     <h3 className="text-sm font-semibold text-slate-200">Impact Cards</h3>
                 </div>
                 <div
-                    className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-4 border border-slate-700 animate-pulse">
+                    className="bg-gradient-to-br from-slate-800/60 to-slate-900/70 backdrop-blur-sm rounded-2xl p-6 border-2 border-slate-700/60 shadow-2xl animate-pulse"
+                    style={{
+                        transformStyle: 'preserve-3d',
+                        transform: 'rotateX(2deg) rotateY(-1deg)',
+                    }}>
                     <div className="flex items-center justify-center">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400 mr-3"></div>
                         <span className="text-slate-300 text-sm">Loading impact cards...</span>
@@ -161,14 +165,24 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     // Show empty state
     if (!impactCards.length) {
         return (
-            <div className="space-y-3">
+            <div className="space-y-4" style={{perspective: '1200px', perspectiveOrigin: 'center top'}}>
                 <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-slate-400"/>
                     <h3 className="text-sm font-semibold text-slate-300">Impact Cards</h3>
                 </div>
                 <div
-                    className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-lg p-4 border border-slate-700/50 text-center">
-                    <AlertCircle className="w-8 h-8 text-slate-500 mx-auto mb-2"/>
+                    className="bg-gradient-to-br from-slate-800/60 to-slate-900/70 backdrop-blur-sm rounded-2xl p-6 border-2 border-slate-700/60 shadow-2xl text-center transform transition-all duration-300 hover:shadow-3xl hover:scale-[1.02]"
+                    style={{
+                        transformStyle: 'preserve-3d',
+                        transform: 'rotateX(2deg) rotateY(-1deg)',
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'rotateX(-3deg) rotateY(2deg) scale(1.02)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'rotateX(2deg) rotateY(-1deg) scale(1)';
+                    }}>
+                    <AlertCircle className="w-10 h-10 text-slate-500 mx-auto mb-3"/>
                     <p className="text-sm text-slate-400 font-medium">No impact cards yet</p>
                     <p className="text-xs text-slate-500 mt-1">Make decisions to see future effects</p>
                 </div>
@@ -178,66 +192,92 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
 
     // Show impact cards
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
             <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-400"/>
                 <h3 className="text-sm font-semibold text-slate-200">Impact Cards</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4" style={{perspective: '1000px'}}>
                 {impactCards.map(card => (
                     <div key={card.id}
-                         className="bg-gradient-to-br from-slate-700/30 to-slate-600/40 rounded-lg p-3 border border-slate-500/50 shadow-lg">
+                         className="bg-gradient-to-br from-slate-800/70 to-slate-900/80 backdrop-blur-sm rounded-2xl p-5 border-2 border-slate-600/50 shadow-2xl transform transition-all duration-500 hover:shadow-3xl hover:scale-[1.02] hover:border-slate-500/70 hover:from-slate-700/70 hover:to-slate-800/80"
+                         style={{
+                             transformStyle: 'preserve-3d',
+                             transform: 'rotateX(2deg) rotateY(-1deg)',
+                         }}
+                         onMouseEnter={(e) => {
+                             e.currentTarget.style.transform = 'rotateX(-5deg) rotateY(3deg) scale(1.02)';
+                         }}
+                         onMouseLeave={(e) => {
+                             e.currentTarget.style.transform = 'rotateX(2deg) rotateY(-1deg) scale(1)';
+                         }}>
 
                         {/* Card Header */}
-                        <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-500/30">
-                            <div className="w-6 h-6 bg-slate-500 rounded-lg flex items-center justify-center">
-                                <AlertCircle className="w-4 h-4 text-slate-200"/>
+                        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-600/40">
+                            <div
+                                className="w-8 h-8 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center shadow-lg border border-slate-500/30 transform transition-all duration-200"
+                                style={{
+                                    transformStyle: 'preserve-3d',
+                                    transform: 'rotateX(5deg) rotateY(-2deg)',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = 'rotateX(-3deg) rotateY(3deg)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'rotateX(5deg) rotateY(-2deg)';
+                                }}>
+                                <AlertCircle className="w-5 h-5 text-slate-200"/>
                             </div>
-                            <div>
-                                <h4 className="text-sm font-semibold text-slate-100">
+                            <div className="flex-1">
+                                <h4 className="text-base font-bold text-slate-100 tracking-wide">
                                     {card.title}
                                 </h4>
-                                <div className="text-xs text-slate-300">
+                                <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">
                                     Impact Card
                                 </div>
                             </div>
                         </div>
 
                         {/* Card Description */}
-                        <p className="text-xs text-slate-300 mb-3">
+                        <p className="text-sm text-slate-300 mb-4 leading-relaxed">
                             {card.description}
                         </p>
 
                         {/* KPI Effects - UPDATED: Removed rounds display */}
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             {card.kpiEffects.map((effect, index) => {
                                 // Match KPI colors based on effect type
                                 const getKpiColorClasses = (kpi: string) => {
                                     switch (kpi) {
                                         case 'capacity':
                                             return {
-                                                bg: 'bg-gradient-to-r from-blue-500/20 to-blue-600/20',
-                                                border: 'border-blue-500/30'
+                                                bg: 'bg-gradient-to-br from-blue-500/25 to-blue-600/35',
+                                                border: 'border-blue-400/40',
+                                                glow: 'shadow-blue-500/20'
                                             };
                                         case 'orders':
                                             return {
-                                                bg: 'bg-gradient-to-r from-yellow-500/20 to-yellow-600/20',  // Changed from green to yellow
-                                                border: 'border-yellow-500/30'
+                                                bg: 'bg-gradient-to-br from-yellow-500/25 to-yellow-600/35',
+                                                border: 'border-yellow-400/40',
+                                                glow: 'shadow-yellow-500/20'
                                             };
                                         case 'cost':
                                             return {
-                                                bg: 'bg-gradient-to-r from-green-500/20 to-green-600/20',    // Changed from red to green
-                                                border: 'border-green-500/30'
+                                                bg: 'bg-gradient-to-br from-green-500/25 to-green-600/35',
+                                                border: 'border-green-400/40',
+                                                glow: 'shadow-green-500/20'
                                             };
                                         case 'asp':
                                             return {
-                                                bg: 'bg-gradient-to-r from-red-500/20 to-red-600/20',       // Changed from purple to red
-                                                border: 'border-red-500/30'
+                                                bg: 'bg-gradient-to-br from-red-500/25 to-red-600/35',
+                                                border: 'border-red-400/40',
+                                                glow: 'shadow-red-500/20'
                                             };
                                         default:
                                             return {
-                                                bg: 'bg-gradient-to-r from-slate-700/30 to-slate-800/30',
-                                                border: 'border-slate-600/30'
+                                                bg: 'bg-gradient-to-br from-slate-700/40 to-slate-800/50',
+                                                border: 'border-slate-600/40',
+                                                glow: 'shadow-slate-500/20'
                                             };
                                     }
                                 };
@@ -246,18 +286,41 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
 
                                 return (
                                     <div key={`${effect.kpi}-${index}`}
-                                         className={`${colorClasses.bg} backdrop-blur-sm rounded-lg p-3 border ${colorClasses.border}`}>
+                                         className={`${colorClasses.bg} backdrop-blur-sm rounded-xl p-4 border-2 ${colorClasses.border} shadow-lg ${colorClasses.glow} transform transition-all duration-300 hover:shadow-xl`}
+                                         style={{
+                                             transformStyle: 'preserve-3d',
+                                             transform: 'rotateX(1deg)',
+                                         }}
+                                         onMouseEnter={(e) => {
+                                             e.currentTarget.style.transform = 'rotateX(-2deg) rotateY(1deg) scale(1.02)';
+                                         }}
+                                         onMouseLeave={(e) => {
+                                             e.currentTarget.style.transform = 'rotateX(1deg) rotateY(0deg) scale(1)';
+                                         }}>
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                {getKpiIcon(effect.kpi)}
-                                                <span className="text-sm font-semibold text-slate-200">
+                                                <div
+                                                    className="p-2 bg-slate-900/30 rounded-lg border border-slate-600/30 transform transition-all duration-200"
+                                                    style={{
+                                                        transformStyle: 'preserve-3d',
+                                                        transform: 'rotateY(-2deg)',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.transform = 'rotateY(2deg) rotateX(-1deg)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.transform = 'rotateY(-2deg) rotateX(0deg)';
+                                                    }}>
+                                                    {getKpiIcon(effect.kpi)}
+                                                </div>
+                                                <span className="text-sm font-bold text-slate-100 tracking-wide">
                                                     {getKpiLabel(effect.kpi)}
                                                 </span>
                                             </div>
                                             <div className="text-right">
-                                                <div className={`text-2xl font-bold ${
+                                                <div className={`text-2xl font-black tracking-tight ${
                                                     effect.value >= 0 ? 'text-green-400' : 'text-red-400'
-                                                }`}>
+                                                } drop-shadow-lg`}>
                                                     {formatKpiValue(effect.kpi, effect.value)}
                                                 </div>
                                                 {/* REMOVED: Rounds display since impact cards affect all rounds */}
@@ -272,10 +335,12 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                         {card.kpiEffects.some(effect =>
                             effect.applies_to_rounds.includes(currentRound)
                         ) && (
-                            <div className="mt-3 pt-3 border-t border-slate-700">
-                                <div className="flex items-center gap-2 text-xs">
-                                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                    <span className="font-medium text-green-400">Active this round</span>
+                            <div className="mt-4 pt-4 border-t border-slate-600/40">
+                                <div
+                                    className="flex items-center gap-2 text-xs bg-green-500/10 rounded-lg p-2 border border-green-500/20">
+                                    <div
+                                        className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
+                                    <span className="font-bold text-green-300 uppercase tracking-wider">Active this round</span>
                                 </div>
                             </div>
                         )}

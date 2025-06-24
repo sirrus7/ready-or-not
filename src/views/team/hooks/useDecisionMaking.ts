@@ -76,9 +76,12 @@ export const useDecisionMaking = ({
         if (!currentSlide) return false;
         switch (currentSlide.type) {
             case 'interactive_invest':
-                return state.selectedInvestmentOptions.length > 0 || state.immediatePurchases.length > 0;  // CHANGED
+                return state.selectedInvestmentOptions.length > 0 || state.immediatePurchases.length > 0;
             case 'interactive_choice':
+                // FIXED: For regular choice scenarios, only need selectedChallengeOptionId
+                return !!state.selectedChallengeOptionId;
             case 'interactive_double_down_select':
+                // For double-down scenarios, need both sacrifice and double-down selections
                 return !!(state.sacrificeInvestmentId && state.doubleDownOnInvestmentId);
             default:
                 return false;
