@@ -184,7 +184,7 @@ const DashboardPage: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-3">
                             <Link
-                                to="/create-game"
+                                to="/create"
                                 className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-blue-700 transition-colors shadow-lg"
                             >
                                 <PlusCircle size={20}/>
