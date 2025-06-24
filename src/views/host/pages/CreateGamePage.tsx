@@ -63,10 +63,7 @@ const CreateGamePage: React.FC = () => {
         }
 
         // Prevent double initialization
-        if (sessionInitialized.current) {
-            console.log('[CreateGamePage] Session already initialized, skipping');
-            return;
-        }
+        if (sessionInitialized.current) return;
 
         const initializeDraftSession = async () => {
             setIsLoading(true);
@@ -77,7 +74,6 @@ const CreateGamePage: React.FC = () => {
 
                 if (resumeSessionId) {
                     // Resume existing draft from URL parameter
-                    console.log('Resuming draft session from URL:', resumeSessionId);
                     draftSession = await sessionManager.loadSession(resumeSessionId);
 
                     if ((draftSession as any).status !== 'draft') {
@@ -88,16 +84,12 @@ const CreateGamePage: React.FC = () => {
                     if ((draftSession as any).wizard_state) {
                         const savedState = (draftSession as any).wizard_state;
                         setGameData(prev => ({...prev, ...savedState}));
-                        console.log('Loaded saved wizard state from database:', savedState);
                     }
                 } else {
                     // FIXED: Clean up existing drafts, but NOT the one we might be resuming
-                    console.log('Checking for existing draft sessions...');
                     const existingDrafts = await sessionManager.getCategorizedSessionsForHost(user.id);
 
                     if (existingDrafts.draft.length > 0) {
-                        console.log(`Found ${existingDrafts.draft.length} existing draft(s), cleaning up...`);
-
                         // Clean up ALL existing drafts EXCEPT the one we might be resuming
                         const draftsToCleanup = existingDrafts.draft.filter(draft => {
                             // Don't delete the draft if we're trying to resume it
@@ -107,23 +99,18 @@ const CreateGamePage: React.FC = () => {
                         if (draftsToCleanup.length > 0) {
                             await Promise.allSettled(
                                 draftsToCleanup.map(draft => {
-                                    console.log('Deleting existing draft:', draft.id);
                                     return sessionManager.deleteSession(draft.id);
                                 })
                             );
-                            console.log(`Cleaned up ${draftsToCleanup.length} existing draft sessions`);
                         }
                     }
 
                     // Create new draft
-                    console.log('Creating new draft session');
                     draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD);
                 }
 
                 setDraftSessionId(draftSession.id);
                 sessionInitialized.current = true;
-                console.log('Draft session initialized:', draftSession.id);
-
             } catch (error) {
                 console.error('Error initializing draft session:', error);
                 setError(error instanceof Error ? error.message : 'Failed to initialize game session');
@@ -140,14 +127,11 @@ const CreateGamePage: React.FC = () => {
         const cleanup = async () => {
             // Only cleanup if we have a draft session and we're not submitting/cancelling
             if (draftSessionId && !isSubmitting && !isCancelling && !isNavigatingAway.current) {
-                console.log('Component unmounting, cleaning up draft session:', draftSessionId);
-
                 try {
                     const currentSession = await sessionManager.loadSession(draftSessionId);
                     // Only delete if it's still a draft
                     if ((currentSession as any).status === 'draft') {
                         await sessionManager.deleteSession(draftSessionId);
-                        console.log('Cleaned up draft session on unmount:', draftSessionId);
                     }
                 } catch (error) {
                     console.warn('Failed to cleanup draft session on unmount:', error);
@@ -162,8 +146,6 @@ const CreateGamePage: React.FC = () => {
 
     // Handle data changes with proper typing
     const handleDataChange = useCallback((field: keyof NewGameData, value: any) => {
-        console.log(`CreateGamePage: handleDataChange - Field: ${field}, Value:`, value);
-
         // Create a clean copy of the data to avoid circular references
         const updatedData = {...gameData};
 
@@ -206,9 +188,7 @@ const CreateGamePage: React.FC = () => {
             };
 
             // Save to database
-            console.log('Saving wizard state to database:', serializableData);
             await sessionManager.updateWizardState(draftSessionId, serializableData);
-            console.log(`Saved wizard state for step ${currentStep}`);
 
             // Move to next step
             setCurrentStep(prev => prev + 1);
@@ -234,14 +214,9 @@ const CreateGamePage: React.FC = () => {
         isNavigatingAway.current = true; // Prevent cleanup
 
         try {
-            console.log("CreateGamePage: Finalizing game with data:", gameData);
-
             // Finalize the draft session
             const finalizedSession = await sessionManager.finalizeDraftSession(draftSessionId, gameData);
-            console.log("CreateGamePage: Game finalized successfully:", finalizedSession.id);
-
             navigate(`/game/${finalizedSession.id}`);
-
         } catch (error) {
             console.error("CreateGamePage: Error finalizing game:", error);
             setError(error instanceof Error ? error.message : 'Failed to finalize game');
@@ -259,14 +234,11 @@ const CreateGamePage: React.FC = () => {
 
         try {
             if (draftSessionId && sessionInitialized.current) {
-                console.log('Deleting draft session before cancel:', draftSessionId);
                 await sessionManager.deleteSession(draftSessionId);
-                console.log('Draft session deleted successfully:', draftSessionId);
             }
 
             // Navigate to dashboard
             navigate('/dashboard', {replace: true});
-
         } catch (error) {
             console.error('Error deleting draft session during cancel:', error);
             // Still navigate even if deletion fails

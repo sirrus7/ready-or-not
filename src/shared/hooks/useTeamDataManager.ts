@@ -42,11 +42,8 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
             setTeams([]);
             return;
         }
-
-        console.log("useTeamDataManager: Fetching teams for session:", sessionId);
         setIsLoadingTeams(true);
         setError(null);
-
         try {
             const data = await db.teams.getBySession(sessionId);
             setTeams(data as Team[]);
@@ -64,11 +61,8 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
             setTeamDecisions({});
             return;
         }
-
-        console.log("useTeamDataManager: Fetching team decisions for session:", sessionId);
         setIsLoadingDecisions(true);
         setError(null);
-
         try {
             const data = await db.decisions.getBySession(sessionId);
 
@@ -97,12 +91,9 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
             setPermanentAdjustments([]);
             return;
         }
-
-        console.log("useTeamDataManager: Fetching team round data AND adjustments for session:", sessionId);
         setIsLoadingRoundData(true);
         setIsLoadingAdjustments(true);
         setError(null);
-
         try {
             // UNIFIED: Fetch both KPIs and adjustments in parallel
             // This ensures both update together reliably
@@ -123,9 +114,6 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
 
             // ADDED: Update adjustments (for impact cards)
             setPermanentAdjustments(adjustmentData || []);
-
-            console.log(`useTeamDataManager: Updated ${Object.keys(structuredRoundData).length} teams' KPIs and ${adjustmentData?.length || 0} adjustments`);
-
         } catch (err) {
             console.error("useTeamDataManager: Error fetching team data:", err);
             setError(`Failed to load team data: ${formatSupabaseError(err)}`);
@@ -139,26 +127,14 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
 
     // FIXED: Updated to protect immediate purchases from being reset
     const resetTeamDecisionInDb = useCallback(async (sessionId: string, teamId: string, phaseId: string) => {
-        console.log(`[useTeamDataManager] resetTeamDecisionInDb called with:`, {
-            sessionId: sessionId || 'MISSING',
-            teamId: teamId || 'MISSING',
-            phaseId: phaseId || 'MISSING'
-        });
-
         if (!sessionId || !teamId || !phaseId) {
             const errorMsg = `Missing required IDs for reset: sessionId=${!!sessionId}, teamId=${!!teamId}, phaseId=${!!phaseId}`;
             console.error("[useTeamDataManager]", errorMsg);
             throw new Error("Missing session, team, or phase ID for reset.");
         }
-
-        console.log(`useTeamDataManager: Resetting decision in DB for session ${sessionId}, team ${teamId}, phase ${phaseId}`);
-
         try {
             // This will now use the FIXED delete function that protects immediate purchases
             await db.decisions.delete(sessionId, teamId, phaseId);
-
-            console.log(`useTeamDataManager: Successfully deleted regular decisions from DB, updating local state`);
-
             setTeamDecisions(prev => {
                 const updated = JSON.parse(JSON.stringify(prev)); // Deep clone
                 if (updated[teamId] && updated[teamId][phaseId]) {
@@ -167,14 +143,12 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
                     if (Object.keys(updated[teamId]).length === 0) {
                         delete updated[teamId];
                     }
-                    console.log(`useTeamDataManager: Updated local state after reset - removed ${teamId}/${phaseId} (preserved immediate purchases)`);
                 }
                 return updated;
             });
 
             // ADDED: Force refresh team decisions to get fresh data from database
             await fetchTeamDecisionsForSession(sessionId);
-
         } catch (err) {
             console.error("useTeamDataManager: Error resetting team decision:", err);
             throw new Error(`Failed to reset decision: ${formatSupabaseError(err)}`);
@@ -201,9 +175,7 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         {
             table: 'team_decisions',
             filter: `session_id=eq.${initialSessionId}`,
-            onchange: (payload) => {
-                console.log('useTeamDataManager: Team decision change received:', payload.eventType);
-
+            onchange: (_u) => {
                 if (initialSessionId) {
                     fetchTeamDecisionsForSession(initialSessionId);
                 }
@@ -219,7 +191,6 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
             table: 'team_round_data',
             filter: `session_id=eq.${initialSessionId}`,
             onchange: (payload) => {
-                console.log('useTeamDataManager: Team KPI change received:', payload.eventType, payload.new);
                 const newKpiData = payload.new as TeamRoundData;
                 const oldKpiData = payload.old as TeamRoundData;
 
@@ -228,7 +199,6 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
                     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                         if (!updated[newKpiData.team_id]) updated[newKpiData.team_id] = {};
                         updated[newKpiData.team_id][newKpiData.round_number] = newKpiData;
-                        console.log(`useTeamDataManager: Updated KPIs for team ${newKpiData.team_id}, round ${newKpiData.round_number}`);
                     } else if (payload.eventType === 'DELETE' && oldKpiData?.team_id && oldKpiData?.round_number) {
                         if (updated[oldKpiData.team_id]) {
                             delete updated[oldKpiData.team_id][oldKpiData.round_number];
@@ -240,12 +210,9 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
 
                 // Refresh permanent adjustments when KPIs change
                 if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                    console.log('🎯 useTeamDataManager: KPI change detected, refreshing permanent adjustments...');
-
                     // Refresh permanent adjustments (don't await to avoid blocking KPI updates)
                     db.adjustments.getBySession(initialSessionId!).then(adjustmentData => {
                         setPermanentAdjustments(adjustmentData || []);
-                        console.log(`🎯 useTeamDataManager: Refreshed ${adjustmentData?.length || 0} permanent adjustments`);
                     }).catch(err => {
                         console.error('🎯 useTeamDataManager: Error refreshing adjustments:', err);
                     });
