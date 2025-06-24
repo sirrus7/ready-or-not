@@ -1,6 +1,4 @@
 // src/views/team/hooks/useTeamGameState.ts
-// CLEAN VERSION: Uses centralized adjustment system, no redundant code
-
 import {useEffect, useCallback, useState, useRef} from 'react';
 import {useRealtimeSubscription} from '@shared/services/supabase';
 import {db} from '@shared/services/supabase';
@@ -31,6 +29,19 @@ interface UseTeamGameStateReturn {
     decisionResetTrigger: number;
     fetchCurrentKpis: () => Promise<void>;
     sessionStatus: 'active' | 'deleted' | 'unknown';
+}
+
+interface PayloadData {
+    new?: TeamRoundData | Record<string, unknown>;
+    old?: TeamRoundData | Record<string, unknown>;
+    eventType?: string;
+}
+
+interface SessionPayload {
+    new?: {
+        current_slide_index?: number;
+        id?: string;
+    };
 }
 
 export const useTeamGameState = ({
@@ -81,8 +92,6 @@ export const useTeamGameState = ({
 
                 // CRITICAL FIX: If this is a KPI reset slide and no data exists yet, wait for it
                 if (!newRoundData && currentActiveSlide.type === 'kpi_reset') {
-                    console.log(`[useTeamGameState] 🔄 KPI reset slide detected for Round ${targetRound}, waiting for host processing...`);
-
                     // Retry logic: Wait up to 3 seconds for KPI reset processing to complete
                     let attempts = 0;
                     const maxAttempts = 6; // 6 attempts * 500ms = 3 seconds
@@ -93,7 +102,6 @@ export const useTeamGameState = ({
 
                         newRoundData = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
                         if (newRoundData) {
-                            console.log(`[useTeamGameState] ✅ Round ${targetRound} data appeared after ${attempts * 500}ms`);
                             break;
                         }
                     }
@@ -105,13 +113,11 @@ export const useTeamGameState = ({
                 }
                 // For non-reset slides, fall back immediately if no new data
                 else if (!newRoundData) {
-                    console.log(`[useTeamGameState] Round ${targetRound} slide but no data exists, keeping R${targetRound - 1}`);
                     targetRound = (targetRound - 1) as 1 | 2 | 3;
                 }
 
                 // If we found new round data, use it and exit early
                 if (newRoundData) {
-                    console.log(`📊 [useTeamGameState] Using Round ${targetRound} data:`, newRoundData.current_round);
                     setCurrentTeamKpis(newRoundData);
                     return;
                 }
@@ -119,9 +125,7 @@ export const useTeamGameState = ({
 
             // Fetch data for the determined target round
             const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
-            console.log(`📊 [useTeamGameState] KPIs fetched for Round ${targetRound}:`, kpis?.current_round);
             setCurrentTeamKpis(kpis);
-
         } catch (error) {
             console.error('📊 [useTeamGameState] Error fetching KPIs:', error);
             setCurrentTeamKpis(null);
@@ -133,19 +137,13 @@ export const useTeamGameState = ({
     // ========================================================================
     // REAL-TIME EVENT HANDLERS - CLEAN
     // ========================================================================
-    const handleSlideUpdate = useCallback((payload: any) => {
+    const handleSlideUpdate = useCallback((payload: SessionPayload) => {
         const updatedSession = payload.new;
-
-        console.log('🎬 [useTeamGameState] Session update received:', {
-            slideIndex: updatedSession?.current_slide_index,
-            sessionId: updatedSession?.id
-        });
 
         if (updatedSession?.current_slide_index !== undefined && gameStructure) {
             const newSlide = gameStructure.slides[updatedSession.current_slide_index];
             if (newSlide) {
                 setCurrentActiveSlide(newSlide);
-                console.log('🎬 [useTeamGameState] Active slide updated:', newSlide.id, newSlide.title);
 
                 // Auto-refresh KPIs on slide changes
                 if (fetchDebounceRef.current) {
@@ -158,9 +156,7 @@ export const useTeamGameState = ({
         }
     }, [gameStructure, fetchCurrentKpis]);
 
-    const handleDecisionDelete = useCallback((payload: any) => {
-        console.log('🗑️ [useTeamGameState] Decision delete received - triggering reset');
-
+    const handleDecisionDelete = useCallback((_payload: PayloadData) => {
         if (resetDebounceRef.current) {
             clearTimeout(resetDebounceRef.current);
         }
@@ -170,51 +166,27 @@ export const useTeamGameState = ({
         }, 100);
     }, []);
 
-    const handleKpiUpdate = useCallback((payload: any) => {
+    const handleKpiUpdate = useCallback((payload: PayloadData) => {
         const currentTeamId = stableTeamId.current;
         const updatedKpis = payload.new as TeamRoundData;
 
-        console.log('🔔 [useTeamGameState] KPI update received:', {
-            eventType: payload.eventType,
-            teamId: updatedKpis?.team_id,
-            currentTeamId,
-            roundNumber: updatedKpis?.round_number,
-            currentSlideRound: currentActiveSlide?.round_number
-        });
-
         if (updatedKpis?.team_id === currentTeamId) {
-            console.log('✅ [useTeamGameState] KPI update is for our team - applying update');
             setCurrentTeamKpis(updatedKpis);
-
-            // PRODUCTION FIX: Log round transitions for debugging
-            if (updatedKpis.round_number !== currentTeamKpis?.round_number) {
-                console.log(`🔄 [useTeamGameState] Real-time round transition: R${currentTeamKpis?.round_number} → R${updatedKpis.round_number}`);
-            }
         }
     }, [currentActiveSlide?.round_number, currentTeamKpis?.round_number]);
 
-    const handleTeamDecisionUpdate = useCallback((payload: any) => {
+    const handleTeamDecisionUpdate = useCallback((payload: PayloadData) => {
         const record = payload.new || payload.old;
         const currentTeamId = stableTeamId.current;
 
-        console.log('💰 [useTeamGameState] Team decision change detected:', {
-            eventType: payload.eventType,
-            teamId: record?.team_id,
-            currentTeamId,
-            phase: record?.phase_id
-        });
-
         // Only trigger refresh if this change affects our team
-        if (record?.team_id === currentTeamId) {
-            console.log('✅ [useTeamGameState] Decision change is for our team - triggering investment refresh');
-
+        if (record && typeof record === 'object' && 'team_id' in record && record.team_id === currentTeamId) {
             // Increment a decision change trigger that components can listen to
             setDecisionResetTrigger(prev => prev + 1);
         }
     }, []);
 
-    const handleSessionDelete = useCallback((payload: any) => {
-        console.log('🗑️ [useTeamGameState] Session deleted by host');
+    const handleSessionDelete = useCallback((_payload: PayloadData) => {
         setSessionStatus('deleted');
     }, []);
 
@@ -296,12 +268,7 @@ export const useTeamGameState = ({
             const roundChanged = currentTeamKpis?.round_number !== (currentActiveSlide.round_number || 1);
             const needsRefresh = !currentTeamKpis || roundChanged || isKpiResetSlide;
 
-            if (needsRefresh) {
-                const refreshReason = isKpiResetSlide ? 'KPI reset slide' :
-                    roundChanged ? 'round changed' : 'no KPI data';
-                console.log(`🎬 [useTeamGameState] Slide ${currentActiveSlide.id} refresh needed: ${refreshReason}`);
-                fetchCurrentKpis();
-            }
+            if (needsRefresh) fetchCurrentKpis();
         }
     }, [currentActiveSlide?.id, currentActiveSlide?.round_number, currentActiveSlide?.type, fetchCurrentKpis, currentTeamKpis?.round_number]);
 
@@ -324,7 +291,6 @@ export const useTeamGameState = ({
                 const initialSlide = structure.slides[slideIndex];
                 if (initialSlide) {
                     setCurrentActiveSlide(initialSlide);
-                    console.log('🎬 [useTeamGameState] Initial slide set:', initialSlide.id);
                 }
 
                 setConnectionStatus('connected');
@@ -357,12 +323,12 @@ export const useTeamGameState = ({
             }
 
             try {
-                const session = await db.sessions.getById(sessionId)
+                const session = await db.sessions.getById(sessionId);
                 setSessionStatus(session ? 'active' : 'deleted');
-            } catch (error: any) {
-                console.error('Error verifying session:', error);
+            } catch (error: unknown) {
                 // If session not found, mark as deleted
-                setSessionStatus(error.code === 'PGRST116' ? 'deleted' : 'unknown');
+                const isNotFoundError = error && typeof error === 'object' && 'code' in error && error.code === 'PGRST116';
+                setSessionStatus(isNotFoundError ? 'deleted' : 'unknown');
             }
         };
 
