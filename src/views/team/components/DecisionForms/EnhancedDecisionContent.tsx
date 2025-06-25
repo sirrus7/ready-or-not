@@ -69,29 +69,40 @@ const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
                 />
             );
 
-        case 'interactive_double_down_prompt':
-            return (
-                <DoubleDownPromptPanel
-                    selectedInvestmentIds={decisionState.selectedInvestmentOptions}
-                    investmentOptions={investmentOptions}
-                    onDoubleDownPromptSelect={decisionActions.handleDoubleDownPromptSelect}
-                    currentSlide={currentSlide}
-                    isSubmitting={isSubmitting}
-                />
-            );
+        case 'interactive_double_down_select': {
+            // Check if we're in the prompt phase or select phase
+            const showSelectPhase = decisionState.selectedChallengeOptionId === 'yes_dd';
 
-        case 'interactive_double_down_select':
-            return (
-                <DoubleDownSelectPanel
-                    availableRd3Investments={availableRd3Investments}
-                    selectedSacrificeId={decisionState.sacrificeInvestmentId}
-                    selectedDoubleDownId={decisionState.doubleDownOnInvestmentId}
-                    onSacrificeSelect={decisionActions.handleSacrificeSelect}
-                    onDoubleDownSelect={decisionActions.handleDoubleDownSelect}
-                    currentSlide={currentSlide}
-                    isSubmitting={isSubmitting}
-                />
-            );
+            if (!showSelectPhase) {
+                // Show the prompt with Yes/No options
+                return (
+                    <DoubleDownPromptPanel
+                        challengeOptions={challengeOptions}
+                        selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
+                        onChallengeSelect={decisionActions.handleChallengeSelect}  // ✅ FIXED: Was handleDoubleDownPromptSelect
+                    />
+                );
+            } else {
+                // Filter RD3 investments to only what team owns
+                const teamRd3Letters = decisionState.immediatePurchases || [];
+                const teamOwnedInvestments = availableRd3Investments.filter(inv => {
+                    const invLetter = inv.name.match(/^([A-Z])\./)?.[1];
+                    return invLetter && teamRd3Letters.includes(invLetter);
+                });
+
+                // User selected "yes_dd", show the investment selection
+                return (
+                    <DoubleDownSelectPanel
+                        availableRd3Investments={teamOwnedInvestments}
+                        sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
+                        doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
+                        onSacrificeChange={decisionActions.handleSacrificeSelect}
+                        onDoubleDownChange={decisionActions.handleDoubleDownSelect}
+                        isSubmitting={isSubmitting}
+                    />
+                );
+            }
+        }
 
         default:
             return (

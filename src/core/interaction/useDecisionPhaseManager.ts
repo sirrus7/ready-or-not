@@ -48,7 +48,6 @@ export const useDecisionPhaseManager = (
         // Determine if the current slide/phase combination means decisions should be active
         const isInteractiveSlide = currentSlideData.type === 'interactive_invest' ||
             currentSlideData.type === 'interactive_choice' ||
-            currentSlideData.type === 'interactive_double_down_prompt' ||
             currentSlideData.type === 'interactive_double_down_select';
 
         const shouldBeActive = isInteractiveSlide && currentPhaseNode.is_interactive_player_phase;
