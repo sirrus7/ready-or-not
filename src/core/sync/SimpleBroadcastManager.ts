@@ -192,7 +192,7 @@ export class SimpleBroadcastManager {
 
     // HOST METHODS
 
-    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset', data?: any): void {
+    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync', data?: any): void {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const command: HostCommand = {
@@ -201,7 +201,8 @@ export class SimpleBroadcastManager {
             id: `cmd_${Date.now()}`,
             action,
             data,
-            timestamp: Date.now()
+            time: Date.now(),
+            timestamp: Date.now(),
         };
 
         this.sendMessage(command);

@@ -34,6 +34,7 @@ export const usePresentationVideo = ({
                                      }: UsePresentationVideoProps): UsePresentationVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isConnectedToHost, setIsConnectedToHost] = useState(false);
+    const [isBuffering, setIsBuffering] = useState(false);
     const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
 
     // Store callback refs
@@ -43,7 +44,6 @@ export const usePresentationVideo = ({
     // Use shared Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
-
     const executeCommand = useCallback(async (command: HostCommand): Promise<void> => {
         const video = videoRef.current;
         if (!video) return;
@@ -51,18 +51,45 @@ export const usePresentationVideo = ({
         setIsConnectedToHost(true);
 
         try {
+            // Handle playback rate if provided
+            if (command.data?.playbackRate && video.playbackRate !== command.data.playbackRate) {
+                video.playbackRate = command.data.playbackRate;
+            }
+
             switch (command.action) {
                 case 'play':
-                    if (command.time !== undefined && Math.abs(video.currentTime - command.time) > 1) video.currentTime = command.time;
+                    // Tighter sync tolerance: 0.2 seconds instead of 1 second
+                    if (command.data?.time !== undefined && Math.abs(video.currentTime - command.data.time) > 0.2) {
+                        video.currentTime = command.data.time;
+                    }
                     await video.play();
                     break;
+
                 case 'pause':
                     video.pause();
-                    if (command.time !== undefined) video.currentTime = command.time;
+                    if (command.time !== undefined) {
+                        video.currentTime = command.time;
+                    }
                     break;
+
                 case 'seek':
-                    if (command.time !== undefined) video.currentTime = command.time;
+                    if (command.time !== undefined) {
+                        video.currentTime = command.time;
+                    }
                     break;
+
+                case 'sync':
+                    // New sync command for periodic updates during playback
+                    if (command.time !== undefined && !video.paused && !isBuffering) {
+                        const timeDiff = Math.abs(video.currentTime - command.time);
+                        // Only adjust if drift is more than 0.2 seconds
+                        if (timeDiff > 0.2) {
+                            console.log(`[usePresentationVideo] Sync adjustment: ${timeDiff.toFixed(2)}s drift detected`);
+                            video.currentTime = command.time;
+                        }
+                    }
+                    break;
+
                 case 'reset':
                     video.pause();
                     video.currentTime = 0;
@@ -76,7 +103,47 @@ export const usePresentationVideo = ({
                 onErrorRef.current?.();
             }
         }
-    }, []);
+    }, [isBuffering]);
+
+    // Handle buffering state
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const handleWaiting = () => {
+            setIsBuffering(true);
+            console.log('[usePresentationVideo] Video buffering...');
+        };
+
+        const handleCanPlay = () => {
+            setIsBuffering(false);
+            console.log('[usePresentationVideo] Video ready to play');
+            // Re-sync when buffering ends
+            if (broadcastManager && isConnectedToHost) {
+                broadcastManager.sendStatus('ready');
+            }
+        };
+
+        const handleSeeking = () => {
+            console.log('[usePresentationVideo] Video seeking...');
+        };
+
+        const handleSeeked = () => {
+            console.log('[usePresentationVideo] Video seek completed');
+        };
+
+        video.addEventListener('waiting', handleWaiting);
+        video.addEventListener('canplay', handleCanPlay);
+        video.addEventListener('seeking', handleSeeking);
+        video.addEventListener('seeked', handleSeeked);
+
+        return () => {
+            video.removeEventListener('waiting', handleWaiting);
+            video.removeEventListener('canplay', handleCanPlay);
+            video.removeEventListener('seeking', handleSeeking);
+            video.removeEventListener('seeked', handleSeeked);
+        };
+    }, [broadcastManager, isConnectedToHost]);
 
     useEffect(() => {
         const video = videoRef.current;
@@ -122,6 +189,30 @@ export const usePresentationVideo = ({
             unsubscribeStatus();
         };
     }, [broadcastManager, executeCommand]);
+
+    // Debug logging in development
+    useEffect(() => {
+        if (process.env.NODE_ENV !== 'development') return;
+
+        const video = videoRef.current;
+        if (!video) return;
+
+        const logState = () => {
+            if (!video.paused) {
+                console.log('[Presentation] Video state:', {
+                    currentTime: video.currentTime.toFixed(2),
+                    paused: video.paused,
+                    buffered: video.buffered.length > 0 ?
+                        `${video.buffered.start(0).toFixed(2)}-${video.buffered.end(0).toFixed(2)}` : 'none',
+                    readyState: video.readyState,
+                    playbackRate: video.playbackRate
+                });
+            }
+        };
+
+        const interval = setInterval(logState, 2000);
+        return () => clearInterval(interval);
+    }, []);
 
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
         onEndedRef.current = onVideoEnd;
