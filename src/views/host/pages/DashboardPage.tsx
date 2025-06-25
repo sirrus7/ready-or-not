@@ -112,7 +112,7 @@ const DashboardPage: React.FC = () => {
             navigate(`/game/${game.id}`);
         } else {
             // Navigate to game results/analytics page
-            window.open(`/game-results/${game.id}`, '_blank');
+            navigate(`/game-results/${game.id}`);
         }
     };
 
