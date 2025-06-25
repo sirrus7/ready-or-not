@@ -17,6 +17,7 @@ import {PDFGenerationProvider} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
 const HostApp = lazy(() => import('@views/host/HostApp'));
 const DashboardPage = lazy(() => import('@views/host/pages/DashboardPage'));
 const CreateGamePage = lazy(() => import('@views/host/pages/CreateGamePage'));
+const GameResultsPage = lazy(() => import('@views/host/pages/GameResultsPage'));
 
 // Team components (second largest)
 const TeamApp = lazy(() => import('@views/team/TeamApp'));
@@ -170,6 +171,15 @@ function App() {
                                                     <HostApp/>
                                                 </Suspense>
                                             </SessionAwareProviders>
+                                        </AuthenticatedPage>
+                                    }/>
+
+                                    {/* Game Results - Show analytics for completed games */}
+                                    <Route path="/game-results/:sessionId" element={
+                                        <AuthenticatedPage>
+                                            <Suspense fallback={<RouteLoadingFallback message="Loading game results..." />}>
+                                                <GameResultsPage />
+                                            </Suspense>
                                         </AuthenticatedPage>
                                     }/>
 
