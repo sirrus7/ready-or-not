@@ -1,8 +1,7 @@
-// src/shared/utils/video/usePresentationVideo.ts - FINAL: Syncs with host commands
-import {useRef, useCallback, useState, useEffect} from 'react';
-import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
-import {HostCommand} from '@core/sync/types';
-import {createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
+// src/shared/utils/video/usePresentationVideo.ts
+import { useRef, useCallback, useState, useEffect } from 'react';
+import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
+import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager.ts';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -33,123 +32,38 @@ export const usePresentationVideo = ({
                                          isEnabled
                                      }: UsePresentationVideoProps): UsePresentationVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [isConnectedToHost, setIsConnectedToHost] = useState(false);
-    const [isBuffering, setIsBuffering] = useState(false);
-    const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
-
-    // Store callback refs
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
+    const [localIsConnected, setLocalIsConnected] = useState(false);
 
-    // Use shared Chrome/Supabase optimizations
+    // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
-    const executeCommand = useCallback(async (command: HostCommand): Promise<void> => {
-        const video = videoRef.current;
-        if (!video) return;
+    // Use the video sync manager
+    const { isConnected, setupVideoSync, broadcastManager } = useVideoSyncManager({
+        sessionId,
+        role: 'presentation',
+        videoRef,
+        onConnectionChange: setLocalIsConnected,
+    });
 
-        setIsConnectedToHost(true);
-
-        try {
-            // Handle playback rate if provided
-            if (command.data?.playbackRate && video.playbackRate !== command.data.playbackRate) {
-                video.playbackRate = command.data.playbackRate;
-            }
-
-            switch (command.action) {
-                case 'play':
-                    // Tighter sync tolerance: 0.2 seconds instead of 1 second
-                    if (command.data?.time !== undefined && Math.abs(video.currentTime - command.data.time) > 0.2) {
-                        video.currentTime = command.data.time;
-                    }
-                    await video.play();
-                    break;
-
-                case 'pause':
-                    video.pause();
-                    if (command.time !== undefined) {
-                        video.currentTime = command.time;
-                    }
-                    break;
-
-                case 'seek':
-                    if (command.time !== undefined) {
-                        video.currentTime = command.time;
-                    }
-                    break;
-
-                case 'sync':
-                    // New sync command for periodic updates during playback
-                    if (command.time !== undefined && !video.paused && !isBuffering) {
-                        const timeDiff = Math.abs(video.currentTime - command.time);
-                        // Only adjust if drift is more than 0.2 seconds
-                        if (timeDiff > 0.2) {
-                            console.log(`[usePresentationVideo] Sync adjustment: ${timeDiff.toFixed(2)}s drift detected`);
-                            video.currentTime = command.time;
-                        }
-                    }
-                    break;
-
-                case 'reset':
-                    video.pause();
-                    video.currentTime = 0;
-                    break;
-            }
-        } catch (error) {
-            if (error instanceof DOMException && error.name === 'NotAllowedError') {
-                console.warn('[usePresentationVideo] Play command blocked by browser. Waiting for user interaction.');
-            } else {
-                console.error(`[usePresentationVideo] Failed to execute ${command.action}:`, error);
-                onErrorRef.current?.();
-            }
+    // Set up video sync when enabled
+    useEffect(() => {
+        if (isEnabled && sourceUrl && broadcastManager) {
+            const cleanup = setupVideoSync();
+            return cleanup;
         }
-    }, [isBuffering]);
+    }, [isEnabled, sourceUrl, broadcastManager, setupVideoSync]);
 
-    // Handle buffering state
+    // Handle video source changes
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
 
-        const handleWaiting = () => {
-            setIsBuffering(true);
-            console.log('[usePresentationVideo] Video buffering...');
+        const handleEnded = () => {
+            onEndedRef.current?.();
         };
 
-        const handleCanPlay = () => {
-            setIsBuffering(false);
-            console.log('[usePresentationVideo] Video ready to play');
-            // Re-sync when buffering ends
-            if (broadcastManager && isConnectedToHost) {
-                broadcastManager.sendStatus('ready');
-            }
-        };
-
-        const handleSeeking = () => {
-            console.log('[usePresentationVideo] Video seeking...');
-        };
-
-        const handleSeeked = () => {
-            console.log('[usePresentationVideo] Video seek completed');
-        };
-
-        video.addEventListener('waiting', handleWaiting);
-        video.addEventListener('canplay', handleCanPlay);
-        video.addEventListener('seeking', handleSeeking);
-        video.addEventListener('seeked', handleSeeked);
-
-        return () => {
-            video.removeEventListener('waiting', handleWaiting);
-            video.removeEventListener('canplay', handleCanPlay);
-            video.removeEventListener('seeking', handleSeeking);
-            video.removeEventListener('seeked', handleSeeked);
-        };
-    }, [broadcastManager, isConnectedToHost]);
-
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        const handleEnded = () => onEndedRef.current?.();
         const handleError = (e: Event) => {
             console.error('[usePresentationVideo] Video error event:', e);
             if (video.error) {
@@ -164,7 +78,7 @@ export const usePresentationVideo = ({
                 video.load();
             }
         } else {
-            // Not a video slide, just ensure it's paused. Do NOT remove src.
+            // Not a video slide, just ensure it's paused
             if (!video.paused) {
                 video.pause();
             }
@@ -172,23 +86,12 @@ export const usePresentationVideo = ({
 
         video.addEventListener('ended', handleEnded);
         video.addEventListener('error', handleError);
+
         return () => {
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
         };
     }, [sourceUrl, isEnabled]);
-
-    useEffect(() => {
-        if (!broadcastManager) return;
-        const unsubscribe = broadcastManager.onHostCommand(executeCommand);
-        const unsubscribeStatus = broadcastManager.onPresentationStatus((status: ConnectionStatus) => {
-            setIsConnectedToHost(status === 'connected');
-        });
-        return () => {
-            unsubscribe();
-            unsubscribeStatus();
-        };
-    }, [broadcastManager, executeCommand]);
 
     // Debug logging in development
     useEffect(() => {
@@ -214,18 +117,22 @@ export const usePresentationVideo = ({
         return () => clearInterval(interval);
     }, []);
 
+    // Create video props
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
         onEndedRef.current = onVideoEnd;
         onErrorRef.current = onError;
 
-        // Use shared props function
         return createVideoProps({
             videoRef,
-            muted: false, // Presentation videos should have audio
+            muted: false, // IMPORTANT: Presentation videos should have audio
             onVideoEnd,
             onError
         });
     }, []);
 
-    return {videoRef, isConnectedToHost, getVideoProps};
+    return {
+        videoRef,
+        isConnectedToHost: localIsConnected,
+        getVideoProps
+    };
 };

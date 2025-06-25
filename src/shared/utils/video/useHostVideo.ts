@@ -1,7 +1,7 @@
-// src/shared/utils/video/useHostVideo.ts - FINAL: Corrected state management for reliable playback
-import {useRef, useCallback, useState, useEffect} from 'react';
-import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
-import {createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
+// src/shared/utils/video/useHostVideo.ts
+import { useRef, useCallback, useState, useEffect } from 'react';
+import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
+import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager.ts';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -29,150 +29,86 @@ interface UseHostVideoProps {
     isEnabled: boolean;
 }
 
-export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProps): UseHostVideoReturn => {
+export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoProps): UseHostVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [isConnectedToPresentation, setIsConnectedToPresentation] = useState(false);
-    const broadcastManager = sessionId ? SimpleBroadcastManager.getInstance(sessionId, 'host') : null;
-
-    // Store callback refs for the shared props function
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
     const isManuallyPaused = useRef(false);
+    const [localIsConnected, setLocalIsConnected] = useState(false);
 
+    // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
-    useEffect(() => {
-        if (!broadcastManager) return;
+    // Use the video sync manager
+    const { isConnected, sendCommand, setupVideoSync, broadcastManager } = useVideoSyncManager({
+        sessionId,
+        role: 'host',
+        videoRef,
+        onConnectionChange: setLocalIsConnected,
+    });
 
-        const unsubscribe = broadcastManager.onPresentationStatus((status: ConnectionStatus) => {
-            setIsConnectedToPresentation(status === 'connected');
-
-            if (status === 'connected' && videoRef.current) {
-                const video = videoRef.current;
-
-                // When presentation connects, mute host and send current state
-                video.muted = true;
-
-                // Send current video state to newly connected presentation
-                setTimeout(() => {
-                    const commandData = {
-                        time: video.currentTime,
-                        playbackRate: video.playbackRate
-                    };
-
-                    if (!video.paused) {
-                        broadcastManager.sendCommand('play', commandData);
-                    } else {
-                        broadcastManager.sendCommand('pause', commandData);
-                    }
-                }, 100);
-
-            } else if (status === 'disconnected' && videoRef.current) {
-                // Unmute host when presentation disconnects
-                videoRef.current.muted = false;
-            }
-        });
-
-        return unsubscribe;
-    }, [broadcastManager]);
-
-    // Add periodic sync interval during playback
-    useEffect(() => {
-        if (!broadcastManager || !videoRef.current) return;
-
-        let syncInterval: NodeJS.Timeout;
-
-        const startSyncInterval = () => {
-            syncInterval = setInterval(() => {
-                const video = videoRef.current;
-                if (video && !video.paused && isConnectedToPresentation) {
-                    // Send sync command with current time and playback rate
-                    broadcastManager.sendCommand('sync', {
-                        time: video.currentTime,
-                        playbackRate: video.playbackRate
-                    });
-                }
-            }, 500); // Sync every 500ms
-        };
-
-        const video = videoRef.current;
-
-        const handlePlay = () => startSyncInterval();
-        const handlePause = () => clearInterval(syncInterval);
-        const handleRateChange = () => {
-            if (!video.paused && isConnectedToPresentation) {
-                broadcastManager.sendCommand('sync', video.currentTime, {
-                    playbackRate: video.playbackRate
-                });
-            }
-        };
-
-        video.addEventListener('play', handlePlay);
-        video.addEventListener('pause', handlePause);
-        video.addEventListener('ratechange', handleRateChange);
-
-        // Start interval if video is already playing
-        if (!video.paused) {
-            startSyncInterval();
-        }
-
-        return () => {
-            clearInterval(syncInterval);
-            video.removeEventListener('play', handlePlay);
-            video.removeEventListener('pause', handlePause);
-            video.removeEventListener('ratechange', handleRateChange);
-        };
-    }, [broadcastManager, isConnectedToPresentation]);
-
+    // Execute command helper (maintains existing pattern)
     const executeCommand = useCallback(async (action: 'play' | 'pause' | 'seek', time?: number) => {
         const video = videoRef.current;
         if (!video) return;
 
         try {
-            if (action === 'play') {
-                isManuallyPaused.current = false;
-                if (time !== undefined) video.currentTime = time;
-                await video.play();
-            } else if (action === 'pause') {
-                isManuallyPaused.current = true;
-                video.pause();
-                if (time !== undefined) video.currentTime = time;
-            } else if (action === 'seek') {
-                if (time !== undefined) video.currentTime = time;
-            }
+            switch (action) {
+                case 'play':
+                    if (time !== undefined) {
+                        video.currentTime = time;
+                    }
+                    await video.play();
+                    break;
 
-            if (broadcastManager?.getConnectionStatus() === 'connected') {
-                // Properly structure the command data
-                const commandData = {
-                    time: time !== undefined ? time : video.currentTime,
-                    playbackRate: video.playbackRate
-                };
+                case 'pause':
+                    video.pause();
+                    if (time !== undefined) {
+                        video.currentTime = time;
+                    }
+                    break;
 
-                broadcastManager.sendCommand(action, commandData);
+                case 'seek':
+                    if (time !== undefined) {
+                        video.currentTime = time;
+                    }
+                    break;
             }
         } catch (error) {
-            if (error instanceof DOMException && error.name === 'NotAllowedError') {
-                console.warn('[useHostVideo] Autoplay was prevented by the browser. User must click play.');
-                isManuallyPaused.current = true;
-            } else {
-                console.error(`[useHostVideo] Local ${action} failed:`, error);
-                onErrorRef.current?.();
-            }
+            console.error(`[useHostVideo] Error executing ${action}:`, error);
+            throw error;
         }
-    }, [broadcastManager]);
+    }, []);
 
+    // Set up video sync when enabled
+    useEffect(() => {
+        if (isEnabled && sourceUrl && broadcastManager) {
+            const cleanup = setupVideoSync();
+            return cleanup;
+        }
+    }, [isEnabled, sourceUrl, broadcastManager, setupVideoSync]);
+
+    // Handle video source changes
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
 
-        const handleCanPlay = () => {
-            if (isEnabled && !isManuallyPaused.current && video.paused) {
-                executeCommand('play', video.currentTime);
+        const handleCanPlay = async () => {
+            if (!isManuallyPaused.current && isEnabled) {
+                try {
+                    await video.play();
+                } catch (error) {
+                    console.log('[useHostVideo] Auto-play blocked or failed:', error);
+                }
             }
         };
-        const handleEnded = () => onEndedRef.current?.();
+
+        const handleEnded = () => {
+            onEndedRef.current?.();
+        };
+
         const handleError = (e: Event) => {
-            console.error('[useHostVideo] Video error event:', e);
+            console.error('[useHostVideo] Video error:', e);
             if (video.error) {
                 console.error('[useHostVideo] Video error details:', video.error);
             }
@@ -186,7 +122,7 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
                 video.load();
             }
         } else {
-            // Not a video slide, just ensure it's paused. Do NOT remove src.
+            // Not a video slide, just ensure it's paused
             if (!video.paused) {
                 video.pause();
             }
@@ -203,6 +139,7 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
         };
     }, [sourceUrl, isEnabled, executeCommand]);
 
+    // Public API methods
     const play = useCallback(async (time?: number) => {
         isManuallyPaused.current = false;
         await executeCommand('play', time);
@@ -217,18 +154,25 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
         await executeCommand('seek', time);
     }, [executeCommand]);
 
+    // Create video props
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
         onEndedRef.current = onVideoEnd;
         onErrorRef.current = onError;
 
-        // Use shared props function
         return createVideoProps({
             videoRef,
-            muted: isConnectedToPresentation, // Host is muted when connected to presentation
+            muted: localIsConnected, // Host is muted when connected to presentation
             onVideoEnd,
             onError
         });
-    }, [isConnectedToPresentation]);
+    }, [localIsConnected]);
 
-    return {videoRef, play, pause, seek, isConnectedToPresentation, getVideoProps};
+    return {
+        videoRef,
+        play,
+        pause,
+        seek,
+        isConnectedToPresentation: localIsConnected,
+        getVideoProps
+    };
 };
