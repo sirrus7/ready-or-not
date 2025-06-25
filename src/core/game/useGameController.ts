@@ -150,6 +150,27 @@ export const useGameController = (
         processEffectSlideAuto();
     }, [currentSlideData, gameStructure, dbSession?.id, processConsequenceSlide, processPayoffSlide]);
 
+    useEffect(() => {
+        const autoCompleteGame = async () => {
+            // Only proceed if we have the necessary data and haven't already completed
+            if (!currentSlideData || !dbSession || dbSession.is_complete) return;
+
+            // Check if we've reached slide 197 (final slide)
+            if (currentSlideData.id === 197) {
+                try {
+                    // Mark the session as completed in the database
+                    const completedSession = await sessionManager.completeSession(dbSession.id);
+                    // Update local state to reflect completion
+                    setDbSession(completedSession);
+                } catch (error) {
+                    console.error('[useGameController] ❌ Error completing game session:', error);
+                }
+            }
+        };
+
+        autoCompleteGame();
+    }, [currentSlideData, dbSession, sessionManager, setCurrentHostAlertState]);
+
     // HOST ALERT MANAGEMENT
     const clearHostAlert = useCallback(async () => {
         if (!currentHostAlertState || !dbSession) return;
