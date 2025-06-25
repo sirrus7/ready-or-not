@@ -833,12 +833,19 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             ]
         }
     ],
-    'ch8-conseq': [ // Cyber Attack
+    'ch8-conseq': [ // Cyber Attack - CORRECTED to match slide values exactly
         {
             id: 'ch8_conseq_a',
             challenge_option_id: 'A',
-            narrative_text: "The hackers take your Bitcoin and unlock your IT system. The hackers release your customers' credit cards on the dark web, and don't attach Alu's name to the hack. You dodged a bullet. +1M SHAME",
+            narrative_text: "The hackers take your Bitcoin and unlock your IT system. You had disruptions and learned a painful lesson about cyber security, but can return to business after the Cyber Security firm protects your systems, however... The hackers release your customers' credit cards on the dark web, and don't attach Alu's name to the hack. You dodged a bullet.",
             effects: [
+                {
+                    kpi: 'capacity',
+                    change_value: -250,
+                    timing: 'immediate',
+                    challenge_id: 'ch8',
+                    option_id: 'A'
+                },
                 {
                     kpi: 'cost',
                     change_value: 100000,
@@ -846,12 +853,13 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                     challenge_id: 'ch8',
                     option_id: 'A'
                 }
+                // Note: +1M SHAME is not a tracked KPI, just narrative text
             ]
         },
         {
             id: 'ch8_conseq_b',
             challenge_option_id: 'B',
-            narrative_text: "The hackers take your Bitcoin and unlock your IT system. You had some disruptions. Customers are unhappy with your shoddy cyber security practices but appreciate your honesty.",
+            narrative_text: "The hackers take your Bitcoin and unlock your IT system. You've had some disruptions and learned a painful lesson about the importance of cyber security, but you're able to return to business after the Cyber Security firm protects your systems. The hackers release your customers' credit cards on the dark web. Customers are unhappy with your shoddy cyber security practices but appreciate your honesty.",
             effects: [
                 {
                     kpi: 'capacity',
@@ -862,7 +870,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                 },
                 {
                     kpi: 'cost',
-                    change_value: 300000,
+                    change_value: 100000,
                     timing: 'immediate',
                     challenge_id: 'ch8',
                     option_id: 'B'
@@ -872,18 +880,25 @@ export const allConsequencesData: Record<string, Consequence[]> = {
         {
             id: 'ch8_conseq_c',
             challenge_option_id: 'C',
-            narrative_text: "Rebuilding your IT infrastructure is slow and painful. The Hackers sell your customers' credit cards and blame ALU. Customers are furious. ORDERS take a hit.",
+            narrative_text: "Rebuilding your IT infrastructure is slow and painful, causing confusion, delays in ordering, production, fulfillment, payroll and other problems. CAP takes a hit. The Hackers sell your customers' credit cards and blame ALU for not paying the ransom. Customers are furious about Alu's lax cyber security and their sense ALU foisted the responsibility onto them. ORDERS take a hit.",
             effects: [
                 {
+                    kpi: 'capacity',
+                    change_value: -500,
+                    timing: 'immediate',
+                    challenge_id: 'ch8',
+                    option_id: 'C'
+                },
+                {
                     kpi: 'orders',
-                    change_value: -250,
+                    change_value: -500,
                     timing: 'immediate',
                     challenge_id: 'ch8',
                     option_id: 'C'
                 },
                 {
                     kpi: 'cost',
-                    change_value: 150000,
+                    change_value: 75000,
                     timing: 'immediate',
                     challenge_id: 'ch8',
                     option_id: 'C'

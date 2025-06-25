@@ -22,6 +22,12 @@ export class ImmunityTracker {
             requiredInvestment: 'B', // Production Efficiency is option B
             requiredRound: 2,
             message: "If you've invested in Production Efficiency in RD-2, you have excellent quality control & avoided this crisis. SUBTRACT -$75K COSTS, ADD +$10 ASP and +250 ORDERS. YOU FACE NO ADDITIONAL CONSEQUENCES OR KPI IMPACTS FROM THIS CHALLENGE"
+        },
+        {
+            challengeId: 'ch8',
+            requiredInvestment: 'I', // IT & Cybersecurity is option I
+            requiredRound: 3, // RD-3 investment
+            message: "If you invested in Cyber Security in RD-3, you have avoided this crisis. NO IMPACTS FROM THIS CHALLENGE"
         }
         // Future immunities go here
     ];

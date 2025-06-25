@@ -52,6 +52,9 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
                     onChallengeSelect={decisionActions.handleChallengeSelect}
                     currentSlide={currentSlide}
                     isSubmitting={isSubmitting}
+                    forcedSelection={decisionState.forcedSelection}
+                    forcedSelectionReason={decisionState.forcedSelectionReason}
+                    isCheckingForcedSelection={decisionState.isCheckingForcedSelection}
                 />
             );
         case 'interactive_double_down_select': {

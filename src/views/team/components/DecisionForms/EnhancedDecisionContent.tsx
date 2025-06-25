@@ -63,6 +63,9 @@ const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
                     onChallengeSelect={decisionActions.handleChallengeSelect}
                     currentSlide={currentSlide}
                     isSubmitting={isSubmitting}
+                    forcedSelection={decisionState.forcedSelection}
+                    forcedSelectionReason={decisionState.forcedSelectionReason}
+                    isCheckingForcedSelection={decisionState.isCheckingForcedSelection}
                 />
             );
 

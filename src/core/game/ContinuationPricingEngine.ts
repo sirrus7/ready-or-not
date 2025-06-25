@@ -106,61 +106,61 @@ const CONTINUATION_PRICING_TABLES = {
             name: 'Strategic Plan II - 5 Year Vision',
             notAvailable: true
         },
-        'B': { // Production Efficiency - Continuation only
+        'B': { // Production Efficiency - Continuation only ($75K if invested in RD-2, N/A if not)
             freshPrice: null,
             continuationPrice: 75000,
             requiresPrevious: true, // Must have made RD-2 investment
             name: 'Production Efficiency III - Lean Manufacturing'
         },
-        'C': { // Expanded 2nd Shift - Both fresh and continuation
+        'C': { // Expanded 2nd Shift - Both fresh and continuation ($25K if invested in RD-2, $100K if not)
             freshPrice: 100000,
             continuationPrice: 25000,
             requiresPrevious: false,
-            name: 'Add 3rd Shift - 24/7 Operations'
+            name: 'Expanded 2nd Shift - 24/7 Operations'
         },
-        'D': { // Supply Chain - Continuation only
+        'D': { // Supply Chain - Continuation only ($75K if invested in RD-2, N/A if not)
             freshPrice: null,
             continuationPrice: 75000,
             requiresPrevious: true, // Must have made RD-2 investment
-            name: 'Supply Chain III - Vertical Integration'
+            name: 'Supply Chain Optimization III'
         },
-        'E': { // Employee Development - Both fresh and continuation
+        'E': { // Employee Development - Both fresh and continuation ($75K if invested in RD-2, $300K if not)
             freshPrice: 300000,
             continuationPrice: 75000,
             requiresPrevious: false,
-            name: 'Employee Development III - Leadership Program'
+            name: 'Employee Development III'
         },
-        'F': { // Maximize Sales - Both fresh and continuation
+        'F': { // Maximize Sales - Both fresh and continuation ($75K if invested in RD-2, $225K if not)
             freshPrice: 225000,
             continuationPrice: 75000,
             requiresPrevious: false,
-            name: 'Premium Brand Development'
+            name: 'Maximize Boutique Sales III'
         },
-        'G': { // Big Box - Both fresh and continuation
+        'G': { // Big Box - Both fresh and continuation ($50K if invested in RD-2, $300K if not)
             freshPrice: 300000,
             continuationPrice: 50000,
             requiresPrevious: false,
             name: 'Expand Distribution Channels: Big Box III'
         },
-        'H': { // ERP - Both fresh and continuation
+        'H': { // ERP - Both fresh and continuation ($25K if invested in RD-2, $125K if not)
             freshPrice: 125000,
             continuationPrice: 25000,
             requiresPrevious: false,
             name: 'Enterprise Resource Planning III'
         },
-        'I': { // IT Security - Both fresh and continuation
+        'I': { // IT Security - Both fresh and continuation ($25K if invested in RD-2, $75K if not)
             freshPrice: 75000,
             continuationPrice: 25000,
             requiresPrevious: false,
-            name: 'IT & Cyber Security III'
+            name: 'IT & Cybersecurity III'
         },
-        'J': { // Product Line - Both fresh and continuation
+        'J': { // Product Line - Both fresh and continuation ($50K if invested in RD-2, $150K if not)
             freshPrice: 150000,
             continuationPrice: 50000,
             requiresPrevious: false,
             name: 'Product Line Expansion: Inflatables III'
         },
-        'K': { // Automation - Both fresh and continuation
+        'K': { // Automation - Both fresh and continuation ($200K if invested in RD-2, $300K if not)
             freshPrice: 300000,
             continuationPrice: 200000,
             requiresPrevious: false,

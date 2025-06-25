@@ -6,6 +6,7 @@ import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
 import {supabase} from '@shared/services/supabase';
 import {StrategyInvestmentTracker, StrategyInvestmentType} from "@core/game/StrategyInvestmentTracker.ts";
 import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
+import {ForcedSelectionTracker} from "@core/game/ForcedSelectionTracker.ts";
 
 export interface DecisionState {
     selectedInvestmentOptions: string[];  // CHANGED: now stores ['A', 'B', 'C']
@@ -15,6 +16,9 @@ export interface DecisionState {
     doubleDownOnInvestmentId: string | null;
     error: string | null;
     immediatePurchases: string[];  // Still stores letters for immediate purchases
+    forcedSelection: string | null;
+    forcedSelectionReason: string | null;
+    isCheckingForcedSelection: boolean;
 }
 
 export interface DecisionActions {
@@ -66,7 +70,10 @@ export const useDecisionMaking = ({
         sacrificeInvestmentId: null,
         doubleDownOnInvestmentId: null,
         error: null,
-        immediatePurchases: []
+        immediatePurchases: [],
+        forcedSelection: null,
+        forcedSelectionReason: null,
+        isCheckingForcedSelection: false
     });
 
     const remainingBudget = useMemo(() => {
@@ -80,7 +87,7 @@ export const useDecisionMaking = ({
                 return state.selectedInvestmentOptions.length > 0 || state.immediatePurchases.length > 0;
             case 'interactive_choice':
                 // FIXED: For regular choice scenarios, only need selectedChallengeOptionId
-                return !!state.selectedChallengeOptionId;
+                return !!state.selectedChallengeOptionId || !!state.forcedSelection;
             case 'interactive_double_down_select':
                 // For double-down scenarios, need both sacrifice and double-down selections
                 return !!(state.sacrificeInvestmentId && state.doubleDownOnInvestmentId);
@@ -238,6 +245,31 @@ export const useDecisionMaking = ({
         }
     }, [state.selectedInvestmentOptions, state.spentBudget, currentSlide, onInvestmentSelectionChange]);  // CHANGED
 
+    // 4. ADD this useEffect (after the existing useEffects, around line 90):
+    useEffect(() => {
+        const checkForcedSelection = async () => {
+            if (!currentSlide || currentSlide.type !== 'interactive_choice' || !sessionId || !teamId || !currentSlide.interactive_data_key) {
+                setState(prev => ({ ...prev, forcedSelection: null, forcedSelectionReason: null, isCheckingForcedSelection: false }));
+                return;
+            }
+            setState(prev => ({ ...prev, isCheckingForcedSelection: true }));
+            try {
+                const forced = await ForcedSelectionTracker.getForcedSelection(sessionId, teamId, currentSlide.interactive_data_key);
+                const reason = forced ? ForcedSelectionTracker.getForcedSelectionReason(currentSlide.interactive_data_key) : null;
+                setState(prev => ({
+                    ...prev,
+                    forcedSelection: forced,
+                    forcedSelectionReason: reason,
+                    isCheckingForcedSelection: false,
+                    selectedChallengeOptionId: forced || prev.selectedChallengeOptionId
+                }));
+            } catch (error) {
+                setState(prev => ({ ...prev, forcedSelection: null, forcedSelectionReason: null, isCheckingForcedSelection: false }));
+            }
+        };
+        checkForcedSelection();
+    }, [currentSlide?.id, sessionId, teamId]);
+
     // Regular investment toggle - CHANGED to use index instead of optionId
     const handleInvestmentToggle = useCallback((optionIndex: number, cost: number) => {
         const optionLetter = String.fromCharCode(65 + optionIndex); // A=0, B=1, C=2, etc.
@@ -355,6 +387,7 @@ export const useDecisionMaking = ({
     }, [sessionId, teamId, currentSlide, state.spentBudget, investUpToBudget, investmentOptions]);
 
     const handleChallengeSelect = useCallback((optionId: string) => {
+        if (state.forcedSelection) return;
         setState(prev => ({
             ...prev,
             selectedChallengeOptionId: optionId,

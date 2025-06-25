@@ -30,18 +30,17 @@ export const SLIDE_TO_INVESTMENT_PHASE_MAP = new Map<number, string>([
     [138, 'rd2-invest'],  // Bonus: Supply Chain + Distribution Channels
 
     // ===== ROUND 3 INVESTMENT PAYOFFS (Slides 170-181) =====
-    [170, 'rd3-invest'],  // A. Business Growth Strategy
-    [171, 'rd3-invest'],  // B. Production Efficiency
-    [172, 'rd3-invest'],  // C. 3rd Shift
-    [173, 'rd3-invest'],  // D. Supply Chain Optimization
-    [174, 'rd3-invest'],  // E. Employee Development
-    [175, 'rd3-invest'],  // F. Maximize Boutique
-    [176, 'rd3-invest'],  // G. Big Box
-    [177, 'rd3-invest'],  // H. ERP
-    [178, 'rd3-invest'],  // I. IT Security
-    [179, 'rd3-invest'],  // J. Product Line
-    [180, 'rd3-invest'],  // K. Automation
-    [181, 'rd3-invest'],  // L. Strategic Acquisition
+    [171, 'rd3-invest'],  // A. Business Growth Strategy
+    [172, 'rd3-invest'],  // B. Production Efficiency
+    [173, 'rd3-invest'],  // C. Expanded 2nd Shift
+    [174, 'rd3-invest'],  // D. Supply Chain Optimization
+    [175, 'rd3-invest'],  // E. Employee Development
+    [176, 'rd3-invest'],  // F. Maximize Boutique Sales
+    [177, 'rd3-invest'],  // G. Big Box Expansion
+    [178, 'rd3-invest'],  // H. ERP
+    [179, 'rd3-invest'],  // I. IT Security
+    [180, 'rd3-invest'],  // J. Product Line Expansion
+    [181, 'rd3-invest'],  // K. Automation & Co-Bots
 ]);
 
 /**
