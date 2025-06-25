@@ -495,22 +495,39 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             effects: []
         }
     ],
-    'ch6-conseq': [ // Quality Crisis
+    // Addition to src/core/content/ConsequenceContent.ts
+// Add CH6 regular consequences and immunity consequences
+
+    'ch6-conseq': [ // Quality Crisis regular consequences
         {
             id: 'ch6_conseq_a',
             challenge_option_id: 'A',
-            narrative_text: "Immediate quality improvements restored customer confidence but increased costs.",
+            narrative_text: "The QC expert slowly discovers the underlying cause of quality problem. But bringing this kind of expertise into the business reactively during a crisis is costly, disruptive and time consuming.",
             effects: [
                 {
-                    kpi: 'cost',
-                    change_value: 75000,
+                    kpi: 'capacity',
+                    change_value: -250,
                     timing: 'immediate',
                     challenge_id: 'ch6',
                     option_id: 'A'
                 },
                 {
                     kpi: 'orders',
-                    change_value: 250,
+                    change_value: -250,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'A'
+                },
+                {
+                    kpi: 'cost',
+                    change_value: 100000,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'A'
+                },
+                {
+                    kpi: 'asp',
+                    change_value: -30,
                     timing: 'immediate',
                     challenge_id: 'ch6',
                     option_id: 'A'
@@ -520,11 +537,32 @@ export const allConsequencesData: Record<string, Consequence[]> = {
         {
             id: 'ch6_conseq_b',
             challenge_option_id: 'B',
-            narrative_text: "Gradual quality improvements balanced cost and customer satisfaction.",
+            narrative_text: "You recalled defective products, but without a QC expert, you continue to build defective products and sell them to the public. Additional recalls negatively impact Costs and Capacity.",
             effects: [
                 {
+                    kpi: 'capacity',
+                    change_value: -250,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'B'
+                },
+                {
+                    kpi: 'orders',
+                    change_value: -500,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'B'
+                },
+                {
                     kpi: 'cost',
-                    change_value: 50000,
+                    change_value: 150000,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'B'
+                },
+                {
+                    kpi: 'asp',
+                    change_value: -30,
                     timing: 'immediate',
                     challenge_id: 'ch6',
                     option_id: 'B'
@@ -534,25 +572,25 @@ export const allConsequencesData: Record<string, Consequence[]> = {
         {
             id: 'ch6_conseq_c',
             challenge_option_id: 'C',
-            narrative_text: "Extensive quality overhaul significantly improved product but at high cost.",
+            narrative_text: "The QC expert slowly sorted out the underlying cause of problem and the active PR managed the crisis effectively. While it was expensive, customers appreciated you going the extra mile, and you salvaged Orders and your brand reputation.",
             effects: [
                 {
-                    kpi: 'cost',
-                    change_value: 125000,
+                    kpi: 'capacity',
+                    change_value: -250,
                     timing: 'immediate',
                     challenge_id: 'ch6',
                     option_id: 'C'
                 },
                 {
                     kpi: 'orders',
-                    change_value: 500,
+                    change_value: 250,
                     timing: 'immediate',
                     challenge_id: 'ch6',
                     option_id: 'C'
                 },
                 {
-                    kpi: 'asp',
-                    change_value: 25,
+                    kpi: 'cost',
+                    change_value: 125000,
                     timing: 'immediate',
                     challenge_id: 'ch6',
                     option_id: 'C'
@@ -562,11 +600,25 @@ export const allConsequencesData: Record<string, Consequence[]> = {
         {
             id: 'ch6_conseq_d',
             challenge_option_id: 'D',
-            narrative_text: "Ignoring quality issues led to customer complaints and lost business.",
+            narrative_text: "Not only do you have to absorb the upfront costs of replacing boards and take a brand reputation hit, by doing nothing you continue to suffer from defective board replacement costs, reducing Capacity and further damaging your brand rep.",
             effects: [
+                {
+                    kpi: 'capacity',
+                    change_value: -250,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'D'
+                },
                 {
                     kpi: 'orders',
                     change_value: -750,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'D'
+                },
+                {
+                    kpi: 'cost',
+                    change_value: 75000,
                     timing: 'immediate',
                     challenge_id: 'ch6',
                     option_id: 'D'
@@ -577,6 +629,120 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                     timing: 'immediate',
                     challenge_id: 'ch6',
                     option_id: 'D'
+                }
+            ]
+        }
+    ],
+    'ch6-immunity': [ // Special immunity consequences for CH6
+        {
+            id: 'ch6_immunity_a',
+            challenge_option_id: 'A',
+            narrative_text: "Your Production Efficiency investment provided excellent quality control. You avoided the crisis and gained competitive advantages.",
+            effects: [
+                {
+                    kpi: 'cost',
+                    change_value: -75000, // SUBTRACT $75K costs (savings)
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'A_immunity'
+                },
+                {
+                    kpi: 'asp',
+                    change_value: 10, // ADD $10 ASP
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'A_immunity'
+                },
+                {
+                    kpi: 'orders',
+                    change_value: 250, // ADD 250 orders
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'A_immunity'
+                }
+            ]
+        },
+        {
+            id: 'ch6_immunity_b',
+            challenge_option_id: 'B',
+            narrative_text: "Your Production Efficiency investment provided excellent quality control. You avoided the crisis and gained competitive advantages.",
+            effects: [
+                {
+                    kpi: 'cost',
+                    change_value: -75000,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'B_immunity'
+                },
+                {
+                    kpi: 'asp',
+                    change_value: 10,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'B_immunity'
+                },
+                {
+                    kpi: 'orders',
+                    change_value: 250,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'B_immunity'
+                }
+            ]
+        },
+        {
+            id: 'ch6_immunity_c',
+            challenge_option_id: 'C',
+            narrative_text: "Your Production Efficiency investment provided excellent quality control. You avoided the crisis and gained competitive advantages.",
+            effects: [
+                {
+                    kpi: 'cost',
+                    change_value: -75000,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'C_immunity'
+                },
+                {
+                    kpi: 'asp',
+                    change_value: 10,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'C_immunity'
+                },
+                {
+                    kpi: 'orders',
+                    change_value: 250,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'C_immunity'
+                }
+            ]
+        },
+        {
+            id: 'ch6_immunity_d',
+            challenge_option_id: 'D',
+            narrative_text: "Your Production Efficiency investment provided excellent quality control. You avoided the crisis and gained competitive advantages.",
+            effects: [
+                {
+                    kpi: 'cost',
+                    change_value: -75000,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'D_immunity'
+                },
+                {
+                    kpi: 'asp',
+                    change_value: 10,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'D_immunity'
+                },
+                {
+                    kpi: 'orders',
+                    change_value: 250,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'D_immunity'
                 }
             ]
         }

@@ -251,9 +251,51 @@ export class UnifiedEffectsProcessor {
 
             // Check immunity before applying effects
             const hasImmunity = await ImmunityTracker.hasImmunity(currentDbSession.id, team.id, challengeId);
+
             if (hasImmunity) {
-                console.log(`[UnifiedEffectsProcessor] Team ${team.name} has immunity for ${challengeId}, skipping effects`);
-                continue;
+                console.log(`[UnifiedEffectsProcessor] Team ${team.name} has immunity for ${challengeId}`);
+
+                // UPDATED: Check for immunity-specific consequences (positive effects)
+                const immunityConsequenceKey = `${challengeId}-immunity`;
+                const immunityConsequences = allConsequencesData[immunityConsequenceKey] || [];
+
+                if (immunityConsequences.length > 0) {
+                    // Find immunity consequence for this team's selection
+                    const immunityConsequence = immunityConsequences.find(cons =>
+                        cons.challenge_option_id === teamSelection
+                    );
+
+                    if (immunityConsequence?.effects) {
+                        console.log(`[UnifiedEffectsProcessor] Applying immunity benefits for team ${team.name}, selection "${teamSelection}"`);
+
+                        // Apply immunity effects (positive benefits)
+                        const currentRound = consequenceSlide.round_number as 1 | 2 | 3;
+                        const currentKpis = await KpiDataUtils.ensureTeamRoundData(
+                            currentDbSession.id,
+                            team.id,
+                            currentRound,
+                            teamRoundData,
+                            setTeamRoundDataDirectly
+                        );
+
+                        const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, immunityConsequence.effects);
+                        const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
+
+                        // Save to database
+                        await db.kpis.update(currentKpis.id, {
+                            ...updatedKpis,
+                            ...finalKpis
+                        });
+
+                        console.log(`[UnifiedEffectsProcessor] Applied immunity benefits for team ${team.name}`);
+                    } else {
+                        console.log(`[UnifiedEffectsProcessor] No immunity consequences found for selection "${teamSelection}", skipping all effects`);
+                    }
+                } else {
+                    console.log(`[UnifiedEffectsProcessor] No immunity consequences defined for ${challengeId}, skipping all effects`);
+                }
+
+                continue; // Skip to next team (immune team is processed)
             }
 
             // Apply effects to team round data

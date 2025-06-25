@@ -1,7 +1,5 @@
 // src/core/game/ImmunityTracker.ts
-// PRODUCTION: Immunity tracking following StrategyInvestmentTracker pattern
-
-import {db} from '@shared/services/supabase'
+import {db} from '@shared/services/supabase';
 
 export interface ImmunityRule {
     challengeId: string;
@@ -18,6 +16,12 @@ export class ImmunityTracker {
             requiredInvestment: 'D', // Supply Chain Optimization is option D
             requiredRound: 2,
             message: "If you've invested in Supply Chain Optimization in RD-2, you have already developed better relationships and terms with suppliers and voided this crisis. NO IMPACTS FROM THIS CHALLENGE"
+        },
+        {
+            challengeId: 'ch6',
+            requiredInvestment: 'B', // Production Efficiency is option B
+            requiredRound: 2,
+            message: "If you've invested in Production Efficiency in RD-2, you have excellent quality control & avoided this crisis. SUBTRACT -$75K COSTS, ADD +$10 ASP and +250 ORDERS. YOU FACE NO ADDITIONAL CONSEQUENCES OR KPI IMPACTS FROM THIS CHALLENGE"
         }
         // Future immunities go here
     ];
