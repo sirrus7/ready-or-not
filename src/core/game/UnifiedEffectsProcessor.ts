@@ -1,5 +1,5 @@
 // src/core/game/UnifiedEffectsProcessor.ts
-import {GameSession, GameStructure, Slide, Team, TeamDecision, TeamRoundData,} from '@shared/types';
+import {GameSession, GameStructure, KpiEffect, Slide, Team, TeamDecision, TeamRoundData,} from '@shared/types';
 import {db} from '@shared/services/supabase';
 import {ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
@@ -442,7 +442,7 @@ export class UnifiedEffectsProcessor {
     }
 
     /**
-     * Process payoff slides (COMPLETE LOGIC with strategy investment integration)
+     * Process payoff slides (COMPLETE LOGIC with strategy investment integration and bonus handling)
      */
     private async processPayoffSlide(payoffSlide: Slide): Promise<void> {
         const {
@@ -486,6 +486,142 @@ export class UnifiedEffectsProcessor {
 
         // Process each team
         for (const team of teams) {
+            // ========================================================================
+            // CONDITIONAL BONUS PAYOFFS: Handle RD-2 synergy bonuses (slides 137-138)
+            // ========================================================================
+            if (payoffSlide.id === 137 || payoffSlide.id === 138) {
+                console.log(`[UnifiedEffectsProcessor] Processing bonus slide ${payoffSlide.id} for team ${team.name}`);
+
+                // Get all team decisions to check investment combinations
+                const allDecisions = await db.decisions.getBySession(currentDbSession.id);
+                const teamDecisions = allDecisions.filter(d => d.team_id === team.id);
+
+                const bonusEffects: KpiEffect[] = [];
+
+                if (payoffSlide.id === 137) {
+                    // Production Efficiency Bonus - requires Production Efficiency (B) + manufacturing investments
+                    const hasProductionEfficiency = teamDecisions.some(decision =>
+                        decision.phase_id === 'rd2-invest' &&
+                        decision.selected_investment_options?.includes('B')
+                    );
+
+                    if (hasProductionEfficiency) {
+                        // Check for Expanded 2nd Shift (C)
+                        const hasExpandedShift = teamDecisions.some(decision =>
+                            decision.phase_id === 'rd2-invest' &&
+                            decision.selected_investment_options?.includes('C')
+                        );
+
+                        // Check for Automation (K)
+                        const hasAutomation = teamDecisions.some(decision =>
+                            decision.phase_id === 'rd2-invest' &&
+                            decision.selected_investment_options?.includes('K')
+                        );
+
+                        if (hasExpandedShift) {
+                            // Expanded 2nd Shift bonus: +500 CAP, -$150K COSTS
+                            bonusEffects.push(
+                                {
+                                    kpi: 'capacity',
+                                    change_value: 500,
+                                    timing: 'immediate',
+                                    description: 'Production Efficiency + Expanded 2nd Shift Bonus'
+                                },
+                                {
+                                    kpi: 'cost',
+                                    change_value: -150000,
+                                    timing: 'immediate',
+                                    description: 'Production Efficiency + Expanded 2nd Shift Bonus'
+                                }
+                            );
+                        }
+
+                        if (hasAutomation) {
+                            // Automation bonus: +500 CAP, -$75K COSTS
+                            bonusEffects.push(
+                                {
+                                    kpi: 'capacity',
+                                    change_value: 500,
+                                    timing: 'immediate',
+                                    description: 'Production Efficiency + Automation Bonus'
+                                },
+                                {
+                                    kpi: 'cost',
+                                    change_value: -75000,
+                                    timing: 'immediate',
+                                    description: 'Production Efficiency + Automation Bonus'
+                                }
+                            );
+                        }
+
+                        console.log(`[UnifiedEffectsProcessor] Team ${team.name} Production Efficiency bonus: Shift=${hasExpandedShift}, Automation=${hasAutomation}`);
+                    }
+
+                } else if (payoffSlide.id === 138) {
+                    // Supply Chain + Distribution Bonus - requires both Supply Chain (D) AND Distribution Channels (G)
+                    const hasSupplyChain = teamDecisions.some(decision =>
+                        decision.phase_id === 'rd2-invest' &&
+                        decision.selected_investment_options?.includes('D')
+                    );
+
+                    const hasDistributionChannels = teamDecisions.some(decision =>
+                        decision.phase_id === 'rd2-invest' &&
+                        decision.selected_investment_options?.includes('G')
+                    );
+
+                    if (hasSupplyChain && hasDistributionChannels) {
+                        // Apply bonus: +1000 Orders, -$50K Costs
+                        bonusEffects.push(
+                            {
+                                kpi: 'orders',
+                                change_value: 1000,
+                                timing: 'immediate',
+                                description: 'Supply Chain + Distribution Channels Bonus'
+                            },
+                            {
+                                kpi: 'cost',
+                                change_value: -50000,
+                                timing: 'immediate',
+                                description: 'Supply Chain + Distribution Channels Bonus'
+                            }
+                        );
+
+                        console.log(`[UnifiedEffectsProcessor] Team ${team.name} Supply Chain + Distribution bonus applied`);
+                    }
+                }
+
+                // Apply bonus effects if any qualify
+                if (bonusEffects.length > 0) {
+                    const currentRound = payoffSlide.round_number as 1 | 2 | 3;
+                    const currentKpis = await KpiDataUtils.ensureTeamRoundData(
+                        currentDbSession.id,
+                        team.id,
+                        currentRound,
+                        teamRoundData,
+                        setTeamRoundDataDirectly
+                    );
+
+                    const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, bonusEffects);
+                    const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
+
+                    await db.kpis.update(currentKpis.id, {
+                        ...updatedKpis,
+                        ...finalKpis
+                    });
+
+                    console.log(`[UnifiedEffectsProcessor] Applied ${bonusEffects.length} bonus effects for team ${team.name} on slide ${payoffSlide.id}`);
+                } else {
+                    console.log(`[UnifiedEffectsProcessor] Team ${team.name} does not qualify for bonus on slide ${payoffSlide.id}`);
+                }
+
+                // Skip to next team - bonus slides don't have regular payoff data
+                continue;
+            }
+
+            // ========================================================================
+            // REGULAR PAYOFF PROCESSING: Handle normal investment payoffs
+            // ========================================================================
+
             // Get team's investment decisions for this phase
             const regularDecision = teamDecisions[team.id]?.[investmentPhase];
             const immediateDecision = teamDecisions[team.id]?.[`${investmentPhase}_immediate`];
@@ -508,14 +644,14 @@ export class UnifiedEffectsProcessor {
             // Process strategy investment effects first (if applicable)
             await this.processStrategyInvestmentEffects(team, investmentPhase, slideOption);
 
-            // Find payoff effects for this option - FIXED: Use 'id' not 'investment_option'
+            // Find payoff effects for this option
             const payoffForOption = allPayoffsForPhase.find(payoff => payoff.id === slideOption);
             if (!payoffForOption?.effects) {
                 console.warn(`[UnifiedEffectsProcessor] ⚠️ No effects found for option ${slideOption} in ${payoffKey}`);
                 continue;
             }
 
-            // Apply effects to team round data - FIXED: Use ensureTeamRoundData not ensureKpiDataExists
+            // Apply effects to team round data
             const currentRound = payoffSlide.round_number as 1 | 2 | 3;
             const currentKpis = await KpiDataUtils.ensureTeamRoundData(
                 currentDbSession.id,
@@ -533,6 +669,8 @@ export class UnifiedEffectsProcessor {
                 ...updatedKpis,
                 ...finalKpis
             });
+
+            console.log(`[UnifiedEffectsProcessor] Applied payoff effects for team ${team.name}, option ${slideOption}`);
         }
 
         // Refresh data

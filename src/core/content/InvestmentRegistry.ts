@@ -26,7 +26,8 @@ export const SLIDE_TO_INVESTMENT_PHASE_MAP = new Map<number, string>([
     [134, 'rd2-invest'],  // I. IT Security
     [135, 'rd2-invest'],  // J. Product Line
     [136, 'rd2-invest'],  // K. Automation
-    [137, 'rd2-invest'],  // L. Market Share Attack
+    [137, 'rd2-invest'],  // Bonus: Production Efficiency Synergy
+    [138, 'rd2-invest'],  // Bonus: Supply Chain + Distribution Channels
 
     // ===== ROUND 3 INVESTMENT PAYOFFS (Slides 170-181) =====
     [170, 'rd3-invest'],  // A. Business Growth Strategy
