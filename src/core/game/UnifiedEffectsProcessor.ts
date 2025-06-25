@@ -487,9 +487,9 @@ export class UnifiedEffectsProcessor {
         // Process each team
         for (const team of teams) {
             // ========================================================================
-            // CONDITIONAL BONUS PAYOFFS: Handle RD-2 synergy bonuses (slides 137-138)
+            // CONDITIONAL BONUS PAYOFFS: Handle RD-2 and RD-3 synergy bonuses
             // ========================================================================
-            if (payoffSlide.id === 137 || payoffSlide.id === 138) {
+            if (payoffSlide.id === 137 || payoffSlide.id === 138 || payoffSlide.id === 182 || payoffSlide.id === 183) {
                 console.log(`[UnifiedEffectsProcessor] Processing bonus slide ${payoffSlide.id} for team ${team.name}`);
 
                 // Get all team decisions to check investment combinations
@@ -498,6 +498,7 @@ export class UnifiedEffectsProcessor {
 
                 const bonusEffects: KpiEffect[] = [];
 
+                // RD-2 BONUSES (slides 137-138)
                 if (payoffSlide.id === 137) {
                     // Production Efficiency Bonus - requires Production Efficiency (B) + manufacturing investments
                     const hasProductionEfficiency = teamDecisions.some(decision =>
@@ -519,7 +520,6 @@ export class UnifiedEffectsProcessor {
                         );
 
                         if (hasExpandedShift) {
-                            // Expanded 2nd Shift bonus: +500 CAP, -$150K COSTS
                             bonusEffects.push(
                                 {
                                     kpi: 'capacity',
@@ -537,7 +537,6 @@ export class UnifiedEffectsProcessor {
                         }
 
                         if (hasAutomation) {
-                            // Automation bonus: +500 CAP, -$75K COSTS
                             bonusEffects.push(
                                 {
                                     kpi: 'capacity',
@@ -553,8 +552,6 @@ export class UnifiedEffectsProcessor {
                                 }
                             );
                         }
-
-                        console.log(`[UnifiedEffectsProcessor] Team ${team.name} Production Efficiency bonus: Shift=${hasExpandedShift}, Automation=${hasAutomation}`);
                     }
 
                 } else if (payoffSlide.id === 138) {
@@ -570,7 +567,6 @@ export class UnifiedEffectsProcessor {
                     );
 
                     if (hasSupplyChain && hasDistributionChannels) {
-                        // Apply bonus: +1000 Orders, -$50K Costs
                         bonusEffects.push(
                             {
                                 kpi: 'orders',
@@ -585,8 +581,98 @@ export class UnifiedEffectsProcessor {
                                 description: 'Supply Chain + Distribution Channels Bonus'
                             }
                         );
+                    }
 
-                        console.log(`[UnifiedEffectsProcessor] Team ${team.name} Supply Chain + Distribution bonus applied`);
+                    // ✅ NEW: RD-3 BONUSES (slides 182-183)
+                } else if (payoffSlide.id === 182) {
+                    // RD-3 Production Efficiency Bonus - requires Production Efficiency (B) + manufacturing investments
+                    const hasProductionEfficiency = teamDecisions.some(decision =>
+                        decision.phase_id === 'rd3-invest' &&
+                        decision.selected_investment_options?.includes('B')
+                    );
+
+                    if (hasProductionEfficiency) {
+                        // Check for Expanded 2nd Shift (C)
+                        const hasExpandedShift = teamDecisions.some(decision =>
+                            decision.phase_id === 'rd3-invest' &&
+                            decision.selected_investment_options?.includes('C')
+                        );
+
+                        // Check for Automation (K)
+                        const hasAutomation = teamDecisions.some(decision =>
+                            decision.phase_id === 'rd3-invest' &&
+                            decision.selected_investment_options?.includes('K')
+                        );
+
+                        if (hasExpandedShift) {
+                            // 2nd Shift bonus: +1000 CAP, -$300K COSTS
+                            bonusEffects.push(
+                                {
+                                    kpi: 'capacity',
+                                    change_value: 1000,
+                                    timing: 'immediate',
+                                    description: 'RD-3 Production Efficiency + 2nd Shift Bonus'
+                                },
+                                {
+                                    kpi: 'cost',
+                                    change_value: -300000,
+                                    timing: 'immediate',
+                                    description: 'RD-3 Production Efficiency + 2nd Shift Bonus'
+                                }
+                            );
+                        }
+
+                        if (hasAutomation) {
+                            // Automation bonus: +1000 CAP, -$150K COSTS
+                            bonusEffects.push(
+                                {
+                                    kpi: 'capacity',
+                                    change_value: 1000,
+                                    timing: 'immediate',
+                                    description: 'RD-3 Production Efficiency + Automation Bonus'
+                                },
+                                {
+                                    kpi: 'cost',
+                                    change_value: -150000,
+                                    timing: 'immediate',
+                                    description: 'RD-3 Production Efficiency + Automation Bonus'
+                                }
+                            );
+                        }
+
+                        console.log(`[UnifiedEffectsProcessor] Team ${team.name} RD-3 Production Efficiency bonus: Shift=${hasExpandedShift}, Automation=${hasAutomation}`);
+                    }
+
+                } else if (payoffSlide.id === 183) {
+                    // RD-3 Supply Chain + Distribution Bonus - requires both Supply Chain (D) AND Distribution Channels (G)
+                    const hasSupplyChain = teamDecisions.some(decision =>
+                        decision.phase_id === 'rd3-invest' &&
+                        decision.selected_investment_options?.includes('D')
+                    );
+
+                    const hasDistributionChannels = teamDecisions.some(decision =>
+                        decision.phase_id === 'rd3-invest' &&
+                        decision.selected_investment_options?.includes('G')
+                    );
+
+                    if (hasSupplyChain && hasDistributionChannels) {
+                        // Apply bonus: +2000 Orders, -$100K Costs
+                        bonusEffects.push(
+                            {
+                                kpi: 'orders',
+                                change_value: 2000,
+                                timing: 'immediate',
+                                description: 'RD-3 Supply Chain + Distribution Channels Bonus'
+                            },
+                            {
+                                kpi: 'cost',
+                                change_value: -100000,
+                                timing: 'immediate',
+                                description: 'RD-3 Supply Chain + Distribution Channels Bonus'
+                            }
+                        );
+
+                        console.log(`[UnifiedEffectsProcessor] Team ${team.name} RD-3 Supply Chain + Distribution bonus applied`);
                     }
                 }
 
@@ -697,9 +783,9 @@ export class UnifiedEffectsProcessor {
                 return options[slideIndex] || null;
             }
         } else if (investmentPhase === 'rd3-invest') {
-            // Round 3: Slides 170-181 map to A-L
-            if (slideId >= 170 && slideId <= 181) {
-                const slideIndex = slideId - 170;
+            // Round 3: Slides 171-181 map to A-K (FIXED: was 170-181)
+            if (slideId >= 171 && slideId <= 181) {
+                const slideIndex = slideId - 171;
                 return options[slideIndex] || null;
             }
         }

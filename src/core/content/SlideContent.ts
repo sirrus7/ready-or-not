@@ -1880,18 +1880,22 @@ export const allGameSlides: Slide[] = [
     {
         id: 182,
         round_number: 3,
-        title: "Production Efficiency Bonus (RD3)",
-        type: 'video',
-        source_path: 'Slide_183.mp4',
-        auto_advance_after_video: true
+        title: "Bonus: Production Efficiency Synergy (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Bonus: Production Efficiency Synergy",
+        sub_text: "Integration bonus for Production Efficiency + manufacturing investments",
+        details: ["Conditional bonuses for Production Efficiency + manufacturing"],
+        source_path: 'Slide_183.mp4'
     },
     {
         id: 183,
         round_number: 3,
-        title: "Supply Chain Bonus Impact (RD3)",
-        type: 'video',
-        source_path: 'Slide_184.mp4',
-        auto_advance_after_video: true
+        title: "Bonus: Supply Chain Distribution Synergy (RD3)",
+        type: 'payoff_reveal',
+        main_text: "RD-3 Bonus: Supply Chain + Distribution Synergy",
+        sub_text: "Enhanced efficiency from integrated logistics and distribution",
+        details: ["Conditional bonus: +2000 Orders, -$100K Costs"],
+        source_path: 'Slide_184.mp4'
     },
     {
         id: 184,

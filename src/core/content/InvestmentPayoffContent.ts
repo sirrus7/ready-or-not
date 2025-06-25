@@ -226,9 +226,9 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             id: 'A',
             name: "Strategic Plan II - 5 Year Vision",
             effects: [
-                {kpi: 'asp', change_value: 20, timing: 'immediate'},
+                {kpi: 'capacity', change_value: 250, timing: 'immediate'},
                 {kpi: 'orders', change_value: 250, timing: 'immediate'},
-                {kpi: 'capacity', change_value: 250, timing: 'immediate'}
+                {kpi: 'asp', change_value: 20, timing: 'immediate'}
             ]
         },
         {
@@ -264,62 +264,54 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
         },
         {
             id: 'F',
-            name: "Premium Brand Development",
+            name: "Maximize Boutique Sales III - Premium Market Dominance",
             effects: [
-                {kpi: 'asp', change_value: 80, timing: 'immediate'},
-                {kpi: 'orders', change_value: 3000, timing: 'immediate'}
+                {kpi: 'orders', change_value: 3000, timing: 'immediate'},
+                {kpi: 'asp', change_value: 80, timing: 'immediate'}
             ]
         },
         {
             id: 'G',
-            name: "Global Market Expansion",
+            name: "Big Box Expansion III - Mass Market Penetration",
             effects: [
-                {kpi: 'asp', change_value: -40, timing: 'immediate'},
                 {kpi: 'orders', change_value: 4000, timing: 'immediate'},
-                {kpi: 'cost', change_value: 100000, timing: 'immediate'}
+                {kpi: 'cost', change_value: 100000, timing: 'immediate'},
+                {kpi: 'asp', change_value: -40, timing: 'immediate'}
             ]
         },
         {
             id: 'H',
-            name: "Digital Transformation Initiative",
+            name: "Enterprise Resource Planning III - System Integration",
             effects: [
-                {kpi: 'asp', change_value: 10, timing: 'immediate'},
-                {kpi: 'orders', change_value: 250, timing: 'immediate'},
                 {kpi: 'capacity', change_value: 250, timing: 'immediate'},
-                {kpi: 'cost', change_value: 25000, timing: 'immediate'}
+                {kpi: 'orders', change_value: 250, timing: 'immediate'},
+                {kpi: 'cost', change_value: 25000, timing: 'immediate'},
+                {kpi: 'asp', change_value: 10, timing: 'immediate'}
             ]
         },
         {
             id: 'I',
-            name: "Sustainability & Green Manufacturing",
+            name: "IT & Cyber Security III - Protected Infrastructure",
             effects: [
-                {kpi: 'asp', change_value: 15, timing: 'immediate'},
-                {kpi: 'orders', change_value: 500, timing: 'immediate'}
+                // ✅ FIXED: No effects - slide shows "Protection from future cyber attacks" (immunity only)
             ]
         },
         {
             id: 'J',
-            name: "Innovation Lab & R&D Center",
+            name: "Product Line Expansion III - Diversified Portfolio",
             effects: [
-                {kpi: 'asp', change_value: 25, timing: 'immediate'},
-                {kpi: 'capacity', change_value: 500, timing: 'immediate'}
+                {kpi: 'capacity', change_value: 4000, timing: 'immediate'},
+                {kpi: 'orders', change_value: 4000, timing: 'immediate'},
+                {kpi: 'cost', change_value: 200000, timing: 'immediate'},
+                {kpi: 'asp', change_value: -80, timing: 'immediate'}
             ]
         },
         {
             id: 'K',
-            name: "Customer Experience Platform",
+            name: "Automation & Co-Bots III - Full Automation",
             effects: [
-                {kpi: 'asp', change_value: 5, timing: 'immediate'},
-                {kpi: 'orders', change_value: 1000, timing: 'immediate'}
-            ]
-        },
-        {
-            id: 'L',
-            name: "Strategic Acquisition",
-            effects: [
-                {kpi: 'capacity', change_value: 2000, timing: 'immediate'},
-                {kpi: 'orders', change_value: 1500, timing: 'immediate'},
-                {kpi: 'cost', change_value: 200000, timing: 'immediate'}
+                {kpi: 'capacity', change_value: 3750, timing: 'immediate'},
+                {kpi: 'cost', change_value: 150000, timing: 'immediate'}
             ]
         }
     ]

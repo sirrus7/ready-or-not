@@ -29,7 +29,7 @@ export const SLIDE_TO_INVESTMENT_PHASE_MAP = new Map<number, string>([
     [137, 'rd2-invest'],  // Bonus: Production Efficiency Synergy
     [138, 'rd2-invest'],  // Bonus: Supply Chain + Distribution Channels
 
-    // ===== ROUND 3 INVESTMENT PAYOFFS (Slides 170-181) =====
+    // ===== ROUND 3 INVESTMENT PAYOFFS (Slides 171-181) =====
     [171, 'rd3-invest'],  // A. Business Growth Strategy
     [172, 'rd3-invest'],  // B. Production Efficiency
     [173, 'rd3-invest'],  // C. Expanded 2nd Shift
@@ -41,6 +41,8 @@ export const SLIDE_TO_INVESTMENT_PHASE_MAP = new Map<number, string>([
     [179, 'rd3-invest'],  // I. IT Security
     [180, 'rd3-invest'],  // J. Product Line Expansion
     [181, 'rd3-invest'],  // K. Automation & Co-Bots
+    [182, 'rd3-invest'],  // ✅ ADDED: Bonus - Production Efficiency Synergy
+    [183, 'rd3-invest'],  // ✅ ADDED: Bonus - Supply Chain + Distribution Synergy
 ]);
 
 /**
