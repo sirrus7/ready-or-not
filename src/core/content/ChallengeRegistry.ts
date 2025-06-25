@@ -82,7 +82,7 @@ export const CHALLENGE_REGISTRY: Record<string, ChallengeMetadata> = {
         round: 3,
         impact_card_title: 'ERP Impact',
         impact_card_description: 'ERP implementation decisions affect operations.',
-        consequence_slides: [165, 166, 167]
+        consequence_slides: [166, 167, 168]
     }
 };
 

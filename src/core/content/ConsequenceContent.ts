@@ -906,7 +906,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             ]
         }
     ],
-    'ch9-conseq': [ // ERP Crisis
+    'ch9-conseq': [ // ERP Crisis - FIXED to match slides exactly
         {
             id: 'ch9_conseq_a',
             challenge_option_id: 'A',
@@ -914,14 +914,14 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             effects: [
                 {
                     kpi: 'capacity',
-                    change_value: -1000,
+                    change_value: -250,    // ✅ FIXED: Was -1000, now -250 to match slide
                     timing: 'immediate',
                     challenge_id: 'ch9',
                     option_id: 'A'
                 },
                 {
                     kpi: 'cost',
-                    change_value: 150000,
+                    change_value: 150000,  // ✅ CORRECT: +$150K matches slide
                     timing: 'immediate',
                     challenge_id: 'ch9',
                     option_id: 'A'
@@ -934,15 +934,15 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             narrative_text: "You scrambled to meet higher demand, but disconnected systems drove confusion and late orders. Hiring expediters was very expensive.",
             effects: [
                 {
-                    kpi: 'capacity',
-                    change_value: -1000,
+                    kpi: 'orders',         // ✅ FIXED: Was 'capacity', now 'orders' to match slide
+                    change_value: -1000,   // ✅ CORRECT: -1000 Orders matches slide
                     timing: 'immediate',
                     challenge_id: 'ch9',
                     option_id: 'B'
                 },
                 {
                     kpi: 'cost',
-                    change_value: 100000,
+                    change_value: 50000,   // ✅ FIXED: Was 100000, now 50000 (+$50K) to match slide
                     timing: 'immediate',
                     challenge_id: 'ch9',
                     option_id: 'B'
@@ -956,18 +956,12 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             effects: [
                 {
                     kpi: 'orders',
-                    change_value: 500,
-                    timing: 'immediate',
-                    challenge_id: 'ch9',
-                    option_id: 'C'
-                },
-                {
-                    kpi: 'cost',
-                    change_value: -25000,
+                    change_value: 500,     // ✅ CORRECT: +500 Orders matches slide
                     timing: 'immediate',
                     challenge_id: 'ch9',
                     option_id: 'C'
                 }
+                // ✅ REMOVED: -$25K cost effect not shown in slide
             ]
         }
     ]
