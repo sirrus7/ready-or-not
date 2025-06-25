@@ -14,6 +14,7 @@ interface TeamGameContextType {
 
 const TeamGameContext = createContext<TeamGameContextType | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTeamGameContext = (): TeamGameContextType => {
     const context = useContext(TeamGameContext);
     if (!context) {
