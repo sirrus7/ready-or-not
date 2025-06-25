@@ -53,11 +53,8 @@ export class SimpleBroadcastManager {
         this.sessionId = sessionId;
         this.mode = mode;
         this.channel = new BroadcastChannel(`game-session-${sessionId}`);
-
         this.setupMessageHandling();
         this.startPingPong();
-
-        console.log(`[SimpleBroadcastManager] Initialized for session ${sessionId} in ${mode} mode`);
     }
 
     static getInstance(sessionId: string, mode: 'host' | 'presentation' | 'team'): SimpleBroadcastManager {
@@ -100,14 +97,12 @@ export class SimpleBroadcastManager {
 
                 case 'SLIDE_UPDATE':
                     if (this.mode === 'presentation' || this.mode === 'team') {
-                        console.log(`[SimpleBroadcastManager] Received slide update for ${this.mode}:`, message.slide.id);
                         this.slideHandlers.forEach(handler => handler(message.slide));
                     }
                     break;
 
                 case 'KPI_UPDATE': // NEW: Handle KPI updates
                     if (this.mode === 'team') {
-                        console.log(`[SimpleBroadcastManager] Received KPI update for team mode:`, message.payload);
                         this.kpiHandlers.forEach(handler => handler(message.payload));
                     }
                     break;
@@ -131,10 +126,6 @@ export class SimpleBroadcastManager {
                     break;
 
                 case 'COMMAND_ACK':
-                    // Host receives acknowledgment (optional logging)
-                    if (this.mode === 'host') {
-                        console.log('[SimpleBroadcastManager] Command acknowledged:', message.commandId);
-                    }
                     break;
             }
         };
@@ -189,7 +180,6 @@ export class SimpleBroadcastManager {
 
         if (this.connectionStatus !== status) {
             this.connectionStatus = status;
-            console.log(`[SimpleBroadcastManager] Connection status changed to: ${status}`);
             this.statusCallbacks.forEach(callback => {
                 try {
                     callback(status);
@@ -215,7 +205,6 @@ export class SimpleBroadcastManager {
         };
 
         this.sendMessage(command);
-        console.log(`[SimpleBroadcastManager] Sent command: ${action}`, data);
     }
 
     sendSlideUpdate(slide: Slide): void {
@@ -229,7 +218,6 @@ export class SimpleBroadcastManager {
         };
 
         this.sendMessage(update);
-        console.log(`[SimpleBroadcastManager] HOST sent slide update:`, slide.id, slide.title || 'No title');
     }
 
     // NEW: Send KPI updates to all team interfaces
@@ -244,7 +232,6 @@ export class SimpleBroadcastManager {
         };
 
         this.sendMessage(update);
-        console.log(`[SimpleBroadcastManager] HOST sent KPI update:`, data.updatedTeams.length, 'teams affected');
     }
 
     onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
@@ -314,9 +301,6 @@ export class SimpleBroadcastManager {
 
     destroy(): void {
         if (this.isDestroyed) return;
-
-        console.log(`[SimpleBroadcastManager] Destroying instance for session ${this.sessionId}`);
-
         this.isDestroyed = true;
 
         if (this.pingInterval) {

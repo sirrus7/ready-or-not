@@ -51,7 +51,6 @@ const DashboardPage: React.FC = () => {
     // FIXED: Auto-refresh when returning from cancelled draft creation
     useEffect(() => {
         if (shouldAutoRefresh && !authLoading && user && !autoRefreshHandled.current) {
-            console.log('[DashboardPage] Auto-refreshing due to forceRefresh state');
             autoRefreshHandled.current = true; // Prevent multiple executions
 
             // Clear the location state immediately to prevent re-triggering
@@ -67,7 +66,6 @@ const DashboardPage: React.FC = () => {
 
     // Manual refresh function
     const handleManualRefresh = async () => {
-        console.log('[DashboardPage] Manual refresh triggered');
         clearCache();
         await refetchGames();
     };

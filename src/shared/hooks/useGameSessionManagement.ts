@@ -1,28 +1,29 @@
-// src/shared/hooks/useGameSessionManagement.ts - Comprehensive session management actions
-import { useCallback } from 'react';
-import { GameStructure, GameSession } from '@shared/types';
-import { GameSessionManager } from '@core/game/GameSessionManager';
+// src/shared/hooks/useGameSessionManagement.ts - Updated session management actions
+import {useCallback} from 'react';
+import {GameSession} from '@shared/types';
+import {GameSessionManager} from '@core/game/GameSessionManager';
 
 interface GameSessionManagementReturn {
     deleteSession: (sessionId: string) => Promise<void>;
-    resetSessionProgress: (sessionId: string, gameStructure: GameStructure) => Promise<GameSession>;
     completeSession: (sessionId: string) => Promise<GameSession>;
-    navigateToPhaseSlide: (sessionId: string, phaseId: string, slideIndex: number) => Promise<GameSession>;
     validateSession: (sessionId: string) => Promise<boolean>;
     getSessionStatus: (sessionId: string) => Promise<{
         exists: boolean;
         isComplete: boolean;
-        currentPhase: string | null;
+        currentSlide: number | null;
         lastUpdated: string;
     }>;
-    updateTeacherNotes: (sessionId: string, notes: Record<string, string>) => Promise<GameSession>;
 }
 
 /**
- * useGameSessionManagement is a React hook providing a comprehensive set of actions
- * for managing game sessions. It's suitable for components like the Dashboard where
- * a teacher interacts with multiple sessions or performs high-level session operations.
- * It uses the GameSessionManager singleton for data persistence.
+ * useGameSessionManagement is a React hook providing essential session management actions
+ * for high-level operations like the Dashboard. This hook focuses on session lifecycle
+ * management (create, delete, complete, validate).
+ *
+ * For functionality not included here:
+ * - Real-time game navigation → use useGameController (nextSlide, previousSlide, selectSlideByIndex)
+ * - Real-time host notes → use useGameController (updateHostNotesForCurrentSlide)
+ * - Game progress reset → use useGameProcessing (resetGameProgress)
  */
 export const useGameSessionManagement = (): GameSessionManagementReturn => {
     const sessionManager = GameSessionManager.getInstance();
@@ -31,20 +32,8 @@ export const useGameSessionManagement = (): GameSessionManagementReturn => {
         await sessionManager.deleteSession(sessionId);
     }, [sessionManager]);
 
-    const resetSessionProgress = useCallback(async (sessionId: string, gameStructure: GameStructure) => {
-        return await sessionManager.resetSessionProgress(sessionId, gameStructure);
-    }, [sessionManager]);
-
     const completeSession = useCallback(async (sessionId: string) => {
         return await sessionManager.completeSession(sessionId);
-    }, [sessionManager]);
-
-    const navigateToPhaseSlide = useCallback(async (
-        sessionId: string,
-        phaseId: string,
-        slideIndex: number
-    ) => {
-        return await sessionManager.navigateToPhaseSlide(sessionId, phaseId, slideIndex);
     }, [sessionManager]);
 
     const validateSession = useCallback(async (sessionId: string) => {
@@ -52,20 +41,19 @@ export const useGameSessionManagement = (): GameSessionManagementReturn => {
     }, [sessionManager]);
 
     const getSessionStatus = useCallback(async (sessionId: string) => {
-        return sessionManager.getSessionStatus(sessionId);
-    }, [sessionManager]);
-
-    const updateTeacherNotes = useCallback(async (sessionId: string, notes: Record<string, string>) => {
-        return await sessionManager.updateTeacherNotes(sessionId, notes);
+        const status = await sessionManager.getSessionStatus(sessionId);
+        return {
+            exists: status.exists,
+            isComplete: status.isComplete,
+            currentSlide: status.currentPhase ? parseInt(status.currentPhase) : null, // Convert to slide index
+            lastUpdated: status.lastUpdated
+        };
     }, [sessionManager]);
 
     return {
         deleteSession,
-        resetSessionProgress,
         completeSession,
-        navigateToPhaseSlide,
         validateSession,
         getSessionStatus,
-        updateTeacherNotes,
     };
 };

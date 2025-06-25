@@ -103,9 +103,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         }
 
         try {
-            console.log(`GameProvider: Resetting decision for team ${teamId}, phase ${interactiveDataKey}`);
             await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
-            console.log('GameProvider: Team decision reset successfully');
         } catch (error) {
             console.error('GameProvider: Error resetting team decision:', error);
             throw error;

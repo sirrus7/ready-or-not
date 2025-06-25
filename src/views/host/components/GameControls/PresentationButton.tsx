@@ -1,8 +1,8 @@
 // src/views/host/components/GameControls/PresentationButton.tsx - Simplified with master-slave pattern
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {ExternalLink, Wifi} from 'lucide-react';
 import {useGameContext} from '@app/providers/GameProvider';
-import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
+import {ConnectionStatus, SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 /**
  * Simplified presentation button that launches and monitors presentation display
@@ -19,26 +19,21 @@ const PresentationButton: React.FC = () => {
     useEffect(() => {
         if (!broadcastManager) return;
 
-        const unsubscribe = broadcastManager.onPresentationStatus((status: ConnectionStatus) => {
-            console.log('[PresentationButton] Connection status changed:', status);
+        return broadcastManager.onPresentationStatus((status: ConnectionStatus) => {
             setConnectionStatus(status);
 
             // Send current slide when presentation connects
             if (status === 'connected' && currentSlideData) {
-                console.log('[PresentationButton] Sending current slide to connected presentation');
                 setTimeout(() => {
                     broadcastManager.sendSlideUpdate(currentSlideData);
                 }, 500);
             }
         });
-
-        return unsubscribe;
     }, [broadcastManager, currentSlideData]);
 
     // Send slide updates when current slide changes
     useEffect(() => {
         if (broadcastManager && currentSlideData && connectionStatus === 'connected') {
-            console.log('[PresentationButton] Sending slide update:', currentSlideData.id, currentSlideData.title);
             broadcastManager.sendSlideUpdate(currentSlideData);
         }
     }, [broadcastManager, currentSlideData?.id, connectionStatus]);
@@ -49,7 +44,6 @@ const PresentationButton: React.FC = () => {
 
         const checkInterval = setInterval(() => {
             if (presentationTabRef.current?.closed) {
-                console.log('[PresentationButton] Presentation tab was closed');
                 setConnectionStatus('disconnected');
                 presentationTabRef.current = null;
                 clearInterval(checkInterval);
@@ -66,7 +60,6 @@ const PresentationButton: React.FC = () => {
         }
 
         const url = `/display/${state.currentSessionId}`;
-        console.log('[PresentationButton] Opening presentation display:', url);
 
         // Open new window for presentation
         const newTab = window.open(url, '_blank');

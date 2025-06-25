@@ -21,8 +21,6 @@ export class KpiDataUtils {
             throw new Error("Invalid sessionId for KPI data.");
         }
 
-        console.log(`[KpiDataUtils] Ensuring KPI data exists for team ${teamId}, round ${roundNumber}`);
-
         // Check if data already exists in memory
         const existingKpis = teamRoundData[teamId]?.[roundNumber];
         if (existingKpis) {
@@ -40,7 +38,7 @@ export class KpiDataUtils {
                 return existingData as TeamRoundData;
             }
         } catch (error) {
-            console.log(`[KpiDataUtils] No existing round data found for team ${teamId} round ${roundNumber}, creating new.`);
+            console.warn(`[KpiDataUtils] No existing round data found for team ${teamId} round ${roundNumber}, creating new.`, error);
         }
 
         // Create new round data with permanent adjustments applied
@@ -69,7 +67,6 @@ export class KpiDataUtils {
             [teamId]: {...(prev[teamId] || {}), [roundNumber]: insertedData as TeamRoundData}
         }));
 
-        console.log(`[KpiDataUtils] ✅ Created new KPI data for team ${teamId} round ${roundNumber}`);
         return insertedData as TeamRoundData;
     }
 
@@ -93,9 +90,7 @@ export class KpiDataUtils {
         );
 
         if (adjustmentsToUpsert.length > 0) {
-            console.log(`[KpiDataUtils] 💾 Storing ${adjustmentsToUpsert.length} permanent adjustments for team ${teamId}`);
             await db.adjustments.upsert(adjustmentsToUpsert);
-            console.log(`[KpiDataUtils] ✅ Successfully stored permanent adjustments`);
         }
     }
 }

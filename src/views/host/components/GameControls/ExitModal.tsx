@@ -27,7 +27,6 @@ const ExitGameModal: React.FC<ExitGameModalProps> = ({isOpen, onClose}) => {
     const confirmExitGame = () => {
         // Send a command to close the presentation window if a session is active
         if (state.currentSessionId) {
-            console.log('[ExitModal] Sending close_presentation command.');
             const broadcastManager = SimpleBroadcastManager.getInstance(state.currentSessionId, 'host');
             broadcastManager.sendCommand('close_presentation');
         }

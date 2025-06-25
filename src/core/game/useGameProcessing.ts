@@ -73,8 +73,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
     const unifiedEffectsProcessor = useMemo(() => {
         if (!currentDbSession || !gameStructure) return null;
 
-        console.log('[useGameProcessing] Creating UnifiedEffectsProcessor instance for session:', currentDbSession.id);
-
         return new UnifiedEffectsProcessor({
             currentDbSession,
             gameStructure,
@@ -116,14 +114,10 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             return;
         }
 
-        console.log(`[useGameProcessing] Ensuring all teams have choices for ${decisionKey}`);
-
         for (const team of teams) {
             const existingDecision = teamDecisions[team.id]?.[decisionKey];
 
             if (!existingDecision || !existingDecision.selected_challenge_option_id) {
-                console.log(`[useGameProcessing] Creating default decision for team ${team.name}: ${defaultOption.id}`);
-
                 try {
                     await db.decisions.upsert({
                         session_id: currentDbSession.id,
@@ -142,8 +136,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
 
     // Interactive slide processing (simplified inline implementation)
     const processInteractiveSlide = useCallback(async (completedSlide: Slide) => {
-        console.log('[useGameProcessing] Processing interactive slide:', completedSlide.id);
-
         if (!currentDbSession?.id || !gameStructure || teams.length === 0) {
             console.warn('[useGameProcessing] Skipping processing - insufficient data');
             return;
@@ -168,9 +160,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                 fetchTeamDecisionsFromHook(currentDbSession.id),
                 fetchTeamRoundDataFromHook(currentDbSession.id)
             ]);
-
-            console.log('[useGameProcessing] Interactive slide processed successfully');
-
         } catch (error) {
             console.error('[useGameProcessing] Slide processing failed:', error);
             throw error;
@@ -179,14 +168,12 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
 
     // Consequence processing (uses UnifiedEffectsProcessor)
     const processConsequenceSlide = useCallback(async (consequenceSlide: Slide) => {
-        console.log('[useGameProcessing] Processing consequence slide:', consequenceSlide.id);
         if (!currentDbSession?.id || !gameStructure || teams.length === 0 || !unifiedEffectsProcessor) {
             console.warn('[useGameProcessing] Skipping consequence processing - insufficient data or processor');
             return;
         }
         try {
             await unifiedEffectsProcessor.processEffectSlide(consequenceSlide);
-            console.log('[useGameProcessing] Consequence slide processed successfully');
         } catch (error) {
             console.error('[useGameProcessing] Consequence processing failed:', error);
             throw error;
@@ -195,14 +182,12 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
 
     // Payoff processing (NEW - uses UnifiedEffectsProcessor for slide-specific processing)
     const processPayoffSlide = useCallback(async (payoffSlide: Slide) => {
-        console.log('[useGameProcessing] Processing payoff slide:', payoffSlide.id);
         if (!currentDbSession?.id || !gameStructure || teams.length === 0 || !unifiedEffectsProcessor) {
             console.warn('[useGameProcessing] Skipping payoff processing - insufficient data or processor');
             return;
         }
         try {
             await unifiedEffectsProcessor.processEffectSlide(payoffSlide);
-            console.log('[useGameProcessing] Payoff slide processed successfully');
         } catch (error) {
             console.error('[useGameProcessing] Payoff processing failed:', error);
             throw error;
@@ -211,14 +196,12 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
 
     // Add this method alongside processConsequenceSlide and processPayoffSlide
     const processKpiResetSlide = useCallback(async (kpiResetSlide: Slide) => {
-        console.log('[useGameProcessing] Processing KPI reset slide:', kpiResetSlide.id);
         if (!currentDbSession?.id || !gameStructure || teams.length === 0 || !unifiedEffectsProcessor) {
             console.warn('[useGameProcessing] Skipping KPI reset processing - insufficient data or processor');
             return;
         }
         try {
             await unifiedEffectsProcessor.processEffectSlide(kpiResetSlide);
-            console.log('[useGameProcessing] KPI reset slide processed successfully');
         } catch (error) {
             console.error('[useGameProcessing] KPI reset processing failed:', error);
             throw error;
@@ -235,8 +218,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                 throw new Error('Invalid state for KPI calculation');
             }
 
-            console.log(`[useGameProcessing] Calculating and finalizing KPIs for round ${roundNumber}`);
-
             for (const team of teams) {
                 const kpis = teamRoundData[team.id]?.[roundNumber];
                 if (kpis?.id) {
@@ -250,7 +231,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             }
 
             await fetchTeamRoundDataFromHook(currentDbSession.id);
-            console.log(`[useGameProcessing] KPIs finalized for round ${roundNumber}`);
         }
     );
 
@@ -272,7 +252,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                 // Reset unified effects processor state
                 if (unifiedEffectsProcessor) {
                     unifiedEffectsProcessor.resetProcessedSlides();
-                    console.log('[useGameProcessing] Reset unified effects processor state');
                 }
 
                 // Delete all team decisions, KPI data, and applications for this session
@@ -293,8 +272,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
 
                 // Redirect to first slide
                 navigate(`/host/${currentDbSession.id}`);
-
-                console.log('[useGameProcessing] Game progress reset successfully');
             } catch (error) {
                 console.error('Error resetting game progress:', error);
                 throw error;
