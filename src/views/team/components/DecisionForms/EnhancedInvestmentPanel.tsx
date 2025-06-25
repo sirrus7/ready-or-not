@@ -6,6 +6,7 @@ import {InvestmentOption} from '@shared/types';
 import {ContinuationPricingEngine, InvestmentPricing} from '@core/game/ContinuationPricingEngine';
 import {CheckCircle, Info, Ban} from 'lucide-react';
 import ImmediatePurchaseModal from './ImmediatePurchaseModal';
+import {InvestmentDisplayUtils} from "@shared/utils/InvestmentDisplayUtils.ts";
 
 // Helper function for currency formatting
 const formatCurrency = (amount: number): string => {
@@ -230,7 +231,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                         ? 'text-gray-400'
                                         : 'text-white'
                             }`}>
-                                {investment.id}. {investment.name}
+                                {InvestmentDisplayUtils.getDisplayId(investment.id, true)}. {investment.name}
                             </span>
                         </div>
 

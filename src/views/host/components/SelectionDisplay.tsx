@@ -2,6 +2,7 @@
 // Professional, clean component for displaying team selection data
 
 import React from 'react';
+import {InvestmentDisplayUtils} from "@shared/utils/InvestmentDisplayUtils.ts";
 
 const formatCurrency = (value: number): string => {
     if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
@@ -58,7 +59,7 @@ const SelectionDisplay: React.FC<SelectionDisplayProps> = ({selectionData}) => {
                         {investments.map((investment, index) => (
                             <div key={`${investment.id}-${index}`} className="flex items-center justify-between">
                                 <div className="flex items-center">
-                                    <span className="text-gray-700">{investment.id}. {investment.name}</span>
+                                    <span className="text-gray-700">{InvestmentDisplayUtils.getDisplayId(investment.id, true)}. {investment.name}</span>
                                     {investment.isImmediate && (
                                         <span
                                             className="ml-2 text-xs text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">

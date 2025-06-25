@@ -6,6 +6,7 @@ import {ShoppingBag, DollarSign, CheckCircle} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
+import {InvestmentDisplayUtils} from "@shared/utils/InvestmentDisplayUtils.ts";
 
 interface InvestmentDisplayProps {
     sessionId: string;
@@ -222,7 +223,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                     >
                         <div className="flex items-center gap-2">
                             <span className="bg-blue-600 text-blue-100 px-2 py-1 rounded text-sm font-mono">
-                                {investment.id}
+                                {InvestmentDisplayUtils.getDisplayId(investment.id, true)}
                             </span>
                             <span className="text-gray-200 text-sm">
                                 {investment.name}

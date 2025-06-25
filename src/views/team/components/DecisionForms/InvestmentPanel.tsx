@@ -4,6 +4,7 @@
 import React, {useState} from 'react';
 import {InvestmentOption} from '@shared/types';
 import {CheckCircle, Zap, X} from 'lucide-react';
+import {InvestmentDisplayUtils} from "@shared/utils/InvestmentDisplayUtils.ts";
 
 interface InvestmentPanelProps {
     investmentOptions: InvestmentOption[];
@@ -212,7 +213,7 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                                     ? 'text-gray-400'
                                                     : 'text-white'
                                         }`}>
-                                            {opt.id}. {opt.name}
+                                            {InvestmentDisplayUtils.getDisplayId(opt.id, true)}. {opt.name}
                                         </span>
                                         {isImmediate && !isImmediatePurchased && (
                                             <span
