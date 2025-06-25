@@ -318,43 +318,114 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             ]
         }
     ],
-    'ch5-conseq': [ // Capacity Crisis
+    'ch5-conseq': [ // Capacity Crisis with combinations
         {
             id: 'ch5_conseq_a',
             challenge_option_id: 'A',
-            narrative_text: "Overtime and temporary workers increased capacity but at higher costs.",
+            narrative_text: "You hired a manager and 5 additional hourly employees. Higher recruiting and wage costs but increased capacity. You've permanently impacted your KPIs. HR Managers come to the Facilitator's Desk for a Permanent KPI Impact Card.",
             effects: [
                 {
                     kpi: 'capacity',
-                    change_value: 500,
+                    change_value: 1000,
                     timing: 'immediate',
                     challenge_id: 'ch5',
                     option_id: 'A'
                 },
                 {
                     kpi: 'cost',
-                    change_value: 100000,
+                    change_value: 400000,
                     timing: 'immediate',
                     challenge_id: 'ch5',
                     option_id: 'A'
+                },
+                {
+                    kpi: 'cost',
+                    change_value: 300000,
+                    timing: 'permanent_next_round_start',
+                    applies_to_rounds: [3],
+                    description: "Permanent Hiring Cost Impact",
+                    challenge_id: 'ch5',
+                    option_id: 'A'
+                },
+                {
+                    kpi: 'capacity',
+                    change_value: 1000,
+                    timing: 'permanent_next_round_start',
+                    applies_to_rounds: [3],
+                    description: "Permanent Hiring Capacity Impact",
+                    challenge_id: 'ch5',
+                    option_id: 'A'
+                }
+            ]
+        },
+        {
+            id: 'ch5_conseq_ac',
+            challenge_option_id: 'A,C',
+            narrative_text: "You hired a manager and employees AND took advantage of supply-demand imbalance to raise prices. You gained capacity and higher margins but lost some value-conscious customers. You've permanently impacted your KPIs. HR Managers come to the Facilitator's Desk for a Permanent KPI Impact Card.",
+            effects: [
+                {
+                    kpi: 'capacity',
+                    change_value: 1000,
+                    timing: 'immediate',
+                    challenge_id: 'ch5',
+                    option_id: 'A,C'
+                },
+                {
+                    kpi: 'cost',
+                    change_value: 400000,
+                    timing: 'immediate',
+                    challenge_id: 'ch5',
+                    option_id: 'A,C'
+                },
+                {
+                    kpi: 'orders',
+                    change_value: -250,
+                    timing: 'immediate',
+                    challenge_id: 'ch5',
+                    option_id: 'A,C'
+                },
+                {
+                    kpi: 'asp',
+                    change_value: 50,
+                    timing: 'immediate',
+                    challenge_id: 'ch5',
+                    option_id: 'A,C'
+                },
+                {
+                    kpi: 'cost',
+                    change_value: 300000,
+                    timing: 'permanent_next_round_start',
+                    applies_to_rounds: [3],
+                    description: "Permanent Hiring Cost Impact",
+                    challenge_id: 'ch5',
+                    option_id: 'A,C'
+                },
+                {
+                    kpi: 'capacity',
+                    change_value: 1000,
+                    timing: 'permanent_next_round_start',
+                    applies_to_rounds: [3],
+                    description: "Permanent Hiring Capacity Impact",
+                    challenge_id: 'ch5',
+                    option_id: 'A,C'
                 }
             ]
         },
         {
             id: 'ch5_conseq_b',
             challenge_option_id: 'B',
-            narrative_text: "Outsourcing production maintained delivery schedules with moderate cost increase.",
+            narrative_text: "You hired temporary workers and increased overtime. Effective short-term solution with lower costs than permanent hiring.",
             effects: [
                 {
                     kpi: 'capacity',
-                    change_value: 750,
+                    change_value: 1000,
                     timing: 'immediate',
                     challenge_id: 'ch5',
                     option_id: 'B'
                 },
                 {
                     kpi: 'cost',
-                    change_value: 75000,
+                    change_value: 200000,
                     timing: 'immediate',
                     challenge_id: 'ch5',
                     option_id: 'B'
@@ -362,20 +433,55 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             ]
         },
         {
-            id: 'ch5_conseq_c',
-            challenge_option_id: 'C',
-            narrative_text: "Process improvements increased efficiency but took time to implement.",
+            id: 'ch5_conseq_bc',
+            challenge_option_id: 'B,C',
+            narrative_text: "You hired temporary workers AND took advantage of supply-demand imbalance to raise prices. Lower hiring costs but lost some value-conscious customers.",
             effects: [
                 {
                     kpi: 'capacity',
-                    change_value: 300,
+                    change_value: 1000,
+                    timing: 'immediate',
+                    challenge_id: 'ch5',
+                    option_id: 'B,C'
+                },
+                {
+                    kpi: 'cost',
+                    change_value: 200000,
+                    timing: 'immediate',
+                    challenge_id: 'ch5',
+                    option_id: 'B,C'
+                },
+                {
+                    kpi: 'orders',
+                    change_value: -250,
+                    timing: 'immediate',
+                    challenge_id: 'ch5',
+                    option_id: 'B,C'
+                },
+                {
+                    kpi: 'asp',
+                    change_value: 50,
+                    timing: 'immediate',
+                    challenge_id: 'ch5',
+                    option_id: 'B,C'
+                }
+            ]
+        },
+        {
+            id: 'ch5_conseq_c',
+            challenge_option_id: 'C',
+            narrative_text: "You took advantage of supply-demand imbalance and raised prices without addressing capacity constraints. Higher margins but lost some customers.",
+            effects: [
+                {
+                    kpi: 'orders',
+                    change_value: -250,
                     timing: 'immediate',
                     challenge_id: 'ch5',
                     option_id: 'C'
                 },
                 {
-                    kpi: 'cost',
-                    change_value: 50000,
+                    kpi: 'asp',
+                    change_value: 50,
                     timing: 'immediate',
                     challenge_id: 'ch5',
                     option_id: 'C'
@@ -385,23 +491,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
         {
             id: 'ch5_conseq_d',
             challenge_option_id: 'D',
-            narrative_text: "Doing nothing resulted in missed orders and customer dissatisfaction.",
-            effects: [
-                {
-                    kpi: 'orders',
-                    change_value: -500,
-                    timing: 'immediate',
-                    challenge_id: 'ch5',
-                    option_id: 'D'
-                },
-                {
-                    kpi: 'capacity',
-                    change_value: -250,
-                    timing: 'immediate',
-                    challenge_id: 'ch5',
-                    option_id: 'D'
-                }
-            ]
+            narrative_text: "You did nothing and maintained status quo. No immediate impacts but may have missed opportunities.",
+            effects: []
         }
     ],
     'ch6-conseq': [ // Quality Crisis

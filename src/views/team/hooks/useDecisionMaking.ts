@@ -5,6 +5,7 @@ import {useState, useEffect, useMemo, useCallback} from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
 import {supabase} from '@shared/services/supabase';
 import {StrategyInvestmentTracker, StrategyInvestmentType} from "@core/game/StrategyInvestmentTracker.ts";
+import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
 
 export interface DecisionState {
     selectedInvestmentOptions: string[];  // CHANGED: now stores ['A', 'B', 'C']
@@ -114,8 +115,20 @@ export const useDecisionMaking = ({
                 return `${totalSelections} investments: ${allSelections.join(', ')} (${formatCurrency(state.spentBudget)} spent)`;
             }
             case 'interactive_choice': {
-                const option = challengeOptions.find(opt => opt.id === state.selectedChallengeOptionId);
-                return option ? `Selected: ${option.id} - ${option.text.substring(0, 50)}...` : 'No selection made';
+                const selectedOptionId = state.selectedChallengeOptionId;
+
+                // UPDATED: Handle multi-select combinations
+                if (selectedOptionId && selectedOptionId.includes(',')) {
+                    // Multi-select combination
+                    const selectedOptions = MultiSelectChallengeTracker.parseSelection(selectedOptionId);
+                    const displayText = MultiSelectChallengeTracker.getCombinationDisplayText(selectedOptions);
+
+                    return `Selected: ${displayText}`;
+                } else {
+                    // Single selection (existing logic)
+                    const option = challengeOptions.find(opt => opt.id === selectedOptionId);
+                    return option ? `Selected: ${option.id} - ${option.text.substring(0, 50)}...` : 'No selection made';
+                }
             }
             case 'interactive_double_down_select': {
                 if (!state.sacrificeInvestmentId || !state.doubleDownOnInvestmentId) return 'Incomplete selection';

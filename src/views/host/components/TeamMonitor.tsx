@@ -7,6 +7,7 @@ import {supabase} from '@shared/services/supabase';
 import Modal from '@shared/components/UI/Modal';
 import SelectionDisplay, {SelectionData} from './SelectionDisplay';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
+import { MultiSelectChallengeTracker } from '@core/game/MultiSelectChallengeTracker';
 
 interface ImmediatePurchaseData {
     id: string;
@@ -214,13 +215,27 @@ const TeamMonitor: React.FC = () => {
             case 'interactive_choice': {
                 const selectedOptionId = decision?.selected_challenge_option_id;
                 const challengeOptions = gameStructure.all_challenge_options[decisionKey] || [];
-                const selectedOption = challengeOptions.find(opt => opt.id === selectedOptionId);
 
-                return {
-                    type: 'choice',
-                    choiceText: selectedOption ? `Option ${selectedOption.id}` : 'Invalid selection',
-                    hasSubmission: !!decision
-                };
+                // Handle multi-select combinations
+                if (selectedOptionId && selectedOptionId.includes(',')) {
+                    const selectedOptions = MultiSelectChallengeTracker.parseSelection(selectedOptionId);
+                    const displayText = MultiSelectChallengeTracker.getCombinationDisplayText(selectedOptions);
+
+                    return {
+                        type: 'choice',
+                        choiceText: displayText,
+                        hasSubmission: !!decision
+                    };
+                } else {
+                    // Single selection (existing logic)
+                    const selectedOption = challengeOptions.find(opt => opt.id === selectedOptionId);
+
+                    return {
+                        type: 'choice',
+                        choiceText: selectedOption ? `Option ${selectedOption.id}` : 'Invalid selection',
+                        hasSubmission: !!decision
+                    };
+                }
             }
 
             default:

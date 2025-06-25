@@ -9,6 +9,7 @@ import {Info} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
 import SelectionDisplay, {SelectionData} from './SelectionDisplay';
+import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
 
 interface ImmediatePurchaseData {
     id: string;
@@ -132,13 +133,28 @@ const DecisionReviewModal: React.FC<DecisionReviewModalProps> = ({isOpen, onClos
             case 'interactive_choice': {
                 const selectedOptionId = decision?.selected_challenge_option_id;
                 const challengeOptions = gameStructure.all_challenge_options[decisionKey] || [];
-                const selectedOption = challengeOptions.find(opt => opt.id === selectedOptionId);
 
-                return {
-                    type: 'choice',
-                    choiceText: selectedOption ? `Option ${selectedOption.id}` : 'Invalid selection',
-                    hasSubmission: !!decision
-                };
+                // UPDATED: Handle multi-select combinations
+                if (selectedOptionId && selectedOptionId.includes(',')) {
+                    // Multi-select combination
+                    const selectedOptions = MultiSelectChallengeTracker.parseSelection(selectedOptionId);
+                    const displayText = MultiSelectChallengeTracker.getCombinationDisplayText(selectedOptions);
+
+                    return {
+                        type: 'choice',
+                        choiceText: displayText,
+                        hasSubmission: !!decision
+                    };
+                } else {
+                    // Single selection (existing logic)
+                    const selectedOption = challengeOptions.find(opt => opt.id === selectedOptionId);
+
+                    return {
+                        type: 'choice',
+                        choiceText: selectedOption ? `Option ${selectedOption.id}` : 'Invalid selection',
+                        hasSubmission: !!decision
+                    };
+                }
             }
 
             default:

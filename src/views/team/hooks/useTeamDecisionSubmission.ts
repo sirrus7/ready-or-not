@@ -8,6 +8,7 @@ import {Slide, InvestmentOption, ChallengeOption, GameStructure} from '@shared/t
 import {DecisionState} from './useDecisionMaking';
 import {InvestmentPurchaseHandler} from '@core/game/InvestmentPurchaseHandler';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
+import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
 
 interface UseTeamDecisionSubmissionProps {
     sessionId: string | null;
@@ -364,9 +365,20 @@ export const useTeamDecisionSubmission = ({
                 const challengeOptions = decisionKey ?
                     gameStructureWithData.all_challenge_options?.[decisionKey] || [] : [];
 
-                const selectedChallenge = challengeOptions.find(ch => ch.id === existingDecision.selected_challenge_option_id);
-                if (selectedChallenge) {
-                    parts.push(`Challenge: ${selectedChallenge.id}`);
+                // UPDATED: Handle multi-select combinations
+                const selectedOptionId = existingDecision.selected_challenge_option_id;
+
+                if (selectedOptionId.includes(',')) {
+                    // Multi-select combination
+                    const selectedOptions = MultiSelectChallengeTracker.parseSelection(selectedOptionId);
+                    const displayText = MultiSelectChallengeTracker.getCombinationDisplayText(selectedOptions);
+                    parts.push(`Challenge: ${displayText}`);
+                } else {
+                    // Single selection (existing logic)
+                    const selectedChallenge = challengeOptions.find(ch => ch.id === selectedOptionId);
+                    if (selectedChallenge) {
+                        parts.push(`Challenge: ${selectedChallenge.id}`);
+                    }
                 }
             }
 

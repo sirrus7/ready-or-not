@@ -12,6 +12,9 @@ import {ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
 import {StrategyInvestmentTracker} from './StrategyInvestmentTracker';
 import {KpiResetEngine} from './KpiResetEngine';
+import { ImmunityTracker } from './ImmunityTracker';
+import { MultiSelectChallengeTracker } from './MultiSelectChallengeTracker';
+import { EmployeeDevelopmentTracker } from './EmployeeDevelopmentTracker';
 import {allConsequencesData} from '@core/content/ConsequenceContent';
 import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
@@ -225,19 +228,35 @@ export class UnifiedEffectsProcessor {
                 continue;
             }
 
-            // Check if team selected this option
-            if (teamDecision.selected_challenge_option_id !== slideOption) {
+            // Get team's exact selection (could be "A", "A,C", "B,C", etc.)
+            const teamSelection = teamDecision.selected_challenge_option_id;
+            if (!teamSelection) {
                 continue;
             }
 
-            // Find consequence effects for this option - FIXED: Use challenge_option_id not selected_option
-            const consequenceForOption = allConsequencesForChallenge.find(cons => cons.challenge_option_id === slideOption);
-            if (!consequenceForOption?.effects) {
-                console.warn(`[UnifiedEffectsProcessor] ⚠️ No effects found for option ${slideOption} in challenge ${challengeId}`);
+            // Find consequence that matches the team's EXACT selection
+            const consequenceForTeamSelection = allConsequencesForChallenge.find(cons =>
+                cons.challenge_option_id === teamSelection
+            );
+
+            if (!consequenceForTeamSelection?.effects) {
+                console.warn(`[UnifiedEffectsProcessor] ⚠️ No consequences found for selection "${teamSelection}" in challenge ${challengeId}`);
                 continue;
             }
 
-            // Apply effects to team round data - FIXED: Use ensureTeamRoundData not ensureKpiDataExists
+            // Only process this slide if it's the consequence slide for this team's selection
+            if (!MultiSelectChallengeTracker.shouldSlideProcessSelection(consequenceSlide.id, teamSelection)) {
+                continue; // This slide is not for this team's selection
+            }
+
+            // Check immunity before applying effects
+            const hasImmunity = await ImmunityTracker.hasImmunity(currentDbSession.id, team.id, challengeId);
+            if (hasImmunity) {
+                console.log(`[UnifiedEffectsProcessor] Team ${team.name} has immunity for ${challengeId}, skipping effects`);
+                continue;
+            }
+
+            // Apply effects to team round data
             const currentRound = consequenceSlide.round_number as 1 | 2 | 3;
             const currentKpis = await KpiDataUtils.ensureTeamRoundData(
                 currentDbSession.id,
@@ -247,7 +266,7 @@ export class UnifiedEffectsProcessor {
                 setTeamRoundDataDirectly
             );
 
-            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, consequenceForOption.effects);
+            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, consequenceForTeamSelection.effects);
             const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
 
             // Save to database
@@ -256,20 +275,61 @@ export class UnifiedEffectsProcessor {
                 ...finalKpis
             });
 
-            // Handle permanent effects (if any)
-            const permanentEffects = consequenceForOption.effects.filter(eff =>
+            // ========================================================================
+            // MINIMAL CHANGE: Handle permanent effects with Employee Development check
+            // ========================================================================
+            const permanentEffects = consequenceForTeamSelection.effects.filter(eff =>
                 eff.timing === 'permanent_next_round_start'
             );
 
             if (permanentEffects.length > 0) {
-                await KpiDataUtils.storePermanentAdjustments(
-                    team.id,
-                    currentDbSession.id,
-                    permanentEffects,
-                    challengeId,
-                    slideOption
-                );
+                // SPECIAL HANDLING: CH5 hiring permanent effects need Employee Development check
+                if (challengeId === 'ch5' && (teamSelection === 'A' || teamSelection === 'A,C')) {
+                    // Check Employee Development investment for conditional capacity bonus
+                    const hasEmployeeDevelopment = await EmployeeDevelopmentTracker.hasEmployeeDevelopment(
+                        currentDbSession.id,
+                        team.id
+                    );
+
+                    // Calculate dynamic permanent effects with conditional bonus
+                    const dynamicPermanentEffects = permanentEffects.map(effect => {
+                        if (effect.kpi === 'capacity' && effect.description?.includes('Permanent Hiring Capacity Impact')) {
+                            // Apply conditional bonus: 1000 base + 500 if Employee Development
+                            const finalCapacityValue = EmployeeDevelopmentTracker.getConditionalCapacityBonus(hasEmployeeDevelopment);
+
+                            return {
+                                ...effect,
+                                change_value: finalCapacityValue,
+                                description: hasEmployeeDevelopment
+                                    ? "Permanent Hiring Capacity Impact (+500 bonus from Employee Development)"
+                                    : "Permanent Hiring Capacity Impact"
+                            };
+                        }
+                        return effect; // Return other effects unchanged
+                    });
+
+                    // Store the calculated permanent effects
+                    await KpiDataUtils.storePermanentAdjustments(
+                        team.id,
+                        currentDbSession.id,
+                        dynamicPermanentEffects,
+                        challengeId,
+                        teamSelection
+                    );
+
+                    console.log(`[UnifiedEffectsProcessor] Applied dynamic hiring effects for team ${team.name}, Employee Development: ${hasEmployeeDevelopment}`);
+                } else {
+                    // Regular permanent effects processing (existing logic unchanged)
+                    await KpiDataUtils.storePermanentAdjustments(
+                        team.id,
+                        currentDbSession.id,
+                        permanentEffects,
+                        challengeId,
+                        teamSelection
+                    );
+                }
             }
+            console.log(`[UnifiedEffectsProcessor] Applied effects for team ${team.name}, selection "${teamSelection}"`);
         }
 
         // Refresh data
