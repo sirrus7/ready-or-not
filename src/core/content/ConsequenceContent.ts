@@ -747,22 +747,22 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             ]
         }
     ],
-    'ch7-conseq': [ // Competition Response
+    'ch7-conseq': [
         {
             id: 'ch7_conseq_a',
             challenge_option_id: 'A',
-            narrative_text: "Price matching maintained market share but reduced profitability.",
+            narrative_text: "Reducing ASP helped protect some of the at-risk orders, but not all, and it will negatively impact your margins.",
             effects: [
                 {
-                    kpi: 'asp',
-                    change_value: -25,
+                    kpi: 'orders',
+                    change_value: -250,
                     timing: 'immediate',
                     challenge_id: 'ch7',
                     option_id: 'A'
                 },
                 {
-                    kpi: 'orders',
-                    change_value: 250,
+                    kpi: 'asp',
+                    change_value: -20,
                     timing: 'immediate',
                     challenge_id: 'ch7',
                     option_id: 'A'
@@ -772,18 +772,18 @@ export const allConsequencesData: Record<string, Consequence[]> = {
         {
             id: 'ch7_conseq_b',
             challenge_option_id: 'B',
-            narrative_text: "Innovation and differentiation justified premium pricing but required investment.",
+            narrative_text: "Your marketing and sales blitz helps maintain some orders, but your SUPs are still at a competitive disadvantage in retail stores. Karit Co. continues to steal orders.",
             effects: [
                 {
-                    kpi: 'asp',
-                    change_value: 50,
+                    kpi: 'orders',
+                    change_value: -250,
                     timing: 'immediate',
                     challenge_id: 'ch7',
                     option_id: 'B'
                 },
                 {
                     kpi: 'cost',
-                    change_value: 100000,
+                    change_value: 25000,
                     timing: 'immediate',
                     challenge_id: 'ch7',
                     option_id: 'B'
@@ -793,7 +793,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
         {
             id: 'ch7_conseq_c',
             challenge_option_id: 'C',
-            narrative_text: "More customization is a hit with consumers. You're able to maintain Orders and increase what you're charging. But customization adds Costs and slows down your production line.",
+            narrative_text: "More customization is a hit with consumers. You're able to maintain Orders and increase what you're charging for the customized orders. But customization adds Costs and slows down your production line.",
             effects: [
                 {
                     kpi: 'asp',
@@ -803,15 +803,15 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                     option_id: 'C'
                 },
                 {
-                    kpi: 'capacity',
-                    change_value: -500,
+                    kpi: 'cost',
+                    change_value: 25000,
                     timing: 'immediate',
                     challenge_id: 'ch7',
                     option_id: 'C'
                 },
                 {
-                    kpi: 'cost',
-                    change_value: 25000,
+                    kpi: 'capacity',
+                    change_value: -500, // Will be conditionally updated in UnifiedEffectsProcessor
                     timing: 'immediate',
                     challenge_id: 'ch7',
                     option_id: 'C'
@@ -821,18 +821,11 @@ export const allConsequencesData: Record<string, Consequence[]> = {
         {
             id: 'ch7_conseq_d',
             challenge_option_id: 'D',
-            narrative_text: "You do nothing and take the hit from increased competition.",
+            narrative_text: "Without any changes to price, marketing or process you maintain current prices but take a big hit in demand.",
             effects: [
                 {
                     kpi: 'orders',
-                    change_value: -250,
-                    timing: 'immediate',
-                    challenge_id: 'ch7',
-                    option_id: 'D'
-                },
-                {
-                    kpi: 'cost',
-                    change_value: 25000,
+                    change_value: -500,
                     timing: 'immediate',
                     challenge_id: 'ch7',
                     option_id: 'D'

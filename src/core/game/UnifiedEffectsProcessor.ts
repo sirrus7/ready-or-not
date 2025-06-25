@@ -1,20 +1,13 @@
 // src/core/game/UnifiedEffectsProcessor.ts
-import {
-    GameSession,
-    Team,
-    TeamDecision,
-    TeamRoundData,
-    GameStructure,
-    Slide,
-} from '@shared/types';
+import {GameSession, GameStructure, Slide, Team, TeamDecision, TeamRoundData,} from '@shared/types';
 import {db} from '@shared/services/supabase';
 import {ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
 import {StrategyInvestmentTracker} from './StrategyInvestmentTracker';
 import {KpiResetEngine} from './KpiResetEngine';
-import { ImmunityTracker } from './ImmunityTracker';
-import { MultiSelectChallengeTracker } from './MultiSelectChallengeTracker';
-import { EmployeeDevelopmentTracker } from './EmployeeDevelopmentTracker';
+import {ImmunityTracker} from './ImmunityTracker';
+import {MultiSelectChallengeTracker} from './MultiSelectChallengeTracker';
+import {EmployeeDevelopmentTracker} from './EmployeeDevelopmentTracker';
 import {allConsequencesData} from '@core/content/ConsequenceContent';
 import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
@@ -183,6 +176,44 @@ export class UnifiedEffectsProcessor {
     }
 
     /**
+     * Check if team bought CNC machine in CH1 (Option A)
+     */
+    private async checkCncMachine(sessionId: string, teamId: string): Promise<boolean> {
+        try {
+            const allDecisions = await db.decisions.getBySession(sessionId);
+            const teamDecisions = allDecisions.filter(d => d.team_id === teamId);
+
+            // Check for CNC machine (CH1 Option A)
+            return teamDecisions.some(decision =>
+                decision.phase_id === 'ch1' &&
+                decision.selected_challenge_option_id === 'A'
+            );
+        } catch (error) {
+            console.error('Error checking CNC machine:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Check if team invested in Automation & Co-Bots in RD-2 (Option K)
+     */
+    private async checkAutomationInvestment(sessionId: string, teamId: string): Promise<boolean> {
+        try {
+            const allDecisions = await db.decisions.getBySession(sessionId);
+            const teamDecisions = allDecisions.filter(d => d.team_id === teamId);
+
+            // Check for Automation investment (RD-2 Option K)
+            return teamDecisions.some(decision =>
+                decision.phase_id === 'rd2-invest' &&
+                decision.selected_investment_options?.includes('K')
+            );
+        } catch (error) {
+            console.error('Error checking automation investment:', error);
+            return false;
+        }
+    }
+
+    /**
      * Process consequence slides (COMPLETE LOGIC from ConsequenceProcessor)
      */
     private async processConsequenceSlide(consequenceSlide: Slide): Promise<void> {
@@ -298,6 +329,10 @@ export class UnifiedEffectsProcessor {
                 continue; // Skip to next team (immune team is processed)
             }
 
+            // ========================================================================
+            // CONDITIONAL EFFECTS PROCESSING: Handle CH7 automation and existing logic
+            // ========================================================================
+
             // Apply effects to team round data
             const currentRound = consequenceSlide.round_number as 1 | 2 | 3;
             const currentKpis = await KpiDataUtils.ensureTeamRoundData(
@@ -308,7 +343,35 @@ export class UnifiedEffectsProcessor {
                 setTeamRoundDataDirectly
             );
 
-            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, consequenceForTeamSelection.effects);
+            // SPECIAL HANDLING: CH7 Option C customization needs automation capability check
+            let effectsToApply = consequenceForTeamSelection.effects;
+            if (challengeId === 'ch7' && teamSelection === 'C') {
+                // Check for automation capability (CNC machine OR Automation investment)
+                const hasCncMachine = await this.checkCncMachine(currentDbSession.id, team.id);
+                const hasAutomationInvestment = await this.checkAutomationInvestment(currentDbSession.id, team.id);
+                const hasAutomationCapability = hasCncMachine || hasAutomationInvestment;
+
+                // Calculate capacity impact: 0 if automated, -500 if not
+                const capacityImpact = hasAutomationCapability ? 0 : -500;
+
+                // Update capacity effect
+                effectsToApply = consequenceForTeamSelection.effects.map(effect => {
+                    if (effect.kpi === 'capacity') {
+                        return {
+                            ...effect,
+                            change_value: capacityImpact,
+                            description: hasAutomationCapability
+                                ? 'Customization Capacity Impact (Automated - No Penalty)'
+                                : 'Customization Capacity Impact (Manual Production)'
+                        };
+                    }
+                    return effect;
+                });
+
+                console.log(`[UnifiedEffectsProcessor] CH7 customization for team ${team.name}: ${capacityImpact} (automation: ${hasAutomationCapability})`);
+            }
+
+            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, effectsToApply);
             const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
 
             // Save to database
