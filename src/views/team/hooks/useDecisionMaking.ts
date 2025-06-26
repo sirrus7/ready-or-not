@@ -272,7 +272,15 @@ export const useDecisionMaking = ({
 
     // Regular investment toggle - CHANGED to use index instead of optionId
     const handleInvestmentToggle = useCallback((optionIndex: number, cost: number) => {
+        console.log('🔍 [useDecisionMaking] handleInvestmentToggle called:', {
+            optionIndex,
+            cost,
+            investmentOptions: investmentOptions.map((opt, i) => ({ index: i, id: opt.id, name: opt.name.split('.')[0] })),
+            selectedInvestmentOptions: state.selectedInvestmentOptions,
+            aboutToToggle: investmentOptions[optionIndex] ? investmentOptions[optionIndex].id : 'NOT_FOUND'
+        });
         const optionLetter = String.fromCharCode(65 + optionIndex); // A=0, B=1, C=2, etc.
+        console.log('🔍 [useDecisionMaking] Converting index to letter:', { optionIndex, optionLetter });
         const currentIndex = state.selectedInvestmentOptions.indexOf(optionLetter);
         const newSelectedOptions = [...state.selectedInvestmentOptions];
         let newSpentBudget = state.spentBudget;
@@ -293,12 +301,23 @@ export const useDecisionMaking = ({
             newSpentBudget -= cost;
         }
 
-        setState(prev => ({
-            ...prev,
-            selectedInvestmentOptions: newSelectedOptions.sort(), // Keep sorted: ['A', 'B', 'F']
-            spentBudget: newSpentBudget,
-            error: null
-        }));
+        setState(prev => {
+            const newState = {
+                ...prev,
+                selectedInvestmentOptions: newSelectedOptions.sort(),
+                spentBudget: newSpentBudget,
+                error: null
+            };
+
+            console.log('🔍 [useDecisionMaking] State updated:', {
+                oldSelections: prev.selectedInvestmentOptions,
+                newSelections: newState.selectedInvestmentOptions,
+                addedLetter: optionLetter,
+                wasAdding: currentIndex === -1
+            });
+
+            return newState;
+        });
     }, [state.selectedInvestmentOptions, state.spentBudget, investUpToBudget]);
 
     // Immediate purchase handler - CHANGED to use index instead of optionId

@@ -54,11 +54,16 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                                                              immediatePurchases
                                                                          }) => {
 
-    console.log('🔍 [Round3Debug] Component props:', {
+    console.log('🔍 [EnhancedInvestmentPanel] Full component state:', {
         currentRound,
         selectedInvestmentIds,
         immediatePurchases,
-        investmentCount: investmentOptions.length
+        investmentOptions: investmentOptions.map((opt, i) => ({
+            index: i,
+            id: opt.id,
+            name: opt.name.split('.')[0],
+            cost: opt.cost
+        }))
     });
 
 
@@ -241,10 +246,18 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                         onChange={() => {
                             if (!isInteractable) return;
 
-                            // Find the correct index in the original array
                             const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
 
-                            console.log('🔍 [Round3Debug] Using correctIndex:', correctIndex, 'instead of cached index:', investment.index);
+                            console.log('🔍 [EnhancedInvestmentPanel] FULL CLICK DEBUG:', {
+                                clickedInvestmentId: investment.id,
+                                clickedInvestmentName: investment.name.split('.')[0],
+                                visualPosition: 'unknown', // We'll see this in the render order
+                                correctIndex,
+                                cachedIndex: investment.index,
+                                willCallToggleWith: correctIndex,
+                                currentSelections: selectedInvestmentIds,
+                                investmentOptionsArray: investmentOptions.map((opt, i) => ({ i, id: opt.id, name: opt.name.split('.')[0] }))
+                            });
 
                             if (correctIndex === -1) {
                                 console.error('[EnhancedInvestmentPanel] Could not find investment:', investment.id);
@@ -252,8 +265,10 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                             }
 
                             if (investment.isImmediate && !investment.isImmediatePurchased) {
+                                console.log('🔍 [EnhancedInvestmentPanel] Calling setShowImmediateModal with:', correctIndex);
                                 setShowImmediateModal(correctIndex);
                             } else {
+                                console.log('🔍 [EnhancedInvestmentPanel] Calling onInvestmentToggle with:', { correctIndex, effectivePrice: investment.effectivePrice });
                                 onInvestmentToggle(correctIndex, investment.effectivePrice);
                             }
                         }}
