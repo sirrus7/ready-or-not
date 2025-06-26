@@ -280,7 +280,13 @@ export const useDecisionMaking = ({
             aboutToToggle: investmentOptions[optionIndex] ? investmentOptions[optionIndex].id : 'NOT_FOUND'
         });
         const optionLetter = String.fromCharCode(65 + optionIndex); // A=0, B=1, C=2, etc.
-        console.log('🔍 [useDecisionMaking] Converting index to letter:', { optionIndex, optionLetter });
+        console.log('🔍 CONVERSION DEBUG:', {
+            optionIndex,
+            formula: `65 + ${optionIndex} = ${65 + optionIndex}`,
+            charCode: 65 + optionIndex,
+            resultLetter: String.fromCharCode(65 + optionIndex),
+            shouldBe: optionIndex === 3 ? 'D' : 'unknown'
+        });
         const currentIndex = state.selectedInvestmentOptions.indexOf(optionLetter);
         const newSelectedOptions = [...state.selectedInvestmentOptions];
         let newSpentBudget = state.spentBudget;
