@@ -85,7 +85,6 @@ export const useTeamGameState = ({
     // DATA FETCHING - Only KPIs (adjustments handled centrally)
     // ========================================================================
     const fetchCurrentKpis = useCallback(async () => {
-        console.log('🔍 fetchCurrentKpis called from:', new Error().stack);
         if (!sessionId || !loggedInTeamId || !currentActiveSlide) return;
 
         setIsLoadingKpis(true);
@@ -189,10 +188,20 @@ export const useTeamGameState = ({
 
         switch (event.type) {
             case 'decision_time':
+                console.log('🔍 Processing decision_time event:', event.data);
+                console.log('🔍 gameStructure exists:', !!gameStructure);
+                console.log('🔍 Looking for slideId:', event.data?.slideId);
+
                 if (event.data?.slideId && gameStructure) {
                     const slide = gameStructure.slides.find(s => s.id === event.data.slideId);
+
+                    console.log('🔍 Found slide:', slide);
+                    console.log('🔍 Slide IDs in structure:', gameStructure.slides.slice(0, 10).map(s => s.id));
+
                     if (slide) {
+                        console.log('🔍 Calling handleSlideUpdate with slide:', slide.id);
                         handleSlideUpdate({ new: { current_slide_index: slide.id } });
+                        console.log('🔍 handleSlideUpdate called successfully');
 
                         // Reopen the decision when host navigates back
                         if (slide.interactive_data_key) {
@@ -202,6 +211,8 @@ export const useTeamGameState = ({
                                 return newSet;
                             });
                         }
+                    } else {
+                        console.error('🔍 Slide not found! slideId:', event.data.slideId);
                     }
                 }
                 break;
