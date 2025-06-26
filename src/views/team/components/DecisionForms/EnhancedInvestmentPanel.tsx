@@ -131,7 +131,8 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                 effectivePrice: pricing?.finalPrice ?? option.cost,
                 group: pricing?.availability === 'continue' ? 'reinvest' : 'new'
             } as EnhancedInvestment;
-        }).filter(investment => investment.pricing?.availability !== 'not_available');
+            // }).filter(investment => investment.pricing?.availability !== 'not_available');
+        })
 
         return {
             reinvestInvestments: enhanced.filter(inv => inv.group === 'reinvest'),
