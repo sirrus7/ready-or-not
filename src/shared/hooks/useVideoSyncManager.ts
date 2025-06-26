@@ -1,7 +1,7 @@
 // src/shared/hooks/useVideoSyncManager.ts
 // A hook to consolidate video sync logic without major refactoring
 
-import { useRef, useCallback, useEffect, useState } from 'react';
+import {useRef, useCallback, useEffect, useState, RefObject} from 'react';
 import { SimpleBroadcastManager, ConnectionStatus } from '@core/sync/SimpleBroadcastManager';
 import { HostCommand } from '@core/sync/types';
 
@@ -62,7 +62,7 @@ export const useVideoSyncManager = ({
             playbackRate: video.playbackRate,
           });
         }
-      }, 500);
+      }, 250); // Reduced from 500ms
     };
 
     // Helper to stop sync interval
@@ -111,16 +111,32 @@ export const useVideoSyncManager = ({
         }
       };
 
+      const handleVolumeChange = () => {
+        console.log('[HOST] Sending volume command:', {
+          volume: video.volume,
+          muted: video.muted
+        });
+        if (isConnected) {
+          sendCommand('volume', {
+            volume: video.volume,
+            muted: video.muted,
+          });
+        }
+      };
+
+
       video.addEventListener('play', handlePlay);
       video.addEventListener('pause', handlePause);
       video.addEventListener('seeked', handleSeeked);
       video.addEventListener('ratechange', handleRateChange);
+      video.addEventListener('volumechange', handleVolumeChange);
 
       cleanupFunctions.push(() => {
         video.removeEventListener('play', handlePlay);
         video.removeEventListener('pause', handlePause);
         video.removeEventListener('seeked', handleSeeked);
         video.removeEventListener('ratechange', handleRateChange);
+        video.removeEventListener('volumechange', handleVolumeChange);
         stopSyncInterval();
       });
 
@@ -146,7 +162,17 @@ export const useVideoSyncManager = ({
         video.removeEventListener('canplay', handleCanPlay);
       });
 
+      const processSound = (_command: HostCommand, _video: RefObject<HTMLVideoElement>) => {
+        if (_command.data?.volume !== undefined) {
+          video.volume = _command.data.volume;
+        }
+        if (_command.data?.muted !== undefined) {
+          video.muted = _command.data.muted;
+        }
+      }
+
       const handleCommand = async (command: HostCommand) => {
+        console.log('[PRESENTATION] Received command:', command.action, command.data);
         try {
           if (command.data?.playbackRate && video.playbackRate !== command.data.playbackRate) {
             video.playbackRate = command.data.playbackRate;
@@ -160,6 +186,7 @@ export const useVideoSyncManager = ({
                   video.currentTime = command.data.time;
                 }
               }
+              processSound(command, videoRef);
               await video.play();
               break;
 
@@ -168,6 +195,8 @@ export const useVideoSyncManager = ({
               if (command.data?.time !== undefined) {
                 video.currentTime = command.data.time;
               }
+              processSound(command, videoRef);
+              // if (command.)
               break;
 
             case 'seek':
@@ -184,6 +213,10 @@ export const useVideoSyncManager = ({
                   video.currentTime = command.data.time;
                 }
               }
+              break;
+            case 'volume':
+              console.log("Received volume command");
+              processSound(command, videoRef);
               break;
 
             case 'reset':
@@ -232,6 +265,8 @@ export const useVideoSyncManager = ({
             const commandData = {
               time: video.currentTime,
               playbackRate: video.playbackRate,
+              volume: video.volume,      // Add this
+              muted: false,               // Add this - presentation should have audio
             };
 
             // Check readyState to ensure video is loaded
@@ -240,7 +275,7 @@ export const useVideoSyncManager = ({
             } else {
               broadcastManager.sendCommand('pause', commandData);
             }
-          }, 200);
+          }, 100); // Also reduce from 200 to 100
         } else {
           // Unmute host when presentation disconnects
           video.muted = false;

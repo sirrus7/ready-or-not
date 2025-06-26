@@ -151,16 +151,27 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
                             className={`text-xs px-2 py-1 rounded-full ${isConnectedToPresentation ? 'bg-green-600/20 text-green-300' : 'bg-gray-600/20 text-gray-300'}`}>
                             {isConnectedToPresentation ? '● Synced' : '● Local Only'}
                         </div>
-                        {!isConnectedToPresentation && (
+                        <div className="flex items-center gap-3">
+                            <div className={`text-xs font-medium px-2 py-1 rounded ${
+                                isConnectedToPresentation ? 'bg-green-600/20 text-green-300' : 'bg-gray-600/20 text-gray-300'}`}>
+                                {isConnectedToPresentation ? '● Synced' : '● Local Only'}
+                            </div>
+                            {/* Always show volume control */}
                             <div className="flex items-center gap-2 min-w-[120px]">
                                 <button onClick={handleMuteToggle} className="p-1 text-white/80 hover:text-white">
-                                    <Volume2 size={18}/></button>
-                                <input type="range" min="0" max="1" step="0.1" value={volume}
-                                       onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                                       className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer"
-                                       disabled={isMuted}/>
+                                    {isMuted ? <VolumeX size={18}/> : <Volume2 size={18}/>}
+                                </button>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.1"
+                                    value={volume}
+                                    onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                                    className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer"
+                                />
                             </div>
-                        )}
+                        </div>
                     </div>
                 </div>
             </div>
