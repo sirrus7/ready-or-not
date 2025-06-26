@@ -236,7 +236,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                     <input
                         type="checkbox"
                         className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded disabled:opacity-50"
-                        checked={isSelected}
+                        checked={isSelected || investment.isImmediatePurchased}
                         disabled={!isInteractable}
                         onChange={() => {
                             if (!isInteractable) return;
