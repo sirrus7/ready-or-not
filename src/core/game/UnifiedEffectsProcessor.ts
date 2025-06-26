@@ -117,8 +117,22 @@ export class UnifiedEffectsProcessor {
                         }
                     }
 
+                    // ← ADD THIS: Fetch permanent adjustments
+                    let permanentAdjustments: any[] = [];
+                    try {
+                        permanentAdjustments = await db.adjustments.getBySession(this.props.currentDbSession!.id);
+                    } catch (error) {
+                        console.error('Error fetching permanent adjustments:', error);
+                    }
+
                     console.log('🔍 UnifiedEffectsProcessor broadcasting fresh KPIs:', Object.keys(freshKpiData));
-                    this.props.teamBroadcaster!.broadcastKpiUpdated(slide, freshKpiData);
+                    console.log('🔍 UnifiedEffectsProcessor broadcasting permanent adjustments:', permanentAdjustments.length);
+
+                    // Include permanent adjustments in broadcast
+                    this.props.teamBroadcaster!.broadcastKpiUpdated(slide, {
+                        updatedKpis: freshKpiData,
+                        permanentAdjustments: permanentAdjustments
+                    });
 
                     if (slide.type === 'kpi_reset') {
                         this.props.teamBroadcaster!.broadcastRoundTransition(slide.round_number);

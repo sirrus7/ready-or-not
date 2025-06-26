@@ -64,6 +64,7 @@ export const useTeamGameState = ({
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting');
     const [decisionResetTrigger, setDecisionResetTrigger] = useState(0);
     const [sessionStatus, setSessionStatus] = useState<'active' | 'deleted' | 'unknown'>('unknown');
+    const [closedDecisionKeys, setClosedDecisionKeys] = useState<Set<string>>(new Set());
 
     // Stable refs to prevent subscription recreation
     const stableSessionId = useRef<string | null>(null);
@@ -191,6 +192,15 @@ export const useTeamGameState = ({
                     const slide = gameStructure.slides.find(s => s.id === event.data.slideId);
                     if (slide) {
                         handleSlideUpdate({ new: { current_slide_index: slide.id } });
+
+                        // Reopen the decision when host navigates back
+                        if (slide.interactive_data_key) {
+                            setClosedDecisionKeys(prev => {
+                                const newSet = new Set(prev);
+                                newSet.delete(slide.interactive_data_key!);
+                                return newSet;
+                            });
+                        }
                     }
                 }
                 break;
@@ -200,7 +210,9 @@ export const useTeamGameState = ({
                     updatedKpis: event.data?.updatedKpis,
                     teamDataRaw: event.data?.updatedKpis?.[loggedInTeamId],
                     teamDataExists: !!(loggedInTeamId && event.data?.updatedKpis?.[loggedInTeamId]),
-                    teamDataType: typeof event.data?.updatedKpis?.[loggedInTeamId]
+                    teamDataType: typeof event.data?.updatedKpis?.[loggedInTeamId],
+                    data: event.data,
+                    teamGameContext: teamGameContext,
                 });
 
                 // Fix: Use flat structure, not nested
@@ -225,6 +237,12 @@ export const useTeamGameState = ({
                 break;
             case 'game_ended':
                 handleSessionDelete({});
+                break;
+            case 'decision_closed':
+                console.log(`[useTeamGameState] 🚫 Decision period ended for: ${event.data?.decisionKey}`);
+                if (event.data?.decisionKey) {
+                    setClosedDecisionKeys(prev => new Set([...prev, event.data.decisionKey]));
+                }
                 break;
         }
     }, [loggedInTeamId, gameStructure, handleSlideUpdate, handleDecisionDelete, handleSessionDelete, fetchCurrentKpis]);
@@ -352,7 +370,8 @@ export const useTeamGameState = ({
     // ========================================================================
     const isDecisionTime = !!(
         currentActiveSlide?.interactive_data_key &&
-        currentActiveSlide?.type?.startsWith('interactive_')
+        currentActiveSlide?.type?.startsWith('interactive_') &&
+        !closedDecisionKeys.has(currentActiveSlide.interactive_data_key)
     );
 
     // Filter adjustments for this specific team

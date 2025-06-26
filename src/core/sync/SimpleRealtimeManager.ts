@@ -158,7 +158,7 @@ export class SimpleRealtimeManager {
             roundNumber: slide.round_number,
             slideId: slide.id,
             requiresRefresh: true,
-            updatedKpis: kpiData // NEW: Include KPI data
+            ...kpiData
         });
     }
 
