@@ -241,19 +241,26 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                         onChange={() => {
                             if (!isInteractable) return;
 
-                            // ADD THIS DEBUG LOG:
+                            // Find the correct index in the original investmentOptions array
+                            const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
+
                             console.log('🔍 [Round3Debug] Checkbox clicked:', {
                                 investmentId: investment.id,
                                 investmentName: investment.name.split('.')[0],
-                                investmentIndex: investment.index,
-                                actualArrayIndex: investmentOptions.findIndex(opt => opt.id === investment.id),
-                                indexMismatch: investment.index !== investmentOptions.findIndex(opt => opt.id === investment.id)
+                                oldIndex: investment.index,
+                                correctIndex: correctIndex,
+                                indexMismatch: investment.index !== correctIndex
                             });
 
+                            if (correctIndex === -1) {
+                                console.error('[EnhancedInvestmentPanel] Could not find investment in array:', investment.id);
+                                return;
+                            }
+
                             if (investment.isImmediate && !investment.isImmediatePurchased) {
-                                setShowImmediateModal(investment.index);
+                                setShowImmediateModal(correctIndex);  // ✅ CORRECT INDEX
                             } else {
-                                onInvestmentToggle(investment.index, investment.effectivePrice);
+                                onInvestmentToggle(correctIndex, investment.effectivePrice);  // ✅ CORRECT INDEX
                             }
                         }}
                     />
