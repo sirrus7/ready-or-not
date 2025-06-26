@@ -53,6 +53,15 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                                                              isSubmitting,
                                                                              immediatePurchases
                                                                          }) => {
+
+    console.log('🔍 [Round3Debug] Component props:', {
+        currentRound,
+        selectedInvestmentIds,
+        immediatePurchases,
+        investmentCount: investmentOptions.length
+    });
+
+
     const [investmentPricing, setInvestmentPricing] = useState<InvestmentPricing[]>([]);
     const [isLoadingPricing, setIsLoadingPricing] = useState(false);
     const [showImmediateModal, setShowImmediateModal] = useState<number | null>(null);
@@ -95,6 +104,16 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
             const isSelected = selectedInvestmentIds.includes(option.id);
             const isImmediatePurchased = immediatePurchases.includes(option.id);
             const isImmediate = option.is_immediate_purchase || false;
+
+            // ADD THIS DEBUG LOG:
+            console.log('🔍 [Round3Debug] Creating enhanced investment:', {
+                id: option.id,
+                name: option.name.split('.')[0], // Just first part
+                index,
+                isSelected,
+                isImmediatePurchased,
+                group: pricing?.availability === 'continue' ? 'reinvest' : 'new'
+            });
 
             return {
                 ...option,
@@ -195,6 +214,15 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
 
     const renderInvestmentCard = (investment: EnhancedInvestment) => {
         const isSelected = investment.isSelected || investment.isImmediatePurchased;
+        // ADD THIS DEBUG LOG:
+        console.log('🔍 [Round3Debug] Rendering card:', {
+            id: investment.id,
+            name: investment.name.split('.')[0],
+            isSelected,
+            isImmediatePurchased: investment.isImmediatePurchased,
+            checkboxWillShow: isSelected // This is what checkbox checked= uses
+        });
+
         const isUnaffordable = !isSelected && remainingBudget < investment.effectivePrice;
         const isInteractable = !investment.isDisabled && !isUnaffordable && !isSubmitting;
 
@@ -212,6 +240,15 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                         disabled={!isInteractable}
                         onChange={() => {
                             if (!isInteractable) return;
+
+                            // ADD THIS DEBUG LOG:
+                            console.log('🔍 [Round3Debug] Checkbox clicked:', {
+                                investmentId: investment.id,
+                                investmentName: investment.name.split('.')[0],
+                                investmentIndex: investment.index,
+                                actualArrayIndex: investmentOptions.findIndex(opt => opt.id === investment.id),
+                                indexMismatch: investment.index !== investmentOptions.findIndex(opt => opt.id === investment.id)
+                            });
 
                             if (investment.isImmediate && !investment.isImmediatePurchased) {
                                 setShowImmediateModal(investment.index);
