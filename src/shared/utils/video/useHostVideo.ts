@@ -39,6 +39,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
+    const previousSourceUrl = useRef<string | null>(null);
 
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
@@ -241,16 +242,57 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         };
 
         if (isEnabled && sourceUrl) {
+            // Check if this is a new video (slide change)
+            const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
+
             if (video.currentSrc !== sourceUrl) {
                 video.src = sourceUrl;
                 video.load();
-                video.pause(); // Don't autoplay
+
+                // Auto-play on slide change for new videos
+                if (isNewVideo) {
+                    console.log('[useHostVideo] New video detected, will autoplay after load');
+
+                    const handleCanPlay = async () => {
+                        try {
+                            await play(0); // Start from beginning
+                            console.log('[useHostVideo] Autoplay started successfully');
+
+                            // Ensure presentation audio is enabled when playing new video
+                            if (isConnected && presentationMuted) {
+                                console.log('[useHostVideo] Unmuting presentation for new video');
+                                setPresentationMuted(false);
+                                sendCommand('volume', {
+                                    time: Date.now(),
+                                    volume: video.volume || 1, // Default to full volume if not set
+                                    muted: false, // Ensure audio plays
+                                });
+                            }
+                        } catch (error) {
+                            console.error('[useHostVideo] Autoplay failed:', error);
+                        }
+                        video.removeEventListener('canplay', handleCanPlay);
+                    };
+
+                    video.addEventListener('canplay', handleCanPlay);
+
+                    // Cleanup in case the source changes again before canplay
+                    return () => {
+                        video.removeEventListener('canplay', handleCanPlay);
+                        video.removeEventListener('ended', handleEnded);
+                        video.removeEventListener('error', handleError);
+                    };
+                }
             }
+
+            // Update previous source URL
+            previousSourceUrl.current = sourceUrl;
         } else {
             if (!video.paused) {
                 video.pause();
                 stopSyncInterval();
             }
+            previousSourceUrl.current = null;
         }
 
         video.addEventListener('ended', handleEnded);
@@ -260,7 +302,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
         };
-    }, [sourceUrl, isEnabled, stopSyncInterval]);
+    }, [sourceUrl, isEnabled, stopSyncInterval, play]);
 
     // Cleanup on unmount
     useEffect(() => {

@@ -37,6 +37,7 @@ export const usePresentationVideo = ({
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
     const isBufferingRef = useRef(false);
+    const previousSourceUrl = useRef<string | null>(null);
 
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
@@ -185,11 +186,15 @@ export const usePresentationVideo = ({
 
         if (isEnabled && sourceUrl) {
             if (video.currentSrc !== sourceUrl) {
+                console.log('[Presentation] Loading new video source:', sourceUrl);
                 video.src = sourceUrl;
                 video.load();
-                video.pause(); // Wait for host command
+                // Don't pause here - let the host control playback
+                // The host will send a play command when the slide changes
             }
+            previousSourceUrl.current = sourceUrl;
         } else {
+            previousSourceUrl.current = null;
             // Not a video slide, ensure it's paused
             if (!video.paused) {
                 video.pause();
