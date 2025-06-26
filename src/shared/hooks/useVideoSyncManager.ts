@@ -61,7 +61,7 @@ export const useVideoSyncManager = ({
       // Set up a timeout that assumes disconnection after 5 seconds of no activity
       const resetTimeout = () => {
         clearTimeout(timeout);
-        timeout = setTimeout(checkConnection, 5000);
+        timeout = setTimeout(checkConnection, 500);
         callback(true); // We're connected if we're receiving commands
       };
 

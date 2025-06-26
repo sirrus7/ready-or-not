@@ -53,6 +53,19 @@ const PresentationApp: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        const handleBeforeUnload = () => {
+            // The broadcast manager's destroy method will handle sending disconnect message
+            if (broadcastManager) {
+                broadcastManager.destroy();
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [broadcastManager]);
+
+    useEffect(() => {
+        // TODO - can we move this functionality somewhere like useVideoSyncManager
         if (!broadcastManager) return;
         const unsubscribeSlides = broadcastManager.onSlideUpdate((slide: Slide) => {
             setCurrentSlide(slide);
@@ -81,7 +94,7 @@ const PresentationApp: React.FC = () => {
                 setConnectionError(true);
                 setStatusMessage('Unable to connect to host. Please ensure the host dashboard is open.');
             }
-        }, 10000);
+        }, 500);
 
         return () => clearTimeout(connectionTimeout);
     }, [sessionId, broadcastManager, isConnectedToHost]);

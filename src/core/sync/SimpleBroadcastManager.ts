@@ -81,6 +81,12 @@ export class SimpleBroadcastManager {
             // Only process messages for this session
             if (message.sessionId !== this.sessionId) return;
 
+            if (message.type === 'PRESENTATION_DISCONNECT' && this.mode === 'host') {
+                console.log('[SimpleBroadcastManager] Received explicit disconnect from presentation');
+                this.updateConnectionStatus('disconnected');
+                return;
+            }
+
             switch (message.type) {
                 case 'HOST_COMMAND':
                     if (this.mode === 'presentation' || this.mode === 'team') {
@@ -147,7 +153,7 @@ export class SimpleBroadcastManager {
                 if (Date.now() - this.lastPong > 10000 && this.connectionStatus === 'connected') {
                     this.updateConnectionStatus('disconnected');
                 }
-            }, 5000);
+            }, 500);
         } else {
             // Presentation announces ready after a short delay
             if (this.mode === 'presentation') {
@@ -302,6 +308,9 @@ export class SimpleBroadcastManager {
 
     destroy(): void {
         if (this.isDestroyed) return;
+        if (this.mode === 'presentation') {
+            this.sendDisconnectMessage();
+        }
         this.isDestroyed = true;
 
         if (this.pingInterval) {
@@ -325,5 +334,21 @@ export class SimpleBroadcastManager {
         // Remove from instances map
         const key = `${this.sessionId}-${this.mode}`;
         SimpleBroadcastManager.instances.delete(key);
+    }
+
+    private sendDisconnectMessage(): void {
+        if (this.mode !== 'presentation' || this.isDestroyed) return;
+
+        const message = {
+            type: 'PRESENTATION_DISCONNECT',
+            sessionId: this.sessionId,
+            timestamp: Date.now()
+        };
+
+        try {
+            this.channel.postMessage(message);
+        } catch (error) {
+            console.warn('[SimpleBroadcastManager] Failed to send disconnect message:', error);
+        }
     }
 }
