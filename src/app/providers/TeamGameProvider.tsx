@@ -1,7 +1,7 @@
 // src/app/providers/TeamGameProvider.tsx
 // Lightweight GameProvider for team routes (no auth required)
 
-import React, {createContext, useContext} from 'react';
+import React, {createContext, useCallback, useContext} from 'react';
 import {useParams} from 'react-router-dom';
 import {useTeamDataManager} from '@shared/hooks/useTeamDataManager';
 import {PermanentKpiAdjustment} from '@shared/types';
@@ -10,6 +10,7 @@ interface TeamGameContextType {
     sessionId: string | null;
     permanentAdjustments: PermanentKpiAdjustment[];
     isLoadingAdjustments: boolean;
+    updatePermanentAdjustments: (adjustments: PermanentKpiAdjustment[]) => void;
 }
 
 const TeamGameContext = createContext<TeamGameContextType | null>(null);
@@ -30,10 +31,16 @@ export const TeamGameProvider: React.FC<{ children: React.ReactNode }> = ({child
     const teamDataManager = useTeamDataManager(sessionId || null);
     const {permanentAdjustments, isLoadingAdjustments} = teamDataManager;
 
+    const updatePermanentAdjustments = useCallback((adjustments: PermanentKpiAdjustment[]) => {
+        // This calls the existing setter from useTeamDataManager
+        teamDataManager.setPermanentAdjustmentsDirectly(adjustments);
+    }, [teamDataManager]);
+
     const contextValue: TeamGameContextType = {
         sessionId: sessionId || null,
         permanentAdjustments,
-        isLoadingAdjustments
+        isLoadingAdjustments,
+        updatePermanentAdjustments
     };
 
     return (

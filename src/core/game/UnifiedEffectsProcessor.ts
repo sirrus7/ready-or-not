@@ -97,9 +97,28 @@ export class UnifiedEffectsProcessor {
                 }
 
                 // Small additional delay to ensure all database operations are complete
-                setTimeout(() => {
-                    this.props.teamBroadcaster!.broadcastKpiUpdated(slide, this.updatedKpisForBroadcast);
-                    this.updatedKpisForBroadcast = {}; // Clear
+                setTimeout(async () => {
+                    // Get fresh KPI data for all teams for current round
+                    const freshKpiData: Record<string, any> = {};
+                    const currentRound = slide.round_number || 1;
+
+                    for (const team of this.props.teams) {
+                        try {
+                            const freshKpis = await db.kpis.getForTeamRound(
+                                this.props.currentDbSession!.id,
+                                team.id,
+                                currentRound
+                            );
+                            if (freshKpis) {
+                                freshKpiData[team.id] = freshKpis;
+                            }
+                        } catch (error) {
+                            console.error(`Error fetching fresh KPIs for team ${team.id}:`, error);
+                        }
+                    }
+
+                    console.log('🔍 UnifiedEffectsProcessor broadcasting fresh KPIs:', Object.keys(freshKpiData));
+                    this.props.teamBroadcaster!.broadcastKpiUpdated(slide, freshKpiData);
 
                     if (slide.type === 'kpi_reset') {
                         this.props.teamBroadcaster!.broadcastRoundTransition(slide.round_number);

@@ -1,6 +1,5 @@
 // src/views/team/hooks/useTeamGameState.ts
 import {useEffect, useCallback, useState, useRef} from 'react';
-import {useRealtimeSubscription} from '@shared/services/supabase';
 import {db, supabase} from '@shared/services/supabase';
 import type { TeamGameEvent } from '@core/sync/SimpleRealtimeManager';
 import { readyOrNotGame_2_0_DD } from '@core/content/GameStructure';
@@ -10,6 +9,7 @@ import {
     PermanentKpiAdjustment,
     GameStructure
 } from '@shared/types';
+import {useTeamGameContext} from "@app/providers/TeamGameProvider";
 
 interface UseTeamGameStateProps {
     sessionId: string | null;
@@ -70,6 +70,7 @@ export const useTeamGameState = ({
     const stableTeamId = useRef<string | null>(null);
     const resetDebounceRef = useRef<NodeJS.Timeout | null>(null);
     const fetchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const teamGameContext = useTeamGameContext();
 
     // Update stable refs
     if (sessionId !== stableSessionId.current) {
@@ -194,11 +195,24 @@ export const useTeamGameState = ({
                 }
                 break;
             case 'kpi_updated':
-                // NEW: Use KPI data from host if available
+                console.log('🔍 kpi_updated debug detailed:', {
+                    loggedInTeamId,
+                    updatedKpis: event.data?.updatedKpis,
+                    teamDataRaw: event.data?.updatedKpis?.[loggedInTeamId],
+                    teamDataExists: !!(loggedInTeamId && event.data?.updatedKpis?.[loggedInTeamId]),
+                    teamDataType: typeof event.data?.updatedKpis?.[loggedInTeamId]
+                });
+
+                // Fix: Use flat structure, not nested
                 if (loggedInTeamId && event.data?.updatedKpis?.[loggedInTeamId]) {
                     setCurrentTeamKpis(event.data.updatedKpis[loggedInTeamId]);
                 } else {
                     fetchCurrentKpis();
+                }
+
+                // Update permanent adjustments from realtime data if available
+                if (event.data?.permanentAdjustments && teamGameContext) {
+                    teamGameContext.updatePermanentAdjustments(event.data.permanentAdjustments);
                 }
                 break;
             case 'round_transition':

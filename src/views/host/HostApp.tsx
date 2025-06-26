@@ -16,6 +16,7 @@ const HostApp: React.FC = () => {
         previousSlide,
         nextSlide,
         setCurrentHostAlertState,
+        permanentAdjustments,
     } = useGameContext();
 
     const {currentSessionId, gameStructure, current_slide_index} = state;
@@ -63,8 +64,6 @@ const HostApp: React.FC = () => {
             console.log('📱 Broadcasting decision_time for:', currentSlideData.interactive_data_key);
             realtimeManager.sendDecisionTime(currentSlideData);
         } else if (isEffectSlide) {
-            console.log('📱 Broadcasting kpi_updated for:', currentSlideData.type);
-            realtimeManager.sendKpiUpdated(currentSlideData);
             if (currentSlideData.type === 'kpi_reset') {
                 realtimeManager.sendRoundTransition(currentSlideData.round_number);
             }

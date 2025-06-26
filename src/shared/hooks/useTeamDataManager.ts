@@ -21,6 +21,7 @@ interface TeamDataManagerOutput {
     fetchTeamRoundDataForSession: (sessionId: string) => Promise<void>; // NOW ALSO FETCHES ADJUSTMENTS
     resetTeamDecisionInDb: (sessionId: string, teamId: string, phaseId: string) => Promise<void>;
     setTeamRoundDataDirectly: Dispatch<SetStateAction<Record<string, Record<number, TeamRoundData>>>>;
+    setPermanentAdjustmentsDirectly: Dispatch<SetStateAction<PermanentKpiAdjustment[]>>;
 }
 
 export const useTeamDataManager = (initialSessionId: string | null): TeamDataManagerOutput => {
@@ -236,6 +237,7 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         fetchTeamDecisionsForSession,
         fetchTeamRoundDataForSession, // Now updates both KPIs and adjustments
         resetTeamDecisionInDb,
-        setTeamRoundDataDirectly: setTeamRoundData
+        setTeamRoundDataDirectly: setTeamRoundData,
+        setPermanentAdjustmentsDirectly: setPermanentAdjustments
     };
 };

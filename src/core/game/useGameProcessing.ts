@@ -98,6 +98,17 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
 
     // Update processor props dynamically without recreation
     if (unifiedEffectsProcessor) {
+        const teamBroadcaster = currentDbSession ? {
+            broadcastKpiUpdated: (slide, kpiData) => {
+                const realtimeManager = SimpleRealtimeManager.getInstance(currentDbSession.id, 'host');
+                realtimeManager.sendKpiUpdated(slide, kpiData);
+            },
+            broadcastRoundTransition: (roundNumber) => {
+                const realtimeManager = SimpleRealtimeManager.getInstance(currentDbSession.id, 'host');
+                realtimeManager.sendRoundTransition(roundNumber);
+            }
+        } : undefined;
+
         unifiedEffectsProcessor.updateProps({
             currentDbSession,
             gameStructure,
@@ -106,6 +117,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             teamRoundData,
             fetchTeamRoundDataFromHook,
             setTeamRoundDataDirectly,
+            teamBroadcaster
         });
     }
 
