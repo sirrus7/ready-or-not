@@ -1,8 +1,8 @@
 // src/views/team/hooks/useDecisionMaking.ts
 // FIXED VERSION: Updated to use investment option letters instead of full IDs
 
-import {useState, useEffect, useMemo, useCallback} from 'react';
-import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
+import {useCallback, useEffect, useMemo, useState} from 'react';
+import {ChallengeOption, InvestmentOption, Slide} from '@shared/types';
 import {supabase} from '@shared/services/supabase';
 import {StrategyInvestmentTracker, StrategyInvestmentType} from "@core/game/StrategyInvestmentTracker.ts";
 import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
@@ -272,21 +272,8 @@ export const useDecisionMaking = ({
 
     // Regular investment toggle - CHANGED to use index instead of optionId
     const handleInvestmentToggle = useCallback((optionIndex: number, cost: number) => {
-        console.log('🔍 [useDecisionMaking] handleInvestmentToggle called:', {
-            optionIndex,
-            cost,
-            investmentOptions: investmentOptions.map((opt, i) => ({ index: i, id: opt.id, name: opt.name.split('.')[0] })),
-            selectedInvestmentOptions: state.selectedInvestmentOptions,
-            aboutToToggle: investmentOptions[optionIndex] ? investmentOptions[optionIndex].id : 'NOT_FOUND'
-        });
-        const optionLetter = String.fromCharCode(65 + optionIndex); // A=0, B=1, C=2, etc.
-        console.log('🔍 CONVERSION DEBUG:', {
-            optionIndex,
-            formula: `65 + ${optionIndex} = ${65 + optionIndex}`,
-            charCode: 65 + optionIndex,
-            resultLetter: String.fromCharCode(65 + optionIndex),
-            shouldBe: optionIndex === 3 ? 'D' : 'unknown'
-        });
+        const option = investmentOptions[optionIndex];
+        const optionLetter = option?.id || String.fromCharCode(65 + optionIndex);
         const currentIndex = state.selectedInvestmentOptions.indexOf(optionLetter);
         const newSelectedOptions = [...state.selectedInvestmentOptions];
         let newSpentBudget = state.spentBudget;
@@ -308,21 +295,12 @@ export const useDecisionMaking = ({
         }
 
         setState(prev => {
-            const newState = {
+            return {
                 ...prev,
                 selectedInvestmentOptions: newSelectedOptions.sort(),
                 spentBudget: newSpentBudget,
                 error: null
             };
-
-            console.log('🔍 [useDecisionMaking] State updated:', {
-                oldSelections: prev.selectedInvestmentOptions,
-                newSelections: newState.selectedInvestmentOptions,
-                addedLetter: optionLetter,
-                wasAdding: currentIndex === -1
-            });
-
-            return newState;
         });
     }, [state.selectedInvestmentOptions, state.spentBudget, investUpToBudget]);
 
