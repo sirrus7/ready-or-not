@@ -199,7 +199,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
                             onPlay={hostVideo.play}
                             onPause={hostVideo.pause}
                             onSeek={hostVideo.seek}
+                            onVolumeChange={hostVideo.setVolume}
+                            onMuteToggle={hostVideo.toggleMute}
                             isConnectedToPresentation={hostVideo.isConnectedToPresentation}
+                            presentationMuted={hostVideo.presentationMuted}
                         />
                     </div>
                 </div>

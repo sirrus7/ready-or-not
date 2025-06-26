@@ -1,7 +1,7 @@
 // src/shared/utils/video/useHostVideo.ts
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
-import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager.ts';
+import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -19,7 +19,10 @@ interface UseHostVideoReturn {
     play: (time?: number) => Promise<void>;
     pause: (time?: number) => Promise<void>;
     seek: (time: number) => Promise<void>;
+    setVolume: (volume: number) => void;
+    toggleMute: () => void;
     isConnectedToPresentation: boolean;
+    presentationMuted: boolean;
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
 }
 
@@ -31,79 +34,201 @@ interface UseHostVideoProps {
 
 export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoProps): UseHostVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const [presentationMuted, setPresentationMuted] = useState(false);
+    const [localIsConnected, setLocalIsConnected] = useState(false);
+    const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
-    const isManuallyPaused = useRef(false);
-    const [localIsConnected, setLocalIsConnected] = useState(false);
 
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
-    // Use the video sync manager
-    const { isConnected, sendCommand, setupVideoSync, broadcastManager } = useVideoSyncManager({
+    // Use sync manager for communication only
+    const { isConnected, sendCommand, onConnectionChange } = useVideoSyncManager({
         sessionId,
-        role: 'host',
-        videoRef,
-        onConnectionChange: setLocalIsConnected,
+        role: 'host'
     });
 
-    // Execute command helper (maintains existing pattern)
-    const executeCommand = useCallback(async (action: 'play' | 'pause' | 'seek', time?: number) => {
+    // Sync interval management
+    const startSyncInterval = useCallback(() => {
+        if (syncIntervalRef.current) return;
+
+        syncIntervalRef.current = setInterval(() => {
+            const video = videoRef.current;
+            if (video && !video.paused && isConnected) {
+                sendCommand('sync', {
+                    time: video.currentTime,
+                    playbackRate: video.playbackRate,
+                });
+            }
+        }, 1000);
+    }, [isConnected, sendCommand]);
+
+    const stopSyncInterval = useCallback(() => {
+        if (syncIntervalRef.current) {
+            clearInterval(syncIntervalRef.current);
+            syncIntervalRef.current = null;
+        }
+    }, []);
+
+    // Handle connection changes
+    useEffect(() => {
+        const unsubscribe = onConnectionChange((connected) => {
+            setLocalIsConnected(connected);
+            const video = videoRef.current;
+            if (!video) return;
+
+            if (connected) {
+                // Mute host and pause when presentation connects
+                video.muted = true;
+                video.pause();
+                stopSyncInterval();
+
+                // Send initial state to presentation
+                sendCommand('pause', {
+                    time: video.currentTime,
+                    playbackRate: video.playbackRate,
+                    volume: video.volume,
+                    muted: presentationMuted,
+                });
+            } else {
+                // Unmute host when presentation disconnects
+                video.muted = false;
+                stopSyncInterval();
+            }
+        });
+
+        return unsubscribe;
+    }, [onConnectionChange, sendCommand, presentationMuted, stopSyncInterval]);
+
+    // Play command
+    const play = useCallback(async (time?: number) => {
         const video = videoRef.current;
         if (!video) return;
 
         try {
-            switch (action) {
-                case 'play':
-                    if (time !== undefined) {
-                        video.currentTime = time;
-                    }
-                    await video.play();
-                    break;
+            if (time !== undefined) {
+                video.currentTime = time;
+            }
 
-                case 'pause':
-                    video.pause();
-                    if (time !== undefined) {
-                        video.currentTime = time;
-                    }
-                    break;
+            // Update local video
+            await video.play();
 
-                case 'seek':
-                    if (time !== undefined) {
-                        video.currentTime = time;
-                    }
-                    break;
+            // Send command if connected
+            if (isConnected) {
+                sendCommand('play', {
+                    time: video.currentTime,
+                    playbackRate: video.playbackRate,
+                    volume: video.volume,
+                    muted: presentationMuted,
+                });
+                startSyncInterval();
             }
         } catch (error) {
-            console.error(`[useHostVideo] Error executing ${action}:`, error);
+            console.error('[useHostVideo] Play failed:', error);
             throw error;
         }
-    }, []);
+    }, [isConnected, sendCommand, presentationMuted, startSyncInterval]);
 
-    // Set up video sync when enabled
-    useEffect(() => {
-        if (isEnabled && sourceUrl && broadcastManager) {
-            const cleanup = setupVideoSync();
-            return cleanup;
+    // Pause command
+    const pause = useCallback(async (time?: number) => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        // Update local video
+        video.pause();
+        if (time !== undefined) {
+            video.currentTime = time;
         }
-    }, [isEnabled, sourceUrl, broadcastManager, setupVideoSync]);
+
+        // Stop syncing
+        stopSyncInterval();
+
+        // Send command if connected
+        if (isConnected) {
+            sendCommand('pause', {
+                time: video.currentTime,
+            });
+        }
+    }, [isConnected, sendCommand, stopSyncInterval]);
+
+    // Seek command
+    const seek = useCallback(async (time: number) => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        // Update local video
+        video.currentTime = time;
+
+        // Send command if connected
+        if (isConnected) {
+            sendCommand('seek', { time });
+        }
+    }, [isConnected, sendCommand]);
+
+    // Volume control (for presentation when connected)
+    const setVolume = useCallback((volume: number) => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        if (isConnected) {
+            // Don't change host volume, just send to presentation
+            sendCommand('volume', {
+                volume,
+                muted: presentationMuted,
+            });
+        } else {
+            // Change host volume when not connected
+            video.volume = volume;
+        }
+    }, [isConnected, sendCommand, presentationMuted]);
+
+    // Mute control (for presentation when connected)
+    const toggleMute = useCallback(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        if (isConnected) {
+            // Toggle presentation mute state
+            const newMuted = !presentationMuted;
+            setPresentationMuted(newMuted);
+            sendCommand('volume', {
+                volume: video.volume,
+                muted: newMuted,
+            });
+        } else {
+            // Toggle host mute when not connected
+            video.muted = !video.muted;
+        }
+    }, [isConnected, sendCommand, presentationMuted]);
+
+    // Keep host muted when connected
+    useEffect(() => {
+        if (!isConnected) return;
+
+        const video = videoRef.current;
+        if (!video) return;
+
+        // Force initial mute
+        video.muted = true;
+
+        const interval = setInterval(() => {
+            if (!video.muted) {
+                console.warn('[useHostVideo] Host video was unmuted while connected, forcing mute');
+                video.muted = true;
+            }
+        }, 100);
+
+        return () => clearInterval(interval);
+    }, [isConnected]);
 
     // Handle video source changes
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
 
-        const handleCanPlay = async () => {
-            if (!isManuallyPaused.current && isEnabled) {
-                try {
-                    await video.play();
-                } catch (error) {
-                    console.log('[useHostVideo] Auto-play blocked or failed:', error);
-                }
-            }
-        };
-
         const handleEnded = () => {
+            stopSyncInterval();
             onEndedRef.current?.();
         };
 
@@ -117,193 +242,32 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
 
         if (isEnabled && sourceUrl) {
             if (video.currentSrc !== sourceUrl) {
-                isManuallyPaused.current = false; // Reset pause state for new video
                 video.src = sourceUrl;
                 video.load();
+                video.pause(); // Don't autoplay
             }
         } else {
-            // Not a video slide, just ensure it's paused
             if (!video.paused) {
                 video.pause();
+                stopSyncInterval();
             }
         }
 
-        video.addEventListener('canplay', handleCanPlay);
         video.addEventListener('ended', handleEnded);
         video.addEventListener('error', handleError);
 
         return () => {
-            video.removeEventListener('canplay', handleCanPlay);
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
         };
-    }, [sourceUrl, isEnabled, executeCommand]);
+    }, [sourceUrl, isEnabled, stopSyncInterval]);
 
-    // DEBUG LOGGING
+    // Cleanup on unmount
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        const logVideoState = () => {
-            const state = {
-                mode: 'HOST',
-                currentTime: video.currentTime.toFixed(2),
-                duration: video.duration.toFixed(2),
-                paused: video.paused,
-                muted: video.muted,
-                volume: video.volume.toFixed(2),
-                readyState: video.readyState,
-                networkState: video.networkState,
-                isConnected: localIsConnected,
-                src: video.currentSrc ? 'loaded' : 'no-src'
-            };
-
-            console.log(
-                `[HOST VIDEO] ${state.paused ? '⏸️' : '▶️'} ` +
-                `Time: ${state.currentTime}/${state.duration} | ` +
-                `Vol: ${state.volume} ${state.muted ? '🔇' : '🔊'} | ` +
-                `Connected: ${state.isConnected ? '✅' : '❌'} | ` +
-                `Ready: ${state.readyState}`,
-                state
-            );
-        };
-
-        // Initial log
-        logVideoState();
-
-        // Log every 200ms
-        const interval = setInterval(logVideoState, 200);
-
-        // Also log on key events
-        const events = ['play', 'pause', 'volumechange', 'seeked', 'loadedmetadata'];
-        events.forEach(event => {
-            video.addEventListener(event, () => {
-                console.log(`[HOST VIDEO] Event: ${event}`);
-                logVideoState();
-            });
-        });
-
         return () => {
-            clearInterval(interval);
-            events.forEach(event => {
-                video.removeEventListener(event, logVideoState);
-            });
+            stopSyncInterval();
         };
-    }, [localIsConnected]);
-
-    // DEBUG - Direct video element state polling - Add after other useEffects
-    useEffect(() => {
-        if (!videoRef.current) return;
-
-        const pollVideoState = () => {
-            const video = videoRef.current;
-            if (!video) return;
-
-            // Get the ACTUAL state from the video element
-            const actualState = {
-                // Basic state
-                paused: video.paused,
-                muted: video.muted,
-                volume: video.volume,
-                currentTime: video.currentTime,
-                duration: video.duration || 0,
-
-                // Ready states
-                readyState: video.readyState,
-                networkState: video.networkState,
-
-                // Source info
-                currentSrc: video.currentSrc,
-                src: video.src,
-
-                // Error state
-                error: video.error,
-
-                // Playback info
-                playbackRate: video.playbackRate,
-                ended: video.ended,
-                seeking: video.seeking,
-
-                // Buffer info
-                bufferedRanges: [],
-
-                // Audio/Video tracks
-                audioTracks: video.audioTracks?.length || 'N/A',
-                videoTracks: video.videoTracks?.length || 'N/A',
-            };
-
-            // Get buffered ranges
-            for (let i = 0; i < video.buffered.length; i++) {
-                actualState.bufferedRanges.push({
-                    start: video.buffered.start(i),
-                    end: video.buffered.end(i)
-                });
-            }
-
-            // Create a visual status line
-            const statusLine = [
-                `[HOST ACTUAL]`,
-                actualState.paused ? '⏸️ PAUSED' : '▶️ PLAYING',
-                `Time: ${actualState.currentTime.toFixed(1)}/${actualState.duration.toFixed(1)}`,
-                `Vol: ${actualState.volume.toFixed(2)}`,
-                actualState.muted ? '🔇 MUTED' : '🔊 UNMUTED',
-                `Ready: ${actualState.readyState}`,
-                localIsConnected ? '📡 CONNECTED' : '📵 DISCONNECTED'
-            ].join(' | ');
-
-            console.log(statusLine);
-
-            // Log detailed state every second (less noisy)
-            if (Date.now() % 1000 < 200) {
-                console.log('[HOST ACTUAL] Detailed state:', actualState);
-            }
-        };
-
-        // Start polling immediately
-        pollVideoState();
-
-        // Poll every 200ms
-        const interval = setInterval(pollVideoState, 200);
-
-        return () => clearInterval(interval);
-    }, [localIsConnected]);
-
-    // DEBUG - Also add a global debug helper
-    useEffect(() => {
-        if (typeof window !== 'undefined' && videoRef.current) {
-            (window as any).debugHostVideo = () => {
-                const video = videoRef.current;
-                if (!video) return console.log('No host video element');
-
-                console.log('=== HOST VIDEO ELEMENT STATE ===');
-                console.log('Paused:', video.paused);
-                console.log('Muted:', video.muted);
-                console.log('Volume:', video.volume);
-                console.log('Current Time:', video.currentTime);
-                console.log('Duration:', video.duration);
-                console.log('Ready State:', video.readyState);
-                console.log('Src:', video.currentSrc || video.src);
-                console.log('Error:', video.error);
-                console.log('================================');
-                return video;
-            };
-        }
-    }, []);
-
-    // Public API methods
-    const play = useCallback(async (time?: number) => {
-        isManuallyPaused.current = false;
-        await executeCommand('play', time);
-    }, [executeCommand]);
-
-    const pause = useCallback(async (time?: number) => {
-        isManuallyPaused.current = true;
-        await executeCommand('pause', time);
-    }, [executeCommand]);
-
-    const seek = useCallback(async (time: number) => {
-        await executeCommand('seek', time);
-    }, [executeCommand]);
+    }, [stopSyncInterval]);
 
     // Create video props
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
@@ -312,7 +276,8 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
 
         return createVideoProps({
             videoRef,
-            muted: localIsConnected, // Host is muted when connected to presentation
+            muted: localIsConnected, // Host always muted when connected
+            autoPlay: false,
             onVideoEnd,
             onError
         });
@@ -323,7 +288,10 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         play,
         pause,
         seek,
+        setVolume,
+        toggleMute,
         isConnectedToPresentation: localIsConnected,
-        getVideoProps
+        presentationMuted,
+        getVideoProps,
     };
 };

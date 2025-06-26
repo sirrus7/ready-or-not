@@ -1,313 +1,111 @@
 // src/shared/hooks/useVideoSyncManager.ts
-// A hook to consolidate video sync logic without major refactoring
-
-import {useRef, useCallback, useEffect, useState, RefObject} from 'react';
-import { SimpleBroadcastManager, ConnectionStatus } from '@core/sync/SimpleBroadcastManager';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { SimpleBroadcastManager } from '@core/sync/SimpleBroadcastManager';
 import { HostCommand } from '@core/sync/types';
 
-interface VideoSyncConfig {
+interface UseVideoSyncManagerProps {
   sessionId: string | null;
   role: 'host' | 'presentation';
-  videoRef: React.RefObject<HTMLVideoElement>;
-  onConnectionChange?: (isConnected: boolean) => void;
 }
 
-interface VideoSyncManager {
+interface UseVideoSyncManagerReturn {
   isConnected: boolean;
-  sendCommand: (command: string, data?: any) => void;
-  setupVideoSync: () => () => void;
-  broadcastManager: SimpleBroadcastManager | null;
+  sendCommand: (action: HostCommand['action'], data?: HostCommand['data']) => void;
+  onCommand: (callback: (command: HostCommand) => void) => () => void;
+  onConnectionChange: (callback: (connected: boolean) => void) => () => void;
 }
 
 export const useVideoSyncManager = ({
-  sessionId,
-  role,
-  videoRef,
-  onConnectionChange,
-}: VideoSyncConfig): VideoSyncManager => {
+                                      sessionId,
+                                      role
+                                    }: UseVideoSyncManagerProps): UseVideoSyncManagerReturn => {
   const [isConnected, setIsConnected] = useState(false);
-  const broadcastManager = sessionId
-    ? SimpleBroadcastManager.getInstance(sessionId, role)
-    : null;
-  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isBufferingRef = useRef(false);
 
-  // Send command helper
-  const sendCommand = useCallback(
-    (command: string, data?: any) => {
-      if (broadcastManager) {
-        broadcastManager.sendCommand(command, data);
-      }
-    },
-    [broadcastManager]
+  const broadcastManager = useMemo(() =>
+          sessionId ? SimpleBroadcastManager.getInstance(sessionId, role) : null,
+      [sessionId, role]
   );
 
-  // Setup video synchronization
-  const setupVideoSync = useCallback(() => {
-    if (!broadcastManager || !videoRef.current) {
-      return () => {};
+  // Send commands (host only)
+  const sendCommand = useCallback((action: HostCommand['action'], data?: HostCommand['data']) => {
+    if (broadcastManager && role === 'host') {
+      console.log(`[VideoSync] Sending command: ${action}`, data);
+      broadcastManager.sendCommand(action, data);
     }
+  }, [broadcastManager, role]);
 
-    const video = videoRef.current;
-    const cleanupFunctions: (() => void)[] = [];
+  // Listen for commands (presentation only)
+  const onCommand = useCallback((callback: (command: HostCommand) => void) => {
+    if (!broadcastManager || role !== 'presentation') return () => {};
+    return broadcastManager.onHostCommand(callback);
+  }, [broadcastManager, role]);
 
-    // Helper to start sync interval
-    const startSyncInterval = () => {
-      if (syncIntervalRef.current) return;
-
-      syncIntervalRef.current = setInterval(() => {
-        if (video && !video.paused && isConnected && role === 'host') {
-          sendCommand('sync', {
-            time: video.currentTime,
-            playbackRate: video.playbackRate,
-          });
-        }
-      }, 250); // Reduced from 500ms
-    };
-
-    // Helper to stop sync interval
-    const stopSyncInterval = () => {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-        syncIntervalRef.current = null;
-      }
-    };
+  // Connection status changes
+  const onConnectionChange = useCallback((callback: (connected: boolean) => void) => {
+    if (!broadcastManager) return () => {};
 
     if (role === 'host') {
-      // Host-specific setup
-      const handlePlay = () => {
-        startSyncInterval();
-        if (isConnected) {
-          sendCommand('play', {
-            time: video.currentTime,
-            playbackRate: video.playbackRate,
-          });
-        }
-      };
-
-      const handlePause = () => {
-        stopSyncInterval();
-        if (isConnected) {
-          sendCommand('pause', {
-            time: video.currentTime,
-          });
-        }
-      };
-
-      const handleSeeked = () => {
-        if (isConnected) {
-          sendCommand('seek', {
-            time: video.currentTime,
-          });
-        }
-      };
-
-      const handleRateChange = () => {
-        if (!video.paused && isConnected) {
-          sendCommand('sync', {
-            time: video.currentTime,
-            playbackRate: video.playbackRate,
-          });
-        }
-      };
-
-      const handleVolumeChange = () => {
-        console.log('[HOST] Sending volume command:', {
-          volume: video.volume,
-          muted: video.muted
-        });
-        if (isConnected) {
-          sendCommand('volume', {
-            volume: video.volume,
-            muted: video.muted,
-          });
-        }
-      };
-
-
-      video.addEventListener('play', handlePlay);
-      video.addEventListener('pause', handlePause);
-      video.addEventListener('seeked', handleSeeked);
-      video.addEventListener('ratechange', handleRateChange);
-      video.addEventListener('volumechange', handleVolumeChange);
-
-      cleanupFunctions.push(() => {
-        video.removeEventListener('play', handlePlay);
-        video.removeEventListener('pause', handlePause);
-        video.removeEventListener('seeked', handleSeeked);
-        video.removeEventListener('ratechange', handleRateChange);
-        video.removeEventListener('volumechange', handleVolumeChange);
-        stopSyncInterval();
+      return broadcastManager.onPresentationStatus((status) => {
+        const connected = status === 'connected';
+        callback(connected);
       });
-
-      // Start sync if already playing
-      if (!video.paused && isConnected) {
-        startSyncInterval();
-      }
     } else {
-      // Presentation-specific setup
-      const handleWaiting = () => {
-        isBufferingRef.current = true;
+      // For presentation, we need to monitor connection differently
+      // Since presentation doesn't have a direct way to know if it's connected,
+      // we'll rely on receiving commands as a sign of connection
+      let timeout: NodeJS.Timeout;
+      const checkConnection = () => {
+        callback(false); // Assume disconnected if no activity
       };
 
-      const handleCanPlay = () => {
-        isBufferingRef.current = false;
+      // Set up a timeout that assumes disconnection after 5 seconds of no activity
+      const resetTimeout = () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(checkConnection, 5000);
+        callback(true); // We're connected if we're receiving commands
       };
 
-      video.addEventListener('waiting', handleWaiting);
-      video.addEventListener('canplay', handleCanPlay);
-
-      cleanupFunctions.push(() => {
-        video.removeEventListener('waiting', handleWaiting);
-        video.removeEventListener('canplay', handleCanPlay);
+      // Listen for any command as a sign of connection
+      const unsubscribe = broadcastManager.onHostCommand(() => {
+        resetTimeout();
       });
 
-      const processSound = (_command: HostCommand, _video: RefObject<HTMLVideoElement>) => {
-        if (_command.data?.volume !== undefined) {
-          video.volume = _command.data.volume;
-        }
-        if (_command.data?.muted !== undefined) {
-          video.muted = _command.data.muted;
-        }
-      }
+      // Initial check
+      resetTimeout();
 
-      const handleCommand = async (command: HostCommand) => {
-        console.log('[PRESENTATION] Received command:', command.action, command.data);
-        try {
-          if (command.data?.playbackRate && video.playbackRate !== command.data.playbackRate) {
-            video.playbackRate = command.data.playbackRate;
-          }
-
-          switch (command.action) {
-            case 'play':
-              if (command.data?.time !== undefined) {
-                const timeDiff = Math.abs(video.currentTime - command.data.time);
-                if (timeDiff > 0.2) {
-                  video.currentTime = command.data.time;
-                }
-              }
-              processSound(command, videoRef);
-              await video.play();
-              break;
-
-            case 'pause':
-              video.pause();
-              if (command.data?.time !== undefined) {
-                video.currentTime = command.data.time;
-              }
-              processSound(command, videoRef);
-              // if (command.)
-              break;
-
-            case 'seek':
-              if (command.data?.time !== undefined) {
-                video.currentTime = command.data.time;
-              }
-              break;
-
-            case 'sync':
-              if (command.data?.time !== undefined && !video.paused && !isBufferingRef.current) {
-                const timeDiff = Math.abs(video.currentTime - command.data.time);
-                if (timeDiff > 0.2) {
-                  console.log(`[VideoSync] Adjusting drift: ${timeDiff.toFixed(2)}s`);
-                  video.currentTime = command.data.time;
-                }
-              }
-              break;
-            case 'volume':
-              console.log("Received volume command");
-              processSound(command, videoRef);
-              break;
-
-            case 'reset':
-              video.pause();
-              video.currentTime = 0;
-              break;
-
-            case 'close_presentation':
-              window.close();
-              break;
-          }
-        } catch (error) {
-          console.error('[VideoSync] Command execution failed:', error);
-        }
+      return () => {
+        clearTimeout(timeout);
+        unsubscribe();
       };
-
-      const unsubscribeCommand = broadcastManager.onHostCommand(handleCommand);
-      cleanupFunctions.push(unsubscribeCommand);
     }
+  }, [broadcastManager, role]);
 
-    // Cleanup function
-    return () => {
-      cleanupFunctions.forEach(cleanup => cleanup());
-    };
-  }, [broadcastManager, videoRef, role, isConnected, sendCommand]);
-
-  // Connection monitoring
+  // Monitor connection status internally
   useEffect(() => {
     if (!broadcastManager) return;
 
-    const handleConnectionStatus = (status: ConnectionStatus) => {
-      const connected = status === 'connected';
-      setIsConnected(connected);
-      onConnectionChange?.(connected);
-
-      // Handle host-specific connection logic
-      if (role === 'host' && videoRef.current) {
-        const video = videoRef.current;
-
-        if (connected) {
-          // Mute host when presentation connects
-          video.muted = true;
-
-          // Send initial state after a delay
-          setTimeout(() => {
-            const commandData = {
-              time: video.currentTime,
-              playbackRate: video.playbackRate,
-              volume: video.volume,      // Add this
-              muted: false,               // Add this - presentation should have audio
-            };
-
-            // Check readyState to ensure video is loaded
-            if (!video.paused && video.readyState >= 3) {
-              broadcastManager.sendCommand('play', commandData);
-            } else {
-              broadcastManager.sendCommand('pause', commandData);
-            }
-          }, 100); // Also reduce from 200 to 100
-        } else {
-          // Unmute host when presentation disconnects
-          video.muted = false;
-        }
-      }
-    };
-
-    const unsubscribe = role === 'host'
-      ? broadcastManager.onPresentationStatus(handleConnectionStatus)
-      : () => {}; // Presentation doesn't need to listen for connection status this way
-
-    // For presentation, we need to set connected state when receiving commands
-    if (role === 'presentation') {
-      const handleFirstCommand = () => {
-        setIsConnected(true);
-        onConnectionChange?.(true);
-      };
-
-      // This is a bit of a hack, but we can listen for any command as a sign of connection
-      const unsubCmd = broadcastManager.onHostCommand(handleFirstCommand);
-      return () => {
-        unsubCmd();
-      };
-    }
-
+    const unsubscribe = onConnectionChange(setIsConnected);
     return unsubscribe;
-  }, [broadcastManager, role, videoRef, onConnectionChange]);
+  }, [broadcastManager, onConnectionChange]);
+
+  // Send ready status for presentation
+  useEffect(() => {
+    if (role === 'presentation' && broadcastManager) {
+      broadcastManager.sendStatus('ready');
+
+      // Send periodic pings to maintain connection
+      const interval = setInterval(() => {
+        broadcastManager.sendStatus('pong');
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }
+  }, [role, broadcastManager]);
 
   return {
     isConnected,
     sendCommand,
-    setupVideoSync,
-    broadcastManager,
+    onCommand,
+    onConnectionChange,
   };
 };
