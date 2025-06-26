@@ -247,10 +247,11 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                             if (!isInteractable) return;
 
                             const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
-
-                            console.log('🔍 [EnhancedInvestmentPanel] ABOUT TO CALL onInvestmentToggle:', {
-                                correctIndex,
-                                effectivePrice: investment.effectivePrice
+                            console.log('🔍 MAPPING CHECK:', {
+                                clickedId: investment.id,
+                                clickedVisualNumber: InvestmentDisplayUtils.getDisplayId(investment.id, true),
+                                foundAtIndex: correctIndex,
+                                shouldBeIndex: parseInt(InvestmentDisplayUtils.getDisplayId(investment.id, true)) - 1
                             });
 
                             if (correctIndex === -1) {
