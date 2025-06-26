@@ -50,7 +50,7 @@ export const CHALLENGE_REGISTRY: Record<string, ChallengeMetadata> = {
         round: 2,
         impact_card_title: 'Capacity Impact',
         impact_card_description: 'Capacity management decisions have lasting effects.',
-        consequence_slides: [93, 94, 95, 96]
+        consequence_slides: [86, 93, 94, 95, 96]
     },
     'ch6': {
         id: 'ch6',
@@ -58,7 +58,7 @@ export const CHALLENGE_REGISTRY: Record<string, ChallengeMetadata> = {
         round: 2,
         impact_card_title: 'Quality Impact',
         impact_card_description: 'Quality control decisions affect production standards.',
-        consequence_slides: [108, 109, 110, 111]
+        consequence_slides: [100, 108, 109, 110, 111]
     },
     'ch7': {
         id: 'ch7',

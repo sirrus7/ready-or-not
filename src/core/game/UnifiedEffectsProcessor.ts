@@ -268,6 +268,64 @@ export class UnifiedEffectsProcessor {
         }
     }
 
+    private async processSetupSlide(slide: Slide, challengeId: string): Promise<void> {
+        const {currentDbSession, teams, teamRoundData, setTeamRoundDataDirectly, fetchTeamRoundDataFromHook} = this.props;
+
+        // Get setup consequence from existing challenge consequences
+        const consequenceKey = `${challengeId}-conseq`;
+        const allConsequences = allConsequencesData[consequenceKey] || [];
+        const setupConsequence = allConsequences.find(cons => cons.challenge_option_id === 'setup');
+
+        if (!setupConsequence) {
+            console.warn(`[UnifiedEffectsProcessor] No setup consequence found for ${challengeId}`);
+            return;
+        }
+
+        console.log(`[UnifiedEffectsProcessor] 🌍 Applying setup to ALL teams: ${setupConsequence.id}`);
+
+        // Apply to ALL teams (skip decision checking)
+        for (const team of teams) {
+            const currentRound = slide.round_number as 1 | 2 | 3;
+            const currentKpis = await KpiDataUtils.ensureTeamRoundData(
+                currentDbSession!.id,
+                team.id,
+                currentRound,
+                teamRoundData,
+                setTeamRoundDataDirectly
+            );
+
+            // Apply effects using existing engine
+            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, setupConsequence.effects);
+            const finalMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
+            const finalKpis = { ...updatedKpis, ...finalMetrics };
+
+            // Save using existing method
+            await db.kpis.update(currentKpis.id, finalKpis);
+
+            // Update local state using existing pattern
+            setTeamRoundDataDirectly(prev => ({
+                ...prev,
+                [team.id]: {
+                    ...prev[team.id],
+                    [currentRound]: finalKpis
+                }
+            }));
+
+            this.updatedKpisForBroadcast[team.id] = finalKpis;
+        }
+
+        // Broadcast using existing method
+        if (this.props.teamBroadcaster) {
+            this.props.teamBroadcaster.broadcastKpiUpdated(slide, this.updatedKpisForBroadcast);
+            this.updatedKpisForBroadcast = {};
+        }
+
+        // Refresh using existing method
+        await fetchTeamRoundDataFromHook(currentDbSession!.id);
+
+        console.log(`[UnifiedEffectsProcessor] ✅ Setup slide ${slide.id} complete`);
+    }
+
     /**
      * Process consequence slides (COMPLETE LOGIC from ConsequenceProcessor)
      */
@@ -292,6 +350,13 @@ export class UnifiedEffectsProcessor {
         const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
         console.log(`[UnifiedEffectsProcessor] 🎯 Looking for challenge ID: ${challengeId}`);
         if (!challengeId) {
+            return;
+        }
+
+        // NEW: Handle setup slides that affect all teams
+        const isSetupSlide = consequenceSlide.id === 86 || consequenceSlide.id === 100;
+        if (isSetupSlide) {
+            await this.processSetupSlide(consequenceSlide, challengeId);
             return;
         }
 

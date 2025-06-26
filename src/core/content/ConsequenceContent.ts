@@ -320,6 +320,20 @@ export const allConsequencesData: Record<string, Consequence[]> = {
     ],
     'ch5-conseq': [ // Capacity Crisis with combinations
         {
+            id: 'ch5_setup',
+            challenge_option_id: 'setup',  // Special key for crisis setup
+            narrative_text: "The recession was short lived, and Orders are skyrocketing. All companies are experiencing unprecedented demand.",
+            effects: [
+                {
+                    kpi: 'orders',
+                    change_value: 1500,
+                    timing: 'immediate',
+                    challenge_id: 'ch5',
+                    option_id: 'setup'
+                }
+            ]
+        },
+        {
             id: 'ch5_conseq_a',
             challenge_option_id: 'A',
             narrative_text: "You hired a manager and 5 additional hourly employees. Higher recruiting and wage costs but increased capacity. You've permanently impacted your KPIs. HR Managers come to the Facilitator's Desk for a Permanent KPI Impact Card.",
@@ -495,10 +509,35 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             effects: []
         }
     ],
-    // Addition to src/core/content/ConsequenceContent.ts
-// Add CH6 regular consequences and immunity consequences
-
     'ch6-conseq': [ // Quality Crisis regular consequences
+        {
+            id: 'ch6_setup',
+            challenge_option_id: 'setup',  // Special key for crisis setup
+            narrative_text: "Industry-wide quality issues require recalls and damage brand reputation across all companies.",
+            effects: [
+                {
+                    kpi: 'cost',
+                    change_value: 75000,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'setup'
+                },
+                {
+                    kpi: 'asp',
+                    change_value: -10,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'setup'
+                },
+                {
+                    kpi: 'orders',
+                    change_value: -250,
+                    timing: 'immediate',
+                    challenge_id: 'ch6',
+                    option_id: 'setup'
+                }
+            ]
+        },
         {
             id: 'ch6_conseq_a',
             challenge_option_id: 'A',

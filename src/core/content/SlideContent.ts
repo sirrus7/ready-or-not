@@ -884,7 +884,7 @@ export const allGameSlides: Slide[] = [
         id: 86,
         round_number: 2,
         title: "CH5: Capacity Crisis Intro",
-        type: 'video',
+        type: 'consequence_reveal',
         source_path: 'Slide_087.mp4',
         auto_advance_after_video: true
     },
@@ -1016,7 +1016,7 @@ export const allGameSlides: Slide[] = [
         id: 100,
         round_number: 2,
         title: "CH6: Quality Crisis Setup",
-        type: 'video',
+        type: 'consequence_reveal',
         source_path: 'Slide_101.mp4',
         auto_advance_after_video: true
     },
