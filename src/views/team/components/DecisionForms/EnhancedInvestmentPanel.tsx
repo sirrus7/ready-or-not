@@ -248,15 +248,9 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
 
                             const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
 
-                            console.log('🔍 [EnhancedInvestmentPanel] FULL CLICK DEBUG:', {
-                                clickedInvestmentId: investment.id,
-                                clickedInvestmentName: investment.name.split('.')[0],
-                                visualPosition: 'unknown', // We'll see this in the render order
+                            console.log('🔍 [EnhancedInvestmentPanel] ABOUT TO CALL onInvestmentToggle:', {
                                 correctIndex,
-                                cachedIndex: investment.index,
-                                willCallToggleWith: correctIndex,
-                                currentSelections: selectedInvestmentIds,
-                                investmentOptionsArray: investmentOptions.map((opt, i) => ({ i, id: opt.id, name: opt.name.split('.')[0] }))
+                                effectivePrice: investment.effectivePrice
                             });
 
                             if (correctIndex === -1) {
@@ -265,11 +259,12 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                             }
 
                             if (investment.isImmediate && !investment.isImmediatePurchased) {
-                                console.log('🔍 [EnhancedInvestmentPanel] Calling setShowImmediateModal with:', correctIndex);
                                 setShowImmediateModal(correctIndex);
                             } else {
-                                console.log('🔍 [EnhancedInvestmentPanel] Calling onInvestmentToggle with:', { correctIndex, effectivePrice: investment.effectivePrice });
+                                // Add immediate logging right before the call
+                                console.log('🔥 CALLING onInvestmentToggle RIGHT NOW with:', correctIndex, investment.effectivePrice);
                                 onInvestmentToggle(correctIndex, investment.effectivePrice);
+                                console.log('🔥 CALLED onInvestmentToggle - done');
                             }
                         }}
                     />
