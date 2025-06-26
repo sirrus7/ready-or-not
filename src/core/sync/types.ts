@@ -5,11 +5,13 @@ export interface HostCommand {
     type: 'HOST_COMMAND';
     sessionId: string;
     id: string;
-    action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync';
-    time?: number;
+    action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume';
     data?: {
+        time: number;
+        volume: number;
+        muted: boolean;
         playbackRate?: number;
-        [key: string]: any;
+        // [key: string]: any;
     }; // ✅ NEW: Added data field for custom command data
     timestamp: number;
 }
