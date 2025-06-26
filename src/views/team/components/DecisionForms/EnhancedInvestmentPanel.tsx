@@ -241,26 +241,20 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                         onChange={() => {
                             if (!isInteractable) return;
 
-                            // Find the correct index in the original investmentOptions array
+                            // Find the correct index in the original array
                             const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
 
-                            console.log('🔍 [Round3Debug] Checkbox clicked:', {
-                                investmentId: investment.id,
-                                investmentName: investment.name.split('.')[0],
-                                oldIndex: investment.index,
-                                correctIndex: correctIndex,
-                                indexMismatch: investment.index !== correctIndex
-                            });
+                            console.log('🔍 [Round3Debug] Using correctIndex:', correctIndex, 'instead of cached index:', investment.index);
 
                             if (correctIndex === -1) {
-                                console.error('[EnhancedInvestmentPanel] Could not find investment in array:', investment.id);
+                                console.error('[EnhancedInvestmentPanel] Could not find investment:', investment.id);
                                 return;
                             }
 
                             if (investment.isImmediate && !investment.isImmediatePurchased) {
-                                setShowImmediateModal(correctIndex);  // ✅ CORRECT INDEX
+                                setShowImmediateModal(correctIndex);
                             } else {
-                                onInvestmentToggle(correctIndex, investment.effectivePrice);  // ✅ CORRECT INDEX
+                                onInvestmentToggle(correctIndex, investment.effectivePrice);
                             }
                         }}
                     />
