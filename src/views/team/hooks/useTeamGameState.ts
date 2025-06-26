@@ -199,9 +199,12 @@ export const useTeamGameState = ({
                     console.log('🔍 Slide IDs in structure:', gameStructure.slides.slice(0, 10).map(s => s.id));
 
                     if (slide) {
-                        console.log('🔍 Calling handleSlideUpdate with slide:', slide.id);
-                        handleSlideUpdate({ new: { current_slide_index: slide.id } });
-                        console.log('🔍 handleSlideUpdate called successfully');
+                        // FIX: Find the INDEX of the slide, not the ID
+                        const slideIndex = gameStructure.slides.findIndex(s => s.id === event.data.slideId);
+                        console.log('🔍 Calling handleSlideUpdate with INDEX:', slideIndex, 'for slide ID:', slide.id);
+
+                        // Pass the INDEX, not the ID
+                        handleSlideUpdate({ new: { current_slide_index: slideIndex } });
 
                         // Reopen the decision when host navigates back
                         if (slide.interactive_data_key) {
