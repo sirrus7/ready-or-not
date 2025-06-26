@@ -131,8 +131,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                 effectivePrice: pricing?.finalPrice ?? option.cost,
                 group: pricing?.availability === 'continue' ? 'reinvest' : 'new'
             } as EnhancedInvestment;
-            // }).filter(investment => investment.pricing?.availability !== 'not_available');
-        })
+        }).filter(investment => investment.pricing?.availability !== 'not_available');
 
         return {
             reinvestInvestments: enhanced.filter(inv => inv.group === 'reinvest'),
@@ -220,15 +219,6 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
 
     const renderInvestmentCard = (investment: EnhancedInvestment) => {
         const isSelected = investment.isSelected || investment.isImmediatePurchased;
-        // ADD THIS DEBUG LOG:
-        console.log('🔍 [Round3Debug] Rendering card:', {
-            id: investment.id,
-            name: investment.name.split('.')[0],
-            isSelected,
-            isImmediatePurchased: investment.isImmediatePurchased,
-            checkboxWillShow: isSelected // This is what checkbox checked= uses
-        });
-
         const isUnaffordable = !isSelected && remainingBudget < investment.effectivePrice;
         const isInteractable = !investment.isDisabled && !isUnaffordable && !isSubmitting;
 
@@ -248,11 +238,11 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                             if (!isInteractable) return;
 
                             const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
-                            console.log('🔍 MAPPING CHECK:', {
-                                clickedId: investment.id,
-                                clickedVisualNumber: InvestmentDisplayUtils.getDisplayId(investment.id, true),
+                            console.log('🔍 FINDINDEX DEBUG:', {
+                                searchingFor: investment.id,
                                 foundAtIndex: correctIndex,
-                                shouldBeIndex: parseInt(InvestmentDisplayUtils.getDisplayId(investment.id, true)) - 1
+                                arrayItem: investmentOptions[correctIndex],
+                                fullArray: investmentOptions.map((opt, i) => ({ i, id: opt.id }))
                             });
 
                             if (correctIndex === -1) {
@@ -264,9 +254,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                 setShowImmediateModal(correctIndex);
                             } else {
                                 // Add immediate logging right before the call
-                                console.log('🔥 CALLING onInvestmentToggle RIGHT NOW with:', correctIndex, investment.effectivePrice);
                                 onInvestmentToggle(correctIndex, investment.effectivePrice);
-                                console.log('🔥 CALLED onInvestmentToggle - done');
                             }
                         }}
                     />
