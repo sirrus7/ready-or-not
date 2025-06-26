@@ -1,11 +1,13 @@
 // src/views/host/HostApp.tsx - REFACTOR: Final, stable layout fix
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
 import {AlertCircle, ChevronLeft, ChevronRight} from 'lucide-react';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import PresentationButton from '@views/host/components/GameControls/PresentationButton';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
+import {SimpleRealtimeManager} from "@core/sync";
+import {Slide} from "@shared/types";
 
 const HostApp: React.FC = () => {
     const {
@@ -18,14 +20,55 @@ const HostApp: React.FC = () => {
 
     const {currentSessionId, gameStructure, current_slide_index} = state;
 
+    const [previousSlideData, setPreviousSlideData] = useState<Slide | null>(null);
+
     useEffect(() => {
         document.title = "Ready or Not - Host";
     }, []);
 
     useEffect(() => {
-        if (!currentSessionId || currentSessionId === 'new' || !currentSlideData) return;
+        if (!currentSessionId || currentSessionId === 'new') return;
+
+        const realtimeManager = SimpleRealtimeManager.getInstance(currentSessionId, 'host');
+
+        // 🆕 NEW: Check if we're leaving an interactive slide (decision defaulting)
+        if (previousSlideData?.interactive_data_key &&
+            previousSlideData.type.startsWith('interactive_') &&
+            currentSlideData?.id !== previousSlideData.id) {
+
+            console.log('📱 Broadcasting decision_closed for:', previousSlideData.interactive_data_key);
+            realtimeManager.sendTeamEvent('decision_closed', {
+                decisionKey: previousSlideData.interactive_data_key,
+                message: 'Decision period has ended',
+                slideId: previousSlideData.id
+            });
+        }
+
+        // Update previous slide reference
+        setPreviousSlideData(currentSlideData);
+
+        // Exit early if no current slide
+        if (!currentSlideData) return;
+
+        // ✅ EXISTING: Broadcast to presentation display (unchanged)
         const broadcastManager = SimpleBroadcastManager.getInstance(currentSessionId, 'host');
         broadcastManager.sendSlideUpdate(currentSlideData);
+
+        // ✅ EXISTING: Broadcast to teams if slide is relevant
+        const isInteractiveSlide = currentSlideData.interactive_data_key &&
+            currentSlideData.type.startsWith('interactive_');
+        const isEffectSlide = ['consequence_reveal', 'payoff_reveal', 'kpi_reset'].includes(currentSlideData.type);
+
+        if (isInteractiveSlide) {
+            console.log('📱 Broadcasting decision_time for:', currentSlideData.interactive_data_key);
+            realtimeManager.sendDecisionTime(currentSlideData);
+        } else if (isEffectSlide) {
+            console.log('📱 Broadcasting kpi_updated for:', currentSlideData.type);
+            realtimeManager.sendKpiUpdated(currentSlideData);
+            if (currentSlideData.type === 'kpi_reset') {
+                realtimeManager.sendRoundTransition(currentSlideData.round_number);
+            }
+        }
     }, [currentSessionId, currentSlideData]);
 
     const isFirstSlideOverall = current_slide_index === 0;

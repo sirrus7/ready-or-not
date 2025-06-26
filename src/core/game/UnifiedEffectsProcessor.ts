@@ -13,6 +13,12 @@ import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
 import {getInvestmentPhaseBySlideId, getRoundForInvestmentPhase} from '@core/content/InvestmentRegistry';
 
+// NEW: Team broadcaster interface
+interface TeamBroadcaster {
+    broadcastKpiUpdated: (slide: Slide) => void;
+    broadcastRoundTransition: (roundNumber: number) => void;
+}
+
 interface UnifiedEffectsProcessorProps {
     currentDbSession: GameSession | null;
     gameStructure: GameStructure | null;
@@ -21,6 +27,7 @@ interface UnifiedEffectsProcessorProps {
     teamRoundData: Record<string, Record<number, TeamRoundData>>;
     fetchTeamRoundDataFromHook: (sessionId: string) => Promise<void>;
     setTeamRoundDataDirectly: (updater: (prev: Record<string, Record<number, TeamRoundData>>) => Record<string, Record<number, TeamRoundData>>) => void;
+    teamBroadcaster?: TeamBroadcaster;
 }
 
 export class UnifiedEffectsProcessor {
@@ -79,6 +86,15 @@ export class UnifiedEffectsProcessor {
 
             // Mark slide as processed
             this.processedSlides.add(slideKey);
+
+            // NEW: Broadcast to teams after successful processing
+            if (this.props.teamBroadcaster) {
+                this.props.teamBroadcaster.broadcastKpiUpdated(slide);
+
+                if (slide.type === 'kpi_reset') {
+                    this.props.teamBroadcaster.broadcastRoundTransition(slide.round_number);
+                }
+            }
         } catch (error) {
             console.error(`[UnifiedEffectsProcessor] ❌ Error processing effect slide ${slide.id}:`, error);
             throw error;

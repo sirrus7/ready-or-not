@@ -1,6 +1,6 @@
 // src/shared/components/Video/HostVideoControls.tsx - FINAL CLEAN FIX
 import React, {useState, useEffect, useRef} from 'react';
-import {Play, Pause, RotateCcw, Volume2, VolumeX} from 'lucide-react';
+import {Play, Pause, RotateCcw, Volume2} from 'lucide-react';
 import {formatTime} from '@shared/utils/video/helpers';
 
 interface HostVideoControlsProps {

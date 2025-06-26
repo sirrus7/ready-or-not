@@ -16,6 +16,7 @@ import {
 import {ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
 import {UnifiedEffectsProcessor} from './UnifiedEffectsProcessor';
+import {SimpleRealtimeManager} from "@core/sync";
 
 interface UseGameProcessingProps {
     currentDbSession: GameSession | null;
@@ -73,6 +74,9 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
     const unifiedEffectsProcessor = useMemo(() => {
         if (!currentDbSession || !gameStructure) return null;
 
+        // Get realtime manager for team broadcasting
+        const realtimeManager = SimpleRealtimeManager.getInstance(currentDbSession.id, 'host');
+
         return new UnifiedEffectsProcessor({
             currentDbSession,
             gameStructure,
@@ -81,6 +85,11 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             teamRoundData,
             fetchTeamRoundDataFromHook,
             setTeamRoundDataDirectly,
+            // NEW: Add team broadcaster
+            teamBroadcaster: {
+                broadcastKpiUpdated: (slide) => realtimeManager.sendKpiUpdated(slide),
+                broadcastRoundTransition: (roundNumber) => realtimeManager.sendRoundTransition(roundNumber)
+            }
         });
     }, [
         currentDbSession?.id,  // CRITICAL: Only session ID, not the full object
