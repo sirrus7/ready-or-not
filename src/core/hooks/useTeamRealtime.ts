@@ -49,9 +49,9 @@ export const useTeamRealtime = (sessionId: string | null, mode: 'host' | 'team')
         realtimeManager.sendRoundTransition(roundNumber);
     }, [realtimeManager, mode]);
 
-    const broadcastDecisionReset = useCallback((message?: string) => {
+    const broadcastDecisionReset = useCallback((message?: string, teamId?: string, decisionKey?: string) => {
         if (mode !== 'host' || !realtimeManager) return;
-        realtimeManager.sendDecisionReset(message);
+        realtimeManager.sendDecisionReset(message, teamId, decisionKey);
     }, [realtimeManager, mode]);
 
     const broadcastGameEnded = useCallback(() => {

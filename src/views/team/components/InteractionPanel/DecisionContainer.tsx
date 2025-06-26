@@ -10,6 +10,7 @@ interface DecisionModeContainerProps {
     currentSlide: Slide | null;
     gameStructure: GameStructure;
     decisionResetTrigger?: number;
+    onDecisionSubmitted?: () => void;
 }
 
 const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
@@ -17,7 +18,8 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                                                                          teamId,
                                                                          currentSlide,
                                                                          gameStructure,
-                                                                         decisionResetTrigger = 0
+                                                                         decisionResetTrigger = 0,
+                                                                         onDecisionSubmitted
                                                                      }) => {
     if (!currentSlide) {
         return (
@@ -60,6 +62,7 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
                 isDecisionTime={true}
                 gameStructure={gameStructure}
                 decisionResetTrigger={decisionResetTrigger}
+                onDecisionSubmitted={onDecisionSubmitted}
             />
         </div>
     );

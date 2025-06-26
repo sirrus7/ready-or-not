@@ -75,6 +75,8 @@ const TeamApp: React.FC = () => {
         isLoadingAdjustments  // ADDED: Pass centralized loading state
     });
 
+    const triggerDecisionRefresh = teamGameState.triggerDecisionRefresh;
+
     useEffect(() => {
         // Clear team login when session is deleted
         if (teamGameState.sessionStatus === 'deleted') {
@@ -373,6 +375,7 @@ const TeamApp: React.FC = () => {
                             sessionId={sessionId || ''}
                             gameStructure={teamGameState.gameStructure}
                             decisionResetTrigger={resetTrigger}
+                            onDecisionSubmitted={triggerDecisionRefresh}
                         />
                     ) : (
                         <div className="flex-1 flex items-center justify-center p-8">

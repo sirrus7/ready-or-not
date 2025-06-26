@@ -15,7 +15,7 @@ import {getInvestmentPhaseBySlideId, getRoundForInvestmentPhase} from '@core/con
 
 // NEW: Team broadcaster interface
 interface TeamBroadcaster {
-    broadcastKpiUpdated: (slide: Slide) => void;
+    broadcastKpiUpdated: (slide: Slide, kpiData?: Record<string, any>) => void; // NEW: Add optional kpiData
     broadcastRoundTransition: (roundNumber: number) => void;
 }
 
@@ -34,6 +34,7 @@ export class UnifiedEffectsProcessor {
     private props: UnifiedEffectsProcessorProps;
     private processedSlides = new Set<string>();
     private isProcessing = false;
+    private updatedKpisForBroadcast: Record<string, any> = {};
 
     constructor(props: UnifiedEffectsProcessorProps) {
         this.props = props;
@@ -71,6 +72,7 @@ export class UnifiedEffectsProcessor {
             return;
         }
         this.isProcessing = true;
+        console.log(`[UnifiedEffectsProcessor] 🚀 Processing slide ${slide.id} (${slide.title}) type: ${slide.type}`);
         try {
             if (slide.type === 'consequence_reveal') {
                 await this.processConsequenceSlide(slide);
@@ -87,13 +89,22 @@ export class UnifiedEffectsProcessor {
             // Mark slide as processed
             this.processedSlides.add(slideKey);
 
-            // NEW: Broadcast to teams after successful processing
+            // NEW: Broadcast to teams after successful processing (wait for DB refresh)
             if (this.props.teamBroadcaster) {
-                this.props.teamBroadcaster.broadcastKpiUpdated(slide);
-
-                if (slide.type === 'kpi_reset') {
-                    this.props.teamBroadcaster.broadcastRoundTransition(slide.round_number);
+                // Wait for database refresh to complete before broadcasting
+                if (this.props.currentDbSession?.id) {
+                    await this.props.fetchTeamRoundDataFromHook(this.props.currentDbSession.id);
                 }
+
+                // Small additional delay to ensure all database operations are complete
+                setTimeout(() => {
+                    this.props.teamBroadcaster!.broadcastKpiUpdated(slide, this.updatedKpisForBroadcast);
+                    this.updatedKpisForBroadcast = {}; // Clear
+
+                    if (slide.type === 'kpi_reset') {
+                        this.props.teamBroadcaster!.broadcastRoundTransition(slide.round_number);
+                    }
+                }, 100);
             }
         } catch (error) {
             console.error(`[UnifiedEffectsProcessor] ❌ Error processing effect slide ${slide.id}:`, error);
@@ -233,6 +244,7 @@ export class UnifiedEffectsProcessor {
      * Process consequence slides (COMPLETE LOGIC from ConsequenceProcessor)
      */
     private async processConsequenceSlide(consequenceSlide: Slide): Promise<void> {
+        console.log(`[UnifiedEffectsProcessor] 📋 Processing consequence slide ${consequenceSlide.id}`);
         const {
             currentDbSession,
             gameStructure,
@@ -250,6 +262,7 @@ export class UnifiedEffectsProcessor {
 
         // Use the SLIDE_TO_CHALLENGE_MAP to get challenge ID and option
         const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
+        console.log(`[UnifiedEffectsProcessor] 🎯 Looking for challenge ID: ${challengeId}`);
         if (!challengeId) {
             return;
         }
@@ -262,23 +275,49 @@ export class UnifiedEffectsProcessor {
         // Get consequence data
         const consequenceKey = `${challengeId}-conseq`;
         const allConsequencesForChallenge = allConsequencesData[consequenceKey] || [];
+        console.log(`[UnifiedEffectsProcessor] 📊 Found ${allConsequencesForChallenge?.length || 0} consequences for ${consequenceKey}`);
         if (allConsequencesForChallenge.length === 0) {
             console.warn(`[UnifiedEffectsProcessor] ⚠️ No consequences defined for challenge ${consequenceKey}`);
             return;
         }
 
+        console.log(`[UnifiedEffectsProcessor] 👥 Processing ${teams.length} teams`);
         // Process each team
         for (const team of teams) {
+            console.log(`[UnifiedEffectsProcessor] 🏢 Processing team: ${team.name} (${team.id})`);
             // Get team's decision for this challenge
             const teamDecision = teamDecisions[team.id]?.[challengeId];
+            console.log(`[UnifiedEffectsProcessor] 📝 Team ${team.name} decision:`, teamDecision);
             if (!teamDecision) {
+                console.warn(`[UnifiedEffectsProcessor] ⚠️ No decision found for team ${team.name} challenge ${challengeId}`);
                 continue;
             }
 
             // Get team's exact selection (could be "A", "A,C", "B,C", etc.)
             const teamSelection = teamDecision.selected_challenge_option_id;
+            console.log(`[UnifiedEffectsProcessor] ✅ Team ${team.name} selected option: ${teamSelection}`);
             if (!teamSelection) {
                 continue;
+            }
+
+            // Only apply multi-select filtering to actual multi-select challenges
+            if (MultiSelectChallengeTracker.isMultiSelectChallenge(challengeId)) {
+                if (!MultiSelectChallengeTracker.shouldSlideProcessSelection(consequenceSlide.id, teamSelection)) {
+                    console.log(`[UnifiedEffectsProcessor] ⏭️ Skipping team ${team.name} - multi-select: slide ${consequenceSlide.id} not for selection ${teamSelection}`);
+                    continue; // This slide is not for this team's selection
+                }
+            } else {
+                // For single-select challenges, use simple option matching
+                const slideOption = this.getSlideOption(consequenceSlide);
+                if (!slideOption) {
+                    console.warn(`[UnifiedEffectsProcessor] Could not determine slide option for ${consequenceSlide.title}`);
+                    continue;
+                }
+
+                if (teamSelection !== slideOption) {
+                    console.log(`[UnifiedEffectsProcessor] ⏭️ Skipping team ${team.name} - single-select: selected ${teamSelection} but slide is for ${slideOption}`);
+                    continue;
+                }
             }
 
             // Find consequence that matches the team's EXACT selection
@@ -291,9 +330,14 @@ export class UnifiedEffectsProcessor {
                 continue;
             }
 
-            // Only process this slide if it's the consequence slide for this team's selection
-            if (!MultiSelectChallengeTracker.shouldSlideProcessSelection(consequenceSlide.id, teamSelection)) {
-                continue; // This slide is not for this team's selection
+            console.log(`[UnifiedEffectsProcessor] 🎲 Found consequence for team ${team.name}:`, consequenceForTeamSelection.id);
+            console.log(`[UnifiedEffectsProcessor] 🎲 Effects to apply:`, consequenceForTeamSelection.effects);
+
+            // Only apply multi-select filtering to actual multi-select challenges
+            if (MultiSelectChallengeTracker.isMultiSelectChallenge(challengeId)) {
+                if (!MultiSelectChallengeTracker.shouldSlideProcessSelection(consequenceSlide.id, teamSelection)) {
+                    continue; // This slide is not for this team's selection
+                }
             }
 
             // Check immunity before applying effects
@@ -334,6 +378,8 @@ export class UnifiedEffectsProcessor {
                             ...finalKpis
                         });
 
+                        this.updatedKpisForBroadcast[team.id] = { ...updatedKpis, ...finalKpis };
+
                         console.log(`[UnifiedEffectsProcessor] Applied immunity benefits for team ${team.name}`);
                     } else {
                         console.log(`[UnifiedEffectsProcessor] No immunity consequences found for selection "${teamSelection}", skipping all effects`);
@@ -348,6 +394,8 @@ export class UnifiedEffectsProcessor {
             // ========================================================================
             // CONDITIONAL EFFECTS PROCESSING: Handle CH7 automation and existing logic
             // ========================================================================
+
+            console.log(`[UnifiedEffectsProcessor] ⚙️ Applying ${consequenceForTeamSelection.effects.length} effects to team ${team.name}`);
 
             // Apply effects to team round data
             const currentRound = consequenceSlide.round_number as 1 | 2 | 3;
@@ -395,6 +443,8 @@ export class UnifiedEffectsProcessor {
                 ...updatedKpis,
                 ...finalKpis
             });
+
+            this.updatedKpisForBroadcast[team.id] = { ...updatedKpis, ...finalKpis };
 
             // ========================================================================
             // MINIMAL CHANGE: Handle permanent effects with Employee Development check

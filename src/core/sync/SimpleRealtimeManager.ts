@@ -152,12 +152,13 @@ export class SimpleRealtimeManager {
         });
     }
 
-    sendKpiUpdated(slide: Slide): void {
+    sendKpiUpdated(slide: Slide, kpiData?: Record<string, any>): void {
         this.sendTeamEvent('kpi_updated', {
             slideType: slide.type,
             roundNumber: slide.round_number,
             slideId: slide.id,
-            requiresRefresh: true
+            requiresRefresh: true,
+            updatedKpis: kpiData // NEW: Include KPI data
         });
     }
 
@@ -168,9 +169,11 @@ export class SimpleRealtimeManager {
         });
     }
 
-    sendDecisionReset(message?: string): void {
+    sendDecisionReset(message?: string, teamId?: string, decisionKey?: string): void {
         this.sendTeamEvent('decision_reset', {
-            message: message || 'Decisions have been reset by the host'
+            message: message || 'Decisions have been reset by the host',
+            ...(teamId && { teamId }),
+            ...(decisionKey && { decisionKey })
         });
     }
 

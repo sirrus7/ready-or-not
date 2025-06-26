@@ -1,7 +1,8 @@
 // src/views/team/hooks/useTeamGameState.ts
 import {useEffect, useCallback, useState, useRef} from 'react';
 import {useRealtimeSubscription} from '@shared/services/supabase';
-import {db} from '@shared/services/supabase';
+import {db, supabase} from '@shared/services/supabase';
+import type { TeamGameEvent } from '@core/sync/SimpleRealtimeManager';
 import { readyOrNotGame_2_0_DD } from '@core/content/GameStructure';
 import {
     Slide,
@@ -30,6 +31,7 @@ interface UseTeamGameStateReturn {
     decisionResetTrigger: number;
     fetchCurrentKpis: () => Promise<void>;
     sessionStatus: 'active' | 'deleted' | 'unknown';
+    triggerDecisionRefresh: () => void;
 }
 
 interface PayloadData {
@@ -125,7 +127,9 @@ export const useTeamGameState = ({
             }
 
             // Fetch data for the determined target round
+            console.log(`[useTeamGameState] 📊 Fetching KPIs for team ${loggedInTeamId}, round ${targetRound}`);
             const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
+            console.log(`[useTeamGameState] 📊 Received KPIs:`, kpis);
             setCurrentTeamKpis(kpis);
         } catch (error) {
             console.error('📊 [useTeamGameState] Error fetching KPIs:', error);
@@ -135,9 +139,6 @@ export const useTeamGameState = ({
         }
     }, [sessionId, loggedInTeamId, currentActiveSlide]);
 
-    // ========================================================================
-    // REAL-TIME EVENT HANDLERS - CLEAN
-    // ========================================================================
     const handleSlideUpdate = useCallback((payload: SessionPayload) => {
         const updatedSession = payload.new;
 
@@ -167,95 +168,92 @@ export const useTeamGameState = ({
         }, 100);
     }, []);
 
-    const handleKpiUpdate = useCallback((payload: PayloadData) => {
-        const currentTeamId = stableTeamId.current;
-        const updatedKpis = payload.new as TeamRoundData;
-
-        if (updatedKpis?.team_id === currentTeamId) {
-            setCurrentTeamKpis(updatedKpis);
-        }
-    }, [currentActiveSlide?.round_number, currentTeamKpis?.round_number]);
-
-    const handleTeamDecisionUpdate = useCallback((payload: PayloadData) => {
-        const record = payload.new || payload.old;
-        const currentTeamId = stableTeamId.current;
-
-        // Only trigger refresh if this change affects our team
-        if (record && typeof record === 'object' && 'team_id' in record && record.team_id === currentTeamId) {
-            // Increment a decision change trigger that components can listen to
-            setDecisionResetTrigger(prev => prev + 1);
-        }
-    }, []);
-
     const handleSessionDelete = useCallback((_payload: PayloadData) => {
         setSessionStatus('deleted');
     }, []);
 
     // ========================================================================
-    // REAL-TIME SUBSCRIPTIONS - CLEAN (no adjustment subscription)
+    // REAL-TIME EVENT HANDLERS - CLEAN
     // ========================================================================
 
-    // 1. Session/Slide Updates
-    useRealtimeSubscription(
-        `team-slide-${sessionId}`,
-        {
-            table: 'sessions',
-            event: 'UPDATE',
-            filter: `id=eq.${sessionId}`,
-            onchange: handleSlideUpdate
-        },
-        !!sessionId && !!loggedInTeamId
-    );
+    // NEW: Team event handler
+    const handleTeamEvent = useCallback((event: TeamGameEvent) => {
+        if (event.data?.teamId && event.data.teamId !== loggedInTeamId) {
+            return;
+        }
 
-    // 2. Add a new subscription for session deletions
-    useRealtimeSubscription(
-        `team-session-delete-${sessionId}`,
-        {
-            table: 'sessions',
-            event: 'DELETE',
-            filter: `id=eq.${sessionId}`,
-            onchange: handleSessionDelete
-        },
-        !!sessionId && !!loggedInTeamId
-    );
+        console.log(`[useTeamGameState] 📱 Received ${event.type}:`, event.data);
 
-    // 3. Decision Deletes (for reset handling)
-    useRealtimeSubscription(
-        `team-deletes-${sessionId}`,
-        {
-            table: 'team_decisions',
-            event: 'DELETE',
-            filter: `session_id=eq.${sessionId}`,
-            onchange: handleDecisionDelete
-        },
-        !!sessionId && !!loggedInTeamId
-    );
+        switch (event.type) {
+            case 'decision_time':
+                if (event.data?.slideId && gameStructure) {
+                    const slide = gameStructure.slides.find(s => s.id === event.data.slideId);
+                    if (slide) {
+                        handleSlideUpdate({ new: { current_slide_index: slide.id } });
+                    }
+                }
+                break;
+            case 'kpi_updated':
+                // NEW: Use KPI data from host if available
+                if (loggedInTeamId && event.data?.updatedKpis?.[loggedInTeamId]) {
+                    setCurrentTeamKpis(event.data.updatedKpis[loggedInTeamId]);
+                } else {
+                    fetchCurrentKpis();
+                }
+                break;
+            case 'round_transition':
+                if (event.data?.resetRequired) {
+                    fetchCurrentKpis();
+                }
+                break;
+            case 'decision_reset':
+                handleDecisionDelete({});
+                break;
+            case 'game_ended':
+                handleSessionDelete({});
+                break;
+        }
+    }, [loggedInTeamId, gameStructure, handleSlideUpdate, handleDecisionDelete, handleSessionDelete, fetchCurrentKpis]);
 
-    // 4. KPI Updates - Team-specific filter
-    useRealtimeSubscription(
-        `team-kpis-${sessionId}-${loggedInTeamId}`,
-        {
-            table: 'team_round_data',
-            event: '*',
-            filter: `session_id=eq.${sessionId}`,
-            onchange: handleKpiUpdate
-        },
-        !!sessionId && !!loggedInTeamId
-    );
+    // NEW: Custom channel subscription - replaces all database subscriptions
+    useEffect(() => {
+        if (!sessionId || !loggedInTeamId) return;
 
-    // 5. Team Decision Updates (for investment display refresh)
-    useRealtimeSubscription(
-        `team-decisions-${sessionId}-${loggedInTeamId}`,
-        {
-            table: 'team_decisions',
-            event: '*', // Listen to INSERT, UPDATE, DELETE
-            filter: `session_id=eq.${sessionId}`,
-            onchange: handleTeamDecisionUpdate
-        },
-        !!sessionId && !!loggedInTeamId
-    );
+        console.log(`[useTeamGameState] 🔗 Connecting to team-events-${sessionId}`);
 
-    // NOTE: Permanent Adjustments subscription removed - now handled centrally
+        const channel = supabase.channel(`team-events-${sessionId}`);
+
+        channel.on('broadcast', { event: 'team_game_event' }, (payload: any) => {
+            try {
+                const event = payload.payload as TeamGameEvent;
+                handleTeamEvent(event);
+            } catch (error) {
+                console.error('[useTeamGameState] Error handling team event:', error);
+            }
+        });
+
+        channel.subscribe((status: string) => {
+            switch (status) {
+                case 'SUBSCRIBED':
+                    setConnectionStatus('connected');
+                    console.log(`[useTeamGameState] ✅ Connected to team events`);
+                    break;
+                case 'CHANNEL_ERROR':
+                case 'TIMED_OUT':
+                    setConnectionStatus('disconnected');
+                    console.error(`[useTeamGameState] ❌ Team events error: ${status}`);
+                    break;
+                case 'CLOSED':
+                    setConnectionStatus('disconnected');
+                    break;
+            }
+        });
+
+        return () => {
+            console.log(`[useTeamGameState] 🔌 Disconnecting team events`);
+            supabase.removeChannel(channel);
+        };
+    }, [sessionId, loggedInTeamId, handleTeamEvent]);
 
     // ========================================================================
     // EFFECTS - CLEAN
@@ -361,5 +359,6 @@ export const useTeamGameState = ({
         decisionResetTrigger,
         fetchCurrentKpis,
         sessionStatus,
+        triggerDecisionRefresh: () => setDecisionResetTrigger(prev => prev + 1),
     };
 };

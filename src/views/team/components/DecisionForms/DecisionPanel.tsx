@@ -11,8 +11,8 @@ import DecisionFooter from './DecisionFooter';
 import ErrorDisplay from './ErrorDisplay';
 
 interface DecisionPanelProps {
-    sessionId: string | null;    // UPDATED: Required for continuation pricing
-    teamId: string | null;       // UPDATED: Required for continuation pricing
+    sessionId: string | null;
+    teamId: string | null;
     currentSlide: Slide | null;
     investmentOptions?: InvestmentOption[];
     investUpToBudget?: number;
@@ -21,6 +21,7 @@ interface DecisionPanelProps {
     isDecisionTime: boolean;
     gameStructure?: GameStructure;
     decisionResetTrigger?: number;
+    onDecisionSubmitted?: () => void;
 }
 
 const DecisionPanel: React.FC<DecisionPanelProps> = ({
@@ -33,7 +34,8 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                                                          availableRd3Investments = [],
                                                          isDecisionTime,
                                                          gameStructure,
-                                                         decisionResetTrigger = 0
+                                                         decisionResetTrigger = 0,
+                                                         onDecisionSubmitted
                                                      }) => {
     const decisionLogic = useDecisionMaking({
         currentSlide,
@@ -53,7 +55,8 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
         investmentOptions,
         challengeOptions,
         gameStructure,
-        decisionResetTrigger
+        decisionResetTrigger,
+        onDecisionSubmitted
     });
 
     if (!isDecisionTime || !currentSlide) {

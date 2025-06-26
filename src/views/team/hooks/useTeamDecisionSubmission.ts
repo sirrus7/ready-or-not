@@ -20,6 +20,7 @@ interface UseTeamDecisionSubmissionProps {
     challengeOptions?: ChallengeOption[];
     gameStructure?: GameStructure;
     decisionResetTrigger?: number;
+    onDecisionSubmitted?: () => void;
 }
 
 export interface UseTeamDecisionSubmissionReturn {
@@ -61,7 +62,8 @@ export const useTeamDecisionSubmission = ({
                                               decisionState,
                                               isValidSubmission,
                                               gameStructure,
-                                              decisionResetTrigger = 0
+                                              decisionResetTrigger = 0,
+                                              onDecisionSubmitted
                                           }: UseTeamDecisionSubmissionProps): UseTeamDecisionSubmissionReturn => {
 
     // ========================================================================
@@ -306,6 +308,9 @@ export const useTeamDecisionSubmission = ({
             onSuccess: () => {
                 setSubmissionSuccess(true);
                 setSubmissionError(null);
+
+                // NEW: Trigger investment display refresh
+                onDecisionSubmitted?.();
 
                 // ✅ YOUR ORIGINAL LOGIC - Only wrapped with circuit breaker
                 setTimeout(() => {

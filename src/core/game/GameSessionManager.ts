@@ -2,6 +2,7 @@
 import {GameStructure, GameSession, GameSessionInsert, NewGameData, TeamRoundData} from '@shared/types';
 import {db, formatSupabaseError} from '@shared/services/supabase';
 import { ScoringEngine } from './ScoringEngine';
+import {SimpleRealtimeManager} from "@core/sync";
 
 export class GameSessionManager {
     private static instance: GameSessionManager;
@@ -238,6 +239,14 @@ export class GameSessionManager {
 
     async deleteSession(sessionId: string): Promise<void> {
         try {
+            // NEW: Broadcast session deletion
+            try {
+                const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'host');
+                realtimeManager.sendGameEnded();
+            } catch (broadcastError) {
+                console.warn('[GameSessionManager] Failed to broadcast session deletion:', broadcastError);
+            }
+
             await db.sessions.delete(sessionId);
         } catch (error) {
             throw new Error(`Failed to delete session: ${formatSupabaseError(error)}`);

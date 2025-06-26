@@ -87,7 +87,7 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             setTeamRoundDataDirectly,
             // NEW: Add team broadcaster
             teamBroadcaster: {
-                broadcastKpiUpdated: (slide) => realtimeManager.sendKpiUpdated(slide),
+                broadcastKpiUpdated: (slide, kpiData) => realtimeManager.sendKpiUpdated(slide, kpiData),
                 broadcastRoundTransition: (roundNumber) => realtimeManager.sendRoundTransition(roundNumber)
             }
         });

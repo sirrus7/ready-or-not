@@ -15,6 +15,7 @@ import {
     Slide,
     PermanentKpiAdjustment // ADDED: For centralized adjustments
 } from '@shared/types';
+import {SimpleRealtimeManager} from "@core/sync";
 
 /**
  * GameContextType Interface
@@ -104,7 +105,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         }
 
         try {
+            // 1. Reset in database (existing logic)
             await teamDataManager.resetTeamDecisionInDb(session.id, teamId, interactiveDataKey);
+
+            // 2. NEW: Broadcast team-specific reset event
+            const realtimeManager = SimpleRealtimeManager.getInstance(session.id, 'host');
+            realtimeManager.sendDecisionReset(
+                `Your ${interactiveDataKey} decision has been reset by the host`,
+                teamId,
+                interactiveDataKey
+            );
+
+            console.log(`[GameProvider] ✅ Reset decision for team ${teamId}: ${interactiveDataKey}`);
         } catch (error) {
             console.error('GameProvider: Error resetting team decision:', error);
             throw error;
