@@ -15,8 +15,7 @@ import {getInvestmentPhaseBySlideId, getRoundForInvestmentPhase} from '@core/con
 
 // NEW: Team broadcaster interface
 interface TeamBroadcaster {
-    broadcastKpiUpdated: (slide: Slide, kpiData?: Record<string, any>) => void; // NEW: Add optional kpiData
-    broadcastRoundTransition: (roundNumber: number) => void;
+    broadcastKpiUpdated: (slide: Slide, kpiData?: Record<string, any>) => void;
 }
 
 interface UnifiedEffectsProcessorProps {
@@ -133,10 +132,6 @@ export class UnifiedEffectsProcessor {
                         updatedKpis: freshKpiData,
                         permanentAdjustments: permanentAdjustments
                     });
-
-                    if (slide.type === 'kpi_reset') {
-                        this.props.teamBroadcaster!.broadcastRoundTransition(slide.round_number);
-                    }
                 }, 100);
             }
         } catch (error) {

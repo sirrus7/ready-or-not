@@ -88,7 +88,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             // NEW: Add team broadcaster
             teamBroadcaster: {
                 broadcastKpiUpdated: (slide, kpiData) => realtimeManager.sendKpiUpdated(slide, kpiData),
-                broadcastRoundTransition: (roundNumber) => realtimeManager.sendRoundTransition(roundNumber)
             }
         });
     }, [
@@ -102,10 +101,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
             broadcastKpiUpdated: (slide, kpiData) => {
                 const realtimeManager = SimpleRealtimeManager.getInstance(currentDbSession.id, 'host');
                 realtimeManager.sendKpiUpdated(slide, kpiData);
-            },
-            broadcastRoundTransition: (roundNumber) => {
-                const realtimeManager = SimpleRealtimeManager.getInstance(currentDbSession.id, 'host');
-                realtimeManager.sendRoundTransition(roundNumber);
             }
         } : undefined;
 

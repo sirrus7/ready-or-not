@@ -44,11 +44,6 @@ export const useTeamRealtime = (sessionId: string | null, mode: 'host' | 'team')
         realtimeManager.sendKpiUpdated(slide);
     }, [realtimeManager, mode]);
 
-    const broadcastRoundTransition = useCallback((roundNumber: number) => {
-        if (mode !== 'host' || !realtimeManager) return;
-        realtimeManager.sendRoundTransition(roundNumber);
-    }, [realtimeManager, mode]);
-
     const broadcastDecisionReset = useCallback((message?: string, teamId?: string, decisionKey?: string) => {
         if (mode !== 'host' || !realtimeManager) return;
         realtimeManager.sendDecisionReset(message, teamId, decisionKey);
@@ -85,7 +80,6 @@ export const useTeamRealtime = (sessionId: string | null, mode: 'host' | 'team')
         broadcastToTeams,
         broadcastDecisionTime,
         broadcastKpiUpdated,
-        broadcastRoundTransition,
         broadcastDecisionReset,
         broadcastGameEnded,
 

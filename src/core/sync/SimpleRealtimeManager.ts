@@ -9,7 +9,7 @@ export type RealtimeConnectionStatus = 'disconnected' | 'connecting' | 'connecte
 
 // Team game event structure
 export interface TeamGameEvent {
-    type: 'decision_time' | 'decision_closed' | 'kpi_updated' | 'round_transition' | 'decision_reset' | 'game_ended';
+    type: 'decision_time' | 'decision_closed' | 'kpi_updated' | 'decision_reset' | 'game_ended';
     sessionId: string;
     data?: any;
     timestamp: number;
@@ -159,13 +159,6 @@ export class SimpleRealtimeManager {
             slideId: slide.id,
             requiresRefresh: true,
             ...kpiData
-        });
-    }
-
-    sendRoundTransition(roundNumber: number): void {
-        this.sendTeamEvent('round_transition', {
-            newRound: roundNumber,
-            resetRequired: true
         });
     }
 

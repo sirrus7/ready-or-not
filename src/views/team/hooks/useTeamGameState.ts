@@ -85,6 +85,7 @@ export const useTeamGameState = ({
     // DATA FETCHING - Only KPIs (adjustments handled centrally)
     // ========================================================================
     const fetchCurrentKpis = useCallback(async () => {
+        console.log('🔍 fetchCurrentKpis called from:', new Error().stack);
         if (!sessionId || !loggedInTeamId || !currentActiveSlide) return;
 
         setIsLoadingKpis(true);
@@ -227,11 +228,6 @@ export const useTeamGameState = ({
                     teamGameContext.updatePermanentAdjustments(event.data.permanentAdjustments);
                 }
                 break;
-            case 'round_transition':
-                if (event.data?.resetRequired) {
-                    fetchCurrentKpis();
-                }
-                break;
             case 'decision_reset':
                 handleDecisionDelete({});
                 break;
@@ -291,22 +287,10 @@ export const useTeamGameState = ({
     // EFFECTS - CLEAN
     // ========================================================================
 
-    // CRITICAL: Controlled KPI refresh on slide changes - OPTIMIZED to prevent loading flashes
-    useEffect(() => {
-        if (currentActiveSlide && sessionId && loggedInTeamId) {
-            // PRODUCTION FIX: Always refresh for KPI reset slides to handle round transitions
-            const isKpiResetSlide = currentActiveSlide.type === 'kpi_reset';
-            const roundChanged = currentTeamKpis?.round_number !== (currentActiveSlide.round_number || 1);
-            const needsRefresh = !currentTeamKpis || roundChanged || isKpiResetSlide;
-
-            if (needsRefresh) fetchCurrentKpis();
-        }
-    }, [currentActiveSlide?.id, currentActiveSlide?.round_number, currentActiveSlide?.type, fetchCurrentKpis, currentTeamKpis?.round_number]);
-
     // Load game structure and initialize slide
     useEffect(() => {
         const loadGameStructure = async () => {
-            if (!sessionId) return;
+            if (!sessionId || !loggedInTeamId) return;
 
             try {
                 // Load session data to get current slide
@@ -321,6 +305,11 @@ export const useTeamGameState = ({
                 const initialSlide = readyOrNotGame_2_0_DD.slides[slideIndex];
                 if (initialSlide) {
                     setCurrentActiveSlide(initialSlide);
+
+                    // Fetch initial KPIs for this slide
+                    const targetRound = (initialSlide.round_number as 1 | 2 | 3) || 1;
+                    const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
+                    setCurrentTeamKpis(kpis);
                 }
 
                 setConnectionStatus('connected');
@@ -331,7 +320,7 @@ export const useTeamGameState = ({
         };
 
         loadGameStructure();
-    }, [sessionId]);
+    }, [sessionId, loggedInTeamId]);
 
     // Cleanup timeouts on unmount
     useEffect(() => {

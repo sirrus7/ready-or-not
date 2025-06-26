@@ -58,15 +58,9 @@ const HostApp: React.FC = () => {
         // ✅ EXISTING: Broadcast to teams if slide is relevant
         const isInteractiveSlide = currentSlideData.interactive_data_key &&
             currentSlideData.type.startsWith('interactive_');
-        const isEffectSlide = ['consequence_reveal', 'payoff_reveal', 'kpi_reset'].includes(currentSlideData.type);
-
         if (isInteractiveSlide) {
             console.log('📱 Broadcasting decision_time for:', currentSlideData.interactive_data_key);
             realtimeManager.sendDecisionTime(currentSlideData);
-        } else if (isEffectSlide) {
-            if (currentSlideData.type === 'kpi_reset') {
-                realtimeManager.sendRoundTransition(currentSlideData.round_number);
-            }
         }
     }, [currentSessionId, currentSlideData]);
 
