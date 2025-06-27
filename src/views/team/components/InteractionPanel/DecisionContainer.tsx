@@ -36,14 +36,20 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
         if (!currentSlide || !gameStructure) return { investmentOptions: [], challengeOptions: [], rd3Investments: [], budgetForPhase: 0 };
 
         const dataKey = currentSlide.interactive_data_key || '';
-        const investmentOptions = currentSlide.type === 'interactive_invest' ? gameStructure.all_investment_options[dataKey] || [] : [];
+
+        // FIXED: For double down slides, use RD3 investments as investmentOptions so useDecisionMaking can find them
+        const investmentOptions = currentSlide.type === 'interactive_invest' ?
+            gameStructure.all_investment_options[dataKey] || [] :
+            currentSlide.type === 'interactive_double_down_select' ?
+                gameStructure.all_investment_options['rd3-invest'] || [] :
+                [];
+
         const challengeOptions = (currentSlide.type === 'interactive_choice' || currentSlide.type === 'interactive_double_down_select') ?
             gameStructure.all_challenge_options[dataKey] || [] : [];
 
         const rd3Investments = currentSlide.type === 'interactive_double_down_select' ?
             gameStructure.all_investment_options['rd3-invest'] || [] : [];
 
-        // For now, pass all RD3 investments - filtering will happen in DecisionPanel/useDecisionMaking
         const budgetForPhase = currentSlide.type === 'interactive_invest' ? gameStructure.investment_phase_budgets[dataKey] || 0 : 0;
 
         return {investmentOptions, challengeOptions, rd3Investments, budgetForPhase};

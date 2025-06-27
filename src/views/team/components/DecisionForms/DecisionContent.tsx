@@ -1,13 +1,12 @@
 // src/views/team/components/DecisionForms/DecisionContent.tsx
-// FIXED: Updated prop names and function signatures to match new investment system
+// UPDATED: Use unified DoubleDown component
 
 import React from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
 import {DecisionState, DecisionActions} from '@views/team/hooks/useDecisionMaking';
 import InvestmentPanel from './InvestmentPanel';
 import ChoicePanel from './ChoicePanel';
-import DoubleDownPromptPanel from './DoubleDownPrompt';
-import DoubleDownSelectPanel from './DoubleDownSelect';
+import DoubleDownPanel from './DoubleDownPanel'; // NEW: Unified component
 
 interface DecisionContentProps {
     currentSlide: Slide;
@@ -35,13 +34,13 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
             return (
                 <InvestmentPanel
                     investmentOptions={investmentOptions}
-                    selectedInvestmentIds={decisionState.selectedInvestmentOptions}  // CORRECT: this contains letters ['A', 'B', 'C']
+                    selectedInvestmentIds={decisionState.selectedInvestmentOptions}
                     spentBudget={decisionState.spentBudget}
                     investUpToBudget={investUpToBudget}
                     onInvestmentToggleById={decisionActions.handleInvestmentToggleById}
                     onImmediatePurchase={decisionActions.handleImmediatePurchase}
                     isSubmitting={isSubmitting}
-                    immediatePurchases={decisionState.immediatePurchases}  // This also contains letters ['A', 'B']
+                    immediatePurchases={decisionState.immediatePurchases}
                 />
             );
         case 'interactive_choice':
@@ -58,38 +57,26 @@ const DecisionContent: React.FC<DecisionContentProps> = ({
                 />
             );
         case 'interactive_double_down_select': {
-            // Check if we're in the prompt phase or select phase
-            const showSelectPhase = decisionState.selectedChallengeOptionId === 'yes_dd';
+            // Filter RD3 investments to only what team owns
+            const teamRd3Letters = decisionState.immediatePurchases || [];
+            const teamOwnedInvestments = availableRd3Investments.filter(inv => {
+                return teamRd3Letters.includes(inv.id);
+            });
 
-            if (!showSelectPhase) {
-                // Show the prompt with Yes/No options
-                return (
-                    <DoubleDownPromptPanel
-                        challengeOptions={challengeOptions}
-                        selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
-                        onChallengeSelect={decisionActions.handleChallengeSelect}
-                    />
-                );
-            } else {
-                // Filter RD3 investments to only what team owns
-                const teamRd3Letters = decisionState.immediatePurchases || [];
-                const teamOwnedInvestments = availableRd3Investments.filter(inv => {
-                    const invLetter = inv.name.match(/^([A-Z])\./)?.[1];
-                    return invLetter && teamRd3Letters.includes(invLetter);
-                });
-
-                // User selected "yes_dd", show the investment selection
-                return (
-                    <DoubleDownSelectPanel
-                        availableRd3Investments={teamOwnedInvestments}
-                        sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
-                        doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
-                        onSacrificeChange={decisionActions.handleSacrificeSelect}
-                        onDoubleDownChange={decisionActions.handleDoubleDownSelect}
-                        isSubmitting={isSubmitting}
-                    />
-                );
-            }
+            // NEW: Single unified component handles entire double down flow
+            return (
+                <DoubleDownPanel
+                    challengeOptions={challengeOptions}
+                    availableRd3Investments={teamOwnedInvestments}
+                    selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
+                    sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
+                    doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
+                    onChallengeSelect={decisionActions.handleChallengeSelect}
+                    onSacrificeChange={decisionActions.handleSacrificeSelect}
+                    onDoubleDownChange={decisionActions.handleDoubleDownSelect}
+                    isSubmitting={isSubmitting}
+                />
+            );
         }
         default:
             return (

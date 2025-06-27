@@ -1,17 +1,14 @@
 // src/views/team/components/DecisionForms/EnhancedDecisionContent.tsx
-// Enhanced DecisionContent that supports continuation pricing
+// UPDATED: Use unified DoubleDown component
 
 import React from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
 import {DecisionState, DecisionActions} from '@views/team/hooks/useDecisionMaking';
-import SmartInvestmentPanel from './SmartInvestmentPanel';
+import InvestmentPanel from './InvestmentPanel';
 import ChoicePanel from './ChoicePanel';
-import DoubleDownPromptPanel from './DoubleDownPrompt';
-import DoubleDownSelectPanel from './DoubleDownSelect';
+import DoubleDownPanel from './DoubleDownPanel'; // NEW: Unified component
 
 interface EnhancedDecisionContentProps {
-    sessionId: string;
-    teamId: string;
     currentSlide: Slide;
     decisionState: DecisionState;
     decisionActions: DecisionActions;
@@ -23,8 +20,6 @@ interface EnhancedDecisionContentProps {
 }
 
 const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
-                                                                             sessionId,
-                                                                             teamId,
                                                                              currentSlide,
                                                                              decisionState,
                                                                              decisionActions,
@@ -32,18 +27,12 @@ const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
                                                                              challengeOptions,
                                                                              availableRd3Investments,
                                                                              investUpToBudget,
-                                                                             isSubmitting
+                                                                             isSubmitting,
                                                                          }) => {
-    // Determine current round from slide data
-    const currentRound = (currentSlide.round_number || 1) as 1 | 2 | 3;
-
     switch (currentSlide.type) {
         case 'interactive_invest':
             return (
-                <SmartInvestmentPanel
-                    sessionId={sessionId}
-                    teamId={teamId}
-                    currentRound={currentRound}
+                <InvestmentPanel
                     investmentOptions={investmentOptions}
                     selectedInvestmentIds={decisionState.selectedInvestmentOptions}
                     spentBudget={decisionState.spentBudget}
@@ -70,38 +59,26 @@ const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
             );
 
         case 'interactive_double_down_select': {
-            // Check if we're in the prompt phase or select phase
-            const showSelectPhase = decisionState.selectedChallengeOptionId === 'yes_dd';
+            // Filter RD3 investments to only what team owns
+            const teamRd3Letters = decisionState.immediatePurchases || [];
+            const teamOwnedInvestments = availableRd3Investments.filter(inv => {
+                return teamRd3Letters.includes(inv.id);
+            });
 
-            if (!showSelectPhase) {
-                // Show the prompt with Yes/No options
-                return (
-                    <DoubleDownPromptPanel
-                        challengeOptions={challengeOptions}
-                        selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
-                        onChallengeSelect={decisionActions.handleChallengeSelect}  // ✅ FIXED: Was handleDoubleDownPromptSelect
-                    />
-                );
-            } else {
-                // Filter RD3 investments to only what team owns
-                const teamRd3Letters = decisionState.immediatePurchases || [];
-                const teamOwnedInvestments = availableRd3Investments.filter(inv => {
-                    const invLetter = inv.name.match(/^([A-Z])\./)?.[1];
-                    return invLetter && teamRd3Letters.includes(invLetter);
-                });
-
-                // User selected "yes_dd", show the investment selection
-                return (
-                    <DoubleDownSelectPanel
-                        availableRd3Investments={teamOwnedInvestments}
-                        sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
-                        doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
-                        onSacrificeChange={decisionActions.handleSacrificeSelect}
-                        onDoubleDownChange={decisionActions.handleDoubleDownSelect}
-                        isSubmitting={isSubmitting}
-                    />
-                );
-            }
+            // NEW: Single unified component handles entire double down flow
+            return (
+                <DoubleDownPanel
+                    challengeOptions={challengeOptions}
+                    availableRd3Investments={teamOwnedInvestments}
+                    selectedChallengeOptionId={decisionState.selectedChallengeOptionId}
+                    sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
+                    doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
+                    onChallengeSelect={decisionActions.handleChallengeSelect}
+                    onSacrificeChange={decisionActions.handleSacrificeSelect}
+                    onDoubleDownChange={decisionActions.handleDoubleDownSelect}
+                    isSubmitting={isSubmitting}
+                />
+            );
         }
 
         default:

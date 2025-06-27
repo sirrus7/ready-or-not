@@ -86,11 +86,19 @@ export const useDecisionMaking = ({
             case 'interactive_invest':
                 return state.selectedInvestmentOptions.length > 0 || state.immediatePurchases.length > 0;
             case 'interactive_choice':
-                // FIXED: For regular choice scenarios, only need selectedChallengeOptionId
                 return !!state.selectedChallengeOptionId || !!state.forcedSelection;
             case 'interactive_double_down_select':
-                // For double-down scenarios, need both sacrifice and double-down selections
-                return !!(state.sacrificeInvestmentId && state.doubleDownOnInvestmentId);
+                // FIXED: Different validation based on the choice
+                if (state.selectedChallengeOptionId === 'no_dd') {
+                    // If they chose "No", that's a complete submission
+                    return true;
+                } else if (state.selectedChallengeOptionId === 'yes_dd') {
+                    // If they chose "Yes", need both sacrifice and double-down selections
+                    return !!(state.sacrificeInvestmentId && state.doubleDownOnInvestmentId);
+                } else {
+                    // No choice made yet
+                    return false;
+                }
             default:
                 return false;
         }
@@ -136,10 +144,18 @@ export const useDecisionMaking = ({
                 }
             }
             case 'interactive_double_down_select': {
-                if (!state.sacrificeInvestmentId || !state.doubleDownOnInvestmentId) return 'Incomplete selection';
-                const sacrificeOpt = investmentOptions.find(opt => opt.id === state.sacrificeInvestmentId);
-                const ddOnOpt = investmentOptions.find(opt => opt.id === state.doubleDownOnInvestmentId);
-                return `Sacrifice: ${sacrificeOpt?.name || 'Unknown'}, Double: ${ddOnOpt?.name || 'Unknown'}`;
+                if (state.selectedChallengeOptionId === 'no_dd') {
+                    return 'Selected: No, stick with current RD-3 investments';
+                } else if (state.selectedChallengeOptionId === 'yes_dd') {
+                    if (!state.sacrificeInvestmentId || !state.doubleDownOnInvestmentId) {
+                        return 'Incomplete selection - choose investments to sacrifice and double down on';
+                    }
+                    const sacrificeOpt = investmentOptions.find(opt => opt.id === state.sacrificeInvestmentId);
+                    const ddOnOpt = investmentOptions.find(opt => opt.id === state.doubleDownOnInvestmentId);
+                    return `Sacrifice "${sacrificeOpt?.name || 'Unknown'}" → Double Down on "${ddOnOpt?.name || 'Unknown'}"`;
+                } else {
+                    return 'No selection made';
+                }
             }
             default:
                 return 'Ready to submit';
