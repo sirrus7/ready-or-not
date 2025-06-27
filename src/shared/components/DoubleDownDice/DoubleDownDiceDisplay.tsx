@@ -90,8 +90,16 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 setHasRolled(true);
                 setHasAppliedEffects(true);
                 setCurrentPhase('complete');
-                // Load any existing KPI changes for display
-                await loadExistingKpiChanges();
+
+                // FIXED: Set affected teams from existing result
+                setAffectedTeams(existingResult.affected_teams || []);
+
+                // Load KPI changes for display if teams were affected
+                if (existingResult.affected_teams && existingResult.affected_teams.length > 0) {
+                    const changes = await loadKpiChangesForDisplay(existingResult.affected_teams, existingResult.boost_percentage);
+                    setKpiChanges(changes);
+                }
+
                 return;
             }
 

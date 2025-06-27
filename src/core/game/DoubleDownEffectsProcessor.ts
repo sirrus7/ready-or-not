@@ -27,8 +27,11 @@ export class DoubleDownEffectsProcessor {
                 return;
             }
 
-            // Calculate multiplier from boost percentage
-            const multiplier = 1 + (boostPercentage / 100);
+            // FIXED: Calculate multiplier correctly - this is the ADDITIONAL amount to add
+            // 100% = add 100% of original (1x), 75% = add 75% of original (0.75x), etc.
+            const multiplier = boostPercentage / 100; // NOT (1 + boostPercentage / 100)
+
+            console.log(`[DoubleDownEffectsProcessor] Applying ${boostPercentage}% bonus (${multiplier}x additional) to ${decisions.length} teams for investment ${investmentId}`);
 
             // Apply effects to each team
             for (const decision of decisions) {
@@ -41,7 +44,7 @@ export class DoubleDownEffectsProcessor {
                     185 // Default slide ID for double down, could be passed as parameter
                 );
 
-                console.log(`[DoubleDownEffectsProcessor] Applied ${boostPercentage}% boost to team ${decision.teams.name} for investment ${investmentId}`);
+                console.log(`[DoubleDownEffectsProcessor] Applied ${boostPercentage}% bonus to team ${decision.teams.name} for investment ${investmentId}`);
             }
         } catch (error) {
             console.error('[DoubleDownEffectsProcessor] Error processing double down for investment:', error);
