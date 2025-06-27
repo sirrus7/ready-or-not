@@ -1,13 +1,12 @@
 // src/shared/services/supabase/services/index.ts
-// Updated to include consequence applications service
-
-import {sessionService} from './sessionService';
-import {teamService} from './teamService';
-import {decisionService} from './decisionService';
-import {kpiService} from './kpiService';
-import {adjustmentService} from './adjustmentService';
-import {consequenceApplicationService} from './consequenceApplicationService';
-import {payoffApplicationService} from './payoffApplicationService';
+import { sessionService } from './sessionService';
+import { teamService } from './teamService';
+import { decisionService } from './decisionService';
+import { kpiService } from './kpiService';
+import { adjustmentService } from './adjustmentService';
+import { consequenceApplicationService } from './consequenceApplicationService';
+import { payoffApplicationService } from './payoffApplicationService';
+import { doubleDownService } from './doubleDownService';
 
 export const db = {
     sessions: sessionService,
@@ -17,4 +16,5 @@ export const db = {
     adjustments: adjustmentService,
     consequenceApplications: consequenceApplicationService,
     payoffApplications: payoffApplicationService,
+    doubleDown: doubleDownService,
 };
