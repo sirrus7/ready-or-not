@@ -88,7 +88,9 @@ const DisplayWrapper: React.FC = () => {
             <ErrorBoundary>
                 <VideoSettingsProvider sessionId={sessionId}>
                     <Suspense fallback={<RouteLoadingFallback message="Loading presentation..."/>}>
-                        <PresentationApp/>
+                        <GameProvider >
+                            <PresentationApp/>
+                        </GameProvider>
                     </Suspense>
                 </VideoSettingsProvider>
             </ErrorBoundary>
