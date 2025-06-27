@@ -1,3 +1,10 @@
+// MOBILE-FIRST APPROACH: Inline confirmation instead of modals
+// This approach works for both InvestmentPanel.tsx and EnhancedInvestmentPanel.tsx
+
+// ================================
+// 1. REGULAR INVESTMENT PANEL (Round 1)
+// ================================
+
 // src/views/team/components/DecisionForms/InvestmentPanel.tsx
 import React, {useState} from 'react';
 import {InvestmentOption} from '@shared/types';
@@ -9,7 +16,7 @@ interface InvestmentPanelProps {
     selectedInvestmentIds: string[];
     spentBudget: number;
     investUpToBudget: number;
-    onInvestmentToggle: (optionIndex: number, cost: number) => void;
+    onInvestmentToggleById: (investmentId: string, cost: number) => void;
     onImmediatePurchase: (optionIndex: number, cost: number) => Promise<void>;
     isSubmitting: boolean;
     immediatePurchases: string[];
@@ -20,7 +27,7 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                                              selectedInvestmentIds,
                                                              spentBudget,
                                                              investUpToBudget,
-                                                             onInvestmentToggle,
+                                                             onInvestmentToggleById,
                                                              onImmediatePurchase,
                                                              isSubmitting,
                                                              immediatePurchases
@@ -81,7 +88,7 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                     if (isImmediate && !isImmediatePurchased) {
                                         setExpandedImmediate(isExpanded ? null : optionIndex);
                                     } else {
-                                        onInvestmentToggle(optionIndex, opt.cost ?? 0);
+                                        onInvestmentToggleById(opt.id, opt.cost ?? 0);
                                     }
                                 }}
                             />

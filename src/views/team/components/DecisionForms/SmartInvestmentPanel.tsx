@@ -15,10 +15,10 @@ interface SmartInvestmentPanelProps {
     selectedInvestmentIds: string[];
     spentBudget: number;
     investUpToBudget: number;
-    onInvestmentToggle: (optionIndex: number) => void;
     onImmediatePurchase: (optionIndex: number) => Promise<void>;
     isSubmitting: boolean;
     immediatePurchases: string[];
+    onInvestmentToggleById: (investmentId: string, cost: number) => void;
 }
 
 const SmartInvestmentPanel: React.FC<SmartInvestmentPanelProps> = ({
@@ -29,10 +29,10 @@ const SmartInvestmentPanel: React.FC<SmartInvestmentPanelProps> = ({
                                                                        selectedInvestmentIds,
                                                                        spentBudget,
                                                                        investUpToBudget,
-                                                                       onInvestmentToggle,
                                                                        onImmediatePurchase,
                                                                        isSubmitting,
-                                                                       immediatePurchases
+                                                                       immediatePurchases,
+                                                                       onInvestmentToggleById
                                                                    }) => {
     // Load pricing data for rounds 2 and 3
     const {isLoading, error} = useInvestmentPricing({
@@ -50,7 +50,7 @@ const SmartInvestmentPanel: React.FC<SmartInvestmentPanelProps> = ({
                 selectedInvestmentIds={selectedInvestmentIds}
                 spentBudget={spentBudget}
                 investUpToBudget={investUpToBudget}
-                onInvestmentToggle={onInvestmentToggle}
+                onInvestmentToggleById={onInvestmentToggleById}
                 onImmediatePurchase={onImmediatePurchase}
                 isSubmitting={isSubmitting}
                 immediatePurchases={immediatePurchases}
@@ -68,7 +68,7 @@ const SmartInvestmentPanel: React.FC<SmartInvestmentPanelProps> = ({
                 selectedInvestmentIds={selectedInvestmentIds}
                 spentBudget={spentBudget}
                 investUpToBudget={investUpToBudget}
-                onInvestmentToggle={onInvestmentToggle}
+                onInvestmentToggleById={onInvestmentToggleById}
                 onImmediatePurchase={onImmediatePurchase}
                 isSubmitting={isSubmitting}
                 immediatePurchases={immediatePurchases}
@@ -85,7 +85,7 @@ const SmartInvestmentPanel: React.FC<SmartInvestmentPanelProps> = ({
             selectedInvestmentIds={selectedInvestmentIds}
             spentBudget={spentBudget}
             investUpToBudget={investUpToBudget}
-            onInvestmentToggle={onInvestmentToggle}
+            onInvestmentToggleById={onInvestmentToggleById}
             onImmediatePurchase={onImmediatePurchase}
             isSubmitting={isSubmitting}
             immediatePurchases={immediatePurchases}

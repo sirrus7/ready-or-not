@@ -22,12 +22,12 @@ export interface DecisionState {
 }
 
 export interface DecisionActions {
-    handleInvestmentToggle: (optionIndex: number, cost: number) => void;  // CHANGED: now takes index
     handleImmediatePurchase: (optionIndex: number, cost: number) => Promise<void>;  // CHANGED: now takes index
     handleChallengeSelect: (optionId: string) => void;
     handleSacrificeSelect: (optionId: string) => void;
     handleDoubleDownSelect: (optionId: string) => void;
     clearError: () => void;
+    handleInvestmentToggleById: (investmentId: string, cost: number) => void;
 }
 
 interface UseDecisionMakingProps {
@@ -107,14 +107,12 @@ export const useDecisionMaking = ({
 
                 // CHANGED: Convert letters back to names for display
                 const regularSelections = state.selectedInvestmentOptions.map(letter => {
-                    const index = letter.charCodeAt(0) - 65; // A=0, B=1, C=2, etc.
-                    const option = investmentOptions[index];
+                    const option = investmentOptions.find(opt => opt.id === letter);  // ✅ FIND BY ID
                     return option ? option.name.split('.')[0] : letter;
                 });
 
                 const immediateSelections = state.immediatePurchases.map(letter => {
-                    const index = letter.charCodeAt(0) - 65;
-                    const option = investmentOptions[index];
+                    const option = investmentOptions.find(opt => opt.id === letter);  // ✅ FIND BY ID
                     return option ? option.name.split('.')[0] : letter;
                 });
 
@@ -271,14 +269,14 @@ export const useDecisionMaking = ({
     }, [currentSlide?.id, sessionId, teamId]);
 
     // Regular investment toggle - CHANGED to use index instead of optionId
-    const handleInvestmentToggle = useCallback((optionIndex: number, cost: number) => {
-        const option = investmentOptions[optionIndex];
-        const optionLetter = option?.id || String.fromCharCode(65 + optionIndex);
+    const handleInvestmentToggleById = useCallback((investmentId: string, cost: number) => {
+        const optionLetter = investmentId; // Investment ID should be the letter (A, B, C, etc.)
         const currentIndex = state.selectedInvestmentOptions.indexOf(optionLetter);
         const newSelectedOptions = [...state.selectedInvestmentOptions];
         let newSpentBudget = state.spentBudget;
 
         if (currentIndex === -1) {
+            // Adding investment
             if (newSpentBudget + cost <= investUpToBudget) {
                 newSelectedOptions.push(optionLetter);
                 newSpentBudget += cost;
@@ -290,19 +288,23 @@ export const useDecisionMaking = ({
                 return;
             }
         } else {
+            // Removing investment
             newSelectedOptions.splice(currentIndex, 1);
             newSpentBudget -= cost;
         }
 
-        setState(prev => {
-            return {
-                ...prev,
-                selectedInvestmentOptions: newSelectedOptions.sort(),
-                spentBudget: newSpentBudget,
-                error: null
-            };
-        });
-    }, [state.selectedInvestmentOptions, state.spentBudget, investUpToBudget]);
+        setState(prev => ({
+            ...prev,
+            selectedInvestmentOptions: newSelectedOptions.sort(),
+            spentBudget: newSpentBudget,
+            error: null
+        }));
+
+        // Call the callback if provided
+        if (onInvestmentSelectionChange) {
+            onInvestmentSelectionChange(newSelectedOptions.sort(), newSpentBudget);
+        }
+    }, [state.selectedInvestmentOptions, state.spentBudget, investUpToBudget, onInvestmentSelectionChange]);
 
     // Immediate purchase handler - CHANGED to use index instead of optionId
     const handleImmediatePurchase = useCallback(async (optionIndex: number, cost: number) => {
@@ -444,12 +446,12 @@ export const useDecisionMaking = ({
     return {
         state,
         actions: {
-            handleInvestmentToggle,
             handleImmediatePurchase,
             handleChallengeSelect,
             handleSacrificeSelect,
             handleDoubleDownSelect,
-            clearError
+            clearError,
+            handleInvestmentToggleById
         },
         remainingBudget,
         submissionSummary,

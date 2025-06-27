@@ -23,7 +23,7 @@ interface EnhancedInvestmentPanelProps {
     selectedInvestmentIds: string[];
     spentBudget: number;
     investUpToBudget: number;
-    onInvestmentToggle: (optionIndex: number, cost: number) => void;
+    onInvestmentToggleById: (investmentId: string, cost: number) => void;
     onImmediatePurchase: (optionIndex: number) => Promise<void>;
     isSubmitting: boolean;
     immediatePurchases: string[];
@@ -48,7 +48,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                                                              selectedInvestmentIds,
                                                                              spentBudget,
                                                                              investUpToBudget,
-                                                                             onInvestmentToggle,
+                                                                             onInvestmentToggleById,
                                                                              onImmediatePurchase,
                                                                              isSubmitting,
                                                                              immediatePurchases
@@ -119,10 +119,10 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
     }, [investmentOptions, investmentPricing, selectedInvestmentIds, immediatePurchases]);
 
     // Handle immediate purchase confirmation
-    const handleImmediatePurchaseConfirm = async (optionIndex: number) => {
+    const handleImmediatePurchaseConfirm = async (correctIndex: number) => {
         setIsPurchasing(true);
         try {
-            await onImmediatePurchase(optionIndex);
+            await onImmediatePurchase(correctIndex);
             setExpandedImmediate(null);
         } catch (error) {
             console.error('Immediate purchase failed:', error);
@@ -134,7 +134,6 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
     // Render investment card with inline confirmation
     const renderInvestmentCard = (investment: EnhancedInvestment) => {
         const {
-            index,
             pricing,
             isSelected,
             isImmediatePurchased,
@@ -146,7 +145,10 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
 
         const isUnaffordable = (effectivePrice ?? 0) > remainingBudget && !isSelected;
         const isInteractable = !isDisabled && !isUnaffordable && !isSubmitting;
-        const isExpanded = expandedImmediate === index;
+
+        // CRITICAL: Use correct index from original array for expansion state
+        const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
+        const isExpanded = expandedImmediate === correctIndex;
 
         return (
             <div
@@ -167,15 +169,27 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                     <input
                         type="checkbox"
                         className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded disabled:opacity-50"
-                        checked={isSelected}
+                        checked={isSelected || isImmediatePurchased}
                         disabled={!isInteractable}
                         onChange={() => {
                             if (!isInteractable) return;
 
                             if (isImmediate && !isImmediatePurchased) {
-                                setExpandedImmediate(isExpanded ? null : index);
+                                // For immediate purchases, we still need the correct index
+                                const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
+                                setExpandedImmediate(correctIndex);
                             } else {
-                                onInvestmentToggle(index, effectivePrice ?? 0);
+                                // DEBUG: Add detailed logging for Round 3 selection issues
+                                console.log('🔍 [EnhancedInvestmentPanel] Selection debug:', {
+                                    investmentId: investment.id,
+                                    investmentName: investment.name,
+                                    effectivePrice: effectivePrice ?? 0,
+                                    currentRound,
+                                    usingIdBasedApproach: true
+                                });
+
+                                // USE ID-BASED APPROACH - eliminates index confusion completely
+                                onInvestmentToggleById(investment.id, effectivePrice ?? 0);
                             }
                         }}
                     />
@@ -314,7 +328,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                 Cancel
                             </button>
                             <button
-                                onClick={() => handleImmediatePurchaseConfirm(index)}
+                                onClick={() => handleImmediatePurchaseConfirm(correctIndex)}
                                 disabled={isPurchasing}
                                 className="flex-1 px-4 py-3 bg-yellow-600 hover:bg-yellow-500 disabled:bg-yellow-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
                             >
