@@ -3,7 +3,7 @@ import {useGameContext} from '@app/providers/GameProvider';
 import {TeamDecision} from '@shared/types';
 import {AlertTriangle, CheckCircle2, Clock, Info,} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
-import {supabase} from '@shared/services/supabase';
+import {db, supabase} from '@shared/services/supabase';
 import Modal from '@shared/components/UI/Modal';
 import SelectionDisplay, {SelectionData} from './SelectionDisplay';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
@@ -38,17 +38,10 @@ const TeamMonitor: React.FC = () => {
         async () => {
             if (!currentSessionId || currentSessionId === 'new' || !isInvestmentPeriod) return [];
 
-            const {data, error} = await supabase
-                .from('team_decisions')
-                .select('id, team_id, total_spent_budget, submitted_at, report_given, selected_investment_options')
-                .eq('session_id', currentSessionId)
-                .eq('is_immediate_purchase', true)
-                .eq('immediate_purchase_type', 'business_growth_strategy')
-                .like('phase_id', '%_immediate');
+            // ✅ UPDATED - Use service layer
+            const data = await db.decisions.getAllImmediatePurchases(currentSessionId);
 
-            if (error) throw error;
-
-            return (data || []).map(item => ({
+            return data.map(item => ({
                 id: item.id,
                 team_id: item.team_id,
                 cost: item.total_spent_budget || 0,

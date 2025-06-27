@@ -1,4 +1,4 @@
-// src/utils/supabase/services/teamService.ts - Team CRUD operations
+// src/shared/services/supabase/services/teamService.ts - Team CRUD operations
 import { supabase } from '../client';
 import { withRetry } from '../database';
 
@@ -10,7 +10,10 @@ export const teamService = {
                 .select('*')
                 .eq('session_id', sessionId)
                 .order('name');
-            if (error) throw error;
+            if (error) {
+                console.error(`[teamService.getBySession(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
             return data || [];
         }, 3, 1000, `Fetch teams for session ${sessionId.substring(0, 8)}`);
     },
@@ -29,6 +32,7 @@ export const teamService = {
                 if (error.code === 'PGRST116') {
                     return null;
                 }
+                console.error(`[teamService.verifyLogin(teamId:${teamId.substring(0, 8)}, sessionId:${sessionId}, passcode:***)] failed with error: ${error}`)
                 throw error;
             }
             return data;
@@ -42,7 +46,10 @@ export const teamService = {
                 .insert(teamData)
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[teamService.create(teamData:${JSON.stringify(teamData)})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, 'Create team');
     },
@@ -55,7 +62,10 @@ export const teamService = {
                 .eq('id', teamId)
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[teamService.update(teamId:${teamId.substring(0, 8)}, updates:${JSON.stringify(updates)})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, `Update team ${teamId}`);
     },
@@ -66,7 +76,10 @@ export const teamService = {
                 .from('teams')
                 .delete()
                 .eq('id', teamId);
-            if (error) throw error;
+            if (error) {
+                console.error(`[teamService.delete(teamId:${teamId.substring(0, 8)})] failed with error: ${error}`)
+                throw error;
+            }
         }, 2, 1000, `Delete team ${teamId}`);
     }
 };

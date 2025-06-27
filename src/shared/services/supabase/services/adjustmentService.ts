@@ -11,7 +11,10 @@ export const adjustmentService = {
                 .select('*')
                 .eq('session_id', sessionId)
                 .order('created_at', {ascending: true});
-            if (error) throw error;
+            if (error) {
+                console.error(`[adjustmentService.getBySession(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
             return data || [];
         }, 3, 1000, `Fetch adjustments for session ${sessionId.substring(0, 8)}`);
     },
@@ -22,7 +25,10 @@ export const adjustmentService = {
                 .from('permanent_kpi_adjustments')
                 .insert(adjustmentData)
                 .select();
-            if (error) throw error;
+            if (error) {
+                console.error(`[adjustmentService.create(adjustmentData:${JSON.stringify(adjustmentData)})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, 'Create KPI adjustments');
     },
@@ -46,6 +52,7 @@ export const adjustmentService = {
                     console.log('[adjustmentService.upsert] Upsert completed, no new rows were inserted (duplicates ignored).');
                     return [];
                 }
+                console.error(`[adjustmentService.upsert(adjustments:${adjustments.length} items)] failed with error: ${error}`)
                 throw error;
             }
             return data;
@@ -58,7 +65,10 @@ export const adjustmentService = {
                 .from('permanent_kpi_adjustments')
                 .delete()
                 .eq('session_id', sessionId);
-            if (error) throw error;
+            if (error) {
+                console.error(`[adjustmentService.deleteBySession(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
         }, 2, 1000, `Delete adjustments for session ${sessionId.substring(0, 8)}`);
     },
 };

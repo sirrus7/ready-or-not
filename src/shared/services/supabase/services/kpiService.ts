@@ -1,6 +1,7 @@
 // 1. FIXED: src/shared/services/supabase/services/kpiService.ts
 import {supabase} from '../client';
 import {withRetry} from '../database';
+import * as console from "node:console";
 
 export const kpiService = {
     async getBySession(sessionId: string) {
@@ -10,7 +11,10 @@ export const kpiService = {
                 .select('*')
                 .eq('session_id', sessionId)
                 .order('round_number', {ascending: true});
-            if (error) throw error;
+            if (error) {
+                console.error(`[kpiService.getBySession(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
             return data || [];
         }, 3, 1000, `Fetch KPIs for session ${sessionId.substring(0, 8)}`);
     },
@@ -26,10 +30,10 @@ export const kpiService = {
                 .eq('round_number', roundNumber)
                 .single();
             if (error) {
-                // If no data found, return null instead of throwing
                 if (error.code === 'PGRST116') {
-                    return null;
+                    return null; // Early return, no throw
                 }
+                console.error(`[kpiService.getForTeamRound(sessionId:${sessionId}, teamId:${teamId}, roundNumber:${roundNumber})] failed with error: ${error}`)
                 throw error;
             }
             return data;
@@ -43,7 +47,10 @@ export const kpiService = {
                 .insert(kpiData)
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[kpiService.create(kpiData:${kpiData})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, `Create KPI data for team ${kpiData.team_id?.substring(0, 8)} round ${kpiData.round_number}`);
     },
@@ -56,7 +63,10 @@ export const kpiService = {
                 .eq('id', kpiId)
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[kpiService.update(kpiId:${kpiId}, updates:${updates})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, `Update KPI data ${kpiId}`);
     },
@@ -68,7 +78,10 @@ export const kpiService = {
                 .upsert(kpiData, {onConflict: 'id'})
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[kpiService.upsert(kpiData:${kpiData})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, `Upsert KPI data for team ${kpiData.team_id?.substring(0, 8)}`);
     },
@@ -79,7 +92,10 @@ export const kpiService = {
                 .from('team_round_data')
                 .delete()
                 .eq('session_id', sessionId);
-            if (error) throw error;
+            if (error) {
+                console.error(`[kpiService.deleteBySession(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
         }, 2, 1000, `Delete KPI data for session ${sessionId.substring(0, 8)}`);
     }
 };

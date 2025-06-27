@@ -13,7 +13,10 @@ export const decisionService = {
                 .select('*')
                 .eq('session_id', sessionId)
                 .order('submitted_at', {ascending: false});
-            if (error) throw error;
+            if (error) {
+                console.error(`[decisionService.getBySession(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
             return data || [];
         }, 3, 1000, `Fetch decisions for session ${sessionId.substring(0, 8)}`);
     },
@@ -29,7 +32,10 @@ export const decisionService = {
                 .eq('phase_id', phaseId)
                 .neq('is_immediate_purchase', true); // CRITICAL: Don't delete immediate purchases
 
-            if (error) throw error;
+            if (error) {
+                console.error(`[decisionService.delete(sessionId:${sessionId}, teamId:${teamId.substring(0, 8)}, phaseId:${phaseId})] failed with error: ${error}`)
+                throw error;
+            }
         }, 2, 1000, `Delete regular decision for team ${teamId.substring(0, 8)} phase ${phaseId}`, 5000);
     },
 
@@ -39,7 +45,10 @@ export const decisionService = {
                 .from('team_decisions')
                 .delete()
                 .eq('session_id', sessionId);
-            if (error) throw error;
+            if (error) {
+                console.error(`[decisionService.deleteBySession(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
         }, 2, 1000, `Delete all decisions for session ${sessionId.substring(0, 8)}`, 8000);
     },
 
@@ -55,7 +64,10 @@ export const decisionService = {
                 .eq('is_immediate_purchase', false)
                 .maybeSingle();
 
-            if (error) throw error;
+            if (error) {
+                console.error(`[decisionService.getForPhase(sessionId:${sessionId}, teamId:${teamId.substring(0, 8)}, phaseId:${phaseId})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, `Get decision for team ${teamId.substring(0, 8)} phase ${phaseId}`, 8000);
     },
@@ -72,7 +84,10 @@ export const decisionService = {
                 .eq('phase_id', immediatePhaseId)
                 .eq('is_immediate_purchase', true);
 
-            if (error) throw error;
+            if (error) {
+                console.error(`[decisionService.getImmediatePurchases(sessionId:${sessionId}, teamId:${teamId.substring(0, 8)}, phaseId:${phaseId})] failed with error: ${error}`)
+                throw error;
+            }
             return data || [];
         }, 2, 1000, `Get immediate purchases for team ${teamId.substring(0, 8)} phase ${phaseId}`, 8000);
     },
@@ -88,7 +103,10 @@ export const decisionService = {
                 .eq('immediate_purchase_type', 'business_growth_strategy')
                 .like('phase_id', '%_immediate');
 
-            if (error) throw error;
+            if (error) {
+                console.error(`[decisionService.getAllImmediatePurchases(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
             return data || [];
         }, 3, 1000, `Get all immediate purchases for session ${sessionId.substring(0, 8)}`, 8000);
     },
@@ -104,7 +122,13 @@ export const decisionService = {
                 })
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[decisionService.create(decisionData:${JSON.stringify({
+                    ...decisionData,
+                    team_id: decisionData.team_id?.substring(0, 8)
+                })})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, `Create decision for team ${decisionData.team_id?.substring(0, 8)}`, 15000); // Longer timeout for submissions
     },
@@ -116,7 +140,13 @@ export const decisionService = {
                 .upsert(decisionData, {onConflict: 'id'})
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[decisionService.upsert(decisionData:${JSON.stringify({
+                    ...decisionData,
+                    team_id: decisionData.team_id?.substring(0, 8)
+                })})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, `Upsert decision for team ${decisionData.team_id?.substring(0, 8)}`, 10000);
     }

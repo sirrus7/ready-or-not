@@ -108,16 +108,7 @@ export const useTeamDecisionSubmission = ({
     } = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId || !decisionKey) return [];
-            const immediatePhaseId = `${decisionKey}_immediate`;
-            const {data, error} = await supabase
-                .from('team_decisions')
-                .select('*')
-                .eq('session_id', sessionId)
-                .eq('team_id', teamId)
-                .eq('phase_id', immediatePhaseId)
-                .eq('is_immediate_purchase', true);
-            if (error) throw error;
-            return data || [];
+            return await db.decisions.getImmediatePurchases(sessionId, teamId, `${decisionKey}_immediate`);
         },
         [sessionId, teamId, decisionKey],
         {

@@ -10,7 +10,10 @@ export const sessionService = {
                 .select('*')
                 .eq('id', sessionId)
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[sessionService.getById(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 3, 1000, `Fetch session ${sessionId.substring(0, 8)}`);
     },
@@ -26,7 +29,10 @@ export const sessionService = {
                 .eq('id', sessionId)
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[sessionService.update(sessionId:${sessionId}, updates:${JSON.stringify(updates)})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, `Update session ${sessionId.substring(0, 8)}`);
     },
@@ -42,7 +48,10 @@ export const sessionService = {
                 })
                 .select()
                 .single();
-            if (error) throw error;
+            if (error) {
+                console.error(`[sessionService.create(sessionData:${JSON.stringify(sessionData)})] failed with error: ${error}`)
+                throw error;
+            }
             return data;
         }, 2, 1000, 'Create session');
     },
@@ -55,7 +64,10 @@ export const sessionService = {
                 .select('*')
                 .eq('host_id', hostId) // Changed from teacher_id
                 .order('created_at', {ascending: false});
-            if (error) throw error;
+            if (error) {
+                console.error(`[sessionService.getByHost(hostId:${hostId.substring(0, 8)})] failed with error: ${error}`)
+                throw error;
+            }
             return data || [];
         }, 3, 1000, `Fetch sessions for host ${hostId.substring(0, 8)}`);
     },
@@ -79,7 +91,10 @@ export const sessionService = {
                 .from('sessions')
                 .delete()
                 .eq('id', sessionId);
-            if (error) throw error;
+            if (error) {
+                console.error(`[sessionService.delete(sessionId:${sessionId})] failed with error: ${error}`)
+                throw error;
+            }
         }, 2, 1000, `Delete session ${sessionId.substring(0, 8)}`);
     }
 };
