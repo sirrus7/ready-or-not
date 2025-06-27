@@ -358,17 +358,6 @@ const GameResultsPage: React.FC = () => {
                         <ArrowLeft size={20}/>
                         Back to Dashboard
                     </button>
-
-                    <button
-                        onClick={() => {
-                            // Future: Export functionality
-                            alert('Export functionality coming soon!');
-                        }}
-                        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    >
-                        <Download size={20}/>
-                        Export Results
-                    </button>
                 </div>
             </div>
         </div>
