@@ -4,6 +4,7 @@ import {Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Users, TrendingUp, CheckCircle
 import {DoubleDownEffectsProcessor} from '@core/game/DoubleDownEffectsProcessor';
 import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
+import {Slide} from "@shared/types";
 
 interface DiceResult {
     investment_id: string;
@@ -244,7 +245,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'host');
 
             // Create a mock slide object for the sendKpiUpdated method
-            const mockSlide = {
+            const mockSlide: Slide = {
                 id: slideId,
                 type: 'double_down_dice_roll' as const,
                 round_number: 3,
@@ -287,12 +288,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             console.error('Error loading KPI changes for display:', error);
             return [];
         }
-    };
-
-    const loadExistingKpiChanges = async () => {
-        // Load previously calculated KPI changes if they exist
-        // This would be implemented based on how KPI changes are stored
-        setKpiChanges([]);
     };
 
     const getBoostColor = (boost: number) => {
