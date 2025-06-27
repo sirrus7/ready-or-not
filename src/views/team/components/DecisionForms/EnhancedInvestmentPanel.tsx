@@ -173,21 +173,11 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                         disabled={!isInteractable}
                         onChange={() => {
                             if (!isInteractable) return;
-
                             if (isImmediate && !isImmediatePurchased) {
                                 // For immediate purchases, we still need the correct index
                                 const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
                                 setExpandedImmediate(correctIndex);
                             } else {
-                                // DEBUG: Add detailed logging for Round 3 selection issues
-                                console.log('🔍 [EnhancedInvestmentPanel] Selection debug:', {
-                                    investmentId: investment.id,
-                                    investmentName: investment.name,
-                                    effectivePrice: effectivePrice ?? 0,
-                                    currentRound,
-                                    usingIdBasedApproach: true
-                                });
-
                                 // USE ID-BASED APPROACH - eliminates index confusion completely
                                 onInvestmentToggleById(investment.id, effectivePrice ?? 0);
                             }

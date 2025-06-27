@@ -17,7 +17,8 @@ const GamePanel: React.FC = () => {
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [reviewingDecisionKey, setReviewingDecisionKey] = useState<string | null>(null);
 
-    const isInteractiveStudentSlide = !!(currentSlideData?.interactive_data_key);
+    const isInteractiveStudentSlide = !!(currentSlideData?.interactive_data_key) &&
+        currentSlideData?.type !== 'double_down_dice_roll';
 
     // Automatically switch tabs based on slide type
     useEffect(() => {

@@ -93,9 +93,11 @@ export class DoubleDownEffectsProcessor {
             );
 
             if (alreadyApplied) {
-                console.log(`[DoubleDownEffectsProcessor] Double down effects already applied for team ${teamId}, investment ${investmentOptionId}`);
+                console.log(`[DoubleDownEffectsProcessor] Double down effects already applied for team ${teamId.substring(0, 8)}, investment ${investmentOptionId}, skipping`);
                 return;
             }
+
+            console.log(`[DoubleDownEffectsProcessor] Applying ${boostPercentage}% boost to team ${teamId.substring(0, 8)} for investment ${investmentOptionId}`);
 
             // Get the base payoff effects for this investment from RD3 payoffs
             const rd3Payoffs = allInvestmentPayoffsData['rd3-payoff'] || [];
@@ -117,7 +119,7 @@ export class DoubleDownEffectsProcessor {
             const currentKpis = await db.kpis.getForTeamRound(sessionId, teamId, 3);
 
             if (!currentKpis) {
-                console.error(`[DoubleDownEffectsProcessor] No KPI data found for team ${teamId}`);
+                console.error(`[DoubleDownEffectsProcessor] No KPI data found for team ${teamId.substring(0, 8)}`);
                 return;
             }
 
@@ -132,6 +134,7 @@ export class DoubleDownEffectsProcessor {
             });
 
             // Record that double down effects have been applied
+            // This will handle duplicates gracefully now
             await db.doubleDown.recordEffectsApplied(
                 sessionId,
                 teamId,
@@ -139,10 +142,13 @@ export class DoubleDownEffectsProcessor {
                 slideId
             );
 
-            console.log(`[DoubleDownEffectsProcessor] Successfully applied ${boostPercentage}% boost to team ${teamId} for investment ${investmentOptionId}`);
+            console.log(`[DoubleDownEffectsProcessor] Successfully applied ${boostPercentage}% boost to team ${teamId.substring(0, 8)} for investment ${investmentOptionId}`);
 
         } catch (error) {
-            console.error(`[DoubleDownEffectsProcessor] Error applying multiplier to team ${teamId}:`, error);
+            console.error(`[DoubleDownEffectsProcessor] Error applying multiplier to team ${teamId.substring(0, 8)}:`, error);
+
+            // Don't throw - we want to continue processing other teams even if one fails
+            // The error is logged and the team just won't get the bonus (which is better than crashing)
         }
     }
 

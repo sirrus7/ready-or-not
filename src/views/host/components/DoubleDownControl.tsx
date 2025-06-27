@@ -1,7 +1,8 @@
 // src/views/host/components/DoubleDownControl.tsx
 import React, {useState, useEffect} from 'react';
 import {Dice1, AlertCircle, CheckCircle} from 'lucide-react';
-import {supabase} from '@shared/services/supabase';
+import {db} from '@shared/services/supabase';
+import {SLIDE_TO_INVESTMENT_MAP, getInvestmentBySlideId} from '@core/content/DoubleDownMapping';
 
 interface DoubleDownControlProps {
     currentSlideId: number;
@@ -19,20 +20,6 @@ const DoubleDownControl: React.FC<DoubleDownControlProps> = ({currentSlideId, se
     const [rollStatuses, setRollStatuses] = useState<InvestmentRollStatus[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Investment mapping for slides 185-194
-    const slideToInvestment: Record<number, { id: string; name: string }> = {
-        185: {id: 'A', name: 'Production Efficiency'},
-        186: {id: 'B', name: 'Expanded 2nd Shift'},
-        187: {id: 'C', name: 'Supply Chain'},
-        188: {id: 'D', name: 'Employee Development'},
-        189: {id: 'E', name: 'Maximize Boutique'},
-        190: {id: 'F', name: 'Big Box Expansion'},
-        191: {id: 'G', name: 'ERP'},
-        192: {id: 'H', name: 'IT Security'},
-        193: {id: 'I', name: 'Product Line'},
-        194: {id: 'J', name: 'Automation'}
-    };
-
     useEffect(() => {
         if (currentSlideId >= 185 && currentSlideId <= 194) {
             loadRollStatuses();
@@ -42,35 +29,28 @@ const DoubleDownControl: React.FC<DoubleDownControlProps> = ({currentSlideId, se
     const loadRollStatuses = async () => {
         setIsLoading(true);
 
-        // Get all investment statuses
-        const statuses: InvestmentRollStatus[] = [];
+        try {
+            // Get all investment statuses using the centralized mapping
+            const statuses: InvestmentRollStatus[] = [];
 
-        for (const [slideId, investment] of Object.entries(slideToInvestment)) {
-            // Check if already rolled
-            const {data: existingResult} = await supabase
-                .from('double_down_results')
-                .select('id')
-                .eq('session_id', sessionId)
-                .eq('investment_id', investment.id)
-                .single();
+            for (const [slideId, investment] of Object.entries(SLIDE_TO_INVESTMENT_MAP)) {
+                const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investment.id);
+                const teamsForInvestment = await db.doubleDown.getTeamsForInvestment(sessionId, investment.id);
 
-            // Count teams that chose this investment
-            const {count} = await supabase
-                .from('team_decisions')
-                .select('*', {count: 'exact', head: true})
-                .eq('session_id', sessionId)
-                .eq('double_down_on_id', investment.id);
+                statuses.push({
+                    investmentId: investment.id,
+                    investmentName: investment.name,
+                    hasRolled: !!existingResult,
+                    teamsAffected: teamsForInvestment.length
+                });
+            }
 
-            statuses.push({
-                investmentId: investment.id,
-                investmentName: investment.name,
-                hasRolled: !!existingResult,
-                teamsAffected: count || 0
-            });
+            setRollStatuses(statuses);
+        } catch (error) {
+            console.error('Error loading roll statuses:', error);
+        } finally {
+            setIsLoading(false);
         }
-
-        setRollStatuses(statuses);
-        setIsLoading(false);
     };
 
     // Only show control on dice roll slides
@@ -78,7 +58,7 @@ const DoubleDownControl: React.FC<DoubleDownControlProps> = ({currentSlideId, se
         return null;
     }
 
-    const currentInvestment = slideToInvestment[currentSlideId];
+    const currentInvestment = getInvestmentBySlideId(currentSlideId);
     const currentStatus = rollStatuses.find(s => s.investmentId === currentInvestment?.id);
 
     return (
@@ -95,21 +75,32 @@ const DoubleDownControl: React.FC<DoubleDownControlProps> = ({currentSlideId, se
                         <div>
                             <p className="text-sm text-gray-300">Current Investment:</p>
                             <p className="text-white font-medium">{currentInvestment.name}</p>
+                            <p className="text-xs text-gray-400">Investment ID: {currentInvestment.id}</p>
                         </div>
                         <div className="text-right">
                             {currentStatus.hasRolled ? (
                                 <span className="flex items-center text-green-400 text-sm">
-                  <CheckCircle className="w-4 h-4 mr-1"/>
-                  Rolled
-                </span>
+                                    <CheckCircle className="w-4 h-4 mr-1"/>
+                                    Rolled
+                                </span>
                             ) : currentStatus.teamsAffected > 0 ? (
                                 <span className="text-yellow-400 text-sm">
-                  {currentStatus.teamsAffected} team{currentStatus.teamsAffected !== 1 ? 's' : ''} waiting
-                </span>
+                                    {currentStatus.teamsAffected} team{currentStatus.teamsAffected !== 1 ? 's' : ''} waiting
+                                </span>
                             ) : (
                                 <span className="text-gray-500 text-sm">No teams</span>
                             )}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Loading State */}
+            {isLoading && (
+                <div className="mb-4 p-3 bg-slate-700/50 rounded-lg">
+                    <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        <span className="text-gray-300 text-sm">Loading roll statuses...</span>
                     </div>
                 </div>
             )}
@@ -122,33 +113,17 @@ const DoubleDownControl: React.FC<DoubleDownControlProps> = ({currentSlideId, se
                 </p>
             </div>
 
-            {/* Overview of All Investments */}
-            <div className="mt-4 space-y-2">
-                <p className="text-sm text-gray-400 font-medium">All Investments Status:</p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                    {rollStatuses.map(status => (
-                        <div
-                            key={status.investmentId}
-                            className={`p-2 rounded ${
-                                status.hasRolled
-                                    ? 'bg-green-900/20 text-green-400'
-                                    : status.teamsAffected > 0
-                                        ? 'bg-yellow-900/20 text-yellow-400'
-                                        : 'bg-gray-900/20 text-gray-500'
-                            }`}
-                        >
-                            <div className="font-medium truncate">{status.investmentName}</div>
-                            <div>
-                                {status.hasRolled
-                                    ? 'Complete'
-                                    : status.teamsAffected > 0
-                                        ? `${status.teamsAffected} teams`
-                                        : 'No teams'}
-                            </div>
-                        </div>
-                    ))}
+            {/* Debug Info (remove in production) */}
+            {process.env.NODE_ENV === 'development' && (
+                <div className="mt-4 p-2 bg-gray-900/50 rounded text-xs text-gray-400">
+                    <p>Debug: Slide {currentSlideId} →
+                        Investment {currentInvestment?.id} ({currentInvestment?.name})</p>
+                    {currentStatus && (
+                        <p>Status: {currentStatus.teamsAffected} teams,
+                            rolled: {currentStatus.hasRolled ? 'yes' : 'no'}</p>
+                    )}
                 </div>
-            </div>
+            )}
         </div>
     );
 };

@@ -9,6 +9,7 @@ import {isVideo, useHostVideo, usePresentationVideo} from '@shared/utils/video';
 import HostVideoControls from '@shared/components/Video/HostVideoControls';
 import {useSignedMediaUrl} from '@shared/hooks/useSignedMediaUrl';
 import DoubleDownDiceDisplay from '@shared/components/DoubleDownDice/DoubleDownDiceDisplay';
+import {getInvestmentBySlideId} from '@core/content/DoubleDownMapping';
 
 interface SlideRendererProps {
     slide: Slide | null;
@@ -46,21 +47,8 @@ const SlideContent: React.FC<{
             );
 
         case 'double_down_dice_roll': {
-            // Map slide ID to investment option (A-J)
-            const investmentMapping: Record<number, { optionId: string; name: string }> = {
-                185: {optionId: 'A', name: 'Production Efficiency'},
-                186: {optionId: 'B', name: 'Expanded 2nd Shift'},
-                187: {optionId: 'C', name: 'Supply Chain Optimization'},
-                188: {optionId: 'D', name: 'Employee Development'},
-                189: {optionId: 'E', name: 'Maximize Boutique Retail'},
-                190: {optionId: 'F', name: 'Big Box Expansion'},
-                191: {optionId: 'G', name: 'Enterprise Resource Planning'},
-                192: {optionId: 'H', name: 'IT & Cyber Security'},
-                193: {optionId: 'I', name: 'Product Line Expansion'},
-                194: {optionId: 'J', name: 'Automation & Co-bots'}
-            };
-
-            const investment = investmentMapping[slide.id];
+            // REFACTORED: Use centralized mapping instead of hardcoded object
+            const investment = getInvestmentBySlideId(slide.id);
 
             if (!investment || !sessionId) {
                 return (
@@ -74,7 +62,7 @@ const SlideContent: React.FC<{
                 <div className={`w-full h-full ${className}`}>
                     <DoubleDownDiceDisplay
                         sessionId={sessionId}
-                        investmentId={investment.optionId}
+                        investmentId={investment.id}
                         investmentName={investment.name}
                         slideId={slide.id}
                     />

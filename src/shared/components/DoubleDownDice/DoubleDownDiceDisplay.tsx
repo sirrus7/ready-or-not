@@ -1,8 +1,8 @@
 // src/shared/components/DoubleDownDice/DoubleDownDiceDisplay.tsx
 import React, {useState, useEffect} from 'react';
 import {Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Users, TrendingUp, CheckCircle} from 'lucide-react';
-import {supabase} from '@shared/services/supabase';
 import {DoubleDownEffectsProcessor} from '@core/game/DoubleDownEffectsProcessor';
+import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
 
 interface DiceResult {
@@ -75,23 +75,8 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     useEffect(() => {
         initializeDoubleDownRoll();
 
-        // Subscribe to dice roll events
-        const subscription = supabase
-            .channel(`dice-roll-${sessionId}-${investmentId}`)
-            .on('broadcast', {event: 'dice-rolled'}, ({payload}) => {
-                if (payload.investment_id === investmentId) {
-                    setDiceResult(payload);
-                    setHasRolled(true);
-                    setCurrentPhase('showing_results');
-                    // Apply effects after showing results
-                    setTimeout(() => applyDoubleDownEffects(payload), 3000);
-                }
-            })
-            .subscribe();
-
-        return () => {
-            subscription.unsubscribe();
-        };
+        // REMOVED: No longer subscribing to unnecessary broadcasts
+        // The component manages its own state locally
     }, [sessionId, investmentId]);
 
     const initializeDoubleDownRoll = async () => {
@@ -112,28 +97,23 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
             // Get teams that chose to double down on this investment
             const decisions = await db.doubleDown.getTeamsForInvestment(sessionId, investmentId);
-            const teamsForThisInvestment = decisions.map(d => d.teams?.name || 'Unknown Team');
-            setAffectedTeams(teamsForThisInvestment);
+            const teamNames = decisions.map(decision => decision.teams.name);
 
-            if (teamsForThisInvestment.length === 0) {
-                // No teams chose this investment
-                setDiceResult({
-                    investment_id: investmentId,
-                    dice1_value: 0,
-                    dice2_value: 0,
-                    total_value: 0,
-                    boost_percentage: 0,
-                    affected_teams: []
-                });
+            setAffectedTeams(teamNames);
+
+            if (teamNames.length === 0) {
+                // No teams doubled down on this investment
                 setCurrentPhase('complete');
                 return;
             }
 
-            // Show teams for 2 seconds, then start rolling automatically
+            // Show teams for 3 seconds, then proceed to rolling
             setCurrentPhase('showing_teams');
             setTimeout(() => {
-                startAutomaticRoll(teamsForThisInvestment);
-            }, 2000);
+                if (!hasRolled) {
+                    rollDice();
+                }
+            }, 3000);
 
         } catch (error) {
             console.error('Error initializing double down roll:', error);
@@ -141,36 +121,35 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }
     };
 
-    const startAutomaticRoll = async (teams: string[]) => {
-        setCurrentPhase('rolling');
+    const rollDice = async () => {
+        if (hasRolled || affectedTeams.length === 0) return;
+
         setIsRolling(true);
+        setCurrentPhase('rolling');
 
-        // Simulate dice roll animation for 2 seconds
-        let rollCount = 0;
-        const rollInterval = setInterval(() => {
-            const tempDice1 = Math.floor(Math.random() * 6) + 1;
-            const tempDice2 = Math.floor(Math.random() * 6) + 1;
+        // Simulate dice rolling animation
+        const rollDuration = 2000;
+        const rollInterval = 100;
+        const animationSteps = rollDuration / rollInterval;
 
-            setDiceResult({
+        for (let i = 0; i < animationSteps; i++) {
+            await new Promise(resolve => setTimeout(resolve, rollInterval));
+
+            // Show random dice values during rolling
+            const tempResult: DiceResult = {
                 investment_id: investmentId,
-                dice1_value: tempDice1,
-                dice2_value: tempDice2,
-                total_value: tempDice1 + tempDice2,
+                dice1_value: Math.floor(Math.random() * 6) + 1,
+                dice2_value: Math.floor(Math.random() * 6) + 1,
+                total_value: 0,
                 boost_percentage: 0,
-                affected_teams: teams
-            });
+                affected_teams: affectedTeams
+            };
+            tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
+            tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
+            setDiceResult(tempResult);
+        }
 
-            rollCount++;
-
-            if (rollCount > 20) {
-                clearInterval(rollInterval);
-                finalizeDiceRoll(teams);
-            }
-        }, 100);
-    };
-
-    const finalizeDiceRoll = async (teams: string[]) => {
-        // Final roll with real result
+        // Final dice result
         const finalDice1 = Math.floor(Math.random() * 6) + 1;
         const finalDice2 = Math.floor(Math.random() * 6) + 1;
         const finalTotal = finalDice1 + finalDice2;
@@ -182,7 +161,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             dice2_value: finalDice2,
             total_value: finalTotal,
             boost_percentage: finalBoost,
-            affected_teams: teams
+            affected_teams: affectedTeams
         };
 
         setDiceResult(result);
@@ -201,6 +180,14 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
     const saveResult = async (result: DiceResult) => {
         try {
+            // Check if result already exists before saving
+            const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+
+            if (existingResult) {
+                console.log(`[DoubleDownDiceDisplay] Result already exists for investment ${investmentId}, skipping save`);
+                return;
+            }
+
             await db.doubleDown.saveResult(sessionId, investmentId, {
                 dice1_value: result.dice1_value,
                 dice2_value: result.dice2_value,
@@ -209,48 +196,64 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 affected_teams: result.affected_teams
             });
 
-            // Broadcast to other viewers
-            supabase.channel(`dice-roll-${sessionId}-${investmentId}`).send({
-                type: 'broadcast',
-                event: 'dice-rolled',
-                payload: result
-            });
+            console.log(`[DoubleDownDiceDisplay] Successfully saved result for investment ${investmentId}`);
+
+            // REMOVED: No longer broadcasting dice-roll events - unnecessary complexity
+
         } catch (error) {
             console.error('Error saving dice result:', error);
         }
     };
 
     const applyDoubleDownEffects = async (result: DiceResult) => {
-        if (hasAppliedEffects || result.affected_teams.length === 0) return;
+        if (hasAppliedEffects || result.affected_teams.length === 0) {
+            console.log(`[DoubleDownDiceDisplay] Skipping effects application - already applied: ${hasAppliedEffects}, teams: ${result.affected_teams.length}`);
+            return;
+        }
 
         setCurrentPhase('applying_effects');
 
         try {
-            // Apply effects using the existing processor
+            console.log(`[DoubleDownDiceDisplay] Applying effects for investment ${investmentId} with ${result.boost_percentage}% boost`);
+
+            // Apply effects using the existing processor (updates database)
             await DoubleDownEffectsProcessor.processDoubleDownForInvestment(
                 sessionId,
                 investmentId,
                 result.boost_percentage
             );
 
-            // Get the KPI changes for display
+            // Get the KPI changes for display (local display only)
             const changes = await loadKpiChangesForDisplay(result.affected_teams, result.boost_percentage);
             setKpiChanges(changes);
 
             setHasAppliedEffects(true);
             setCurrentPhase('complete');
 
-            // Broadcast KPI updates to team apps
-            supabase.channel(`kpi-updates-${sessionId}`).send({
-                type: 'broadcast',
-                event: 'double-down-applied',
-                payload: {
-                    investment_id: investmentId,
-                    investment_name: investmentName,
-                    boost_percentage: result.boost_percentage,
-                    changes: changes
-                }
+            console.log(`[DoubleDownDiceDisplay] Successfully applied effects for investment ${investmentId}`);
+
+            // FIXED: Use centralized real-time system to notify teams
+            const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'host');
+
+            // Create a mock slide object for the sendKpiUpdated method
+            const mockSlide = {
+                id: slideId,
+                type: 'double_down_dice_roll' as const,
+                round_number: 3,
+                title: `Bonus: ${investmentName}`,
+                interactive_data_key: investmentId
+            };
+
+            // Broadcast KPI update - teams will refresh their KPIs from database
+            realtimeManager.sendKpiUpdated(mockSlide, {
+                // Additional context for teams (optional)
+                doubleDownApplied: true,
+                investment_name: investmentName,
+                boost_percentage: result.boost_percentage,
+                affected_teams: result.affected_teams
             });
+
+            console.log(`[DoubleDownDiceDisplay] 📱 Broadcasted KPI update to teams via team-events-${sessionId}`);
 
         } catch (error) {
             console.error('Error applying double down effects:', error);
@@ -330,7 +333,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                             ))}
                         </div>
                         <div className="text-gray-300 text-lg">
-                            Rolling dice in 3... 2... 1...
+                            Rolling dice automatically in 3... 2... 1...
                         </div>
                     </div>
                 );
@@ -361,7 +364,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                         <h2 className="text-4xl font-bold text-white mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                             {investmentName}
                         </h2>
-                        <h3 className="text-2xl font-bold text-white mb-6">Final Result:</h3>
+                        <h3 className="text-2xl font-bold text-white mb-4">Final Result:</h3>
                         <div className="flex gap-4 justify-center mb-6">
                             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-inner">
                                 <DiceIcon value={diceResult?.dice1_value || 1}/>
@@ -370,13 +373,14 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                 <DiceIcon value={diceResult?.dice2_value || 1}/>
                             </div>
                         </div>
-                        <div className="text-6xl font-bold text-white mb-2">
-                            {diceResult?.total_value}
+                        <div className="text-5xl font-bold text-white mb-4">
+                            Total: {diceResult?.total_value}
                         </div>
-                        <div className={`text-4xl font-bold ${getBoostColor(diceResult?.boost_percentage || 0)}`}>
-                            {diceResult?.boost_percentage}% Boost!
+                        <div className={`text-3xl font-bold mb-6 ${getBoostColor(diceResult?.boost_percentage || 0)}`}>
+                            {diceResult?.boost_percentage}%
+                            Boost {diceResult?.boost_percentage === 100 ? 'Applied' : 'Applied'}
                         </div>
-                        <div className="mt-6 text-gray-300">
+                        <div className="text-gray-300">
                             Applying effects to team KPIs...
                         </div>
                     </div>
@@ -385,108 +389,121 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             case 'applying_effects':
                 return (
                     <div className="text-center">
-                        <div
-                            className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto mb-4"></div>
-                        <div className="text-2xl text-white mb-2">Updating Team KPIs...</div>
-                        <div className="text-gray-300">Applying {diceResult?.boost_percentage}% bonus to investments
+                        <h2 className="text-4xl font-bold text-white mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                            {investmentName}
+                        </h2>
+                        <div className="animate-pulse">
+                            <TrendingUp className="mx-auto mb-4 text-green-400" size={64}/>
+                            <div className="text-2xl font-bold text-white mb-4">
+                                Applying effects to team KPIs...
+                            </div>
                         </div>
                     </div>
                 );
 
             case 'complete':
-                if (diceResult && affectedTeams.length === 0) {
+                if (affectedTeams.length === 0) {
                     return (
-                        <div className="text-center text-gray-400">
-                            <h2 className="text-4xl font-bold mb-4">{investmentName}</h2>
-                            <Users className="w-16 h-16 mx-auto mb-4 text-gray-600"/>
-                            <div className="text-2xl">No teams doubled down on this investment</div>
+                        <div className="text-center">
+                            <h2 className="text-4xl font-bold text-white mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                                {investmentName}
+                            </h2>
+                            <Users className="mx-auto mb-4 text-gray-400" size={64}/>
+                            <div className="text-2xl text-gray-400">
+                                No teams doubled down on this investment
+                            </div>
                         </div>
                     );
                 }
 
                 return (
                     <div className="text-center">
-                        <div className="flex items-center justify-center mb-6">
-                            <CheckCircle className="w-12 h-12 text-green-400 mr-3"/>
-                            <h2 className="text-4xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                                {investmentName}
-                            </h2>
-                        </div>
+                        <h2 className="text-4xl font-bold text-white mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                            {investmentName}
+                        </h2>
 
                         {diceResult && (
                             <>
                                 <div className="flex gap-4 justify-center mb-6">
-                                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-inner">
+                                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 shadow-inner">
                                         <DiceIcon value={diceResult.dice1_value}/>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-inner">
+                                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 shadow-inner">
                                         <DiceIcon value={diceResult.dice2_value}/>
                                     </div>
                                 </div>
-                                <div className="text-4xl font-bold text-white mb-2">
+                                <div className="text-3xl font-bold text-white mb-2">
                                     Total: {diceResult.total_value}
                                 </div>
-                                <div className={`text-3xl font-bold ${getBoostColor(diceResult.boost_percentage)}`}>
+                                <div
+                                    className={`text-2xl font-bold mb-6 ${getBoostColor(diceResult.boost_percentage)}`}>
                                     {diceResult.boost_percentage}% Boost Applied
                                 </div>
 
-                                {/* Teams that received the boost */}
-                                <div className="mt-8 bg-slate-700/50 rounded-xl p-6">
-                                    <h3 className="text-2xl font-semibold text-gray-300 mb-4 flex items-center justify-center">
-                                        <TrendingUp className="mr-2"/>
-                                        Teams Receiving {diceResult.boost_percentage}% Bonus
-                                    </h3>
-                                    <div className="flex flex-wrap gap-3 justify-center">
-                                        {diceResult.affected_teams.map((team, index) => (
-                                            <div
-                                                key={index}
-                                                className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-lg px-6 py-3"
-                                            >
-                                                <span className="text-xl font-medium text-white">{team}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* KPI Changes Display */}
-                                {kpiChanges.length > 0 && (
-                                    <div className="mt-6 bg-slate-600/50 rounded-xl p-6">
-                                        <h4 className="text-xl font-semibold text-white mb-4 flex items-center justify-center">
-                                            📊 KPI Changes - Update Your Physical Boards!
-                                        </h4>
-                                        <div className="space-y-3">
-                                            {kpiChanges.map((teamChange, index) => (
-                                                <div key={index} className="bg-slate-500/50 rounded-lg p-3">
-                                                    <div className="text-lg font-bold text-white mb-1">
-                                                        {teamChange.team_name}
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-3 justify-center">
-                                                        {teamChange.changes.map((change, changeIndex) => (
-                                                            <div key={changeIndex} className="text-sm">
-                                                                {formatKpiChange(change)}
-                                                            </div>
-                                                        ))}
-                                                    </div>
+                                {diceResult.boost_percentage > 0 && (
+                                    <div className="mb-6">
+                                        <h3 className="text-xl font-bold text-white mb-4 flex items-center justify-center gap-2">
+                                            <TrendingUp size={24}/>
+                                            Teams Receiving {diceResult.boost_percentage}% Bonus
+                                        </h3>
+                                        <div className="flex flex-wrap gap-2 justify-center">
+                                            {affectedTeams.map((team, index) => (
+                                                <div key={index}
+                                                     className="bg-blue-600/30 border border-blue-500/50 rounded-lg px-4 py-2">
+                                                    <span className="text-lg font-medium text-white">{team}</span>
                                                 </div>
                                             ))}
-                                        </div>
-                                        <div className="mt-3 text-xs text-gray-300">
-                                            Teams: Check your apps to verify these numbers match your physical boards!
                                         </div>
                                     </div>
                                 )}
                             </>
                         )}
+
+                        {kpiChanges.length > 0 && (
+                            <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 mt-6">
+                                <h3 className="text-xl font-bold text-white mb-4 flex items-center justify-center gap-2">
+                                    📊 KPI Changes - Update Your Physical Boards!
+                                </h3>
+                                <div className="space-y-4">
+                                    {kpiChanges.map((teamChange, index) => (
+                                        <div key={index} className="bg-slate-700/50 rounded-lg p-4">
+                                            <div className="text-lg font-semibold text-white mb-2">
+                                                {teamChange.team_name}
+                                            </div>
+                                            <div className="flex flex-wrap gap-3">
+                                                {teamChange.changes.map((change, changeIndex) => (
+                                                    <div key={changeIndex}>
+                                                        {formatKpiChange(change)}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="text-sm text-gray-400 mt-4">
+                                    Teams: Check your apps to verify these numbers match your physical boards!
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="mt-6">
+                            <CheckCircle className="mx-auto text-green-400" size={32}/>
+                            <div className="text-green-400 font-semibold mt-2">
+                                Double Down Complete!
+                            </div>
+                        </div>
                     </div>
                 );
+
+            default:
+                return null;
         }
     };
 
     return (
         <div
-            className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-8">
-            <div
-                className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-12 shadow-2xl border border-slate-700 max-w-4xl w-full">
+            className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-8">
+            <div className="max-w-4xl mx-auto">
                 {getPhaseDisplay()}
             </div>
         </div>

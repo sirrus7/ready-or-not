@@ -47,6 +47,7 @@ export const doubleDownService = {
         affected_teams: string[];
     }) {
         return withRetry(async () => {
+            // Use upsert to handle duplicates gracefully
             const {data, error} = await supabase
                 .from('double_down_results')
                 .upsert({
@@ -54,6 +55,9 @@ export const doubleDownService = {
                     investment_id: investmentId,
                     ...resultData,
                     created_at: new Date().toISOString()
+                }, {
+                    onConflict: 'session_id,investment_id', // Handle duplicates on this combination
+                    ignoreDuplicates: false // We want to update if exists
                 })
                 .select()
                 .single();
@@ -76,6 +80,7 @@ export const doubleDownService = {
                     teams!inner(name)
                 `)
                 .eq('session_id', sessionId)
+                .eq('phase_id', 'ch-dd-prompt')
                 .eq('double_down_on_id', investmentId);
 
             if (error) {
@@ -127,6 +132,14 @@ export const doubleDownService = {
 
     async recordEffectsApplied(sessionId: string, teamId: string, investmentId: string, slideId: number) {
         return withRetry(async () => {
+            // Check if already exists first to avoid duplicate errors
+            const existing = await this.hasEffectsBeenApplied(sessionId, teamId, investmentId);
+
+            if (existing) {
+                console.log(`[doubleDownService.recordEffectsApplied] Effects already recorded for team ${teamId.substring(0, 8)}, investment ${investmentId}`);
+                return null; // Already exists, return success
+            }
+
             const {data, error} = await supabase
                 .from('payoff_applications')
                 .insert({
@@ -141,6 +154,12 @@ export const doubleDownService = {
                 .single();
 
             if (error) {
+                // If it's a duplicate error, that's actually OK - effects were already applied
+                if (error.code === '23505') { // PostgreSQL unique violation error code
+                    console.log(`[doubleDownService.recordEffectsApplied] Effects already recorded (duplicate), continuing...`);
+                    return null;
+                }
+
                 console.error(`[doubleDownService.recordEffectsApplied(sessionId:${sessionId}, teamId:${teamId}, investmentId:${investmentId})] failed with error: ${error}`);
                 throw error;
             }

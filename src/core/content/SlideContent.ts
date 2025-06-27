@@ -1904,17 +1904,13 @@ export const allGameSlides: Slide[] = [
         type: 'video',
         source_path: 'Slide_185.mp4',
         auto_advance_after_video: false,
-        host_alert: {
-            title: "Roll the Dice!",
-            message: "Have teams who chose Double Down roll their dice now."
-        }
     },
     {
         id: 185,
         round_number: 3,
         title: "Bonus: Production Efficiency",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'A',
+        interactive_data_key: 'B',
         main_text: "Production Efficiency Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
@@ -1923,17 +1919,17 @@ export const allGameSlides: Slide[] = [
         round_number: 3,
         title: "Bonus: Expanded 2nd Shift",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'B',
+        interactive_data_key: 'C',
         main_text: "Expanded 2nd Shift Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 187,
         round_number: 3,
-        title: "Bonus: Supply Chain",
+        title: "Bonus: Supply Chain Optimization",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'C',
-        main_text: "Supply Chain Double Down",
+        interactive_data_key: 'D',
+        main_text: "Supply Chain Optimization Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
@@ -1941,62 +1937,62 @@ export const allGameSlides: Slide[] = [
         round_number: 3,
         title: "Bonus: Employee Development",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'D',
+        interactive_data_key: 'E',
         main_text: "Employee Development Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 189,
         round_number: 3,
-        title: "Bonus: Maximize Boutique",
+        title: "Bonus: Maximize Boutique Sales",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'E',
-        main_text: "Maximize Boutique Double Down",
+        interactive_data_key: 'F',
+        main_text: "Maximize Boutique Sales Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 190,
         round_number: 3,
-        title: "Bonus: Big Box Expansion",
+        title: "Bonus: Expand Distribution Channels: Big Box",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'F',
-        main_text: "Big Box Expansion Double Down",
+        interactive_data_key: 'G',
+        main_text: "Expand Distribution Channels: Big Box Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 191,
         round_number: 3,
-        title: "Bonus: ERP",
+        title: "Bonus: Enterprise Resource Planning",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'G',
-        main_text: "ERP Double Down",
+        interactive_data_key: 'H',
+        main_text: "Enterprise Resource Planning Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 192,
         round_number: 3,
-        title: "Bonus: IT Security",
+        title: "Bonus: IT & Cybersecurity",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'H',
-        main_text: "IT Security Double Down",
+        interactive_data_key: 'I',
+        main_text: "IT & Cybersecurity Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 193,
         round_number: 3,
-        title: "Bonus: Product Line",
+        title: "Bonus: Product Line Expansion: Inflatables",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'I',
-        main_text: "Product Line Double Down",
+        interactive_data_key: 'J',
+        main_text: "Product Line Expansion: Inflatables Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
         id: 194,
         round_number: 3,
-        title: "Bonus: Automation",
+        title: "Bonus: Automation & Co-Bots",
         type: 'double_down_dice_roll',
-        interactive_data_key: 'J',
-        main_text: "Automation Double Down",
+        interactive_data_key: 'K',
+        main_text: "Automation & Co-Bots Double Down",
         background_css: 'bg-gradient-to-br from-slate-900 to-slate-800'
     },
     {
