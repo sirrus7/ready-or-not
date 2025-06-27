@@ -1,17 +1,17 @@
 // src/views/team/components/DecisionForms/EnhancedInvestmentPanel.tsx
-// Fixed version with checkboxes and proper grouping
-
 import React, {useState, useEffect, useMemo} from 'react';
 import {InvestmentOption} from '@shared/types';
 import {ContinuationPricingEngine, InvestmentPricing} from '@core/game/ContinuationPricingEngine';
-import {CheckCircle, Info, Ban} from 'lucide-react';
-import ImmediatePurchaseModal from './ImmediatePurchaseModal';
+import {CheckCircle, Info, Ban, Zap, AlertTriangle} from 'lucide-react';
 import {InvestmentDisplayUtils} from "@shared/utils/InvestmentDisplayUtils.ts";
 
 // Helper function for currency formatting
-const formatCurrency = (amount: number): string => {
-    if (Math.abs(amount) >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(amount) >= 1_000) return `${(amount / 1_000).toFixed(0)}K`;
+const formatCurrency = (amount: number | undefined | null): string => {
+    if (amount == null || isNaN(amount)) return '0';
+
+    const num = Math.abs(amount);
+    if (num >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
+    if (num >= 1_000) return `${(amount / 1_000).toFixed(0)}K`;
     return `${amount.toFixed(0)}`;
 };
 
@@ -55,10 +55,10 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                                                          }) => {
     const [investmentPricing, setInvestmentPricing] = useState<InvestmentPricing[]>([]);
     const [isLoadingPricing, setIsLoadingPricing] = useState(false);
-    const [showImmediateModal, setShowImmediateModal] = useState<number | null>(null);
+    const [expandedImmediate, setExpandedImmediate] = useState<number | null>(null);
     const [isPurchasing, setIsPurchasing] = useState(false);
 
-    const remainingBudget = investUpToBudget - spentBudget;
+    const remainingBudget = (investUpToBudget ?? 0) - (spentBudget ?? 0);
 
     // Load continuation pricing data for rounds 2+
     useEffect(() => {
@@ -96,6 +96,9 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
             const isImmediatePurchased = immediatePurchases.includes(option.id);
             const isImmediate = option.is_immediate_purchase || false;
 
+            const baseCost = option.cost ?? 0;
+            const effectivePrice = pricing?.finalPrice ?? baseCost;
+
             return {
                 ...option,
                 index,
@@ -104,10 +107,10 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                 isImmediatePurchased,
                 isImmediate,
                 isDisabled: pricing?.availability === 'not_available' || isImmediatePurchased,
-                effectivePrice: pricing?.finalPrice ?? option.cost,
+                effectivePrice,
                 group: pricing?.availability === 'continue' ? 'reinvest' : 'new'
             } as EnhancedInvestment;
-        }).filter(investment => investment.pricing?.availability !== 'not_available');
+        });
 
         return {
             reinvestInvestments: enhanced.filter(inv => inv.group === 'reinvest'),
@@ -115,13 +118,12 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
         };
     }, [investmentOptions, investmentPricing, selectedInvestmentIds, immediatePurchases]);
 
-    const handleImmediatePurchaseConfirm = async () => {
-        if (showImmediateModal === null) return;
-
+    // Handle immediate purchase confirmation
+    const handleImmediatePurchaseConfirm = async (optionIndex: number) => {
         setIsPurchasing(true);
         try {
-            await onImmediatePurchase(showImmediateModal);
-            setShowImmediateModal(null);
+            await onImmediatePurchase(optionIndex);
+            setExpandedImmediate(null);
         } catch (error) {
             console.error('Immediate purchase failed:', error);
         } finally {
@@ -129,100 +131,51 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
         }
     };
 
-    const getInvestmentCardClasses = (investment: EnhancedInvestment, isSelected: boolean) => {
-        const baseClasses = "relative border-2 rounded-lg transition-all duration-200";
-
-        if (investment.isDisabled) {
-            return `${baseClasses} border-gray-600 bg-gray-800/50 opacity-60`;
-        }
-
-        if (isSelected || investment.isImmediatePurchased) {
-            return investment.group === 'reinvest'
-                ? `${baseClasses} border-green-400 bg-green-900/30 shadow-lg`
-                : `${baseClasses} border-blue-400 bg-blue-900/30 shadow-lg`;
-        }
-
-        // Unaffordable
-        const isUnaffordable = remainingBudget < investment.effectivePrice;
-        if (isUnaffordable) {
-            return `${baseClasses} border-gray-600 bg-gray-800/30 opacity-50`;
-        }
-
-        // Default state
-        return investment.group === 'reinvest'
-            ? `${baseClasses} border-green-500 bg-green-900/20 hover:bg-green-900/30`
-            : `${baseClasses} border-gray-500 bg-gray-800/50 hover:bg-gray-700/50`;
-    };
-
-    const renderPricingInfo = (investment: EnhancedInvestment) => {
-        const {pricing, cost} = investment;
-
-        if (!pricing || currentRound === 1) {
-            return (
-                <div className="text-right">
-                    <div className="text-lg font-bold text-white">
-                        {formatCurrency(cost)}
-                    </div>
-                </div>
-            );
-        }
-
-        if (pricing.availability === 'continue' && pricing.freshPrice) {
-            // Show savings for continuation
-            return (
-                <div className="text-right">
-                    <div className="text-sm text-gray-400 line-through">
-                        {formatCurrency(pricing.freshPrice)}
-                    </div>
-                    <div className="text-lg font-bold text-green-400">
-                        {formatCurrency(pricing.finalPrice)}
-                    </div>
-                    <div className="text-xs text-green-300">
-                        Save {formatCurrency(pricing.freshPrice - pricing.finalPrice)}
-                    </div>
-                </div>
-            );
-        }
-
-        return (
-            <div className="text-right">
-                <div className="text-lg font-bold text-white">
-                    {formatCurrency(pricing.finalPrice)}
-                </div>
-            </div>
-        );
-    };
-
+    // Render investment card with inline confirmation
     const renderInvestmentCard = (investment: EnhancedInvestment) => {
-        const isSelected = investment.isSelected || investment.isImmediatePurchased;
-        const isUnaffordable = !isSelected && remainingBudget < investment.effectivePrice;
-        const isInteractable = !investment.isDisabled && !isUnaffordable && !isSubmitting;
+        const {
+            index,
+            pricing,
+            isSelected,
+            isImmediatePurchased,
+            isImmediate,
+            isDisabled,
+            effectivePrice,
+            group
+        } = investment;
+
+        const isUnaffordable = (effectivePrice ?? 0) > remainingBudget && !isSelected;
+        const isInteractable = !isDisabled && !isUnaffordable && !isSubmitting;
+        const isExpanded = expandedImmediate === index;
 
         return (
             <div
                 key={investment.id}
-                className={getInvestmentCardClasses(investment, isSelected)}
+                className={`rounded-lg border-2 transition-all duration-300 ${
+                    isDisabled
+                        ? 'border-gray-600 bg-gray-800/30 opacity-50'
+                        : isSelected || isExpanded
+                            ? 'border-blue-400 bg-blue-900/30 shadow-lg'
+                            : 'border-gray-500 bg-gray-800/50 hover:bg-gray-700/50'
+                }`}
             >
-                <label className={`flex items-start p-4 ${isInteractable ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                {/* Main Investment Content */}
+                <label className={`flex items-start p-4 ${
+                    isInteractable ? 'cursor-pointer' : 'cursor-not-allowed'
+                }`}>
                     {/* Checkbox */}
                     <input
                         type="checkbox"
                         className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded disabled:opacity-50"
-                        checked={isSelected || investment.isImmediatePurchased}
+                        checked={isSelected}
                         disabled={!isInteractable}
                         onChange={() => {
                             if (!isInteractable) return;
-                            const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
 
-                            if (correctIndex === -1) {
-                                console.error('[EnhancedInvestmentPanel] Could not find investment:', investment.id);
-                                return;
-                            }
-
-                            if (investment.isImmediate && !investment.isImmediatePurchased) {
-                                setShowImmediateModal(correctIndex);
+                            if (isImmediate && !isImmediatePurchased) {
+                                setExpandedImmediate(isExpanded ? null : index);
                             } else {
-                                onInvestmentToggle(correctIndex, investment.effectivePrice);
+                                onInvestmentToggle(index, effectivePrice ?? 0);
                             }
                         }}
                     />
@@ -231,7 +184,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                     <div className="ml-4 flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <span className={`font-medium ${
-                                investment.isImmediatePurchased
+                                isImmediatePurchased
                                     ? 'text-green-100'
                                     : isUnaffordable
                                         ? 'text-gray-400'
@@ -239,45 +192,146 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                             }`}>
                                 {InvestmentDisplayUtils.getDisplayId(investment.id, true)}. {investment.name}
                             </span>
+
+                            {/* Status badges */}
+                            {isImmediatePurchased && (
+                                <span className="px-2 py-1 text-xs bg-green-600 text-white rounded-full">
+                                    Purchased
+                                </span>
+                            )}
+                            {isImmediate && !isImmediatePurchased && (
+                                <span className="px-2 py-1 text-xs bg-yellow-600 text-white rounded-full">
+                                    Immediate
+                                </span>
+                            )}
+                            {pricing && group === 'reinvest' && (
+                                <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded-full">
+                                    Reduced Price
+                                </span>
+                            )}
+                            {pricing && group === 'new' && (
+                                <span className="px-2 py-1 text-xs bg-gray-600 text-white rounded-full">
+                                    New
+                                </span>
+                            )}
                         </div>
 
+                        {/* Description */}
                         {investment.description && (
-                            <p className="text-xs text-gray-300 leading-relaxed mb-2">
+                            <p className={`text-sm mb-3 leading-relaxed ${
+                                isUnaffordable ? 'text-gray-500' : 'text-gray-300'
+                            }`}>
                                 {investment.description}
                             </p>
                         )}
 
-                        {investment.pricing?.reason && investment.pricing.availability === 'continue' && (
-                            <p className="text-xs text-green-400 italic">
-                                Continuing from previous round
-                            </p>
-                        )}
+                        {/* Pricing information */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                {/* Price */}
+                                <span className={`text-lg font-bold ${
+                                    isImmediatePurchased
+                                        ? 'text-green-400'
+                                        : isUnaffordable
+                                            ? 'text-gray-500'
+                                            : 'text-yellow-400'
+                                }`}>
+                                    ${formatCurrency(effectivePrice)}
+                                </span>
 
-                        {investment.pricing?.availability === 'not_available' && (
-                            <p className="text-xs text-gray-400 italic">
-                                {investment.pricing.reason}
-                            </p>
-                        )}
-                    </div>
+                                {/* Original price if different */}
+                                {pricing && pricing.freshPrice !== effectivePrice && pricing.freshPrice != null && (
+                                    <span className="text-sm text-gray-400 line-through">
+                                        ${formatCurrency(pricing.freshPrice)}
+                                    </span>
+                                )}
 
-                    {renderPricingInfo(investment)}
-                </label>
+                                {/* Availability status */}
+                                {pricing && (
+                                    <div className="flex items-center gap-1">
+                                        {pricing.availability === 'continue' && (
+                                            <Info className="w-4 h-4 text-blue-400"/>
+                                        )}
+                                        {pricing.availability === 'not_available' && (
+                                            <Ban className="w-4 h-4 text-red-400"/>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
 
-                {/* Selection Indicator */}
-                {isSelected && !investment.isDisabled && (
-                    <div className="absolute top-2 right-2">
-                        <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-                            investment.group === 'reinvest' ? 'bg-green-500' : 'bg-blue-500'
-                        }`}>
-                            <CheckCircle className="w-3 h-3 text-white"/>
+                            {/* Selection indicator */}
+                            {isSelected && !isExpanded && (
+                                <div className="flex items-center gap-1">
+                                    <div className={`w-3 h-3 rounded-full flex items-center justify-center ${
+                                        isImmediatePurchased ? 'bg-green-500' : 'bg-blue-500'
+                                    }`}>
+                                        <CheckCircle className="w-3 h-3 text-white"/>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
-                )}
+                </label>
 
-                {/* Disabled Overlay */}
-                {investment.isDisabled && investment.pricing?.availability === 'not_available' && (
-                    <div className="absolute inset-0 bg-gray-900/30 rounded-lg flex items-center justify-center">
-                        <Ban className="w-8 h-8 text-gray-500"/>
+                {/* Inline Immediate Purchase Confirmation (Mobile-Friendly) */}
+                {isExpanded && isImmediate && !isImmediatePurchased && (
+                    <div className="border-t border-gray-600 bg-gray-800/70 p-4 space-y-4">
+                        {/* Confirmation Header */}
+                        <div className="flex items-center gap-2 mb-3">
+                            <Zap className="w-5 h-5 text-yellow-400"/>
+                            <h4 className="text-lg font-semibold text-white">Confirm Immediate Purchase</h4>
+                        </div>
+
+                        {/* Price Display */}
+                        <div className="text-center py-2">
+                            <div className="text-2xl font-bold text-yellow-400">
+                                ${formatCurrency(effectivePrice)}
+                            </div>
+                        </div>
+
+                        {/* Warning */}
+                        <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-3">
+                            <div className="flex items-start space-x-3">
+                                <AlertTriangle className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0"/>
+                                <div>
+                                    <h5 className="font-medium text-yellow-300 mb-1">Important:</h5>
+                                    <ul className="text-yellow-200 text-sm space-y-1">
+                                        <li>• This purchase will be made immediately</li>
+                                        <li>• Cannot be undone once confirmed</li>
+                                        <li>• Report will be delivered by your host</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons - Mobile Optimized */}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <button
+                                onClick={() => setExpandedImmediate(null)}
+                                disabled={isPurchasing}
+                                className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200 text-center"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleImmediatePurchaseConfirm(index)}
+                                disabled={isPurchasing}
+                                className="flex-1 px-4 py-3 bg-yellow-600 hover:bg-yellow-500 disabled:bg-yellow-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                            >
+                                {isPurchasing ? (
+                                    <>
+                                        <div
+                                            className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                        <span>Purchasing...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Zap className="w-4 h-4"/>
+                                        <span>Confirm Purchase</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
@@ -286,47 +340,12 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Budget Summary */}
-            <div className="bg-gray-800 p-4 rounded-lg border border-gray-600">
-                <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-300">Budget Remaining:</span>
-                    <span className={`text-xl font-bold ${
-                        remainingBudget < 0 ? 'text-red-400' : 'text-green-400'
-                    }`}>
-                        {formatCurrency(remainingBudget)}
-                    </span>
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                    Total Budget: {formatCurrency(investUpToBudget)} | Spent: {formatCurrency(spentBudget)}
-                </div>
-            </div>
-
-            {/* Continuation Pricing Legend for rounds 2+ */}
-            {currentRound > 1 && (
-                <div className="bg-blue-900/20 border border-blue-600 rounded-lg p-3">
-                    <div className="flex items-center mb-2">
-                        <Info className="w-4 h-4 text-blue-400 mr-2"/>
-                        <span className="text-sm font-medium text-blue-300">Continuation Pricing</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                        <div className="flex items-center">
-                            <div className="w-3 h-3 bg-green-500 rounded mr-2"></div>
-                            <span className="text-gray-300">Reinvest = Reduced Price</span>
-                        </div>
-                        <div className="flex items-center">
-                            <div className="w-3 h-3 bg-gray-500 rounded mr-2"></div>
-                            <span className="text-gray-300">New = Full Price</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Reinvest Section */}
             {reinvestInvestments.length > 0 && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                     <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-green-500 rounded"></div>
-                        <h3 className="text-lg font-semibold text-green-400">🔄 Reinvest (Reduced Prices)</h3>
+                        <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                        <h3 className="text-lg font-semibold text-white">💰 Reinvest (Reduced Price)</h3>
                     </div>
                     <div className="space-y-3">
                         {reinvestInvestments.map(investment => renderInvestmentCard(investment))}
@@ -336,7 +355,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
 
             {/* New Investments Section */}
             {newInvestments.length > 0 && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 bg-gray-500 rounded"></div>
                         <h3 className="text-lg font-semibold text-white">✨ New Investments</h3>
@@ -352,17 +371,6 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                 <div className="text-center py-8">
                     <div className="text-gray-400">Loading pricing data...</div>
                 </div>
-            )}
-
-            {/* Immediate Purchase Modal */}
-            {showImmediateModal !== null && (
-                <ImmediatePurchaseModal
-                    option={investmentOptions[showImmediateModal]}
-                    isOpen={true}
-                    onConfirm={handleImmediatePurchaseConfirm}
-                    onCancel={() => setShowImmediateModal(null)}
-                    isPurchasing={isPurchasing}
-                />
             )}
         </div>
     );
