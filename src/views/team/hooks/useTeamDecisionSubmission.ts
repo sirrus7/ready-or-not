@@ -361,10 +361,27 @@ export const useTeamDecisionSubmission = ({
                 const challengeOptions = decisionKey ?
                     gameStructureWithData.all_challenge_options?.[decisionKey] || [] : [];
 
-                // UPDATED: Handle multi-select combinations
                 const selectedOptionId = existingDecision.selected_challenge_option_id;
 
-                if (selectedOptionId.includes(',')) {
+                // SPECIAL CASE: Handle double down decisions
+                if (currentSlide.type === 'interactive_double_down_select') {
+                    if (selectedOptionId === 'no_dd') {
+                        parts.push('No Double Down - Keeping all RD-3 investments');
+                    } else if (selectedOptionId === 'yes_dd') {
+                        // Get the sacrifice and double down investment names
+                        const rd3Investments = gameStructureWithData.all_investment_options?.['rd3-invest'] || [];
+                        const sacrificeInv = existingDecision.double_down_sacrifice_id ?
+                            rd3Investments.find(inv => inv.id === existingDecision.double_down_sacrifice_id) : null;
+                        const doubleDownInv = existingDecision.double_down_on_id ?
+                            rd3Investments.find(inv => inv.id === existingDecision.double_down_on_id) : null;
+
+                        if (sacrificeInv && doubleDownInv) {
+                            parts.push(`Double Down: Sacrifice "${sacrificeInv.name}" → Double "${doubleDownInv.name}"`);
+                        } else {
+                            parts.push('Double Down (incomplete selection)');
+                        }
+                    }
+                } else if (selectedOptionId && selectedOptionId.includes(',')) {
                     // Multi-select combination
                     const selectedOptions = MultiSelectChallengeTracker.parseSelection(selectedOptionId);
                     const displayText = MultiSelectChallengeTracker.getCombinationDisplayText(selectedOptions);

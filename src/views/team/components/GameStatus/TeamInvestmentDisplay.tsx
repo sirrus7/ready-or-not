@@ -6,7 +6,6 @@ import {ShoppingBag, DollarSign, CheckCircle} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
-import {InvestmentDisplayUtils} from "@shared/utils/InvestmentDisplayUtils.ts";
 
 interface InvestmentDisplayProps {
     sessionId: string;
@@ -25,6 +24,11 @@ interface PurchasedInvestment {
     isContinuation: boolean; // ✅ Whether this was a continuation purchase
 }
 
+interface DoubleDownState {
+    sacrificeId: string | null;
+    doubleDownId: string | null;
+}
+
 const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                                                                      sessionId,
                                                                      teamId,
@@ -34,6 +38,10 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                                                                  }) => {
     const [investments, setInvestments] = useState<PurchasedInvestment[]>([]);
     const [totalSpent, setTotalSpent] = useState(0);
+    const [doubleDownState, setDoubleDownState] = useState<DoubleDownState>({
+        sacrificeId: null,
+        doubleDownId: null
+    });
 
     // Get current round's investment phase key
     const currentInvestmentPhase = `rd${currentRound}-invest`;
@@ -198,6 +206,36 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
         processInvestments();
     }, [regularDecisions, immediateDecisions, gameStructure, currentInvestmentPhase, teamId, sessionId, currentRound]);
 
+    // Load double down decision
+    useEffect(() => {
+        const loadDoubleDownState = async () => {
+            if (!sessionId || !teamId || currentRound !== 3) {
+                return;
+            }
+
+            try {
+                const { data } = await supabase
+                    .from('team_decisions')
+                    .select('double_down_sacrifice_id, double_down_on_id')
+                    .eq('session_id', sessionId)
+                    .eq('team_id', teamId)
+                    .eq('phase_id', 'ch-dd-prompt')
+                    .single();
+
+                if (data) {
+                    setDoubleDownState({
+                        sacrificeId: data.double_down_sacrifice_id,
+                        doubleDownId: data.double_down_on_id
+                    });
+                }
+            } catch (error) {
+                console.warn('No double down decision found:', error);
+            }
+        };
+
+        loadDoubleDownState();
+    }, [sessionId, teamId, currentRound, refreshTrigger]);
+
     // Don't render if no investments
     if (investments.length === 0) {
         return null;
@@ -216,45 +254,58 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
 
             {/* Investment List */}
             <div className="space-y-2 mb-3">
-                {investments.map((investment) => (
-                    <div
-                        key={investment.id}
-                        className="flex items-center justify-between bg-slate-800/40 rounded p-2 border border-gray-600/30"
-                    >
-                        <div className="flex items-center gap-2">
-                            <span className="bg-blue-600 text-blue-100 px-2 py-1 rounded text-sm font-mono">
-                                {InvestmentDisplayUtils.getDisplayId(investment.id, true)}
-                            </span>
-                            <span className="text-gray-200 text-sm">
+                {investments.map((investment) => {
+                    const isDoubleDown = doubleDownState.doubleDownId === investment.id;
+                    const isSacrificed = doubleDownState.sacrificeId === investment.id;
+
+                    return (
+                        <div
+                            key={investment.id}
+                            className={`flex items-center justify-between p-3 rounded-lg border 
+                    ${isDoubleDown ? 'bg-green-900/30 border-green-500/50' :
+                                isSacrificed ? 'bg-red-900/30 border-red-500/50 opacity-60' :
+                                    'bg-gray-700/50 border-gray-600/50'}`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
+                            ${isDoubleDown ? 'bg-green-600 text-white' :
+                                        isSacrificed ? 'bg-red-600 text-white' :
+                                            investment.isImmediate ? 'bg-purple-600 text-white' :
+                                                investment.isContinuation ? 'bg-orange-600 text-white' :
+                                                    'bg-blue-600 text-white'}`}
+                                >
+                                    {investment.id}
+                                </div>
+                                <div className="flex-1">
+                                    <div className={`font-medium text-sm text-gray-200`}>
+                            <span className={isSacrificed ? 'line-through text-gray-500' : ''}>
                                 {investment.name}
                             </span>
-                            {investment.isImmediate && (
-                                <span className="bg-orange-600 text-orange-100 px-1 py-0.5 rounded text-xs">
-                                    Immediate
-                                </span>
-                            )}
-                            {investment.isContinuation && (
-                                <span className="bg-green-600 text-green-100 px-1 py-0.5 rounded text-xs">
-                                    Continued
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="text-right">
-                            {/* ✅ Show actual cost (with continuation discount if applicable) */}
-                            <span className="text-green-400 font-semibold text-sm">
-                                ${investment.actualCost.toLocaleString()}
-                            </span>
-
-                            {/* ✅ Show savings if continuation */}
-                            {investment.isContinuation && investment.actualCost < investment.originalCost && (
-                                <div className="text-xs text-gray-400 line-through">
-                                    ${investment.originalCost.toLocaleString()}
+                                        {isDoubleDown && <span className="text-green-400 text-xs ml-2">DOUBLED</span>}
+                                        {isSacrificed && <span className="text-red-400 text-xs ml-2">SACRIFICED</span>}
+                                    </div>
+                                    {investment.originalCost !== investment.actualCost && (
+                                        <div className="text-xs text-gray-400">
+                                            Original: ${investment.originalCost.toLocaleString()}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
+                            </div>
+                            <div className="text-right">
+                                <div className="text-sm font-medium text-gray-200">
+                                    ${investment.actualCost.toLocaleString()}
+                                </div>
+                                {investment.isImmediate && (
+                                    <div className="text-xs text-purple-400">Immediate</div>
+                                )}
+                                {investment.isContinuation && (
+                                    <div className="text-xs text-orange-400">Continued</div>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Total Spent */}
