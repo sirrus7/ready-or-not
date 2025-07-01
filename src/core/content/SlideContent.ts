@@ -6,7 +6,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 0,
         round_number: 0,
-        title: "Host Guide",
+        title: "Game Host",
         type: 'image',
         source_path: 'Slide_001.jpg',
         background_css: 'bg-gray-200'
@@ -72,7 +72,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 7,
         round_number: 1,
-        title: "RD-1 Investment Decision Period",
+        title: "RD-1 Invest [15 Minutes]",
         type: 'interactive_invest',
         source_path: "Slide_008.mp4",
         interactive_data_key: 'rd1-invest',
@@ -160,7 +160,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 17,
         round_number: 1,
-        title: "CH1 Decision Timer",
+        title: "CH1 Machinery Failure [3 Minutes]",
         type: 'interactive_choice',
         source_path: 'Slide_018.mp4',
         interactive_data_key: 'ch1',
@@ -300,7 +300,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 32,
         round_number: 1,
-        title: "CH2 Decision Timer",
+        title: "CH2 New Tax [3 Minutes]",
         type: 'interactive_choice',
         source_path: 'Slide_033.mp4',
         interactive_data_key: 'ch2',
@@ -440,7 +440,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 47,
         round_number: 1,
-        title: "CH3 Decision Timer",
+        title: "CH3 Recession [3 Minutes]",
         type: 'interactive_choice',
         source_path: 'Slide_048.mp4',
         interactive_data_key: 'ch3',
@@ -730,7 +730,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 70,
         round_number: 2,
-        title: "RD-2 Investment Decision Period",
+        title: "RD-2 Invest [20 Minutes]",
         type: 'interactive_invest',
         source_path: 'Slide_071.mp4',
         interactive_data_key: 'rd2-invest',
@@ -802,7 +802,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 78,
         round_number: 2,
-        title: "CH4: Decision Timer",
+        title: "CH4 Supply Crisis [3 Minutes]",
         type: 'interactive_choice',
         source_path: 'Slide_079.mp4',
         interactive_data_key: 'ch4',
@@ -923,7 +923,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 91,
         round_number: 2,
-        title: "CH5 Decision Timer",
+        title: "CH5 Capacity Crisis [3 Minutes]",
         type: 'interactive_choice',
         source_path: 'Slide_092.mp4',
         interactive_data_key: 'ch5',
@@ -1055,7 +1055,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 105,
         round_number: 2,
-        title: "CH6: Decision Timer",
+        title: "CH6 Quality Crisis [3 Minutes]",
         type: 'interactive_choice',
         source_path: 'Slide_106.mp4',
         interactive_data_key: 'ch6',
@@ -1179,7 +1179,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 118,
         round_number: 2,
-        title: "CH7: Decision Timer",
+        title: "CH7 Competition Challenge [3 Minutes]",
         type: 'interactive_choice',
         source_path: 'Slide_119.mp4',
         interactive_data_key: 'ch7',
@@ -1495,7 +1495,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 143,
         round_number: 3,
-        title: "RD-3 Investment Period",
+        title: "RD-3 Invest [10 Minutes]",
         type: 'interactive_invest',
         source_path: 'Slide_144.mp4',
         interactive_data_key: 'rd3-invest',
@@ -1511,7 +1511,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 144,
         round_number: 3,
-        title: "Double Down Decision",
+        title: "Double Down [5 Minutes]",
         type: 'interactive_double_down_select',
         interactive_data_key: 'ch-dd-prompt',
         source_path: 'Slide_145.mp4',
@@ -1576,7 +1576,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 151,
         round_number: 3,
-        title: "CH8: Decision Timer",
+        title: "CH8 Cyber Attack [3 Minutes]",
         type: 'interactive_choice',
         source_path: 'Slide_152.mp4',
         interactive_data_key: 'ch8',
@@ -1697,7 +1697,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 164,
         round_number: 3,
-        title: "CH9 Decision Timer",
+        title: "CH9 ERP Constraint [3 Minutes]",
         type: 'interactive_choice',
         source_path: 'Slide_165.mp4',
         interactive_data_key: 'ch9',

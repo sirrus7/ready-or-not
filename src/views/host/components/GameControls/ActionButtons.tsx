@@ -21,8 +21,8 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
         <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
             <button onClick={onOpenJoinInfo}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300"
-                    aria-label="Show Student Join Info">
-                <QrCode size={16}/> Join Info
+                    aria-label="Show Team Join Info">
+                <QrCode size={16}/> Team Join Info
             </button>
             <button onClick={onOpenTeamCodes}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-gray-100 text-gray-600 transition-colors border border-gray-300"

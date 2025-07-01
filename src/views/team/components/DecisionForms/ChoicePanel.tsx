@@ -134,7 +134,7 @@ const ChoicePanel: React.FC<ChoicePanelProps> = ({
                 const isSelected = selectedOptions.includes(opt.id);
                 const wouldBeValid = wouldBeValidCombination(opt.id);
                 const isDisabledByForced = forcedSelection && opt.id !== forcedSelection;
-                const isDisabled = isSubmitting || (!isSelected && !wouldBeValid) || isDisabledByForced;
+                const isDisabled = Boolean(isSubmitting || (!isSelected && !wouldBeValid) || isDisabledByForced);
 
                 return (
                     <label

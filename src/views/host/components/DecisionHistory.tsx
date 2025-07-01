@@ -5,7 +5,7 @@ import React, {useState, useEffect, useMemo} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
 import DecisionHistoryButton from './DecisionHistoryButton';
 import {Slide} from '@shared/types';
-import {ChevronDown, ChevronUp, ListChecks, DollarSign, Repeat} from 'lucide-react';
+import {ChevronDown, ChevronUp, Repeat, DollarSign, Swords} from 'lucide-react';
 
 interface DecisionHistoryProps {
     onReviewDecision: (decisionKey: string) => void;
@@ -15,7 +15,7 @@ interface DecisionHistoryProps {
 const getRoundLabel = (key: string) => {
     const num = key.split('_')[1];
     if (num === '0') return "Setup Decisions";
-    return `Round ${num} Decisions`;
+    return `RD-${num}`;
 };
 
 const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => {
@@ -81,9 +81,6 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
         <div>
             <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-lg font-semibold text-gray-700">Decision History</h2>
-                <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-medium">
-                    {gameStructure.interactive_slides.length} points
-                </span>
             </div>
             <div className="space-y-2">
                 {Object.keys(groupedSlides).map(roundKey => {
@@ -98,10 +95,7 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
                             >
                                 <div className="flex items-center justify-between">
                                     <span>{getRoundLabel(roundKey)}</span>
-                                    <span
-                                        className="text-xs text-gray-500">{slidesInRound.length} decision{slidesInRound.length !== 1 ? 's' : ''}</span>
-                                    {isExpanded ? <ChevronUp size={18} className="text-gray-500"/> :
-                                        <ChevronDown size={18} className="text-gray-500"/>}
+                                    {isExpanded ? <ChevronUp size={18} className="text-gray-500"/> : <ChevronDown size={18} className="text-gray-500"/>}
                                 </div>
                             </button>
 
@@ -122,9 +116,9 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
                                         const hostMovedPast = current_slide_index !== null && slideIndexInMainList < current_slide_index;
                                         const isCompleted = hostMovedPast || hasSubmissions;
 
-                                        let icon = ListChecks;
+                                        let icon = Swords;
                                         if (slide.type === 'interactive_invest') icon = DollarSign;
-                                        if (slide.type.includes('double-down')) icon = Repeat;
+                                        if (slide.type === 'interactive_double_down_select') icon = Repeat;
 
                                         // Enhanced label to show submission status
                                         let enhancedLabel = slide.title || `Decision Point`;
@@ -144,7 +138,6 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
                                             <DecisionHistoryButton
                                                 key={slide.interactive_data_key || slide.id}
                                                 label={enhancedLabel}
-                                                round={slide.round_number}
                                                 isCurrent={isCurrentSlide}
                                                 isCompleted={isCompleted} // FIXED: Now properly reflects team submissions
                                                 icon={icon}

@@ -78,7 +78,7 @@ const GamePanel: React.FC = () => {
                         }`}
                     >
                         <History size={16}/>
-                        Timeline
+                        Decision Sessions
                     </button>
                     <button
                         onClick={() => setActiveTab('submissions')}
