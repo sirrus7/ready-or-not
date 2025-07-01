@@ -51,8 +51,8 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_006.mp4',
         auto_advance_after_video: false,
         host_alert: {
-            title: "15 Minutes for SWOT Analysis",
-            message: "Teams have 15 minutes to read materials and complete SWOT analysis. Click Next when ready to proceed."
+            title: "Game Host Action",
+            message: "Time’s Up! Click Next to proceed"
         }
     },
     {
