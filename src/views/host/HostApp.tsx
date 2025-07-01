@@ -275,28 +275,42 @@ const HostApp: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    {/* Stable Navigation Area */}
-                    <div className="flex-shrink-0 bg-white border-t border-gray-200 p-3 lg:p-4 rounded-b-lg shadow-md">
+                    {/* Subtly Enhanced Navigation Area */}
+                    <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 lg:p-4 rounded-b-lg shadow-md">
                         <div className="flex items-center justify-between gap-4">
-                            <button onClick={previousSlide} disabled={isFirstSlideOverall}
-                                    className="p-3 rounded-full text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                                <ChevronLeft size={24}/>
+                            {/* Previous Button - Subtle Enhancement */}
+                            <button
+                                onClick={previousSlide}
+                                disabled={isFirstSlideOverall}
+                                className="flex items-center gap-2 px-4 py-3 rounded-lg border-2 border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft size={28}/>
+                                <span className="font-medium">Prev</span>
                             </button>
+
+                            {/* Slide Info - Slightly Enhanced */}
                             <div className="flex-1 text-center min-w-0">
-                                <div className="text-sm md:text-base font-semibold text-gray-800 truncate">
+                                <div className="text-base md:text-lg font-semibold text-gray-800 truncate">
                                     {currentSlideData ? `Slide ${currentSlideData.id}: ${currentSlideData.title}` : 'No Slide Selected'}
                                 </div>
-                                <div className="text-xs md:text-sm text-gray-500">
+                                <div className="text-sm md:text-sm text-gray-600 mt-1">
                                     {currentSlideData && current_slide_index !== null && (
-                                        <span>({current_slide_index + 1} of {gameStructure.slides.length})</span>
+                                        <span className="font-medium">({current_slide_index + 1} of {gameStructure.slides.length})</span>
                                     )}
-                                    {currentSlideData?.interactive_data_key &&
-                                        <span className="ml-2 text-green-600 font-medium">• Interactive</span>}
+                                    {currentSlideData?.interactive_data_key && (
+                                        <span className="ml-2 text-green-600 font-medium">• Interactive</span>
+                                    )}
                                 </div>
                             </div>
-                            <button onClick={nextSlide} disabled={isLastSlideOverall}
-                                    className="p-3 rounded-full text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                                <ChevronRight size={24}/>
+
+                            {/* Next Button - Subtle Enhancement */}
+                            <button
+                                onClick={nextSlide}
+                                disabled={isLastSlideOverall}
+                                className="flex items-center gap-2 px-4 py-3 rounded-lg border-2 border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <span className="font-medium">Next</span>
+                                <ChevronRight size={28}/>
                             </button>
                         </div>
                     </div>
