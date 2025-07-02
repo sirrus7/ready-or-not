@@ -10,7 +10,7 @@ export const BASE_VALUES = {
 };
 
 export const ROUND_BASE_VALUES = {
-    1: {orders: 5000, cost: 1200000},                    // Initial round 1 values
+    1: {orders: 6250, cost: 1200000},                    // Initial round 1 values
     2: {orders: 6750, cost: 1275000},                    // ✅ FIXED: RD-1→RD-2 Reset values
     3: {orders: 7250, cost: 1350000}                     // ✅ FIXED: RD-2→RD-3 Reset values
 };
