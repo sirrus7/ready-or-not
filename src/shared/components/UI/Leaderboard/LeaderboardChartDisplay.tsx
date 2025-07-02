@@ -25,7 +25,8 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
                                                                              slideId,
                                                                              currentRoundForDisplay,
                                                                              teams: propTeams,
-                                                                             teamRoundData: propTeamRoundData
+                                                                             teamRoundData: propTeamRoundData,
+                                                                             teamDecisions: propTeamDecisions // NEW: Accept team decisions prop
                                                                          }) => {
     // Safely try to get data from AppContext
     const gameContext = useSafeGameContext();
@@ -33,6 +34,11 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
 
     const teams = propTeams || contextState?.teams || [];
     const teamRoundData = propTeamRoundData || contextState?.teamRoundData || {};
+    // FIXED: Convert nested teamDecisions structure to flat array
+    const teamDecisions = propTeamDecisions || (contextState?.teamDecisions ?
+        Object.values(contextState.teamDecisions).flatMap(teamDecisionsByPhase =>
+            Object.values(teamDecisionsByPhase)
+        ) : []);
 
     // Generate dataKey from slideId
     const dataKey = useMemo(() => getDataKeyFromSlideId(slideId), [slideId]);
@@ -57,7 +63,8 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
             .map(({team, roundData}) => {
                 if (!roundData) return null;
 
-                const value = calculateKpiValue(roundData, metric);
+                // UPDATED: Pass team decisions and team ID for comprehensive cost calculation
+                const value = calculateKpiValue(roundData, metric, teamDecisions, team.id);
                 const formattedValue = formatValueForDisplay(value, metric);
 
                 // For capacity & orders, show both values
@@ -65,7 +72,8 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
                 let effectiveValue = value;
 
                 if (secondaryMetric) {
-                    const secValue = calculateKpiValue(roundData, secondaryMetric);
+                    // UPDATED: Pass team decisions and team ID for secondary metric too
+                    const secValue = calculateKpiValue(roundData, secondaryMetric, teamDecisions, team.id);
                     secondaryValue = formatValueForDisplay(secValue, secondaryMetric);
 
                     // For capacity & orders leaderboard, rank by minimum (intersection)
@@ -96,7 +104,7 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
             ...item,
             rank: index + 1
         }));
-    }, [teams, teamRoundData, currentRoundForDisplay, metric, secondaryMetric, higherIsBetter]);
+    }, [teams, teamRoundData, teamDecisions, currentRoundForDisplay, metric, secondaryMetric, higherIsBetter]); // NEW: Add teamDecisions dependency
 
     // Determine round display text
     const roundDisplay = useMemo(() => {

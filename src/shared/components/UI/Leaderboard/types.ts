@@ -1,5 +1,5 @@
 // src/shared/components/UI/Leaderboard/types.ts
-import {Team, TeamRoundData} from '@shared/types/database';
+import {Team, TeamDecision, TeamRoundData} from '@shared/types/database';
 
 export interface LeaderboardItem {
     teamName: string;
@@ -15,6 +15,7 @@ export interface LeaderboardChartDisplayProps {
     currentRoundForDisplay: number | null;
     teams?: Team[];
     teamRoundData?: Record<string, Record<number, TeamRoundData>>;
+    teamDecisions?: TeamDecision[];
 }
 
 export interface DualBarLeaderboardProps {

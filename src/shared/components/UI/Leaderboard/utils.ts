@@ -1,6 +1,71 @@
 // src/shared/components/UI/Leaderboard/utils.ts
 import {KpiKey} from '@shared/types/game';
-import {TeamRoundData} from '@shared/types/database';
+import {TeamRoundData, TeamDecision} from '@shared/types/database';
+import {INVESTMENT_BUDGETS} from '@shared/utils/budgetUtils';
+
+// NEW: Constants for the comprehensive cost calculation system
+const MATERIALS_COST_PER_UNIT = 470; // $470 per board
+const OVERHEAD_PERCENTAGE = 0.25; // 25% of revenue
+
+// NEW: Calculate unspent investment budget for a team in a specific round
+export const calculateUnspentBudget = (
+    teamDecisions: TeamDecision[],
+    teamId: string,
+    roundNumber: number
+): number => {
+    const roundBudget = INVESTMENT_BUDGETS[roundNumber as keyof typeof INVESTMENT_BUDGETS] || 0;
+
+    // Find all decisions for this team and round
+    const roundDecisions = teamDecisions.filter(d =>
+        d.team_id === teamId &&
+        d.round_number === roundNumber
+    );
+
+    // Sum all spent amounts (both regular investments and immediate purchases)
+    const totalSpent = roundDecisions.reduce((sum, decision) =>
+        sum + (decision.total_spent_budget || 0), 0
+    );
+
+    return Math.max(0, roundBudget - totalSpent);
+};
+
+// NEW: Calculate the comprehensive cost breakdown
+export const calculateNewCostBreakdown = (
+    roundData: TeamRoundData,
+    unspentBudget: number
+): {
+    adjustedCostKpi: number;
+    materialsCost: number;
+    overhead: number;
+    totalCost: number;
+    revenue: number;
+    netIncome: number;
+} => {
+    // Step 1: Adjust Cost KPI
+    const adjustedCostKpi = (roundData.current_cost || 0) - unspentBudget;
+
+    // Step 2: Calculate components
+    const unitsProduced = Math.min(
+        roundData.current_capacity || 0,
+        roundData.current_orders || 0
+    );
+    const revenue = unitsProduced * (roundData.current_asp || 0);
+    const materialsCost = MATERIALS_COST_PER_UNIT * unitsProduced;
+    const overhead = OVERHEAD_PERCENTAGE * revenue;
+
+    // Step 3: Calculate totals
+    const totalCost = adjustedCostKpi + materialsCost + overhead;
+    const netIncome = revenue - totalCost;
+
+    return {
+        adjustedCostKpi,
+        materialsCost,
+        overhead,
+        totalCost,
+        revenue,
+        netIncome
+    };
+};
 
 // Format values for display
 export const formatValueForDisplay = (value: number, metric: KpiKey | 'net_margin' | 'cost_per_board' | 'revenue' | 'net_income'): string => {
@@ -61,40 +126,93 @@ export const getMetricAndSortOrder = (dataKey: string): {
     }
 };
 
-// Calculate KPI values from round data
-export const calculateKpiValue = (roundData: TeamRoundData, metric: KpiKey | 'net_margin' | 'cost_per_board' | 'revenue' | 'net_income'): number => {
+// UPDATED: Calculate KPI values from round data with optional comprehensive cost calculation
+export const calculateKpiValue = (
+    roundData: TeamRoundData,
+    metric: KpiKey | 'net_margin' | 'cost_per_board' | 'revenue' | 'net_income',
+    teamDecisions?: TeamDecision[], // NEW: Optional team decisions for comprehensive calculation
+    teamId?: string // NEW: Optional team ID for filtering decisions
+): number => {
     switch (metric) {
         case 'capacity':
             return roundData.current_capacity || 0;
         case 'orders':
             return roundData.current_orders || 0;
-        case 'cost':
-            return roundData.current_cost || 0;
         case 'asp':
             return roundData.current_asp || 0;
-        case 'revenue': {
-            const orders = roundData.current_orders || 0;
-            const asp = roundData.current_asp || 0;
-            return orders * asp;
+
+        case 'cost': {
+            // NEW: Use comprehensive cost calculation for leaderboards
+            if (teamDecisions && teamId) {
+                const unspentBudget = calculateUnspentBudget(teamDecisions, teamId, roundData.round_number);
+                const breakdown = calculateNewCostBreakdown(roundData, unspentBudget);
+                return breakdown.totalCost;
+            }
+            // Fallback to original calculation during gameplay
+            return roundData.current_cost || 0;
         }
-        case 'net_income': {
+
+        case 'revenue': {
+            // NEW: Use calculated revenue from comprehensive system
+            if (teamDecisions && teamId) {
+                const unspentBudget = calculateUnspentBudget(teamDecisions, teamId, roundData.round_number);
+                const breakdown = calculateNewCostBreakdown(roundData, unspentBudget);
+                return breakdown.revenue;
+            }
+            // FIXED: Use min(capacity, orders) for correct calculation
             const orders = roundData.current_orders || 0;
+            const capacity = roundData.current_capacity || 0;
+            const asp = roundData.current_asp || 0;
+            return Math.min(orders, capacity) * asp;
+        }
+
+        case 'net_income': {
+            // NEW: Use comprehensive net income calculation
+            if (teamDecisions && teamId) {
+                const unspentBudget = calculateUnspentBudget(teamDecisions, teamId, roundData.round_number);
+                const breakdown = calculateNewCostBreakdown(roundData, unspentBudget);
+                return breakdown.netIncome;
+            }
+            // FIXED: Use min(capacity, orders) for correct calculation
+            const orders = roundData.current_orders || 0;
+            const capacity = roundData.current_capacity || 0;
             const asp = roundData.current_asp || 0;
             const cost = roundData.current_cost || 0;
-            const revenue = orders * asp;
+            const revenue = Math.min(orders, capacity) * asp;
             return revenue - cost;
         }
+
         case 'net_margin': {
+            // NEW: Use comprehensive net margin calculation
+            if (teamDecisions && teamId) {
+                const unspentBudget = calculateUnspentBudget(teamDecisions, teamId, roundData.round_number);
+                const breakdown = calculateNewCostBreakdown(roundData, unspentBudget);
+                return breakdown.revenue > 0 ? breakdown.netIncome / breakdown.revenue : 0;
+            }
+            // FIXED: Use min(capacity, orders) for correct calculation
             const orders = roundData.current_orders || 0;
+            const capacity = roundData.current_capacity || 0;
             const asp = roundData.current_asp || 0;
             const cost = roundData.current_cost || 0;
-            const revenue = orders * asp;
+            const revenue = Math.min(orders, capacity) * asp;
             return revenue > 0 ? (revenue - cost) / revenue : 0;
         }
+
         case 'cost_per_board': {
+            // NEW: Use comprehensive cost per board calculation
             const orders = roundData.current_orders || 1;
-            return (roundData.current_cost || 0) / orders;
+            const capacity = roundData.current_capacity || 1;
+            const unitsProduced = Math.min(orders, capacity);
+
+            if (teamDecisions && teamId) {
+                const unspentBudget = calculateUnspentBudget(teamDecisions, teamId, roundData.round_number);
+                const breakdown = calculateNewCostBreakdown(roundData, unspentBudget);
+                return unitsProduced > 0 ? breakdown.totalCost / unitsProduced : 0;
+            }
+            // Fallback to original calculation
+            return (roundData.current_cost || 0) / unitsProduced;
         }
+
         default:
             return 0;
     }
