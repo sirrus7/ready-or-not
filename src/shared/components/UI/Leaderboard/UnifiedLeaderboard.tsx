@@ -1,9 +1,6 @@
 // src/shared/components/UI/Leaderboard/UnifiedLeaderboard.tsx
 import React, {useState, useEffect, useMemo} from 'react';
-import {
-    Trophy, TrendingUp, DollarSign, BarChart2, Target, Package,
-    Zap, Crown, Medal, Award
-} from 'lucide-react';
+import {Trophy, TrendingUp, DollarSign, BarChart2, Target, Package, Zap} from 'lucide-react';
 import {LeaderboardItem} from './types';
 
 interface UnifiedLeaderboardProps {
@@ -60,13 +57,6 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
     const maxPrimary = useMemo(() =>
         Math.max(...sortedData.map(item => item.value)), [sortedData]
     );
-
-    const maxSecondary = useMemo(() => {
-        if (!isDualBar) return 0;
-        return Math.max(...sortedData.map(item =>
-            parseFloat(item.secondaryValue?.replace(/,/g, '') || '0')
-        ));
-    }, [sortedData, isDualBar]);
 
     // Get appropriate gradient colors based on KPI
     const getGradientScheme = () => {
@@ -193,7 +183,8 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     } transition-colors drop-shadow-md`}>
                                                         {team.teamName}
                                                         {isLeader &&
-                                                            <Trophy className="inline-block ml-2 w-6 h-6 text-yellow-900 drop-shadow-lg"/>}
+                                                            <Trophy
+                                                                className="inline-block ml-2 w-6 h-6 text-yellow-900 drop-shadow-lg"/>}
                                                     </span>
                                                 </div>
                                             </div>
@@ -227,9 +218,9 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                 <p className="text-3xl font-bold">
                     {isDualBar ? (
                         <>
-                            <span className="text-blue-400">CAPACITY</span>
+                            <span className="text-blue-400">{kpiLabel?.toUpperCase()}</span>
                             <span className="text-white"> & </span>
-                            <span className="text-yellow-400">ORDERS</span>
+                            <span className="text-yellow-400">{secondaryKpiLabel?.toUpperCase()}</span>
                         </>
                     ) : (
                         <span
@@ -282,7 +273,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     <div
                                                         className="absolute inset-0 flex items-center justify-end px-3">
                                                         <span
-                                                            className="text-xs font-bold text-white drop-shadow-md">Capacity: {team.formattedValue}</span>
+                                                            className="text-xs font-bold text-white drop-shadow-md">{kpiLabel}: {team.formattedValue}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -296,7 +287,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     <div
                                                         className="absolute inset-0 flex items-center justify-end px-3">
                                                         <span
-                                                            className="text-xs font-bold text-gray-900">Orders: {team.secondaryValue}</span>
+                                                            className="text-xs font-bold text-gray-900">{secondaryKpiLabel}: {team.secondaryValue}</span>
                                                     </div>
                                                 </div>
                                             </div>
