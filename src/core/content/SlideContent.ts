@@ -169,8 +169,8 @@ export const allGameSlides: Slide[] = [
         timer_duration_seconds: 180,
         background_css: 'bg-purple-900',
         host_alert: {
-            title: "CH1 Closed",
-            message: "Challenge 1 decisions are in. Click OK for results."
+            title: "Challenge Period Complete",
+            message: "Before proceeding, please confirm that all teams have finalized and submitted their decisions. Once verified, click 'Next' to continue to the next phase."
         }
     },
     {
