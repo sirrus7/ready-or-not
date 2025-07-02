@@ -8,11 +8,13 @@ import PresentationButton from '@views/host/components/GameControls/Presentation
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import {SimpleRealtimeManager} from "@core/sync";
 import {Slide} from "@shared/types";
+import {shouldAutoAdvance} from '@shared/utils/versionUtils';
 
 const HostApp: React.FC = () => {
     const {
         state,
         currentSlideData,
+        gameVersion,
         previousSlide,
         nextSlide,
         setCurrentHostAlertState,
@@ -134,7 +136,7 @@ const HostApp: React.FC = () => {
                 title: "Timer Complete", 
                 message: "Click OK to continue to the next slide."
             });
-        } else if (currentSlideData.auto_advance_after_video) {
+        } else if (shouldAutoAdvance(gameVersion, currentSlideData.auto_advance_after_video)) {
             console.log('[HostApp] Auto-advancing to next slide');
             nextSlide();
         }

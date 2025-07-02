@@ -32,6 +32,7 @@ import {SimpleRealtimeManager} from "@core/sync";
 interface GameContextType {
     state: AppState;
     currentSlideData: Slide | null;
+    gameVersion: string; // ADDED: Game version for version-dependent features
     nextSlide: () => Promise<void>;
     previousSlide: () => Promise<void>;
     selectSlideByIndex: (index: number) => Promise<void>;
@@ -147,6 +148,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
     const contextValue: GameContextType = {
         state: appState,
         currentSlideData: gameController.currentSlideData,
+        gameVersion: session?.game_version || '2.0', // ADDED: Default to 2.0 if no version
         nextSlide: gameController.nextSlide,
         previousSlide: gameController.previousSlide,
         selectSlideByIndex: gameController.selectSlideByIndex,
