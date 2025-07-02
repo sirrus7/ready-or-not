@@ -2,10 +2,11 @@
 // FIXED: Shows actual continuation prices instead of original prices
 
 import React, {useEffect, useState} from 'react';
-import {ShoppingBag, DollarSign, CheckCircle} from 'lucide-react';
+import {TrendingUp, ChevronDown, ChevronRight, Package} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {supabase} from '@shared/services/supabase';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
+import {formatCurrency} from '@shared/utils/formatUtils';
 
 interface InvestmentDisplayProps {
     sessionId: string;
@@ -36,6 +37,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                                                                      gameStructure,
                                                                      refreshTrigger = 0
                                                                  }) => {
+    const [isExpanded, setIsExpanded] = useState(true);
     const [investments, setInvestments] = useState<PurchasedInvestment[]>([]);
     const [totalSpent, setTotalSpent] = useState(0);
     const [doubleDownState, setDoubleDownState] = useState<DoubleDownState>({
@@ -214,7 +216,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
             }
 
             try {
-                const { data } = await supabase
+                const {data} = await supabase
                     .from('team_decisions')
                     .select('double_down_sacrifice_id, double_down_on_id')
                     .eq('session_id', sessionId)
@@ -242,82 +244,79 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
     }
 
     return (
-        <div
-            className="bg-gradient-to-r from-gray-800/40 to-slate-700/40 border border-gray-600/50 rounded-lg p-4 mb-4">
-            <div className="flex items-center gap-2 mb-3">
-                <ShoppingBag className="text-blue-400" size={20}/>
-                <h3 className="text-gray-200 font-semibold text-lg">
-                    Round {currentRound} Investments
-                </h3>
-                <CheckCircle className="text-green-400 ml-auto" size={16}/>
-            </div>
-
-            {/* Investment List */}
-            <div className="space-y-2 mb-3">
-                {investments.map((investment) => {
-                    const isDoubleDown = doubleDownState.doubleDownId === investment.id;
-                    const isSacrificed = doubleDownState.sacrificeId === investment.id;
-
-                    return (
-                        <div
-                            key={investment.id}
-                            className={`flex items-center justify-between p-3 rounded-lg border 
-                    ${isDoubleDown ? 'bg-green-900/30 border-green-500/50' :
-                                isSacrificed ? 'bg-red-900/30 border-red-500/50 opacity-60' :
-                                    'bg-gray-700/50 border-gray-600/50'}`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div
-                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                            ${isDoubleDown ? 'bg-green-600 text-white' :
-                                        isSacrificed ? 'bg-red-600 text-white' :
-                                            investment.isImmediate ? 'bg-purple-600 text-white' :
-                                                investment.isContinuation ? 'bg-orange-600 text-white' :
-                                                    'bg-blue-600 text-white'}`}
-                                >
-                                    {investment.id}
-                                </div>
-                                <div className="flex-1">
-                                    <div className={`font-medium text-sm text-gray-200`}>
-                            <span className={isSacrificed ? 'line-through text-gray-500' : ''}>
-                                {investment.name}
-                            </span>
-                                        {isDoubleDown && <span className="text-green-400 text-xs ml-2">DOUBLED</span>}
-                                        {isSacrificed && <span className="text-red-400 text-xs ml-2">SACRIFICED</span>}
-                                    </div>
-                                    {investment.originalCost !== investment.actualCost && (
-                                        <div className="text-xs text-gray-400">
-                                            Original: ${investment.originalCost.toLocaleString()}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-sm font-medium text-gray-200">
-                                    ${investment.actualCost.toLocaleString()}
-                                </div>
-                                {investment.isImmediate && (
-                                    <div className="text-xs text-purple-400">Immediate</div>
-                                )}
-                                {investment.isContinuation && (
-                                    <div className="text-xs text-orange-400">Continued</div>
-                                )}
-                            </div>
+        <div className="flex-shrink-0">
+            {/* Collapsible Header */}
+            <div
+                className="bg-slate-700/50 rounded-lg p-3 mb-2 cursor-pointer hover:bg-slate-700/70 transition-colors"
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Package size={16} className="text-blue-400"/>
+                        <div className="text-sm font-medium text-white">
+                            Round {currentRound} Investments ({investments.length})
                         </div>
-                    );
-                })}
+                        <div className="text-xs text-slate-400">
+                            {formatCurrency(totalSpent)} spent
+                        </div>
+                    </div>
+                    {isExpanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+                </div>
             </div>
 
-            {/* Total Spent */}
-            <div className="flex items-center justify-between pt-2 border-t border-gray-600/30">
-                <div className="flex items-center gap-2">
-                    <DollarSign className="text-green-400" size={16}/>
-                    <span className="text-gray-300 font-medium">Total Spent:</span>
+            {/* Expanded Content */}
+            {isExpanded && (
+                <div className="bg-slate-700/50 rounded-lg p-4">
+                    <div className="space-y-2">
+                        {investments.map((investment, index) => (
+                            <div key={`${investment.id}-${index}`}
+                                 className="bg-slate-800/50 rounded-lg p-3 border border-slate-600/30">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                        <span className="font-medium text-white text-sm">
+                                            {investment.name}
+                                        </span>
+                                            {investment.isImmediate && (
+                                                <span
+                                                    className="px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs rounded-full font-medium border border-yellow-500/30">
+                                                Immediate
+                                            </span>
+                                            )}
+                                            {investment.isContinuation && (
+                                                <span
+                                                    className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full font-medium border border-blue-500/30">
+                                                Continue
+                                            </span>
+                                            )}
+                                        </div>
+                                        {/* REMOVED: Investment descriptions */}
+                                    </div>
+                                    <div className="text-right ml-4">
+                                        <div className="font-bold text-green-400 text-sm">
+                                            {formatCurrency(investment.actualCost)}
+                                        </div>
+                                        {investment.actualCost !== investment.originalCost && (
+                                            <div className="text-xs text-slate-400 line-through">
+                                                {formatCurrency(investment.originalCost)}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-600/40">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-slate-300">Total Investment</span>
+                            <span className="font-bold text-green-400 text-lg">
+                            {formatCurrency(totalSpent)}
+                        </span>
+                        </div>
+                    </div>
                 </div>
-                <span className="text-green-400 font-bold">
-                    ${totalSpent.toLocaleString()}
-                </span>
-            </div>
+            )}
         </div>
     );
 };

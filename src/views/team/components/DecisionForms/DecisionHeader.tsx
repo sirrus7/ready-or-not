@@ -3,13 +3,7 @@ import React from 'react';
 import {Slide} from '@shared/types';
 import {DecisionState} from '@views/team/hooks/useDecisionMaking';
 import {DollarSign, Target, AlertCircle, CheckCircle} from 'lucide-react';
-
-const formatCurrency = (value: number | undefined): string => {
-    if (value === undefined || value === null) return 'N/A';
-    if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
-    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-    return `$${value.toFixed(0)}`;
-};
+import {formatCurrency} from '@shared/utils/formatUtils';
 
 interface DecisionHeaderProps {
     currentSlide: Slide;
@@ -54,7 +48,7 @@ const DecisionHeader: React.FC<DecisionHeaderProps> = ({
                 RD-{currentSlide.round_number} Investment Decisions
             </h3>
             <div className="bg-gray-700/50 rounded-lg p-4 mb-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-3 gap-4 text-sm">
                     <div className="text-center"><p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Total
                         Budget</p><p className="font-bold text-green-400 text-lg">{formatCurrency(investUpToBudget)}</p>
                     </div>

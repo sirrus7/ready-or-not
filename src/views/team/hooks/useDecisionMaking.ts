@@ -7,6 +7,7 @@ import {supabase} from '@shared/services/supabase';
 import {StrategyInvestmentTracker, StrategyInvestmentType} from "@core/game/StrategyInvestmentTracker.ts";
 import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
 import {ForcedSelectionTracker} from "@core/game/ForcedSelectionTracker.ts";
+import {formatCurrency} from '@shared/utils/formatUtils';
 
 export interface DecisionState {
     selectedInvestmentOptions: string[];  // CHANGED: now stores ['A', 'B', 'C']
@@ -47,12 +48,6 @@ interface UseDecisionMakingReturn {
     submissionSummary: string;
     isValidSubmission: boolean;
 }
-
-const formatCurrency = (value: number): string => {
-    if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-    return `$${value.toFixed(0)}`;
-};
 
 export const useDecisionMaking = ({
                                       currentSlide,
@@ -173,7 +168,7 @@ export const useDecisionMaking = ({
             if (currentSlide?.type === 'interactive_double_down_select') {
                 try {
                     // Load team's RD3 investment decisions to filter available options
-                    const { data: rd3Decision } = await supabase
+                    const {data: rd3Decision} = await supabase
                         .from('team_decisions')
                         .select('selected_investment_options')
                         .eq('session_id', sessionId)
@@ -263,10 +258,15 @@ export const useDecisionMaking = ({
     useEffect(() => {
         const checkForcedSelection = async () => {
             if (!currentSlide || currentSlide.type !== 'interactive_choice' || !sessionId || !teamId || !currentSlide.interactive_data_key) {
-                setState(prev => ({ ...prev, forcedSelection: null, forcedSelectionReason: null, isCheckingForcedSelection: false }));
+                setState(prev => ({
+                    ...prev,
+                    forcedSelection: null,
+                    forcedSelectionReason: null,
+                    isCheckingForcedSelection: false
+                }));
                 return;
             }
-            setState(prev => ({ ...prev, isCheckingForcedSelection: true }));
+            setState(prev => ({...prev, isCheckingForcedSelection: true}));
             try {
                 const forced = await ForcedSelectionTracker.getForcedSelection(sessionId, teamId, currentSlide.interactive_data_key);
                 const reason = forced ? ForcedSelectionTracker.getForcedSelectionReason(currentSlide.interactive_data_key) : null;
@@ -278,7 +278,12 @@ export const useDecisionMaking = ({
                     selectedChallengeOptionId: forced || prev.selectedChallengeOptionId
                 }));
             } catch (error) {
-                setState(prev => ({ ...prev, forcedSelection: null, forcedSelectionReason: null, isCheckingForcedSelection: false }));
+                setState(prev => ({
+                    ...prev,
+                    forcedSelection: null,
+                    forcedSelectionReason: null,
+                    isCheckingForcedSelection: false
+                }));
             }
         };
         checkForcedSelection();

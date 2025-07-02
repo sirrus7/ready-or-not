@@ -9,6 +9,7 @@ import {DecisionState} from './useDecisionMaking';
 import {InvestmentPurchaseHandler} from '@core/game/InvestmentPurchaseHandler';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
 import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
+import {formatCurrency} from '@shared/utils/formatUtils';
 
 interface UseTeamDecisionSubmissionProps {
     sessionId: string | null;
@@ -36,12 +37,6 @@ export interface UseTeamDecisionSubmissionReturn {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-const formatCurrency = (value: number): string => {
-    if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-    return `$${value.toFixed(0)}`;
-};
 
 const parseInvestmentIds = (ids: string | string[] | null | undefined): string[] => {
     if (!ids) return [];
@@ -289,7 +284,8 @@ export const useTeamDecisionSubmission = ({
                     investmentPhase: decisionKey,
                     selectedInvestments: decisionState.selectedInvestmentOptions,
                     teamRoundData: {}, // Will be fetched inside the processor
-                    setTeamRoundDataDirectly: () => {} // No direct UI update needed here
+                    setTeamRoundDataDirectly: () => {
+                    } // No direct UI update needed here
                 });
             }
 

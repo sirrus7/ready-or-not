@@ -4,16 +4,7 @@ import {InvestmentOption} from '@shared/types';
 import {ContinuationPricingEngine, InvestmentPricing} from '@core/game/ContinuationPricingEngine';
 import {CheckCircle, Info, Ban, Zap, AlertTriangle} from 'lucide-react';
 import {InvestmentDisplayUtils} from "@shared/utils/InvestmentDisplayUtils.ts";
-
-// Helper function for currency formatting
-const formatCurrency = (amount: number | undefined | null): string => {
-    if (amount == null || isNaN(amount)) return '0';
-
-    const num = Math.abs(amount);
-    if (num >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
-    if (num >= 1_000) return `${(amount / 1_000).toFixed(0)}K`;
-    return `${amount.toFixed(0)}`;
-};
+import {formatCurrency} from '@shared/utils/formatUtils';
 
 interface EnhancedInvestmentPanelProps {
     sessionId: string;

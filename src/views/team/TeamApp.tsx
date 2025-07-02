@@ -45,7 +45,8 @@ import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import DecisionModeContainer from '@views/team/components/InteractionPanel/DecisionContainer';
-import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards'; // ADDED: Import impact cards
+import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards';
+import KpiNotifications from '@views/team/components/GameStatus/KpiNotifications.tsx';
 import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
 import {useTeamGameContext} from '@app/providers/TeamGameProvider';
 import {BASE_VALUES, ROUND_BASE_VALUES} from "@core/game/ScoringEngine.ts";
@@ -59,6 +60,8 @@ const TeamApp: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(null);
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(null);
+    const [kpiNotifications, setKpiNotifications] = useState<any[]>([]);
+    const [lastKpiValues, setLastKpiValues] = useState<Record<string, number>>({});
 
     // ADDED: Get centralized adjustment data from TeamGameProvider (lightweight, no auth)
     const teamGameContext = useTeamGameContext();
@@ -85,11 +88,58 @@ const TeamApp: React.FC = () => {
         }
     }, [teamGameState.sessionStatus]);
 
+    // ADD this useEffect:
+    useEffect(() => {
+        const currentKpis = teamGameState.currentTeamKpis;
+        if (!currentKpis || !lastKpiValues.capacity) {
+            if (currentKpis) {
+                setLastKpiValues({
+                    capacity: currentKpis.current_capacity || 0,
+                    orders: currentKpis.current_orders || 0,
+                    cost: currentKpis.current_cost || 0,
+                    asp: currentKpis.current_asp || 0
+                });
+            }
+            return;
+        }
+
+        const newNotification: any[] = [];
+        const newKpiValues = {
+            capacity: currentKpis.current_capacity || 0,
+            orders: currentKpis.current_orders || 0,
+            cost: currentKpis.current_cost || 0,
+            asp: currentKpis.current_asp || 0
+        };
+
+        (['capacity', 'orders', 'cost', 'asp'] as const).forEach(kpi => {
+            const change = newKpiValues[kpi] - lastKpiValues[kpi];
+            if (Math.abs(change) > 0) {
+                const color = change > 0 ? (kpi === 'cost' ? 'red' : 'green') : (kpi === 'cost' ? 'green' : 'red');
+                newNotification.push({
+                    id: `${kpi}-${Date.now()}-${Math.random()}`,
+                    kpi,
+                    change,
+                    color,
+                    timestamp: Date.now()
+                });
+            }
+        });
+
+        if (newNotification.length > 0) {
+            setKpiNotifications(newNotification);
+            playNotificationSound();
+            setTimeout(() => setKpiNotifications([]), 3000);
+        }
+
+        setLastKpiValues(newKpiValues);
+    }, [teamGameState.currentTeamKpis, lastKpiValues]);
+
     // Show session ended screen if session was deleted
     if (teamGameState.sessionStatus === 'deleted') {
         return (
             <div
                 className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+                <KpiNotifications notifications={kpiNotifications} />
                 <div className="max-w-md w-full">
                     <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 text-center shadow-2xl">
                         {/* Warning Icon */}
@@ -168,6 +218,26 @@ const TeamApp: React.FC = () => {
             </div>
         );
     }
+
+    const playNotificationSound = () => {
+        try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (error) {
+            console.log('🔔 KPI Update notification');
+        }
+    };
 
     // ========================================================================
     // MAIN GAME INTERFACE - RESTORED ORIGINAL LAYOUT WITH IMPACT CARDS
