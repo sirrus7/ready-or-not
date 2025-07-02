@@ -19,7 +19,7 @@ interface ImmediatePurchaseData {
 }
 
 const TeamMonitor: React.FC = () => {
-    const {state, currentSlideData, resetTeamDecision, setAllTeamsSubmittedCurrentInteractivePhase, setCurrentHostAlertState} = useGameContext();
+    const {state, currentSlideData, resetTeamDecision, setAllTeamsSubmittedCurrentInteractivePhase} = useGameContext();
     const {teams, teamDecisions, gameStructure, currentSessionId} = state;
 
     // Modal states
@@ -136,16 +136,8 @@ const TeamMonitor: React.FC = () => {
         setAllTeamsSubmittedCurrentInteractivePhase(submissionStats.allSubmitted);
     }, [submissionStats.allSubmitted, setAllTeamsSubmittedCurrentInteractivePhase]);
 
-    // Trigger alert when all teams have submitted
-    useEffect(() => {
-        if (submissionStats.allSubmitted && currentSlideData?.interactive_data_key && teams.length > 0) {
-            const slideTypeText = currentSlideData.type === 'interactive_invest' ? 'investment' : 'challenge';
-            setCurrentHostAlertState({
-                title: "All Teams Have Submitted",
-                message: `All teams have submitted their ${slideTypeText} decisions. You may proceed to the next slide.`
-            });
-        }
-    }, [submissionStats.allSubmitted, currentSlideData, teams.length, setCurrentHostAlertState]);
+    // REMOVED: Generic "all teams submitted" alert
+    // The slide-specific host_alert should be triggered after processing instead
 
     // Structured selection data function with FIXED immediate purchases handling and DEBUG LOGS
     const getSelectionData = (decision?: TeamDecision, teamId?: string): SelectionData => {

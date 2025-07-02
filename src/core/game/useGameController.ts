@@ -210,6 +210,12 @@ export const useGameController = (
                 if (currentSlideData.type === 'interactive_choice') {
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
+
+                // Show slide-specific host alert if configured
+                if (currentSlideData.host_alert) {
+                    console.log('[useGameController] Showing slide-specific host alert:', currentSlideData.host_alert);
+                    setCurrentHostAlertState(currentSlideData.host_alert);
+                }
             } catch (error) {
                 console.error('[useGameController] Error processing interactive slide:', error);
                 setCurrentHostAlertState({
@@ -310,6 +316,7 @@ export const useGameController = (
         }, []),
 
         setCurrentHostAlertState: useCallback((alert: { title: string; message: string } | null) => {
+            console.log('[useGameController] setCurrentHostAlertState called with:', alert);
             setCurrentHostAlertState(alert);
         }, []),
 
