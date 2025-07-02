@@ -5,6 +5,7 @@ import {allInvestmentOptionsData} from './InvestmentOptions';
 import {allChallengeOptionsData} from './ChallengeOptions';
 import {allConsequencesData} from './ConsequenceContent';
 import {allInvestmentPayoffsData} from './InvestmentPayoffContent';
+import {INVESTMENT_PHASE_BUDGETS} from '@shared/utils/budgetUtils';
 
 const interactiveSlides: Slide[] = allGameSlides.filter(
     (slide) => !!slide.interactive_data_key && slide.type.startsWith('interactive_')
@@ -19,9 +20,5 @@ export const readyOrNotGame_2_0_DD: GameStructure = {
     all_challenge_options: allChallengeOptionsData,
     all_consequences: allConsequencesData,
     all_investment_payoffs: allInvestmentPayoffsData,
-    investment_phase_budgets: {
-        'rd1-invest': 250000,
-        'rd2-invest': 500000,
-        'rd3-invest': 600000,
-    },
+    investment_phase_budgets: INVESTMENT_PHASE_BUDGETS,
 };

@@ -2,6 +2,7 @@
 // Implements exact continuation pricing system from Ready or Not physical game
 
 import {db} from '@shared/services/supabase';
+import {INVESTMENT_BUDGETS} from '@shared/utils/budgetUtils';
 
 export type InvestmentAvailability = 'fresh' | 'continue' | 'not_available';
 
@@ -168,15 +169,6 @@ const CONTINUATION_PRICING_TABLES = {
         }
     }
 };
-
-/**
- * ROUND BUDGETS - Budget available for each round
- */
-const ROUND_BUDGETS = {
-    1: 400000, // RD-1: $400K
-    2: 500000, // RD-2: $500K
-    3: 600000  // RD-3: $600K
-} as const;
 
 export class ContinuationPricingEngine {
 
@@ -416,7 +408,7 @@ export class ContinuationPricingEngine {
                 targetRound,
                 previousInvestments,
                 investmentPricing,
-                totalBudget: ROUND_BUDGETS[targetRound]
+                totalBudget: INVESTMENT_BUDGETS[targetRound]
             };
 
             return result;
