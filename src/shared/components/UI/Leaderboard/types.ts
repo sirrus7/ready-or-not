@@ -7,6 +7,7 @@ export interface LeaderboardItem {
     formattedValue: string;
     rank: number;
     secondaryValue?: string; // For capacity & orders display
+    effectiveValue?: number;
 }
 
 export interface LeaderboardChartDisplayProps {

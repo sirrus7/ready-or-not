@@ -62,27 +62,36 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
 
                 // For capacity & orders, show both values
                 let secondaryValue: string | undefined;
+                let effectiveValue = value;
+
                 if (secondaryMetric) {
                     const secValue = calculateKpiValue(roundData, secondaryMetric);
                     secondaryValue = formatValueForDisplay(secValue, secondaryMetric);
+
+                    // For capacity & orders leaderboard, rank by minimum (intersection)
+                    if (dataKey.includes('capord')) {
+                        effectiveValue = Math.min(value, secValue);
+                    }
                 }
 
                 return {
                     teamName: team.name,
-                    value,
+                    value: value,
                     formattedValue,
                     secondaryValue,
+                    effectiveValue,
                     rank: 0 // Will be set after sorting
                 };
             })
             .filter((item): item is NonNullable<typeof item> => item !== null);
 
-        // Sort by value
-        const sortedItems = itemsWithValues.sort((a, b) =>
-            higherIsBetter ? b.value - a.value : a.value - b.value
-        );
+        // Sort by effectiveValue for capacity & orders, otherwise by value
+        const sortedItems = itemsWithValues.sort((a, b) => {
+            const aRankValue = a.effectiveValue ?? a.value;
+            const bRankValue = b.effectiveValue ?? b.value;
+            return higherIsBetter ? bRankValue - aRankValue : aRankValue - bRankValue;
+        });
 
-        // Assign ranks
         return sortedItems.map((item, index) => ({
             ...item,
             rank: index + 1
@@ -91,14 +100,13 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
 
     // Determine round display text
     const roundDisplay = useMemo(() => {
-        if (!currentRoundForDisplay) return 'Round';
+        if (!currentRoundForDisplay) return 'RD';
 
-        // Check if this is a final leaderboard
         if (dataKey.includes('rd3_leaderboard')) {
-            return 'Final Round 3';
+            return 'FINAL RD-3';
         }
 
-        return `Round ${currentRoundForDisplay}`;
+        return `RD-${currentRoundForDisplay}`;
     }, [currentRoundForDisplay, dataKey]);
 
     // Check leaderboard type

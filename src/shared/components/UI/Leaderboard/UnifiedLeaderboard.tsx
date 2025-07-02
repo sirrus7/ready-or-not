@@ -40,6 +40,17 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
         }
     }, [isNetIncomeReveal]);
 
+    // At the top of the component, add these calculations for dual bars:
+    const maxCombinedValue = useMemo(() => {
+        if (!isDualBar) return 0;
+        return Math.max(...leaderboardData.map(team =>
+            Math.max(
+                team.value,
+                parseFloat(team.secondaryValue?.replace(/,/g, '') || '0')
+            )
+        ));
+    }, [leaderboardData, isDualBar]);
+
     // Sort data appropriately
     const sortedData = useMemo(() => {
         return [...leaderboardData].sort((a, b) => a.rank - b.rank);
@@ -182,8 +193,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     } transition-colors drop-shadow-md`}>
                                                         {team.teamName}
                                                         {isLeader &&
-                                                            <Trophy
-                                                                className="inline-block ml-2 w-6 h-6 text-yellow-900 drop-shadow-lg"/>}
+                                                            <Trophy className="inline-block ml-2 w-6 h-6 text-yellow-900 drop-shadow-lg"/>}
                                                     </span>
                                                 </div>
                                             </div>
@@ -214,8 +224,17 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                         {roundDisplay.toUpperCase()}
                     </h1>
                 </div>
-                <p className={`text-3xl font-bold bg-gradient-to-r ${getGradientScheme()} bg-clip-text text-transparent`}>
-                    {isDualBar ? 'CAPACITY & ORDERS' : kpiLabel.toUpperCase()}
+                <p className="text-3xl font-bold">
+                    {isDualBar ? (
+                        <>
+                            <span className="text-blue-400">CAPACITY</span>
+                            <span className="text-white"> & </span>
+                            <span className="text-yellow-400">ORDERS</span>
+                        </>
+                    ) : (
+                        <span
+                            className={`bg-gradient-to-r ${getGradientScheme()} bg-clip-text text-transparent`}>{kpiLabel.toUpperCase()}</span>
+                    )}
                 </p>
             </div>
 
@@ -226,8 +245,8 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
 
                     if (isDualBar) {
                         // Dual bar mode for Capacity & Orders - compact stacked layout
-                        const capWidth = (team.value / maxPrimary) * 100;
-                        const ordWidth = (parseFloat(team.secondaryValue?.replace(/,/g, '') || '0') / maxSecondary) * 100;
+                        const capWidth = (team.value / maxCombinedValue) * 100;
+                        const ordWidth = (parseFloat(team.secondaryValue?.replace(/,/g, '') || '0') / maxCombinedValue) * 100;
 
                         return (
                             <div
