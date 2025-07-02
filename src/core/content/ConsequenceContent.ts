@@ -282,7 +282,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                 },
                 {
                     kpi: 'capacity',
-                    change_value: 250,
+                    change_value: -250,
                     timing: 'immediate',
                     challenge_id: 'ch4',
                     option_id: 'A'
@@ -311,6 +311,13 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                 {
                     kpi: 'cost',
                     change_value: 75000,
+                    timing: 'immediate',
+                    challenge_id: 'ch4',
+                    option_id: 'C'
+                },
+                {
+                    kpi: 'capacity',
+                    change_value: -500,
                     timing: 'immediate',
                     challenge_id: 'ch4',
                     option_id: 'C'
