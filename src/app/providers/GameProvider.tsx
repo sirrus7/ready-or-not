@@ -42,6 +42,7 @@ interface GameContextType {
     resetTeamDecision: (teamId: string, interactiveDataKey: string) => Promise<void>;
     updateHostNotesForCurrentSlide: (notes: string) => void;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
+    allTeamsSubmittedCurrentInteractivePhase: boolean;
     setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
     clearHostAlert: () => Promise<void>; // ADDED: Missing method from interface
     permanentAdjustments: PermanentKpiAdjustment[]; // Now available globally
@@ -156,6 +157,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
         resetTeamDecision,
         updateHostNotesForCurrentSlide: gameController.updateHostNotesForCurrentSlide,
         setAllTeamsSubmittedCurrentInteractivePhase: gameController.setAllTeamsSubmittedCurrentInteractivePhase,
+        allTeamsSubmittedCurrentInteractivePhase: gameController.allTeamsSubmitted,
         setCurrentHostAlertState: gameController.setCurrentHostAlertState,
         clearHostAlert: gameController.clearHostAlert, // ADDED: Missing method
         permanentAdjustments, // Now available globally

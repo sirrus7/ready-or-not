@@ -55,12 +55,7 @@ const GameControls: React.FC = () => {
             </div>
 
             {/* Modals */}
-            <AlertModal
-                isOpen={!!state.currentHostAlert}
-                onClose={() => setCurrentHostAlertState(null)}
-                title={state.currentHostAlert?.title || "Game Host Alert!"}
-                message={state.currentHostAlert?.message || ""}
-            />
+            <AlertModal />
 
             <JoinInfoModal
                 isOpen={isJoinTeamModalOpen}

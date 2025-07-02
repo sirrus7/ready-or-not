@@ -229,6 +229,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         if (!video) return;
 
         const handleEnded = () => {
+            console.log('[useHostVideo] Video ended, calling onEnded callback');
             stopSyncInterval();
             onEndedRef.current?.();
         };
@@ -275,13 +276,6 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                     };
 
                     video.addEventListener('canplay', handleCanPlay);
-
-                    // Cleanup in case the source changes again before canplay
-                    return () => {
-                        video.removeEventListener('canplay', handleCanPlay);
-                        video.removeEventListener('ended', handleEnded);
-                        video.removeEventListener('error', handleError);
-                    };
                 }
             }
 

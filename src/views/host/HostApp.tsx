@@ -16,6 +16,7 @@ const HostApp: React.FC = () => {
         previousSlide,
         nextSlide,
         setCurrentHostAlertState,
+        allTeamsSubmittedCurrentInteractivePhase,
         permanentAdjustments,
     } = useGameContext();
 
@@ -113,12 +114,31 @@ const HostApp: React.FC = () => {
     }, [nextSlide, previousSlide, isFirstSlideOverall, isLastSlideOverall]);
 
     const handleVideoEnd = () => {
+        console.log('[HostApp] Video ended, currentSlideData:', currentSlideData);
         if (!currentSlideData) return;
-        if (currentSlideData.host_alert) {
-            setCurrentHostAlertState(currentSlideData.host_alert);
-        } else {
+        
+        console.log('[HostApp] Video end logic - interactive_data_key:', currentSlideData.interactive_data_key, 'allTeamsSubmitted:', allTeamsSubmittedCurrentInteractivePhase);
+        console.log('[HostApp] Video end logic - host_alert:', currentSlideData.host_alert, 'timer_duration:', currentSlideData.timer_duration_seconds);
+        console.log('[HostApp] Video end logic - auto_advance_after_video:', currentSlideData.auto_advance_after_video);
+        
+        // For interactive slides, check if we should wait for submissions
+        if (currentSlideData.interactive_data_key && !allTeamsSubmittedCurrentInteractivePhase) {
+            console.log('[HostApp] Showing submission wait alert');
+            setCurrentHostAlertState({
+                title: "Timer Complete",
+                message: "The timer has ended, but not all teams have submitted. You may wait or proceed to the next slide."
+            });
+        } else if (currentSlideData.host_alert || currentSlideData.timer_duration_seconds) {
+            console.log('[HostApp] Showing host alert');
+            setCurrentHostAlertState(currentSlideData.host_alert || {
+                title: "Timer Complete", 
+                message: "Click OK to continue to the next slide."
+            });
+        } else if (currentSlideData.auto_advance_after_video) {
+            console.log('[HostApp] Auto-advancing to next slide');
             nextSlide();
         }
+        // If auto_advance_after_video is false, do nothing (wait for manual advance)
     };
 
     // TODO: Remove this for production

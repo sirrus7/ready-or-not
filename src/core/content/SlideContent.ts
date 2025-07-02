@@ -49,7 +49,7 @@ export const allGameSlides: Slide[] = [
         title: "Let's Get It On - SWOT Analysis",
         type: 'video',
         source_path: 'Slide_006.mp4',
-        auto_advance_after_video: false,
+        auto_advance_after_video: true,
         host_alert: {
             title: "Game Host Action",
             message: "Time’s Up! Click Next to proceed"
@@ -61,7 +61,7 @@ export const allGameSlides: Slide[] = [
         title: "Round 1 Investments Introduction",
         type: 'video',
         source_path: 'Slide_007.mp4',
-        auto_advance_after_video: false,
+        auto_advance_after_video: true,
         host_alert: {
             title: "Game Host Action",
             message: "Please hand out one set of RD-1 Investment Cards and one RD-1 Team Summary Sheet to each team."
@@ -239,7 +239,7 @@ export const allGameSlides: Slide[] = [
         title: "CH1 Career Insight - CNC Operator",
         type: 'video',
         source_path: 'Slide_025.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 25,
@@ -519,7 +519,7 @@ export const allGameSlides: Slide[] = [
         title: "CH3 Career Insight - HR Manager",
         type: 'video',
         source_path: 'Slide_055.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 55,
@@ -611,7 +611,7 @@ export const allGameSlides: Slide[] = [
         title: "RD-1 Leaderboard",
         type: 'video',
         source_path: 'Slide_064.mp4',
-        auto_advance_after_video: false,
+        auto_advance_after_video: true,
     },
     {
         id: 63.1,
@@ -749,7 +749,7 @@ export const allGameSlides: Slide[] = [
         title: "Team Summary Sheets RD-2",
         type: 'video',
         source_path: 'Slide_072.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 72,
@@ -878,7 +878,7 @@ export const allGameSlides: Slide[] = [
         title: "CH4 Career Insight",
         type: 'video',
         source_path: 'Slide_086.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 86,
@@ -994,7 +994,7 @@ export const allGameSlides: Slide[] = [
         title: "CH5 Career Insight",
         type: 'video',
         source_path: 'Slide_098.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 98,
@@ -1134,7 +1134,7 @@ export const allGameSlides: Slide[] = [
         title: "CH6 Career Insight",
         type: 'video',
         source_path: 'Slide_113.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 113,
@@ -1250,7 +1250,7 @@ export const allGameSlides: Slide[] = [
         title: "CH7 Career Insight",
         type: 'video',
         source_path: 'Slide_125.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 125,
@@ -1396,7 +1396,7 @@ export const allGameSlides: Slide[] = [
         title: "End of Round 2 KPIs",
         type: 'video',
         source_path: 'Slide_140.mp4',
-        auto_advance_after_video: false,
+        auto_advance_after_video: true,
         host_alert: {
             title: "End of Round 2",
             message: "CFOs should write KPIs from board on team summary sheets."
@@ -1408,7 +1408,7 @@ export const allGameSlides: Slide[] = [
         title: "RD-2 Leaderboard",
         type: 'video',
         source_path: 'Slide_141.mp4',
-        auto_advance_after_video: false,
+        auto_advance_after_video: true,
         host_alert: {
             title: "Show Leaderboard",
             message: "Display the Round 2 leaderboard to teams."
@@ -1652,7 +1652,7 @@ export const allGameSlides: Slide[] = [
         title: "CH8 Career Insight - IT Manager",
         type: 'video',
         source_path: 'Slide_159.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 159,
@@ -1757,7 +1757,7 @@ export const allGameSlides: Slide[] = [
         title: "CH9 Career Insight - Warehouse Manager",
         type: 'video',
         source_path: 'Slide_170.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     },
     {
         id: 170,
@@ -1903,7 +1903,7 @@ export const allGameSlides: Slide[] = [
         title: "Double Down Payoff",
         type: 'video',
         source_path: 'Slide_185.mp4',
-        auto_advance_after_video: false,
+        auto_advance_after_video: true,
     },
     {
         id: 185,
@@ -2001,7 +2001,7 @@ export const allGameSlides: Slide[] = [
         title: "End of Round 3 KPIs",
         type: 'video',
         source_path: 'Slide_196.mp4',
-        auto_advance_after_video: false,
+        auto_advance_after_video: true,
         host_alert: {
             title: "Final KPIs",
             message: "CFOs write final KPIs on team summary sheets. This is the end of the simulation!"
@@ -2085,6 +2085,6 @@ export const allGameSlides: Slide[] = [
         title: "Thanks for Playing",
         type: 'video',
         source_path: 'Slide_198.mp4',
-        auto_advance_after_video: false
+        auto_advance_after_video: true
     }
 ];
