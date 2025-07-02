@@ -46,7 +46,6 @@ import {useParams} from 'react-router-dom';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import DecisionModeContainer from '@views/team/components/InteractionPanel/DecisionContainer';
 import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards';
-import KpiNotifications from '@views/team/components/GameStatus/KpiNotifications.tsx';
 import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
 import {useTeamGameContext} from '@app/providers/TeamGameProvider';
 import {BASE_VALUES, ROUND_BASE_VALUES} from "@core/game/ScoringEngine.ts";
@@ -60,7 +59,7 @@ const TeamApp: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(null);
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(null);
-    const [kpiNotifications, setKpiNotifications] = useState<any[]>([]);
+    const [kpiChanges, setKpiChanges] = useState<Record<string, number>>({});
     const [lastKpiValues, setLastKpiValues] = useState<Record<string, number>>({});
 
     // ADDED: Get centralized adjustment data from TeamGameProvider (lightweight, no auth)
@@ -88,7 +87,7 @@ const TeamApp: React.FC = () => {
         }
     }, [teamGameState.sessionStatus]);
 
-    // ADD this useEffect:
+    // ADD this simple useEffect:
     useEffect(() => {
         const currentKpis = teamGameState.currentTeamKpis;
         if (!currentKpis || !lastKpiValues.capacity) {
@@ -103,7 +102,6 @@ const TeamApp: React.FC = () => {
             return;
         }
 
-        const newNotification: any[] = [];
         const newKpiValues = {
             capacity: currentKpis.current_capacity || 0,
             orders: currentKpis.current_orders || 0,
@@ -111,35 +109,35 @@ const TeamApp: React.FC = () => {
             asp: currentKpis.current_asp || 0
         };
 
+        const changes: Record<string, number> = {};
+        let hasChanges = false;
+
         (['capacity', 'orders', 'cost', 'asp'] as const).forEach(kpi => {
             const change = newKpiValues[kpi] - lastKpiValues[kpi];
             if (Math.abs(change) > 0) {
-                const color = change > 0 ? (kpi === 'cost' ? 'red' : 'green') : (kpi === 'cost' ? 'green' : 'red');
-                newNotification.push({
-                    id: `${kpi}-${Date.now()}-${Math.random()}`,
-                    kpi,
-                    change,
-                    color,
-                    timestamp: Date.now()
-                });
+                changes[kpi] = change;
+                hasChanges = true;
             }
         });
 
-        if (newNotification.length > 0) {
-            setKpiNotifications(newNotification);
+        if (hasChanges) {
+            setKpiChanges(changes);
             playNotificationSound();
-            setTimeout(() => setKpiNotifications([]), 3000);
+
+            // Clear changes after 3 seconds
+            setTimeout(() => {
+                setKpiChanges({});
+            }, 5000);
         }
 
         setLastKpiValues(newKpiValues);
-    }, [teamGameState.currentTeamKpis, lastKpiValues]);
+    }, [teamGameState.currentTeamKpis]);
 
     // Show session ended screen if session was deleted
     if (teamGameState.sessionStatus === 'deleted') {
         return (
             <div
                 className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-                <KpiNotifications notifications={kpiNotifications} />
                 <div className="max-w-md w-full">
                     <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 text-center shadow-2xl">
                         {/* Warning Icon */}
@@ -301,24 +299,30 @@ const TeamApp: React.FC = () => {
 
                                 {/* RESTORED: ORIGINAL KPI SECTION WITH GRADIENT BACKGROUNDS */}
                                 <div className="space-y-3">
-                                    {/* Capacity - RESTORED */}
-                                    <div
-                                        className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 backdrop-blur-sm rounded-lg p-3 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
+                                    {/* Capacity */}
+                                    <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 backdrop-blur-sm rounded-lg p-3 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <Building className="text-blue-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">Capacity</span>
                                             </div>
                                             <div className="text-right">
-                                                {/* Current Value - Color coded based on good/bad */}
                                                 <div className={`text-2xl font-bold ${
                                                     currentTeamKpis?.current_capacity === currentTeamKpis?.start_capacity
                                                         ? 'text-white'
                                                         : (currentTeamKpis?.current_capacity || 0) > (currentTeamKpis?.start_capacity || 0)
-                                                            ? 'text-green-400'
-                                                            : 'text-red-400'
+                                                            ? 'text-green-400' : 'text-red-400'
                                                 }`}>
                                                     {currentTeamKpis?.current_capacity?.toLocaleString() || baseValues.capacity}
+
+                                                    {/* CHANGE INDICATOR */}
+                                                    {kpiChanges.capacity && (
+                                                        <span className={`ml-2 text-lg font-bold animate-pulse ${
+                                                            kpiChanges.capacity > 0 ? 'text-green-400' : 'text-red-400'
+                                                        }`}>
+                                                            {kpiChanges.capacity > 0 ? '+' : ''}{kpiChanges.capacity.toLocaleString()}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
                                                     Start: {currentTeamKpis?.start_capacity?.toLocaleString() || baseValues.capacity}
@@ -327,24 +331,30 @@ const TeamApp: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* Orders - RESTORED */}
-                                    <div
-                                        className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30 hover:border-yellow-500/50 transition-colors">
+                                    {/* Orders */}
+                                    <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30 hover:border-yellow-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <ShoppingCart className="text-yellow-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">Orders</span>
                                             </div>
                                             <div className="text-right">
-                                                {/* Current Value - Color coded based on good/bad */}
                                                 <div className={`text-2xl font-bold ${
                                                     currentTeamKpis?.current_orders === currentTeamKpis?.start_orders
                                                         ? 'text-white'
                                                         : (currentTeamKpis?.current_orders || 0) > (currentTeamKpis?.start_orders || 0)
-                                                            ? 'text-green-400'
-                                                            : 'text-red-400'
+                                                            ? 'text-green-400' : 'text-red-400'
                                                 }`}>
                                                     {currentTeamKpis?.current_orders?.toLocaleString() || baseValues.orders}
+
+                                                    {/* CHANGE INDICATOR */}
+                                                    {kpiChanges.orders && (
+                                                        <span className={`ml-2 text-lg font-bold animate-pulse ${
+                                                            kpiChanges.orders > 0 ? 'text-green-400' : 'text-red-400'
+                                                        }`}>
+                                                            {kpiChanges.orders > 0 ? '+' : ''}{kpiChanges.orders.toLocaleString()}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
                                                     Start: {currentTeamKpis?.start_orders?.toLocaleString() || baseValues.orders}
@@ -353,55 +363,65 @@ const TeamApp: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* Cost - RESTORED */}
-                                    <div
-                                        className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
+                                    {/* Cost */}
+                                    <div className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <DollarSign className="text-green-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">Cost</span>
                                             </div>
                                             <div className="text-right">
-                                                {/* Current Value - Color coded based on good/bad (lower cost = green) */}
                                                 <div className={`text-2xl font-bold ${
                                                     currentTeamKpis?.current_cost === currentTeamKpis?.start_cost
                                                         ? 'text-white'
                                                         : (currentTeamKpis?.current_cost || 0) < (currentTeamKpis?.start_cost || 0)
-                                                            ? 'text-green-400'
-                                                            : 'text-red-400'
+                                                            ? 'text-green-400' : 'text-red-400'
                                                 }`}>
                                                     ${currentTeamKpis?.current_cost?.toLocaleString() || baseValues.cost}
+
+                                                    {/* CHANGE INDICATOR */}
+                                                    {kpiChanges.cost && (
+                                                        <span className={`ml-2 text-lg font-bold animate-pulse ${
+                                                            kpiChanges.cost > 0 ? 'text-red-400' : 'text-green-400'
+                                                        }`}>
+                                                            {kpiChanges.cost > 0 ? '+' : ''}${Math.abs(kpiChanges.cost).toLocaleString()}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
-                                                    Start:
-                                                    ${currentTeamKpis?.start_cost?.toLocaleString() || baseValues.cost}
+                                                    Start: ${currentTeamKpis?.start_cost?.toLocaleString() || baseValues.cost}
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* ASP - RESTORED */}
-                                    <div
-                                        className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
+                                    {/* ASP */}
+                                    <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 backdrop-blur-sm rounded-lg p-3 border border-purple-500/30 hover:border-purple-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <TrendingUp className="text-red-400" size={20}/>
+                                                <TrendingUp className="text-purple-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">ASP</span>
                                             </div>
                                             <div className="text-right">
-                                                {/* Current Value - Color coded based on good/bad */}
                                                 <div className={`text-2xl font-bold ${
                                                     currentTeamKpis?.current_asp === currentTeamKpis?.start_asp
                                                         ? 'text-white'
                                                         : (currentTeamKpis?.current_asp || 0) > (currentTeamKpis?.start_asp || 0)
-                                                            ? 'text-green-400'
-                                                            : 'text-red-400'
+                                                            ? 'text-green-400' : 'text-red-400'
                                                 }`}>
                                                     ${currentTeamKpis?.current_asp?.toLocaleString() || baseValues.asp}
+
+                                                    {/* CHANGE INDICATOR */}
+                                                    {kpiChanges.asp && (
+                                                        <span className={`ml-2 text-lg font-bold animate-pulse ${
+                                                            kpiChanges.asp > 0 ? 'text-green-400' : 'text-red-400'
+                                                        }`}>
+                                                            {kpiChanges.asp > 0 ? '+' : ''}${Math.abs(kpiChanges.asp).toLocaleString()}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
-                                                    Start:
-                                                    ${currentTeamKpis?.start_asp?.toLocaleString() || baseValues.asp}
+                                                    Start: ${currentTeamKpis?.start_asp?.toLocaleString() || baseValues.asp}
                                                 </div>
                                             </div>
                                         </div>

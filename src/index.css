@@ -135,26 +135,17 @@
     animation: shimmer 1.5s linear infinite;
 }
 
-/* ADD these animations to your existing CSS */
-@keyframes slide-in-from-right-full {
+/* Mobile-friendly slide up animation */
+@keyframes slide-in-from-bottom {
     from {
-        transform: translateX(100%);
+        transform: translateY(100%) translateX(-50%);
         opacity: 0;
+        scale: 0.9;
     }
     to {
-        transform: translateX(0);
+        transform: translateY(0) translateX(-50%);
         opacity: 1;
-    }
-}
-
-@keyframes slide-out-to-right-full {
-    from {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    to {
-        transform: translateX(100%);
-        opacity: 0;
+        scale: 1;
     }
 }
 
@@ -162,6 +153,12 @@
     animation-timing-function: ease-out;
 }
 
-.animate-out {
-    animation-timing-function: ease-in;
+.slide-in-from-bottom {
+    animation-name: slide-in-from-bottom;
+}
+
+/* Simple test animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
 }
