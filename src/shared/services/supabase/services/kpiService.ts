@@ -28,7 +28,7 @@ export const kpiService = {
                 .eq('session_id', sessionId)
                 .eq('team_id', teamId)
                 .eq('round_number', roundNumber)
-                .single();
+                .maybeSingle();
             if (error) {
                 if (error.code === 'PGRST116') {
                     return null; // Early return, no throw

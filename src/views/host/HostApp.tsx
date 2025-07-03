@@ -251,6 +251,7 @@ const HostApp: React.FC = () => {
                                     <TestingJumpButton slideId={144} label="🎯 Double Down: Yes/No Decision" color="purple" />
                                     <TestingJumpButton slideId={151} label="⚠️ CH8 Cyber: Isolate/Pay/Restore" color="red" />
                                     <TestingJumpButton slideId={164} label="⚠️ CH9 ERP: Consultant/Sheets/Immunity" color="red" />
+                                    <TestingJumpButton slideId={186} label="🎲 Double Down Roll: Expanded 2nd Shift" color="orange" />
                                 </div>
                             </div>
 

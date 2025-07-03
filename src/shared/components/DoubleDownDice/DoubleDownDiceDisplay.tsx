@@ -118,9 +118,14 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
             // Show teams for 3 seconds, then proceed to rolling
             setCurrentPhase('showing_teams');
+
+            // FIX: Use closure variable instead of relying on state that might get reset
             setTimeout(() => {
-                if (!hasRolled) {
-                    rollDice();
+                console.log('[DoubleDownDiceDisplay] setTimeout fired with captured teamNames:', teamNames);
+                console.log('[DoubleDownDiceDisplay] Current affectedTeams state:', affectedTeams);
+
+                if (!hasRolled && teamNames.length > 0) {
+                    rollDice(teamNames);
                 }
             }, 3000);
 
@@ -130,8 +135,16 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }
     };
 
-    const rollDice = async () => {
-        if (hasRolled || affectedTeams.length === 0) return;
+    const rollDice = async (teams?: string[]) => {
+        // Use parameter if provided, otherwise fall back to state
+        const teamsToUse = teams || affectedTeams;
+
+        if (hasRolled || teamsToUse.length === 0) {
+            console.log('[DoubleDownDiceDisplay] BLOCKING roll - hasRolled:', hasRolled, 'teamsToUse.length:', teamsToUse.length);
+            return;
+        }
+
+        console.log('[DoubleDownDiceDisplay] ✅ Proceeding with dice roll for teams:', teamsToUse);
 
         setIsRolling(true);
         setCurrentPhase('rolling');
@@ -151,7 +164,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 dice2_value: Math.floor(Math.random() * 6) + 1,
                 total_value: 0,
                 boost_percentage: 0,
-                affected_teams: affectedTeams
+                affected_teams: teamsToUse
             };
             tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
             tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
@@ -170,7 +183,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             dice2_value: finalDice2,
             total_value: finalTotal,
             boost_percentage: finalBoost,
-            affected_teams: affectedTeams
+            affected_teams: teamsToUse // Use the parameter instead of state
         };
 
         setDiceResult(result);

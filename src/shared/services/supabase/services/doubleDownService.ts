@@ -26,16 +26,15 @@ export const doubleDownService = {
                 .select('*')
                 .eq('session_id', sessionId)
                 .eq('investment_id', investmentId)
-                .single();
+                .limit(1); // Get at most 1 result
 
             if (error) {
-                if (error.code === 'PGRST116') {
-                    return null; // No result found, not an error
-                }
                 console.error(`[doubleDownService.getResultForInvestment(sessionId:${sessionId}, investmentId:${investmentId})] failed with error: ${error}`);
                 throw error;
             }
-            return data;
+
+            // Return first result or null if no results
+            return data && data.length > 0 ? data[0] : null;
         }, 3, 1000, `Get double down result for investment ${investmentId}`);
     },
 
@@ -72,6 +71,14 @@ export const doubleDownService = {
 
     async getTeamsForInvestment(sessionId: string, investmentId: string) {
         return withRetry(async () => {
+            // DEBUG: Log exactly what we're querying for
+            console.log('[doubleDownService] getTeamsForInvestment called with:', {
+                sessionId,
+                investmentId,
+                sessionIdType: typeof sessionId,
+                investmentIdType: typeof investmentId
+            });
+
             const {data, error} = await supabase
                 .from('team_decisions')
                 .select(`
@@ -82,6 +89,9 @@ export const doubleDownService = {
                 .eq('session_id', sessionId)
                 .eq('phase_id', 'ch-dd-prompt')
                 .eq('double_down_on_id', investmentId);
+
+            // DEBUG: Log the raw response
+            console.log('[doubleDownService] Raw supabase response:', { data, error });
 
             if (error) {
                 console.error(`[doubleDownService.getTeamsForInvestment(sessionId:${sessionId}, investmentId:${investmentId})] failed with error: ${error}`);

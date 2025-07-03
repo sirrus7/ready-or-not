@@ -35,8 +35,6 @@ import {useGameContext} from '@app/providers/GameProvider';
 const AlertModal: React.FC = () => {
     const {state, clearHostAlert, setCurrentHostAlertState} = useGameContext();
 
-    console.log('[AlertModal] Current alert state:', state.currentHostAlert);
-
     // Early return if no alert is present
     if (!state.currentHostAlert) return null;
 
