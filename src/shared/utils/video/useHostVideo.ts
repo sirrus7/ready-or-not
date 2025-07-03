@@ -40,6 +40,8 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
     const previousSourceUrl = useRef<string | null>(null);
+    const isBufferingRef = useRef(false);
+    const lastSyncTimeRef = useRef<number | null>(null);
 
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
@@ -56,11 +58,15 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
 
         syncIntervalRef.current = setInterval(() => {
             const video = videoRef.current;
-            if (video && !video.paused && isConnected) {
-                sendCommand('sync', {
-                    time: video.currentTime,
-                    playbackRate: video.playbackRate,
-                });
+            if (video && !video.paused && isConnected && !isBufferingRef.current) {
+                // Only send sync if time has actually changed
+                if (lastSyncTimeRef.current === null || Math.abs(video.currentTime - lastSyncTimeRef.current) > 0.1) {
+                    sendCommand('sync', {
+                        time: video.currentTime,
+                        playbackRate: video.playbackRate,
+                    });
+                    lastSyncTimeRef.current = video.currentTime;
+                }
             }
         }, 1000);
     }, [isConnected, sendCommand]);
@@ -69,6 +75,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         if (syncIntervalRef.current) {
             clearInterval(syncIntervalRef.current);
             syncIntervalRef.current = null;
+            lastSyncTimeRef.current = null;
         }
     }, []);
 
@@ -242,6 +249,21 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             onErrorRef.current?.();
         };
 
+        const handleWaiting = () => {
+            isBufferingRef.current = true;
+            console.log('[useHostVideo] Video buffering...');
+        };
+
+        const handleCanPlay = () => {
+            isBufferingRef.current = false;
+            console.log('[useHostVideo] Video ready to play');
+        };
+
+        const handlePlaying = () => {
+            isBufferingRef.current = false;
+            console.log('[useHostVideo] Video playing');
+        };
+
         if (isEnabled && sourceUrl) {
             // Check if this is a new video (slide change)
             const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
@@ -291,10 +313,16 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
 
         video.addEventListener('ended', handleEnded);
         video.addEventListener('error', handleError);
+        video.addEventListener('waiting', handleWaiting);
+        video.addEventListener('canplay', handleCanPlay);
+        video.addEventListener('playing', handlePlaying);
 
         return () => {
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
+            video.removeEventListener('waiting', handleWaiting);
+            video.removeEventListener('canplay', handleCanPlay);
+            video.removeEventListener('playing', handlePlaying);
         };
     }, [sourceUrl, isEnabled, stopSyncInterval, play]);
 
