@@ -20,12 +20,12 @@ interface CategorizedGames {
 interface UseDashboardActionsReturn {
     notification: NotificationState | null;
     isDeleteModalOpen: boolean;
-    gameToDelete: { id: string; name: string; type: 'draft' | 'active' } | null;
+    gameToDelete: { id: string; name: string; type: 'draft' | 'active' | 'completed'} | null;
     isDeleting: boolean;
     deleteError: string | null;
     handleGameSelect: (sessionId: string, gameType: 'draft' | 'active' | 'completed') => void;
     handleResumeDraft: (sessionId: string, sessionName: string) => void;
-    handleOpenDeleteModal: (sessionId: string, gameName: string, gameType: 'draft' | 'active') => void;
+    handleOpenDeleteModal: (sessionId: string, gameName: string, gameType: 'draft' | 'active' | 'completed') => void;
     handleConfirmDelete: () => Promise<void>;
     handleLogout: () => Promise<void>;
     dismissNotification: () => void;
@@ -45,7 +45,7 @@ export const useDashboardActions = (
     const [gameToDelete, setGameToDelete] = useState<{
         id: string;
         name: string;
-        type: 'draft' | 'active'
+        type: 'draft' | 'active' | 'completed'
     } | null>(null);
 
     // Delete game mutation
@@ -101,7 +101,7 @@ export const useDashboardActions = (
         navigate(`/create-game?resume=${sessionId}`);
     }, [navigate]);
 
-    const handleOpenDeleteModal = useCallback((sessionId: string, gameName: string, gameType: 'draft' | 'active') => {
+    const handleOpenDeleteModal = useCallback((sessionId: string, gameName: string, gameType: 'draft' | 'active' | 'completed') => {
         setGameToDelete({id: sessionId, name: gameName, type: gameType});
         setNotification(null);
         setIsDeleteModalOpen(true);

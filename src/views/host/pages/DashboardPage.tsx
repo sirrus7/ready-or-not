@@ -422,7 +422,21 @@ const DashboardPage: React.FC = () => {
                                                         </div>
 
                                                         <div className="flex items-center gap-3 ml-6">
-                                                            {getActionButton(game)}
+                                                            <button
+                                                                onClick={() => navigate(`/game-results/${game.id}`)}
+                                                                className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                                                                title="View results"
+                                                            >
+                                                                <BarChart3 size={18}/>
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => handleOpenDeleteModal(game.id, game.name, 'completed')}
+                                                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                title="Delete completed game"
+                                                            >
+                                                                <Trash2 size={18}/>
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>

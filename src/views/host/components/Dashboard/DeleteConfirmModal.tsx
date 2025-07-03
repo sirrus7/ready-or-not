@@ -1,11 +1,11 @@
-// src/views/host/components/Dashboard/DeleteConfirmModal.tsx - Enhanced for draft vs active games
+// src/views/host/components/Dashboard/DeleteConfirmModal.tsx
 import React from 'react';
-import {AlertTriangle, Trash2, XCircle, RefreshCw, Edit, Activity} from 'lucide-react';
+import {AlertTriangle, Trash2, XCircle, RefreshCw, Edit, Activity, CheckCircle} from 'lucide-react';
 import Modal from '@shared/components/UI/Modal';
 
 interface DeleteConfirmModalProps {
     isOpen: boolean;
-    gameToDelete: { id: string; name: string; type: 'draft' | 'active' } | null;
+    gameToDelete: { id: string; name: string; type: 'draft' | 'active' | 'completed' } | null;
     isDeleting: boolean;
     onConfirm: () => void;
     onClose: () => void;
@@ -21,14 +21,15 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
     if (!gameToDelete) return null;
 
     const isDraft = gameToDelete.type === 'draft';
-    const gameTypeLabel = isDraft ? 'draft' : 'active';
-    const gameTypeIcon = isDraft ? <Edit size={16}/> : <Activity size={16}/>;
+    const isCompleted = gameToDelete.type === 'completed';
+    const gameTypeLabel = isDraft ? 'draft' : isCompleted ? 'completed' : 'active';
+    const gameTypeIcon = isDraft ? <Edit size={16}/> : isCompleted ? <CheckCircle size={16}/> : <Activity size={16}/>;
 
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={`Confirm Delete ${isDraft ? 'Draft' : 'Active'} Game`}
+            title={`Confirm Delete ${isDraft ? 'Draft' : isCompleted ? 'Completed' : 'Active'} Game`}
             size="sm"
         >
             <div className="p-1">
@@ -40,12 +41,13 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
                     <div className="ml-3 text-left">
                         <div className="flex items-center mb-2">
                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                isDraft
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-blue-100 text-blue-800'
+                                isDraft ? 'bg-yellow-100 text-yellow-800' :
+                                    isCompleted ? 'bg-green-100 text-green-800' :
+                                        'bg-blue-100 text-blue-800'
                             }`}>
                                 {gameTypeIcon}
-                                <span className="ml-1">{isDraft ? 'Draft' : 'Active'} Game</span>
+                                <span
+                                    className="ml-1">{isDraft ? 'Draft' : isCompleted ? 'Completed' : 'Active'} Game</span>
                             </span>
                         </div>
 
@@ -54,7 +56,12 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
                             <strong className="font-semibold">{gameToDelete.name}</strong>?
                         </p>
 
-                        {isDraft ? (
+                        {isCompleted ? (
+                            <p className="text-xs text-red-600 mt-2">
+                                This will permanently delete all game results, team data, decisions,
+                                and KPIs for this session. This action cannot be undone.
+                            </p>
+                        ) : isDraft ? (
                             <p className="text-xs text-orange-600 mt-2">
                                 This will permanently delete the draft game and all setup progress.
                                 You will need to start the game creation process from the beginning.
@@ -84,7 +91,10 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
                         ) : (
                             <Trash2 className="h-5 w-5 mr-2"/>
                         )}
-                        {isDeleting ? 'Deleting...' : `Yes, Delete ${isDraft ? 'Draft' : 'Game'}`}
+                        {isDeleting ? 'Deleting...' :
+                            isDraft ? 'Yes, Delete Draft' :
+                                isCompleted ? 'Yes, Permanently Delete' :
+                                    'Yes, Delete Game'}
                     </button>
                     <button
                         type="button"

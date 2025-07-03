@@ -8,7 +8,6 @@ import {
     Users,
     Calendar,
     ArrowLeft,
-    Download,
     Award,
     Target
 } from 'lucide-react';
@@ -31,6 +30,7 @@ const GameResultsPage: React.FC = () => {
     const {
         teams,
         teamRoundData,
+        teamDecisions,
         isLoadingTeams,
         isLoadingRoundData,
         error: teamDataError
@@ -64,15 +64,20 @@ const GameResultsPage: React.FC = () => {
     const finalStandings = useMemo(() => {
         if (!teams || !teamRoundData) return [];
 
-        const standings = teams.map(team => {
-            // Get Round 3 data for final results - teamRoundData is Record<teamId, Record<roundNumber, TeamRoundData>>
-            const round3Data = teamRoundData[team.id]?.[3];
+        // Convert teamDecisions to flat array for calculateKpiValue
+        const allTeamDecisions = teamDecisions ?
+            Object.values(teamDecisions).flatMap(teamDecisionsByPhase =>
+                Object.values(teamDecisionsByPhase)
+            ) : [];
 
+        const standings = teams.map(team => {
+            const round3Data = teamRoundData[team.id]?.[3];
             if (!round3Data) return null;
 
-            const netIncome = calculateKpiValue(round3Data, 'net_income');
-            const revenue = calculateKpiValue(round3Data, 'revenue');
-            const netMargin = calculateKpiValue(round3Data, 'net_margin');
+            // CHANGE THESE 3 LINES - add allTeamDecisions and team.id:
+            const netIncome = calculateKpiValue(round3Data, 'net_income', allTeamDecisions, team.id);
+            const revenue = calculateKpiValue(round3Data, 'revenue', allTeamDecisions, team.id);
+            const netMargin = calculateKpiValue(round3Data, 'net_margin', allTeamDecisions, team.id);
 
             return {
                 team,
@@ -87,9 +92,8 @@ const GameResultsPage: React.FC = () => {
             };
         }).filter((item): item is NonNullable<typeof item> => item !== null);
 
-        // Sort by net income (winner determination)
         return standings.sort((a, b) => b.netIncome - a.netIncome);
-    }, [teams, teamRoundData]);
+    }, [teams, teamRoundData, teamDecisions]);
 
     // Calculate game statistics
     const gameStats = useMemo(() => {
