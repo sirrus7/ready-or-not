@@ -147,7 +147,7 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             name: "Add/Expand 2nd Shift",
             effects: [
                 {kpi: 'capacity', change_value: 2000, timing: 'immediate'},
-                {kpi: 'cost', change_value: 200000, timing: 'immediate'}
+                {kpi: 'cost', change_value: 575000, timing: 'immediate'}
             ]
         },
         {
@@ -155,7 +155,7 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             name: "Supply Chain Optimization II",
             effects: [
                 {kpi: 'capacity', change_value: 500, timing: 'immediate'},
-                {kpi: 'cost', change_value: -250000, timing: 'immediate'}
+                {kpi: 'cost', change_value: -200000, timing: 'immediate'}
             ]
         },
         {
@@ -163,15 +163,15 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             name: "Employee Development II",
             effects: [
                 {kpi: 'capacity', change_value: 500, timing: 'immediate'},
-                {kpi: 'cost', change_value: -50000, timing: 'immediate'}
+                {kpi: 'cost', change_value: -25000, timing: 'immediate'}
             ]
         },
         {
             id: 'F',
             name: "Maximize Boutique Sales & Distribution",
             effects: [
-                {kpi: 'orders', change_value: 750, timing: 'immediate'},
-                {kpi: 'asp', change_value: 30, timing: 'immediate'}
+                {kpi: 'orders', change_value: 2000, timing: 'immediate'},
+                {kpi: 'asp', change_value: 40, timing: 'immediate'}
             ]
         },
         {
