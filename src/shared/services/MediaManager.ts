@@ -3,6 +3,7 @@
 
 import {supabase} from '@shared/services/supabase';
 import {Slide} from '@shared/types/game';
+import { ServiceWorkerManager } from '@shared/utils/video/serviceWorkerUtils';
 
 interface CachedUrl {
     url: string;
@@ -154,11 +155,27 @@ class MediaManager {
      */
     public async precacheSingleSlide(fileName: string): Promise<void> {
         try {
-            await this.getSignedUrl(fileName);
+            const url = await this.getSignedUrl(fileName);
+            
+            // If it's a video file, also preload it via service worker
+            if (this.isVideoFile(fileName)) {
+                const swManager = ServiceWorkerManager.getInstance();
+                await swManager.preloadVideo(url);
+                console.log(`[MediaManager] Video preloaded via service worker: ${fileName}`);
+            }
         } catch (error) {
             console.warn(`[MediaManager] Failed to precache ${fileName}:`,
                 error instanceof Error ? error.message : 'Unknown error');
         }
+    }
+
+    /**
+     * Check if a file is a video based on extension
+     */
+    private isVideoFile(fileName: string): boolean {
+        const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+        const lowerFileName = fileName.toLowerCase();
+        return videoExtensions.some(ext => lowerFileName.endsWith(ext));
     }
 
     /**

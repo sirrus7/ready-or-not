@@ -2,6 +2,8 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
+import { BufferCoordinator } from '@shared/utils/video/bufferCoordinator';
+import { NetworkQualityMonitor } from '@shared/utils/video/networkQuality';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -23,6 +25,7 @@ interface UseHostVideoReturn {
     toggleMute: () => void;
     isConnectedToPresentation: boolean;
     presentationMuted: boolean;
+    bufferStatus: { ready: boolean; message?: string };
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
 }
 
@@ -36,10 +39,16 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const videoRef = useRef<HTMLVideoElement>(null);
     const [presentationMuted, setPresentationMuted] = useState(false);
     const [localIsConnected, setLocalIsConnected] = useState(false);
+    const [bufferStatus, setBufferStatus] = useState<{ ready: boolean; message?: string }>({ ready: true });
     const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
     const previousSourceUrl = useRef<string | null>(null);
+    const isBufferingRef = useRef(false);
+    const lastSyncTimeRef = useRef<number | null>(null);
+    const bufferCoordinatorRef = useRef<BufferCoordinator | null>(null);
+    const pendingPlayRef = useRef<{ time?: number; resolve: () => void; reject: (err: any) => void } | null>(null);
+    const networkMonitorRef = useRef<NetworkQualityMonitor | null>(null);
 
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
@@ -50,17 +59,94 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         role: 'host'
     });
 
+    // Initialize network monitor
+    useEffect(() => {
+        if (!networkMonitorRef.current) {
+            networkMonitorRef.current = new NetworkQualityMonitor();
+        }
+
+        return () => {
+            if (networkMonitorRef.current) {
+                networkMonitorRef.current.destroy();
+                networkMonitorRef.current = null;
+            }
+        };
+    }, []);
+
+    // Initialize buffer coordinator when connected
+    useEffect(() => {
+        if (isConnected && sessionId && !bufferCoordinatorRef.current) {
+            // Get adaptive settings based on network quality
+            const networkSettings = networkMonitorRef.current?.getRecommendedSettings() || {
+                minBufferSeconds: 3,
+                syncInterval: 500,
+                bufferWaitTimeout: 15000
+            };
+
+            bufferCoordinatorRef.current = new BufferCoordinator(sessionId, 'host', networkSettings);
+
+            bufferCoordinatorRef.current.onBufferReady(() => {
+                setBufferStatus({ ready: true });
+                // If we have a pending play command, execute it now
+                if (pendingPlayRef.current) {
+                    const { resolve } = pendingPlayRef.current;
+                    pendingPlayRef.current = null;
+                    resolve();
+                }
+            });
+
+            bufferCoordinatorRef.current.onBufferWait((reason) => {
+                console.log(`[useHostVideo] ${reason}`);
+                setBufferStatus({ ready: false });
+            });
+
+            // Start monitoring if video exists
+            const video = videoRef.current;
+            if (video) {
+                bufferCoordinatorRef.current.startMonitoring(video);
+            }
+        } else if (!isConnected && bufferCoordinatorRef.current) {
+            bufferCoordinatorRef.current.destroy();
+            bufferCoordinatorRef.current = null;
+            setBufferStatus({ ready: true });
+        }
+    }, [isConnected, sessionId]);
+
+    // Monitor network quality changes and update buffer settings
+    useEffect(() => {
+        if (!networkMonitorRef.current || !bufferCoordinatorRef.current) return;
+
+        const unsubscribe = networkMonitorRef.current.onQualityChange((quality) => {
+            console.log('[useHostVideo] Network quality changed:', quality);
+            
+            // Update buffer coordinator settings based on new network quality
+            const newSettings = networkMonitorRef.current!.getRecommendedSettings();
+            bufferCoordinatorRef.current?.updateConfig(newSettings);
+            
+            // Log poor connection warning
+            if (networkMonitorRef.current!.isPoorConnection()) {
+                console.warn('[useHostVideo] Poor connection detected, using conservative buffer settings');
+            }
+        });
+
+        return unsubscribe;
+    }, [isConnected]);
+
     // Sync interval management
     const startSyncInterval = useCallback(() => {
         if (syncIntervalRef.current) return;
 
         syncIntervalRef.current = setInterval(() => {
             const video = videoRef.current;
-            if (video && !video.paused && isConnected) {
-                sendCommand('sync', {
-                    time: video.currentTime,
-                    playbackRate: video.playbackRate,
-                });
+            if (video && !video.paused && isConnected && !isBufferingRef.current) {
+                // Only send sync if time has actually changed
+                if (lastSyncTimeRef.current === null || Math.abs(video.currentTime - lastSyncTimeRef.current) > 0.1) {
+                    sendCommand('sync', {
+                        time: video.currentTime,
+                        playbackRate: video.playbackRate,
+                    });
+                    lastSyncTimeRef.current = video.currentTime;
+                }
             }
         }, 1000);
     }, [isConnected, sendCommand]);
@@ -69,6 +155,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         if (syncIntervalRef.current) {
             clearInterval(syncIntervalRef.current);
             syncIntervalRef.current = null;
+            lastSyncTimeRef.current = null;
         }
     }, []);
 
@@ -112,6 +199,34 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 video.currentTime = time;
             }
 
+            // If connected and using buffer coordination, wait for buffers to be ready
+            if (isConnected && bufferCoordinatorRef.current) {
+                const status = bufferCoordinatorRef.current.getBufferStatus();
+                if (!status.ready) {
+                    console.log('[useHostVideo] Waiting for buffers to be ready...');
+                    
+                    // Send pause command to presentation to prepare for coordinated play
+                    sendCommand('pause', {
+                        time: video.currentTime,
+                        waitingForBuffer: true
+                    });
+
+                    // Create a promise that resolves when buffers are ready
+                    await new Promise<void>((resolve, reject) => {
+                        pendingPlayRef.current = { time, resolve, reject };
+                        
+                        // Set a timeout in case buffer never becomes ready
+                        setTimeout(() => {
+                            if (pendingPlayRef.current) {
+                                console.warn('[useHostVideo] Buffer wait timeout, proceeding with play');
+                                pendingPlayRef.current = null;
+                                resolve();
+                            }
+                        }, 20000); // 20 second timeout
+                    });
+                }
+            }
+
             // Update local video
             await video.play();
 
@@ -127,6 +242,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             }
         } catch (error) {
             console.error('[useHostVideo] Play failed:', error);
+            pendingPlayRef.current = null;
             throw error;
         }
     }, [isConnected, sendCommand, presentationMuted, startSyncInterval]);
@@ -242,6 +358,26 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             onErrorRef.current?.();
         };
 
+        const handleWaiting = () => {
+            isBufferingRef.current = true;
+            console.log('[useHostVideo] Video buffering...');
+        };
+
+        const handleCanPlay = () => {
+            isBufferingRef.current = false;
+            console.log('[useHostVideo] Video ready to play');
+        };
+
+        const handlePlaying = () => {
+            isBufferingRef.current = false;
+            console.log('[useHostVideo] Video playing');
+        };
+
+        // Update buffer coordinator monitoring
+        if (bufferCoordinatorRef.current && video) {
+            bufferCoordinatorRef.current.startMonitoring(video);
+        }
+
         if (isEnabled && sourceUrl) {
             // Check if this is a new video (slide change)
             const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
@@ -291,10 +427,16 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
 
         video.addEventListener('ended', handleEnded);
         video.addEventListener('error', handleError);
+        video.addEventListener('waiting', handleWaiting);
+        video.addEventListener('canplay', handleCanPlay);
+        video.addEventListener('playing', handlePlaying);
 
         return () => {
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
+            video.removeEventListener('waiting', handleWaiting);
+            video.removeEventListener('canplay', handleCanPlay);
+            video.removeEventListener('playing', handlePlaying);
         };
     }, [sourceUrl, isEnabled, stopSyncInterval, play]);
 
@@ -302,6 +444,10 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     useEffect(() => {
         return () => {
             stopSyncInterval();
+            if (bufferCoordinatorRef.current) {
+                bufferCoordinatorRef.current.destroy();
+                bufferCoordinatorRef.current = null;
+            }
         };
     }, [stopSyncInterval]);
 
@@ -328,6 +474,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         toggleMute,
         isConnectedToPresentation: localIsConnected,
         presentationMuted,
+        bufferStatus,
         getVideoProps,
     };
 };
