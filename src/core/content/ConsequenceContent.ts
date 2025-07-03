@@ -172,6 +172,20 @@ export const allConsequencesData: Record<string, Consequence[]> = {
     ],
     'ch3-conseq': [ // Recession
         {
+            id: 'ch3_setup',
+            challenge_option_id: 'setup',
+            narrative_text: "The recession has hit all companies hard, reducing market demand across the board.",
+            effects: [
+                {
+                    kpi: 'orders',
+                    change_value: -1000,
+                    timing: 'immediate',
+                    challenge_id: 'ch3',
+                    option_id: 'setup'
+                }
+            ]
+        },
+        {
             id: 'ch3_conseq_a',
             challenge_option_id: 'A',
             narrative_text: "You successfully reduced your workforce and CAP. You've permanently impacted your KPIs for future rounds. HR Managers, come to the facilitator desk to pick up a KPI Adjustment Card.",

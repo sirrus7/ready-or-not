@@ -34,7 +34,7 @@ export const CHALLENGE_REGISTRY: Record<string, ChallengeMetadata> = {
         round: 1,
         impact_card_title: 'Layoff Penalty',
         impact_card_description: 'Workforce reduction has permanent impact on production capacity.',
-        consequence_slides: [50, 51, 52, 53]
+        consequence_slides: [42, 50, 51, 52, 53]
     },
     'ch4': {
         id: 'ch4',

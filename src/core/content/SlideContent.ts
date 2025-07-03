@@ -401,9 +401,13 @@ export const allGameSlides: Slide[] = [
         id: 42,
         round_number: 1,
         title: "CH3: Recession Setup",
-        type: 'video',
+        type: 'consequence_reveal',  // ← CHANGED from 'video'
+        main_text: "Recession Impact",
+        sub_text: "Economic downturn affects all companies",
+        details: ["-1000 Orders"],
         source_path: 'Slide_043.mp4',
-        auto_advance_after_video: true
+        auto_advance_after_video: true,
+        background_css: 'bg-gray-700'
     },
     {
         id: 43,

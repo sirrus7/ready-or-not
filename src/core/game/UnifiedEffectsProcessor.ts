@@ -354,7 +354,7 @@ export class UnifiedEffectsProcessor {
         }
 
         // NEW: Handle setup slides that affect all teams
-        const isSetupSlide = consequenceSlide.id === 86 || consequenceSlide.id === 100;
+        const isSetupSlide = consequenceSlide.id === 42 || consequenceSlide.id === 86 || consequenceSlide.id === 100;
         if (isSetupSlide) {
             await this.processSetupSlide(consequenceSlide, challengeId);
             return;
