@@ -195,7 +195,7 @@ export const useGameController = (
     }, [currentHostAlertState, dbSession, gameStructure?.slides.length, sessionManager]);
 
     // SLIDE NAVIGATION METHODS
-    const nextSlide = useCallback(async () => {
+    const nextSlide = useCallback(async (source: 'manual' | 'video' | 'auto' = 'manual') => {
         if (currentSlideIndex === null || !currentSlideData) {
             console.warn('[useGameController] Cannot advance: No current slide');
             return;
@@ -211,8 +211,8 @@ export const useGameController = (
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
 
-                // Show slide-specific host alert if configured
-                if (currentSlideData.host_alert) {
+                // Show slide-specific host alert if configured and not manually advanced
+                if (currentSlideData.host_alert && source !== 'manual') {
                     console.log('[useGameController] Showing slide-specific host alert:', currentSlideData.host_alert);
                     setCurrentHostAlertState(currentSlideData.host_alert);
                 }

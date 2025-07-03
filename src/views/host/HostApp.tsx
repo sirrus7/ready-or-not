@@ -87,7 +87,7 @@ const HostApp: React.FC = () => {
                 case 'PageDown':    // Page Down key
                     event.preventDefault();
                     if (!isLastSlideOverall) {
-                        nextSlide();
+                        nextSlide('manual');
                     }
                     break;
 
@@ -116,7 +116,7 @@ const HostApp: React.FC = () => {
     }, [nextSlide, previousSlide, isFirstSlideOverall, isLastSlideOverall]);
 
     const handleVideoEnd = () => {
-        console.log('[HostApp] Video ended, currentSlideData:', currentSlideData);
+        console.log('[HostApp] Video ended naturally, currentSlideData:', currentSlideData);
         if (!currentSlideData) return;
         
         console.log('[HostApp] Video end logic - interactive_data_key:', currentSlideData.interactive_data_key, 'allTeamsSubmitted:', allTeamsSubmittedCurrentInteractivePhase);
@@ -131,14 +131,14 @@ const HostApp: React.FC = () => {
                 message: "The timer has ended, but not all teams have submitted. You may wait or proceed to the next slide."
             });
         } else if (currentSlideData.host_alert || currentSlideData.timer_duration_seconds) {
-            console.log('[HostApp] Showing host alert');
+            console.log('[HostApp] Showing host alert after video completion');
             setCurrentHostAlertState(currentSlideData.host_alert || {
                 title: "Timer Complete", 
                 message: "Click OK to continue to the next slide."
             });
         } else if (shouldAutoAdvance(gameVersion, currentSlideData.auto_advance_after_video)) {
             console.log('[HostApp] Auto-advancing to next slide');
-            nextSlide();
+            nextSlide('video');
         }
         // If auto_advance_after_video is false, do nothing (wait for manual advance)
     };
@@ -327,7 +327,7 @@ const HostApp: React.FC = () => {
 
                             {/* Next Button - Subtle Enhancement */}
                             <button
-                                onClick={nextSlide}
+                                onClick={() => nextSlide('manual')}
                                 disabled={isLastSlideOverall}
                                 className="flex items-center gap-2 px-4 py-3 rounded-lg border-2 border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             >
