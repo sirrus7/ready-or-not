@@ -4,11 +4,13 @@
 import React from 'react';
 import {Slide, InvestmentOption, ChallengeOption} from '@shared/types';
 import {DecisionState, DecisionActions} from '@views/team/hooks/useDecisionMaking';
-import InvestmentPanel from './InvestmentPanel';
 import ChoicePanel from './ChoicePanel';
-import DoubleDownPanel from './DoubleDownPanel'; // NEW: Unified component
+import DoubleDownPanel from './DoubleDownPanel';
+import SmartInvestmentPanel from './SmartInvestmentPanel';
 
 interface EnhancedDecisionContentProps {
+    sessionId: string;
+    teamId: string;
     currentSlide: Slide;
     decisionState: DecisionState;
     decisionActions: DecisionActions;
@@ -20,6 +22,8 @@ interface EnhancedDecisionContentProps {
 }
 
 const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
+                                                                             sessionId,
+                                                                             teamId,
                                                                              currentSlide,
                                                                              decisionState,
                                                                              decisionActions,
@@ -32,13 +36,16 @@ const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
     switch (currentSlide.type) {
         case 'interactive_invest':
             return (
-                <InvestmentPanel
+                <SmartInvestmentPanel
+                    sessionId={sessionId}
+                    teamId={teamId}
+                    currentRound={currentSlide.round_number === 2 ? 2 : currentSlide.round_number === 3 ? 3 : 1}
                     investmentOptions={investmentOptions}
                     selectedInvestmentIds={decisionState.selectedInvestmentOptions}
                     spentBudget={decisionState.spentBudget}
                     investUpToBudget={investUpToBudget}
                     onInvestmentToggleById={decisionActions.handleInvestmentToggleById}
-                    onImmediatePurchase={decisionActions.handleImmediatePurchase}
+                    onImmediatePurchase={(optionIndex: number) => decisionActions.handleImmediatePurchase(optionIndex, 0)}
                     isSubmitting={isSubmitting}
                     immediatePurchases={decisionState.immediatePurchases}
                 />
@@ -74,8 +81,8 @@ const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
                     sacrificeInvestmentId={decisionState.sacrificeInvestmentId}
                     doubleDownOnInvestmentId={decisionState.doubleDownOnInvestmentId}
                     onChallengeSelect={decisionActions.handleChallengeSelect}
-                    onSacrificeChange={decisionActions.handleSacrificeSelect}
-                    onDoubleDownChange={decisionActions.handleDoubleDownSelect}
+                    onSacrificeChange={(id: string | null) => id && decisionActions.handleSacrificeSelect(id)}
+                    onDoubleDownChange={(id: string | null) => id && decisionActions.handleDoubleDownSelect(id)}
                     isSubmitting={isSubmitting}
                 />
             );

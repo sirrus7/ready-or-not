@@ -86,6 +86,7 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                     if (!isInteractable) return;
 
                                     if (isImmediate && !isImmediatePurchased) {
+                                        onInvestmentToggleById(opt.id, opt.cost ?? 0);
                                         setExpandedImmediate(isExpanded ? null : optionIndex);
                                     } else {
                                         onInvestmentToggleById(opt.id, opt.cost ?? 0);

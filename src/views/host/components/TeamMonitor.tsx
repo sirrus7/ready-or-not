@@ -186,19 +186,26 @@ const TeamMonitor: React.FC = () => {
 
                 // Sort alphabetically and create investment objects WITH CORRECT PRICING
                 const sortedSelectedIds = [...allSelectedIds].sort();
-                const investments = sortedSelectedIds.map(id => {
-                    const opt = investmentOptions.find(o => o.id === id);
-                    const optionName = opt ? opt.name.split('.')[0].trim() : 'Unknown';
-                    const originalCost = opt?.cost || 0;
-                    const actualCost = getActualCost(id, originalCost); // ✅ Use continuation pricing
+                const investments = sortedSelectedIds
+                    .filter(id => {
+                        // ✅ NEW: Filter out unavailable investments
+                        if (!teamContinuationPricing) return true; // Show all if no pricing data
+                        const pricing = teamContinuationPricing.investmentPricing?.find((p: any) => p.investmentId === id);
+                        return pricing?.availability !== 'not_available';
+                    })
+                    .map(id => {
+                        const opt = investmentOptions.find(o => o.id === id);
+                        const optionName = opt ? opt.name.split('.')[0].trim() : 'Unknown';
+                        const originalCost = opt?.cost || 0;
+                        const actualCost = getActualCost(id, originalCost); // ✅ Use continuation pricing
 
-                    return {
-                        id,
-                        name: optionName,
-                        cost: actualCost, // ✅ Use actual cost (with continuation discount)
-                        isImmediate: immediateLetters.includes(id)
-                    };
-                });
+                        return {
+                            id,
+                            name: optionName,
+                            cost: actualCost, // ✅ Use actual cost (with continuation discount)
+                            isImmediate: immediateLetters.includes(id)
+                        };
+                    });
 
                 return {
                     type: 'investment',

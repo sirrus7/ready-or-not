@@ -136,8 +136,8 @@ const DecisionPanel: React.FC<DecisionPanelProps> = ({
                     investUpToBudget={investUpToBudget}
                 />
                 <EnhancedDecisionContent
-                    sessionId={sessionId}        // ADDED: Required for continuation pricing
-                    teamId={teamId}             // ADDED: Required for continuation pricing
+                    sessionId={sessionId}
+                    teamId={teamId}
                     currentSlide={currentSlide}
                     decisionState={decisionLogic.state}
                     decisionActions={decisionLogic.actions}

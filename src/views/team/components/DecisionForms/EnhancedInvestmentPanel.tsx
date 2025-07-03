@@ -104,8 +104,8 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
         });
 
         return {
-            reinvestInvestments: enhanced.filter(inv => inv.group === 'reinvest'),
-            newInvestments: enhanced.filter(inv => inv.group === 'new')
+            reinvestInvestments: enhanced.filter(inv => inv.group === 'reinvest' && inv.pricing?.availability !== 'not_available'),
+            newInvestments: enhanced.filter(inv => inv.group === 'new' && inv.pricing?.availability !== 'not_available')
         };
     }, [investmentOptions, investmentPricing, selectedInvestmentIds, immediatePurchases]);
 
@@ -167,6 +167,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                             if (isImmediate && !isImmediatePurchased) {
                                 // For immediate purchases, we still need the correct index
                                 const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
+                                onInvestmentToggleById(investment.id, effectivePrice ?? 0);
                                 setExpandedImmediate(correctIndex);
                             } else {
                                 // USE ID-BASED APPROACH - eliminates index confusion completely
@@ -231,13 +232,13 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                             ? 'text-gray-500'
                                             : 'text-yellow-400'
                                 }`}>
-                                    ${formatCurrency(effectivePrice)}
+                                    {formatCurrency(effectivePrice)}
                                 </span>
 
                                 {/* Original price if different */}
                                 {pricing && pricing.freshPrice !== effectivePrice && pricing.freshPrice != null && (
                                     <span className="text-sm text-gray-400 line-through">
-                                        ${formatCurrency(pricing.freshPrice)}
+                                        {formatCurrency(pricing.freshPrice)}
                                     </span>
                                 )}
 
