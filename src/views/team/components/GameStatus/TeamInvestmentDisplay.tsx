@@ -2,9 +2,9 @@
 // FIXED: Shows actual continuation prices instead of original prices
 
 import React, {useEffect, useState} from 'react';
-import {TrendingUp, ChevronDown, ChevronRight, Package} from 'lucide-react';
+import {ChevronDown, ChevronRight, Package} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
-import {supabase} from '@shared/services/supabase';
+import {db} from '@shared/services/supabase';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
 import {formatCurrency} from '@shared/utils/formatUtils';
 
@@ -52,17 +52,8 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
     const {data: regularDecisions, refresh: refreshRegular} = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId) return [];
-
-            const {data, error} = await supabase
-                .from('team_decisions')
-                .select('selected_investment_options, total_spent_budget, phase_id')
-                .eq('session_id', sessionId)
-                .eq('team_id', teamId)
-                .eq('phase_id', currentInvestmentPhase)
-                .eq('is_immediate_purchase', false);
-
-            if (error) throw error;
-            return data || [];
+            const decision = await db.decisions.getForPhase(sessionId, teamId, currentInvestmentPhase);
+            return decision ? [decision] : [];
         },
         [sessionId, teamId, currentInvestmentPhase],
         {
@@ -75,18 +66,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
     const {data: immediateDecisions, refresh: refreshImmediate} = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId) return [];
-
-            const {data, error} = await supabase
-                .from('team_decisions')
-                .select('selected_investment_options, total_spent_budget, phase_id')
-                .eq('session_id', sessionId)
-                .eq('team_id', teamId)
-                .eq('is_immediate_purchase', true)
-                .eq('immediate_purchase_type', 'business_growth_strategy')
-                .like('phase_id', `${currentInvestmentPhase}%`);
-
-            if (error) throw error;
-            return data || [];
+            return await db.decisions.getImmediatePurchases(sessionId, teamId, currentInvestmentPhase);
         },
         [sessionId, teamId, currentInvestmentPhase],
         {
@@ -198,10 +178,26 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                 });
             });
 
-            // Sort alphabetically by ID
-            processedInvestments.sort((a, b) => a.id.localeCompare(b.id));
+            // Apply double down visual indicators if we're in round 3 and have double down decisions
+            let finalInvestments = processedInvestments;
 
-            setInvestments(processedInvestments);
+            if (currentRound === 3 && doubleDownState.sacrificeId) {
+                finalInvestments = processedInvestments.map(inv => {
+                    if (inv.id === doubleDownState.sacrificeId) {
+                        // Mark the sacrificed investment
+                        return {...inv, name: `${inv.name} (SACRIFICED)`};
+                    } else if (inv.id === doubleDownState.doubleDownId) {
+                        // Mark the doubled down investment
+                        return {...inv, name: `${inv.name} (DOUBLED DOWN)`};
+                    }
+                    return inv;
+                });
+            }
+
+            // Sort alphabetically by ID
+            finalInvestments.sort((a, b) => a.id.localeCompare(b.id));
+
+            setInvestments(finalInvestments);
             setTotalSpent(totalCost);
         };
 
@@ -216,22 +212,26 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
             }
 
             try {
-                const {data} = await supabase
-                    .from('team_decisions')
-                    .select('double_down_sacrifice_id, double_down_on_id')
-                    .eq('session_id', sessionId)
-                    .eq('team_id', teamId)
-                    .eq('phase_id', 'ch-dd-prompt')
-                    .single();
-
-                if (data) {
+                const data = await db.decisions.getForPhase(sessionId, teamId, 'ch-dd-prompt');
+                if (data && (data.double_down_sacrifice_id || data.double_down_on_id)) {
                     setDoubleDownState({
                         sacrificeId: data.double_down_sacrifice_id,
                         doubleDownId: data.double_down_on_id
                     });
+                } else {
+                    // Clear double down state if no valid data found
+                    setDoubleDownState({
+                        sacrificeId: null,
+                        doubleDownId: null
+                    });
                 }
             } catch (error) {
                 console.warn('No double down decision found:', error);
+                // Clear double down state when decision is not found (reset)
+                setDoubleDownState({
+                    sacrificeId: null,
+                    doubleDownId: null
+                });
             }
         };
 
@@ -270,13 +270,25 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                     <div className="space-y-2">
                         {investments.map((investment, index) => (
                             <div key={`${investment.id}-${index}`}
-                                 className="bg-slate-800/50 rounded-lg p-3 border border-slate-600/30">
+                                 className={`rounded-lg p-3 border ${
+                                     investment.name.includes('(SACRIFICED)')
+                                         ? 'bg-red-900/30 border-red-600/50'
+                                         : investment.name.includes('(DOUBLED DOWN)')
+                                             ? 'bg-green-900/30 border-green-600/50'
+                                             : 'bg-slate-800/50 border-slate-600/30'
+                                 }`}>
                                 <div className="flex items-center justify-between">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
-                                        <span className="font-medium text-white text-sm">
-                                            {investment.name}
-                                        </span>
+                                            <span className={`font-medium text-sm ${
+                                                investment.name.includes('(SACRIFICED)')
+                                                    ? 'text-red-300'
+                                                    : investment.name.includes('(DOUBLED DOWN)')
+                                                        ? 'text-green-300'
+                                                        : 'text-white'
+                                            }`}>
+                                                {investment.name}
+                                            </span>
                                             {investment.isImmediate && (
                                                 <span
                                                     className="px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs rounded-full font-medium border border-yellow-500/30">
@@ -293,7 +305,13 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                                         {/* REMOVED: Investment descriptions */}
                                     </div>
                                     <div className="text-right ml-4">
-                                        <div className="font-bold text-green-400 text-sm">
+                                        <div className={`font-bold text-sm ${
+                                            investment.name.includes('(SACRIFICED)')
+                                                ? 'text-red-400'
+                                                : investment.name.includes('(DOUBLED DOWN)')
+                                                    ? 'text-green-400'
+                                                    : 'text-green-400'
+                                        }`}>
                                             {formatCurrency(investment.actualCost)}
                                         </div>
                                         {investment.actualCost !== investment.originalCost && (

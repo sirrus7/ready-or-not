@@ -61,6 +61,7 @@ const TeamApp: React.FC = () => {
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(null);
     const [kpiChanges, setKpiChanges] = useState<Record<string, number>>({});
     const [lastKpiValues, setLastKpiValues] = useState<Record<string, number>>({});
+    const [investmentRefreshTrigger, setInvestmentRefreshTrigger] = useState(0);
 
     // ADDED: Get centralized adjustment data from TeamGameProvider (lightweight, no auth)
     const teamGameContext = useTeamGameContext();
@@ -233,7 +234,7 @@ const TeamApp: React.FC = () => {
             oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.3);
         } catch (error) {
-            console.log('🔔 KPI Update notification');
+            console.warn('🔔 KPI Update notification', error);
         }
     };
 
@@ -438,7 +439,7 @@ const TeamApp: React.FC = () => {
                                 teamId={loggedInTeamId}
                                 currentRound={currentActiveSlide.round_number || 1}
                                 gameStructure={teamGameState.gameStructure}
-                                refreshTrigger={resetTrigger} // ✅ Prop triggers useEffect refresh
+                                refreshTrigger={Math.max(resetTrigger, investmentRefreshTrigger)}
                             />
                         )}
 
@@ -458,14 +459,17 @@ const TeamApp: React.FC = () => {
 
                 {/* RIGHT PANEL - Main Game Content */}
                 <div className="flex-1 flex flex-col">
-                    {isDecisionPhaseActive ? (
+                    {isDecisionPhaseActive && teamGameState.gameStructure ? (
                         <DecisionModeContainer
                             teamId={loggedInTeamId}
                             currentSlide={currentActiveSlide}
                             sessionId={sessionId || ''}
                             gameStructure={teamGameState.gameStructure}
                             decisionResetTrigger={resetTrigger}
-                            onDecisionSubmitted={triggerDecisionRefresh}
+                            onDecisionSubmitted={() => {
+                                triggerDecisionRefresh();
+                                setInvestmentRefreshTrigger(prev => prev + 1);
+                            }}
                         />
                     ) : (
                         <div className="flex-1 flex items-center justify-center p-8">
