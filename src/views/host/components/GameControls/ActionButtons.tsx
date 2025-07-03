@@ -35,8 +35,8 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
             </button>
             <button onClick={onExitGame}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-red-100 text-red-600 transition-colors border border-red-300"
-                    aria-label="Exit Game">
-                <LogOut size={16}/> Exit Game
+                    aria-label="Save & Exit">
+                <LogOut size={16}/> Save & Exit
             </button>
         </div>
     );

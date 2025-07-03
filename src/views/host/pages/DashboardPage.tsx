@@ -12,6 +12,7 @@ import NotificationBanner from '@views/host/components/Dashboard/NotificationBan
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
 import {GameSession} from '@shared/types';
 import RonBotWidget from '@shared/components/RonBotWidget.tsx';
+import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
@@ -278,35 +279,52 @@ const DashboardPage: React.FC = () => {
                                                                         <StatusIcon size={12}/>
                                                                         {statusConfig.label}
                                                                     </span>
+                                                                    {game.current_slide_index !== null && (() => {
+                                                                        const slide = readyOrNotGame_2_0_DD.slides[game.current_slide_index];
+                                                                        const round = slide?.round_number || 0;
+                                                                        const slideId = Math.floor(slide?.id || 0);
+                                                                        const progressText = round === 0 ? `Setup - Slide ${slideId}` : `Round ${round} - Slide ${slideId}`;
+
+                                                                        return (
+                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200">
+                                                                                <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+                                                                                {progressText}
+                                                                            </span>
+                                                                        );
+                                                                    })()}
                                                                 </div>
 
-                                                                <div
-                                                                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                                                                    {/* Class Name - Critical for Multiple Classes */}
                                                                     <div>
-                                                                        <span
-                                                                            className="font-medium text-gray-700">Created:</span>
-                                                                        <div>{new Date(game.created_at).toLocaleDateString()}</div>
+                                                                        <span className="font-medium text-gray-700">Class:</span>
+                                                                        <div className="text-gray-500">
+                                                                            {game.class_name || 'No class set'}
+                                                                        </div>
                                                                     </div>
-                                                                    {game.class_name && (
-                                                                        <div>
-                                                                            <span
-                                                                                className="font-medium text-gray-700">Class:</span>
-                                                                            <div
-                                                                                className="truncate">{game.class_name}</div>
-                                                                        </div>
-                                                                    )}
-                                                                    {game.game_version && (
-                                                                        <div>
-                                                                            <span
-                                                                                className="font-medium text-gray-700">Version:</span>
-                                                                            <div>v{game.game_version.startsWith('2') ? '2.0' : '1.5'}</div>
-                                                                        </div>
-                                                                    )}
+
+                                                                    {/* Grade Level - Audience Context */}
                                                                     <div>
-                                                                        <span
-                                                                            className="font-medium text-gray-700">Status:</span>
-                                                                        <div
-                                                                            className="text-gray-500">{statusConfig.description}</div>
+                                                                        <span className="font-medium text-gray-700">Level:</span>
+                                                                        <div className="text-gray-500">
+                                                                            {game.grade_level || 'Not specified'}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Last Updated - More Useful Than Created */}
+                                                                    <div>
+                                                                        <span className="font-medium text-gray-700">Updated:</span>
+                                                                        <div className="text-gray-500">
+                                                                            {new Date(game.updated_at).toLocaleDateString()}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Game Version - Keep This for Context */}
+                                                                    <div>
+                                                                        <span className="font-medium text-gray-700">Version:</span>
+                                                                        <div className="text-gray-500">
+                                                                            v{game.game_version.startsWith('2') ? '2.0' : '1.5'}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -387,6 +405,19 @@ const DashboardPage: React.FC = () => {
                                                                     <CheckCircle size={12}/>
                                                                     Completed
                                                                 </span>
+                                                                {game.current_slide_index !== null && (() => {
+                                                                    const slide = readyOrNotGame_2_0_DD.slides[game.current_slide_index];
+                                                                    const round = slide?.round_number || 0;
+                                                                    const slideId = Math.floor(slide?.id || 0);
+                                                                    const progressText = round === 0 ? `Setup - Slide ${slideId}` : `Round ${round} - Slide ${slideId}`;
+
+                                                                    return (
+                                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200">
+                                                                            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+                                                                            {progressText}
+                                                                        </span>
+                                                                    );
+                                                                })()}
                                                             </div>
 
                                                             <div

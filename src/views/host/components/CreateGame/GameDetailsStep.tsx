@@ -56,8 +56,20 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
             return {isValid: false, error: 'Game name is required.'};
         }
 
+        if (data.name.trim().length > 40) {
+            return {isValid: false, error: 'Game name must be 40 characters or less.'};
+        }
+
+        if (data.class_name && data.class_name.trim().length > 30) {
+            return {isValid: false, error: 'Class name must be 30 characters or less.'};
+        }
+
         if (!data.num_players || data.num_players < 2) {
             return {isValid: false, error: 'Number of players must be at least 2.'};
+        }
+
+        if (data.num_players > 100) {
+            return {isValid: false, error: 'Number of players cannot exceed 100.'};
         }
 
         if (!data.num_teams || data.num_teams < 1) {

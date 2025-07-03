@@ -119,6 +119,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                     value={gameData.name}
                     onChange={(e) => onFieldChange('name', e.target.value)}
                     placeholder="e.g., Spring Semester Economics Challenge"
+                    maxLength={40}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                 />
             </div>
@@ -136,6 +137,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                         value={gameData.class_name}
                         onChange={(e) => onFieldChange('class_name', e.target.value)}
                         placeholder="e.g., Business 101, Math Club"
+                        maxLength={30}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                     />
                 </div>
@@ -170,6 +172,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                         value={playersInput}
                         onChange={handlePlayersChange}
                         min="0"
+                        max={100}
                         placeholder="e.g., 15"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                     />

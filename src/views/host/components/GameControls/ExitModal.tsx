@@ -39,12 +39,12 @@ const ExitGameModal: React.FC<ExitGameModalProps> = ({isOpen, onClose}) => {
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Confirm Exit Game"
+            title="Save & Exit Game"
             size="sm"
         >
             <div className="p-1">
                 <p className="text-sm text-gray-700">
-                    Are you sure you want to exit this game session and return to the dashboard?
+                    Are you sure you want to save and exit this game session and return to the dashboard?
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                     Your current game progress is saved. This will also close the presentation display if it's open.
@@ -55,7 +55,7 @@ const ExitGameModal: React.FC<ExitGameModalProps> = ({isOpen, onClose}) => {
                         className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm w-full sm:w-auto"
                         onClick={confirmExitGame}
                     >
-                        Yes, Exit Game
+                        Yes, Save & Exit
                     </button>
                     <button
                         type="button"
