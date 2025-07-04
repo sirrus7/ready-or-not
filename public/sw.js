@@ -75,8 +75,14 @@ self.addEventListener('fetch', (event) => {
 async function handleVideoRequest(request) {
     const cache = await caches.open(VIDEO_CACHE);
     
+    // Create a GET request for cache lookup
+    const cacheRequest = new Request(request.url, {
+        method: 'GET',
+        headers: request.headers
+    });
+    
     // Try cache first
-    const cachedResponse = await cache.match(request);
+    const cachedResponse = await cache.match(cacheRequest);
     if (cachedResponse) {
         console.log('[SW] Serving video from cache:', request.url);
         // Return cached response and update in background
@@ -99,8 +105,14 @@ async function fetchAndCache(request, cache) {
             // Clone response before caching (can only read body once)
             const responseToCache = response.clone();
             
+            // Create a GET request for caching (Cache API only supports GET)
+            const cacheRequest = new Request(request.url, {
+                method: 'GET',
+                headers: request.headers
+            });
+            
             // Cache asynchronously
-            cache.put(request, responseToCache).then(() => {
+            cache.put(cacheRequest, responseToCache).then(() => {
                 console.log('[SW] Cached video:', request.url);
             }).catch(err => {
                 console.error('[SW] Failed to cache video:', err);
