@@ -12,7 +12,6 @@ interface HostVideoControlsProps {
     onMuteToggle?: () => void;
     isConnectedToPresentation: boolean;
     presentationMuted?: boolean;
-    bufferStatus?: { ready: boolean; message?: string };
 }
 
 const HostVideoControls: React.FC<HostVideoControlsProps> = ({
@@ -23,8 +22,7 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
                                                                  onVolumeChange,
                                                                  onMuteToggle,
                                                                  isConnectedToPresentation,
-                                                                 presentationMuted = false,
-                                                                 bufferStatus
+                                                                 presentationMuted = false
                                                              }) => {
     const [isMinimized, setIsMinimized] = useState(false);
     const [volume, setVolume] = useState(1);

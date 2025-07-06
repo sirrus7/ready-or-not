@@ -191,7 +191,6 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
                             onMuteToggle={hostVideo.toggleMute}
                             isConnectedToPresentation={hostVideo.isConnectedToPresentation}
                             presentationMuted={hostVideo.presentationMuted}
-                            bufferStatus={hostVideo.bufferStatus}
                         />
                     </div>
                 </div>

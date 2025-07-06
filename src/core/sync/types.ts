@@ -7,11 +7,10 @@ export interface HostCommand {
     id: string;
     action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume';
     data?: {
-        time?: number;
-        volume?: number;
-        muted?: boolean;
+        time: number;
+        volume: number;
+        muted: boolean;
         playbackRate?: number;
-        waitingForBuffer?: boolean;
         // [key: string]: any;
     }; // ✅ NEW: Added data field for custom command data
     timestamp: number;

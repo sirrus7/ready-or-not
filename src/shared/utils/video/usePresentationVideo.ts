@@ -3,8 +3,6 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
 import { HostCommand } from '@core/sync/types';
-import { BufferCoordinator } from '@shared/utils/video/bufferCoordinator';
-import { NetworkQualityMonitor } from '@shared/utils/video/networkQuality';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -40,9 +38,6 @@ export const usePresentationVideo = ({
     const onErrorRef = useRef<(() => void) | undefined>();
     const isBufferingRef = useRef(false);
     const previousSourceUrl = useRef<string | null>(null);
-    const bufferCoordinatorRef = useRef<BufferCoordinator | null>(null);
-    const waitingForBufferRef = useRef(false);
-    const networkMonitorRef = useRef<NetworkQualityMonitor | null>(null);
 
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
@@ -53,63 +48,11 @@ export const usePresentationVideo = ({
         role: 'presentation'
     });
 
-    // Initialize network monitor
-    useEffect(() => {
-        if (!networkMonitorRef.current) {
-            networkMonitorRef.current = new NetworkQualityMonitor();
-        }
-
-        return () => {
-            if (networkMonitorRef.current) {
-                networkMonitorRef.current.destroy();
-                networkMonitorRef.current = null;
-            }
-        };
-    }, []);
-
     // Track connection status
     useEffect(() => {
-        const unsubscribe = onConnectionChange((connected) => {
-            setLocalIsConnected(connected);
-            
-            // Initialize/cleanup buffer coordinator
-            if (connected && sessionId && !bufferCoordinatorRef.current) {
-                // Get adaptive settings based on network quality
-                const networkSettings = networkMonitorRef.current?.getRecommendedSettings() || {
-                    minBufferSeconds: 3,
-                    syncInterval: 500,
-                    bufferWaitTimeout: 15000
-                };
-
-                bufferCoordinatorRef.current = new BufferCoordinator(sessionId, 'presentation', networkSettings);
-
-                // Start monitoring if video exists
-                const video = videoRef.current;
-                if (video) {
-                    bufferCoordinatorRef.current.startMonitoring(video);
-                }
-            } else if (!connected && bufferCoordinatorRef.current) {
-                bufferCoordinatorRef.current.destroy();
-                bufferCoordinatorRef.current = null;
-            }
-        });
+        const unsubscribe = onConnectionChange(setLocalIsConnected);
         return unsubscribe;
-    }, [onConnectionChange, sessionId]);
-
-    // Monitor network quality changes and update buffer settings
-    useEffect(() => {
-        if (!networkMonitorRef.current || !bufferCoordinatorRef.current) return;
-
-        const unsubscribe = networkMonitorRef.current.onQualityChange((quality) => {
-            console.log('[usePresentationVideo] Network quality changed:', quality);
-            
-            // Update buffer coordinator settings based on new network quality
-            const newSettings = networkMonitorRef.current!.getRecommendedSettings();
-            bufferCoordinatorRef.current?.updateConfig(newSettings);
-        });
-
-        return unsubscribe;
-    }, [localIsConnected]);
+    }, [onConnectionChange]);
 
     // Listen for commands from host
     useEffect(() => {
@@ -154,11 +97,6 @@ export const usePresentationVideo = ({
                         }
                         if (command.data?.muted !== undefined) {
                             video.muted = command.data.muted;
-                        }
-                        // Check if this is a buffer wait pause
-                        if (command.data?.waitingForBuffer) {
-                            waitingForBufferRef.current = true;
-                            console.log('[Presentation] Pausing for buffer coordination');
                         }
                         break;
 
@@ -220,11 +158,6 @@ export const usePresentationVideo = ({
             console.log('[Presentation] Video ready to play');
         };
 
-        // Update buffer coordinator monitoring  
-        if (bufferCoordinatorRef.current && video) {
-            bufferCoordinatorRef.current.startMonitoring(video);
-        }
-
         video.addEventListener('waiting', handleWaiting);
         video.addEventListener('canplay', handleCanPlay);
 
@@ -276,16 +209,6 @@ export const usePresentationVideo = ({
             video.removeEventListener('error', handleError);
         };
     }, [sourceUrl, isEnabled]);
-
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (bufferCoordinatorRef.current) {
-                bufferCoordinatorRef.current.destroy();
-                bufferCoordinatorRef.current = null;
-            }
-        };
-    }, []);
 
     // Create video props
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
