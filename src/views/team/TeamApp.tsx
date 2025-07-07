@@ -301,10 +301,10 @@ const TeamApp: React.FC = () => {
                                 {/* RESTORED: ORIGINAL KPI SECTION WITH GRADIENT BACKGROUNDS */}
                                 <div className="space-y-3">
                                     {/* Capacity */}
-                                    <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 backdrop-blur-sm rounded-lg p-3 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
+                                    <div className="bg-gradient-to-r from-kpi-capacity-500/20 to-kpi-capacity-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-capacity-500/30 hover:border-kpi-capacity-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <Building className="text-blue-400" size={20}/>
+                                                <Building className="text-kpi-capacity-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">Capacity</span>
                                             </div>
                                             <div className="text-right">
@@ -333,10 +333,10 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* Orders */}
-                                    <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30 hover:border-yellow-500/50 transition-colors">
+                                    <div className="bg-gradient-to-r from-kpi-orders-500/20 to-kpi-orders-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-orders-500/30 hover:border-kpi-orders-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <ShoppingCart className="text-yellow-400" size={20}/>
+                                                <ShoppingCart className="text-kpi-orders-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">Orders</span>
                                             </div>
                                             <div className="text-right">
@@ -365,10 +365,10 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* Cost */}
-                                    <div className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm rounded-lg p-3 border border-green-500/30 hover:border-green-500/50 transition-colors">
+                                    <div className="bg-gradient-to-r from-kpi-cost-500/20 to-kpi-cost-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-cost-500/30 hover:border-kpi-cost-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <DollarSign className="text-green-400" size={20}/>
+                                                <DollarSign className="text-kpi-cost-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">Cost</span>
                                             </div>
                                             <div className="text-right">
@@ -397,10 +397,10 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* ASP - FIXED: Changed from purple to red colors */}
-                                    <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
+                                    <div className="bg-gradient-to-r from-kpi-asp-500/20 to-kpi-asp-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-asp-500/30 hover:border-kpi-asp-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <TrendingUp className="text-red-400" size={20}/>
+                                                <TrendingUp className="text-kpi-asp-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">ASP</span>
                                             </div>
                                             <div className="text-right">

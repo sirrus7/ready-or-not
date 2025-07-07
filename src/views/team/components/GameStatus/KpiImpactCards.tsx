@@ -103,13 +103,13 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
     const getKpiIcon = (kpi: string) => {
         switch (kpi) {
             case 'capacity':
-                return <Building className="w-4 h-4 text-blue-400"/>;
+                return <Building className="w-4 h-4 text-kpi-capacity-400"/>;
             case 'orders':
-                return <ShoppingCart className="w-4 h-4 text-yellow-400"/>;
+                return <ShoppingCart className="w-4 h-4 text-kpi-orders-400"/>;
             case 'cost':
-                return <DollarSign className="w-4 h-4 text-green-400"/>;
+                return <DollarSign className="w-4 h-4 text-kpi-cost-400"/>;
             case 'asp':
-                return <TrendingUp className="w-4 h-4 text-red-400"/>;
+                return <TrendingUp className="w-4 h-4 text-kpi-asp-400"/>;
             default:
                 return <AlertCircle className="w-4 h-4 text-gray-400"/>;
         }

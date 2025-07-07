@@ -3,220 +3,13 @@
 @tailwind utilities;
 
 /* ============================================================================ */
-/* KPI COLOR OVERRIDES - MATCH PHYSICAL GAME BOARD COLORS */
+/* MINIMAL CSS - NO COLOR OVERRIDES */
 /* ============================================================================ */
 
-/* Override colors specifically for KPI components - leaderboards, team apps, etc. */
-.kpi-display,
-.kpi-display * {
-    /* Capacity (Blue) */
-    --kpi-capacity-color: #3B82F6 !important;
-    --kpi-capacity-bg: linear-gradient(to right, #3B82F6, #2563EB) !important;
-    --kpi-capacity-bg-opacity: linear-gradient(to right, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.2)) !important;
+/* Only keep styles that can't be done with Tailwind classes */
 
-    /* Orders (Yellow) */
-    --kpi-orders-color: #F59E0B !important;
-    --kpi-orders-bg: linear-gradient(to right, #F59E0B, #D97706) !important;
-    --kpi-orders-bg-opacity: linear-gradient(to right, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.2)) !important;
-
-    /* Costs (Green) */
-    --kpi-costs-color: #22C55E !important;
-    --kpi-costs-bg: linear-gradient(to right, #22C55E, #16A34A) !important;
-    --kpi-costs-bg-opacity: linear-gradient(to right, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.2)) !important;
-
-    /* ASP (Red) */
-    --kpi-asp-color: #EF4444 !important;
-    --kpi-asp-bg: linear-gradient(to right, #EF4444, #DC2626) !important;
-    --kpi-asp-bg-opacity: linear-gradient(to right, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.2)) !important;
-}
-
-/* ===== STANDARD GRADIENTS (no opacity) ===== */
-.kpi-display .bg-gradient-to-r.from-blue-500,
-.kpi-display .bg-gradient-to-r.from-blue-600 {
-    background: var(--kpi-capacity-bg) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-yellow-400,
-.kpi-display .bg-gradient-to-r.from-yellow-500 {
-    background: var(--kpi-orders-bg) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-green-500,
-.kpi-display .bg-gradient-to-r.from-green-600 {
-    background: var(--kpi-costs-bg) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-red-500,
-.kpi-display .bg-gradient-to-r.from-red-600 {
-    background: var(--kpi-asp-bg) !important;
-}
-
-/* ===== OPACITY GRADIENTS (with /20 modifier) ===== */
-/* These are the ones used in the TeamApp */
-.kpi-display .bg-gradient-to-r.from-blue-500\/20 {
-    background: var(--kpi-capacity-bg-opacity) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-yellow-500\/20 {
-    background: var(--kpi-orders-bg-opacity) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-green-500\/20 {
-    background: var(--kpi-costs-bg-opacity) !important;
-}
-
-/* Fix ASP from purple to red */
-.kpi-display .bg-gradient-to-r.from-purple-500\/20,
-.kpi-display .bg-gradient-to-r.from-red-500\/20 {
-    background: var(--kpi-asp-bg-opacity) !important;
-}
-
-/* ===== BORDER COLORS ===== */
-.kpi-display .border-blue-500 {
-    border-color: var(--kpi-capacity-color) !important;
-}
-
-.kpi-display .border-yellow-500 {
-    border-color: var(--kpi-orders-color) !important;
-}
-
-.kpi-display .border-green-500 {
-    border-color: var(--kpi-costs-color) !important;
-}
-
-.kpi-display .border-red-500,
-.kpi-display .border-purple-500 {
-    border-color: var(--kpi-asp-color) !important;
-}
-
-/* ===== BORDER COLORS WITH OPACITY ===== */
-.kpi-display .border-blue-500\/30 {
-    border-color: rgba(59, 130, 246, 0.3) !important;
-}
-
-.kpi-display .border-yellow-500\/30 {
-    border-color: rgba(245, 158, 11, 0.3) !important;
-}
-
-.kpi-display .border-green-500\/30 {
-    border-color: rgba(34, 197, 94, 0.3) !important;
-}
-
-.kpi-display .border-red-500\/30,
-.kpi-display .border-purple-500\/30 {
-    border-color: rgba(239, 68, 68, 0.3) !important;
-}
-
-/* ===== HOVER BORDER COLORS ===== */
-.kpi-display .hover\:border-blue-500\/50:hover {
-    border-color: rgba(59, 130, 246, 0.5) !important;
-}
-
-.kpi-display .hover\:border-yellow-500\/50:hover {
-    border-color: rgba(245, 158, 11, 0.5) !important;
-}
-
-.kpi-display .hover\:border-green-500\/50:hover {
-    border-color: rgba(34, 197, 94, 0.5) !important;
-}
-
-.kpi-display .hover\:border-red-500\/50:hover,
-.kpi-display .hover\:border-purple-500\/50:hover {
-    border-color: rgba(239, 68, 68, 0.5) !important;
-}
-
-/* ===== TEXT COLORS ===== */
-.kpi-display .text-blue-400,
-.kpi-display .text-blue-500 {
-    color: var(--kpi-capacity-color) !important;
-}
-
-.kpi-display .text-yellow-400,
-.kpi-display .text-yellow-500 {
-    color: var(--kpi-orders-color) !important;
-}
-
-.kpi-display .text-green-400,
-.kpi-display .text-green-500 {
-    color: var(--kpi-costs-color) !important;
-}
-
-/* ASP colors only (red) */
-.kpi-display .text-red-400,
-.kpi-display .text-red-500 {
-    color: var(--kpi-asp-color) !important;
-}
-
-/* Revenue colors (purple) */
-.kpi-display .text-purple-400,
-.kpi-display .text-purple-500 {
-    color: #A855F7 !important; /* Purple color for revenue */
-}
-
-/* Net Margin colors (indigo/bluish purple) */
-.kpi-display .text-indigo-400,
-.kpi-display .text-indigo-500 {
-    color: #6366F1 !important; /* Indigo color for net margin */
-}
-
-/* Net Income colors (orange) */
-.kpi-display .text-orange-400,
-.kpi-display .text-orange-500 {
-    color: #F97316 !important; /* Orange color for net income */
-}
-
-/* ===== SOLID BACKGROUND COLORS ===== */
-.kpi-display .bg-blue-500 {
-    background-color: var(--kpi-capacity-color) !important;
-}
-
-.kpi-display .bg-yellow-500 {
-    background-color: var(--kpi-orders-color) !important;
-}
-
-.kpi-display .bg-green-500 {
-    background-color: var(--kpi-costs-color) !important;
-}
-
-.kpi-display .bg-red-500,
-.kpi-display .bg-purple-500 {
-    background-color: var(--kpi-asp-color) !important;
-}
-
-/* ===== ICON COLORS (in case there are any orange icons that should be different colors) ===== */
-/* Make it more specific to only target icons, not all orange text */
-.kpi-display .text-orange-600.icon-class,
-.kpi-display .text-orange-500.icon-class {
-    color: var(--kpi-capacity-color) !important;
-}
-
-/* ===== FOCUS RING COLORS ===== */
-.kpi-display .focus\:ring-blue-500:focus {
-    --tw-ring-color: var(--kpi-capacity-color) !important;
-}
-
-.kpi-display .focus\:ring-yellow-500:focus {
-    --tw-ring-color: var(--kpi-orders-color) !important;
-}
-
-.kpi-display .focus\:ring-green-500:focus {
-    --tw-ring-color: var(--kpi-costs-color) !important;
-}
-
-.kpi-display .focus\:ring-red-500:focus,
-.kpi-display .focus\:ring-purple-500:focus {
-    --tw-ring-color: var(--kpi-asp-color) !important;
-}
-
-/* ============================================================================ */
-/* LEADERBOARD FIXES */
-/* ============================================================================ */
-
-
-/* ===== TARGETED LEADERBOARD HEADER TEXT FIX ===== */
-/* Remove background gradient effects from header text but keep proper text colors */
-
-/* Remove gradient backgrounds from ALL header text (this was causing invisibility) */
+/* ===== LEADERBOARD SPECIFIC FIXES ===== */
+/* Remove gradient text effects that cause invisibility */
 .kpi-display p span.bg-gradient-to-r,
 .kpi-display p .bg-gradient-to-r {
     background: none !important;
@@ -225,180 +18,40 @@
     text-shadow: none !important;
 }
 
-/* Now set the proper text colors for each leaderboard type */
-
-/* Capacity & Orders - keep dual colors (blue & yellow) */
-.kpi-display .text-blue-400 {
-    color: #3B82F6 !important; /* Blue for Capacity */
-}
-
-.kpi-display .text-yellow-400 {
-    color: #F59E0B !important; /* Yellow for Orders */
-}
-
-/* ===== HEADER TITLE COLOR FIXES ===== */
-/* Use specific header colors that work well on dark backgrounds */
-.kpi-display .bg-gradient-to-r.from-red-500.to-red-600 {
-    background: linear-gradient(to right, #EF4444, #DC2626) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-green-500.to-green-600 {
-    background: linear-gradient(to right, #22C55E, #16A34A) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-blue-500.to-blue-600 {
-    background: linear-gradient(to right, #3B82F6, #2563EB) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-orange-500.to-orange-600 {
-    background: linear-gradient(to right, #F97316, #EA580C) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-purple-500.to-purple-600 {
-    background: linear-gradient(to right, #A855F7, #9333EA) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-indigo-500.to-indigo-600 {
-    background: linear-gradient(to right, #6366F1, #4F46E5) !important;
-}
-
-/* ===== TEXT CONTRAST FIXES ===== */
-/* Ensure text inside colored bars is always white for good contrast */
-.kpi-display .bg-gradient-to-r .text-white {
-    color: white !important;
-}
-
-.kpi-display .bg-gradient-to-r .text-2xl {
-    color: white !important;
-}
-
-.kpi-display .bg-gradient-to-r .text-xl {
-    color: white !important;
-}
-
-/* ===== LEADERBOARD BAR FIXES ===== */
-/* Ensure leaderboard bars use the correct colors and maintain contrast */
-.kpi-display .bg-gradient-to-r.from-red-500.to-red-600:not(.bg-clip-text) {
-    background: linear-gradient(to right, #EF4444, #DC2626) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-green-500.to-green-600:not(.bg-clip-text) {
-    background: linear-gradient(to right, #22C55E, #16A34A) !important;
-}
-
-.kpi-display .bg-gradient-to-r.from-blue-500.to-blue-600:not(.bg-clip-text) {
-    background: linear-gradient(to right, #3B82F6, #2563EB) !important;
-}
-
-/* ============================================================================ */
-/* ANIMATIONS AND UTILITIES */
-/* ============================================================================ */
-
-@layer utilities {
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-        to {
-            opacity: 1;
-        }
+/* ===== RESPONSIVE IMPROVEMENTS ===== */
+@media (max-width: 768px) {
+    .kpi-display {
+        font-size: 14px;
     }
-    .animate-fade-in {
-        animation: fadeIn 0.3s ease-in-out;
+
+    .kpi-display .text-2xl {
+        font-size: 1.5rem;
+    }
+
+    .kpi-display .text-xl {
+        font-size: 1.25rem;
     }
 }
 
-/* Confetti falling animation */
-@keyframes fall {
-    0% {
-        transform: translateY(-100vh) rotate(0deg);
-        opacity: 1;
-    }
-    100% {
-        transform: translateY(100vh) rotate(720deg);
-        opacity: 0;
-    }
+/* ===== UTILITY CLASSES ===== */
+/* Add any custom utilities that aren't available in Tailwind */
+
+.backdrop-blur-sm {
+    backdrop-filter: blur(4px);
 }
 
-.animate-fall {
-    animation: fall linear infinite;
-}
+/* ===== ANIMATION UTILITIES ===== */
+/* Custom animations if needed */
 
-/* Enhanced pulse animation for latest reveal */
-@keyframes enhance-pulse {
+@keyframes pulse {
     0%, 100% {
         opacity: 1;
-        transform: scale(1);
     }
     50% {
-        opacity: 0.8;
-        transform: scale(1.02);
+        opacity: 0.7;
     }
 }
 
-/* Winner crown spin */
-@keyframes crown-spin {
-    0% {
-        transform: rotate(0deg) scale(1);
-    }
-    50% {
-        transform: rotate(180deg) scale(1.2);
-    }
-    100% {
-        transform: rotate(360deg) scale(1);
-    }
-}
-
-/* Sparkle effect */
-@keyframes sparkle {
-    0%, 100% {
-        opacity: 0;
-        transform: scale(0);
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-/* Bar grow animation */
-@keyframes bar-grow {
-    0% {
-        width: 0;
-        opacity: 0;
-    }
-    50% {
-        opacity: 1;
-    }
-    100% {
-        width: var(--target-width);
-        opacity: 1;
-    }
-}
-
-/* Bounce effect for winner */
-@keyframes winner-bounce {
-    0%, 20%, 50%, 80%, 100% {
-        transform: translateY(0);
-    }
-    40% {
-        transform: translateY(-10px);
-    }
-    60% {
-        transform: translateY(-5px);
-    }
-}
-
-/* Shimmer effect */
-@keyframes shimmer {
-    0% {
-        transform: translateX(-100%);
-    }
-    100% {
-        transform: translateX(100%);
-    }
-}
-
-.animate-shimmer {
-    animation: shimmer 2s infinite;
+.animate-pulse {
+    animation: pulse 1s ease-in-out infinite;
 }

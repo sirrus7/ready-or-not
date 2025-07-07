@@ -84,21 +84,21 @@ const DashboardPage: React.FC = () => {
             case 'draft':
                 return {
                     label: 'Draft',
-                    color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                    color: 'bg-game-orange-100 text-game-orange-800 border-game-orange-200',
                     icon: Edit,
                     description: 'Being set up'
                 };
             case 'active':
                 return {
                     label: 'Active',
-                    color: 'bg-blue-100 text-blue-800 border-blue-200',
+                    color: 'bg-game-orange-100 text-game-orange-800 border-game-orange-200',
                     icon: Play,
                     description: 'In progress'
                 };
             case 'completed':
                 return {
                     label: 'Completed',
-                    color: 'bg-green-100 text-green-800 border-green-200',
+                    color: 'bg-game-brown-100 text-game-brown-800 border-game-brown-200',
                     icon: CheckCircle,
                     description: 'Finished'
                 };
@@ -124,7 +124,7 @@ const DashboardPage: React.FC = () => {
                 return (
                     <button
                         onClick={() => handleGameAction(game)}
-                        className="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-700 transition-colors flex items-center gap-2"
+                        className="bg-game-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-game-orange-700 transition-colors flex items-center gap-2"
                     >
                         <Edit size={16}/>
                         Resume Setup
@@ -134,7 +134,7 @@ const DashboardPage: React.FC = () => {
                 return (
                     <button
                         onClick={() => handleGameAction(game)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        className="bg-game-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-game-orange-600 transition-colors flex items-center gap-2"
                     >
                         <Play size={16}/>
                         Open Game
@@ -144,7 +144,7 @@ const DashboardPage: React.FC = () => {
                 return (
                     <button
                         onClick={() => handleGameAction(game)}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                        className="bg-game-brown-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-game-brown-700 transition-colors flex items-center gap-2"
                     >
                         <BarChart3 size={16}/>
                         View Results
@@ -157,15 +157,15 @@ const DashboardPage: React.FC = () => {
     if (authLoading && !user) {
         return (
             <div
-                className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
+                className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100 flex flex-col items-center justify-center p-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-game-orange-600"></div>
                 <p className="mt-4 text-gray-600">Loading Dashboard...</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <header className="mb-8">
@@ -195,7 +195,7 @@ const DashboardPage: React.FC = () => {
                         <div className="flex items-center gap-3">
                             <Link
                                 to="/create"
-                                className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-blue-700 transition-colors shadow-lg"
+                                className="flex items-center gap-2 bg-game-orange-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-game-orange-700 transition-colors shadow-lg"
                             >
                                 <PlusCircle size={20}/>
                                 Create New Game
@@ -203,7 +203,7 @@ const DashboardPage: React.FC = () => {
                             <button
                                 onClick={handleManualRefresh}
                                 disabled={isLoadingGames}
-                                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200 hover:border-blue-300"
+                                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-game-orange-600 hover:bg-game-orange-50 rounded-lg transition-colors border border-gray-200 hover:border-game-orange-300"
                                 title="Refresh games"
                             >
                                 <RefreshCw size={16} className={isLoadingGames ? 'animate-spin' : ''}/>
@@ -239,7 +239,7 @@ const DashboardPage: React.FC = () => {
                                     <div>
                                         <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
                                             <div className="bg-blue-100 p-2 rounded-lg">
-                                                <Play size={24} className="text-blue-600"/>
+                                                <Play size={24} className="text-game-orange-600"/>
                                             </div>
                                             My Games
                                         </h2>
@@ -276,7 +276,7 @@ const DashboardPage: React.FC = () => {
                                             return (
                                                 <div
                                                     key={game.id}
-                                                    className="border border-gray-200 rounded-xl hover:shadow-md transition-all duration-200 hover:border-blue-200 bg-white"
+                                                    className="border border-gray-200 rounded-xl hover:shadow-md transition-all duration-200 hover:border-game-orange-200 bg-white"
                                                 >
                                                     <div className="p-6">
                                                         <div className="flex items-start justify-between">
@@ -496,7 +496,7 @@ const DashboardPage: React.FC = () => {
                         <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
                             <div className="p-6 border-b border-gray-100">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <BookOpen size={20} className="text-purple-600"/>
+                                    <BookOpen size={20} className="text-game-orange-600"/>
                                     Game Resources
                                 </h3>
                             </div>
@@ -508,8 +508,8 @@ const DashboardPage: React.FC = () => {
                                     className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
                                 >
                                     <div
-                                        className="bg-blue-100 p-2 rounded-lg group-hover:bg-blue-200 transition-colors">
-                                        <FileText size={16} className="text-blue-600"/>
+                                        className="bg-game-orange-100 p-2 rounded-lg group-hover:bg-game-orange-200 transition-colors">
+                                        <FileText size={16} className="text-game-orange-600"/>
                                     </div>
                                     <div className="flex-1">
                                         <div className="font-medium text-gray-900">How to Host Guide</div>
@@ -556,20 +556,20 @@ const DashboardPage: React.FC = () => {
 
                         {/* Quick Stats */}
                         <div
-                            className="bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-2xl shadow-lg">
+                            className="bg-gradient-to-br from-game-orange-600 to-game-orange-700 text-white rounded-2xl shadow-lg">
                             <div className="p-6">
                                 <h3 className="text-lg font-semibold mb-4">Game Metrics</h3>
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-purple-200">Total Sessions:</span>
+                                        <span className="text-white">Total Sessions:</span>
                                         <span className="font-bold">{activeGames.length + completedGames.length}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-purple-200">Completed:</span>
+                                        <span className="text-white">Completed:</span>
                                         <span className="font-bold">{completedGames.length}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-purple-200">Success Rate:</span>
+                                        <span className="text-white">Success Rate:</span>
                                         <span className="font-bold">
                                             {activeGames.length + completedGames.length > 0
                                                 ? Math.round((completedGames.length / (activeGames.length + completedGames.length)) * 100)
