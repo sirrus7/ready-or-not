@@ -73,6 +73,9 @@ class MediaManager {
             if (error.message.includes("Object not found")) {
                 throw new Error(`Could not get media URL for ${fileName}. The file may not exist at the root of the '${this.BUCKET_NAME}' bucket or you may be missing the required Storage Policy.`);
             }
+            if (error.message.includes("Failed to fetch")) {
+                throw new Error(`Network error while fetching ${fileName}. Please check your internet connection and try again.`);
+            }
             throw new Error(`Could not get media URL for ${fileName}: ${error.message}`);
         }
 
@@ -86,17 +89,21 @@ class MediaManager {
             // For video files, fetch and cache as blob
             try {
                 const response = await fetch(data.signedUrl);
-                if (!response.ok) throw new Error(`Failed to fetch video: ${response.status}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch video: ${response.status} ${response.statusText}`);
+                }
 
                 const blob = await response.blob();
                 const blobUrl = URL.createObjectURL(blob);
 
                 MediaManager.blobCache.set(fileName, { blobUrl, expiresAt });
+                console.log(`[MediaManager] Successfully cached video blob for ${fileName}`);
                 return blobUrl;
             } catch (error) {
                 console.error('[MediaManager] Failed to cache video blob:', error);
                 // Fallback to signed URL
                 this.urlCache.set(fileName, { url: data.signedUrl, expiresAt });
+                console.log(`[MediaManager] Using signed URL fallback for ${fileName}`);
                 return data.signedUrl;
             }
         } else {

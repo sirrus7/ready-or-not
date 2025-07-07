@@ -70,6 +70,25 @@ export const usePresentationVideo = ({
 
                 switch (command.action) {
                     case 'play':
+                        // Wait for video to be ready before playing
+                        if (video.readyState < 2) {
+                            console.log('[Presentation] Video not ready, waiting for canplay...');
+                            const waitForReady = () => {
+                                return new Promise<void>((resolve) => {
+                                    if (video.readyState >= 2) {
+                                        resolve();
+                                        return;
+                                    }
+                                    const handleCanPlay = () => {
+                                        video.removeEventListener('canplay', handleCanPlay);
+                                        resolve();
+                                    };
+                                    video.addEventListener('canplay', handleCanPlay);
+                                });
+                            };
+                            await waitForReady();
+                        }
+                        
                         if (command.data?.time !== undefined) {
                             const timeDiff = Math.abs(video.currentTime - command.data.time);
                             if (timeDiff > 0.2) {
@@ -78,9 +97,11 @@ export const usePresentationVideo = ({
                         }
                         // Apply volume/mute from command
                         if (command.data?.volume !== undefined) {
+                            console.log('[PRESENTATION] Setting volume from play command:', command.data.volume);
                             video.volume = command.data.volume;
                         }
                         if (command.data?.muted !== undefined) {
+                            console.log('[PRESENTATION] Setting muted from play command:', command.data.muted);
                             video.muted = command.data.muted;
                         }
                         await video.play();
@@ -93,9 +114,11 @@ export const usePresentationVideo = ({
                         }
                         // Apply volume/mute from command
                         if (command.data?.volume !== undefined) {
+                            console.log('[PRESENTATION] Setting volume from play command:', command.data.volume);
                             video.volume = command.data.volume;
                         }
                         if (command.data?.muted !== undefined) {
+                            console.log('[PRESENTATION] Setting muted from play command:', command.data.muted);
                             video.muted = command.data.muted;
                         }
                         break;
@@ -108,9 +131,11 @@ export const usePresentationVideo = ({
 
                     case 'volume':
                         if (command.data?.volume !== undefined) {
+                            console.log('[PRESENTATION] Setting volume from volume command:', command.data.volume);
                             video.volume = command.data.volume;
                         }
                         if (command.data?.muted !== undefined) {
+                            console.log('[PRESENTATION] Setting muted from volume command:', command.data.muted);
                             video.muted = command.data.muted;
                         }
                         break;
@@ -123,6 +148,14 @@ export const usePresentationVideo = ({
                                 console.log(`[Presentation] Adjusting drift: ${timeDiff.toFixed(2)}s`);
                                 video.currentTime = command.data.time;
                             }
+                        }
+                        if (command.data?.volume !== undefined) {
+                            console.log('[PRESENTATION] Setting volume from sync command:', command.data.volume);
+                            video.volume = command.data.volume;
+                        }
+                        if (command.data?.muted !== undefined) {
+                            console.log('[PRESENTATION] Setting muted from sync command:', command.data.muted);
+                            video.muted = command.data.muted;
                         }
                         break;
 
@@ -184,9 +217,15 @@ export const usePresentationVideo = ({
             onErrorRef.current?.();
         };
 
+        const handleCanPlayThrough = () => {
+            console.log('[Presentation] Video can play through - ready for commands');
+            isBufferingRef.current = false;
+        };
+
         if (isEnabled && sourceUrl) {
             if (video.currentSrc !== sourceUrl) {
                 console.log('[Presentation] Loading new video source:', sourceUrl);
+                isBufferingRef.current = true; // Mark as buffering while loading
                 video.src = sourceUrl;
                 video.load();
                 // Don't pause here - let the host control playback
@@ -203,10 +242,12 @@ export const usePresentationVideo = ({
 
         video.addEventListener('ended', handleEnded);
         video.addEventListener('error', handleError);
+        video.addEventListener('canplaythrough', handleCanPlayThrough);
 
         return () => {
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
+            video.removeEventListener('canplaythrough', handleCanPlayThrough);
         };
     }, [sourceUrl, isEnabled]);
 

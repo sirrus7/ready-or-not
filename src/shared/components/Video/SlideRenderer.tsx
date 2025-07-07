@@ -1,7 +1,7 @@
 // src/shared/components/Video/SlideRenderer.tsx
 // FIXED VERSION - All syntax errors corrected, proper exports
 
-import React, {useState, useEffect} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Slide} from '@shared/types/game';
 import {AlertCircle, ListChecks} from 'lucide-react';
 import {LeaderboardChartDisplay} from '@shared/components/UI/Leaderboard';
@@ -123,6 +123,87 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
         setVideoError(false);
     }, [slide?.id]);
 
+    const videoProps = activeVideo?.getVideoProps(onVideoEnd, () => setVideoError(true)) || {};
+    const prevVideoPropsRef = useRef(videoProps);
+    
+    // Debug logs for video element volume/mute changes
+    useEffect(() => {
+        console.log("VIDEO DEBUG LOGS", `[${isHost ? 'Host' : 'Presentation'}]`)
+        const video = activeVideo?.videoRef.current;
+        if (!video) return;
+        
+        const handleVolumeChange = () => {
+            console.log("VIDEO DEBUG LOGS", `[${isHost ? 'Host' : 'Presentation'}] Video volume changed:`, {
+                volume: video.volume,
+                muted: video.muted,
+                timestamp: new Date().toISOString()
+            });
+        };
+        
+        const handleLoadedMetadata = () => {
+            console.log("VIDEO DEBUG LOGS", `[${isHost ? 'Host' : 'Presentation'}] Video loaded metadata:`, {
+                volume: video.volume,
+                muted: video.muted,
+                src: video.src,
+                timestamp: new Date().toISOString()
+            });
+        };
+        
+        const handlePlay = () => {
+            console.log("VIDEO DEBUG LOGS", `[${isHost ? 'Host' : 'Presentation'}] Video play event:`, {
+                volume: video.volume,
+                muted: video.muted,
+                currentTime: video.currentTime,
+                timestamp: new Date().toISOString()
+            });
+        };
+
+        const handleCanPlay = () => {
+            console.log("VIDEO DEBUG LOGS", `[${isHost ? 'Host' : 'Presentation'}] Video can play event:`, {
+                volume: video.volume,
+                muted: video.muted,
+                currentTime: video.currentTime,
+                timestamp: new Date().toISOString()
+            });
+        };
+        
+        video.addEventListener('volumechange', handleVolumeChange);
+        video.addEventListener('loadedmetadata', handleLoadedMetadata);
+        video.addEventListener('play', handlePlay);
+        video.addEventListener('canplay', handleCanPlay);
+        
+        return () => {
+            video.removeEventListener('volumechange', handleVolumeChange);
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('play', handlePlay);
+            video.addEventListener('canplay', handleCanPlay);
+        };
+    }, [activeVideo, isHost]);
+
+    // Debug logging for video props changes
+    useEffect(() => {
+        console.log("volume effect running")
+        const prevProps = prevVideoPropsRef.current;
+        const currentProps = videoProps;
+        
+        // Only compare serializable properties to avoid circular reference
+        const audioRelevantProps = ['muted', 'volume', 'autoPlay', 'src'];
+        const hasChanges = audioRelevantProps.some(prop => prevProps[prop] !== currentProps[prop]);
+
+        // console.log("audio debug", "prev", prevProps, "current", currentProps, "has changes", hasChanges);
+        
+        if (hasChanges) {
+            console.log("Video props changed:");
+            audioRelevantProps.forEach(prop => {
+                if (prevProps[prop] !== currentProps[prop]) {
+                    console.log(`  ${prop}: ${prevProps[prop]} → ${currentProps[prop]}`);
+                }
+            });
+        }
+        
+        prevVideoPropsRef.current = currentProps;
+    });
+
     if (!slide) {
         return (
             <div className="w-full h-full flex items-center justify-center bg-gray-900">
@@ -166,7 +247,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
             {/* Video element for video slides */}
             {isVideoSlide && sourceUrl && activeVideo && (
                 <video
-                    {...activeVideo.getVideoProps(onVideoEnd, () => setVideoError(true))}
+                    {...videoProps}
                     className={`w-full h-full ${videoError ? 'opacity-0' : 'opacity-100'}`}
                 />
             )}
