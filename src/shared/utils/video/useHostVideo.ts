@@ -36,7 +36,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const videoRef = useRef<HTMLVideoElement>(null);
     const [presentationMuted, setPresentationMuted] = useState(() => {
         const stored = localStorage.getItem('presentationMuted');
-        return stored === 'true';
+        return stored ? stored === 'true' : false; // Default to NOT muted
     });
     const [localIsConnected, setLocalIsConnected] = useState(false);
     const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -88,7 +88,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                     time: video.currentTime,
                     playbackRate: video.playbackRate,
                     volume: video.volume || getPersistedVolume(), // Use persisted volume as fallback
-                    muted: presentationMuted,
+                    // Don't sync mute state - only send it on explicit user actions
                 };
                 console.log('[HOST] Sending sync command with volume:', syncData.volume);
                 sendCommand('sync', syncData);
@@ -319,8 +319,12 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                             // Wait a bit for presentation to be ready
                             await new Promise(resolve => setTimeout(resolve, 100));
                             
-                            await play(0); // Start from beginning
-                            console.log('[useHostVideo] Autoplay started successfully');
+                            // HACK: Do pause then play to fix audio issue on next
+                            console.log('[useHostVideo] Starting pause/play hack for new video');
+                            await pause(0); // First pause at beginning
+                            await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
+                            await play(0); // Then play from beginning
+                            console.log('[useHostVideo] Pause/play hack completed successfully');
 
                             // Send current audio state when playing new video
                             if (isConnected) {
@@ -341,7 +345,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                                 }, 200);
                             }
                         } catch (error) {
-                            console.error('[useHostVideo] Autoplay failed:', error);
+                            console.error('[useHostVideo] Pause/play hack failed:', error);
                         }
                         video.removeEventListener('canplay', handleCanPlay);
                     };

@@ -153,10 +153,7 @@ export const usePresentationVideo = ({
                             console.log('[PRESENTATION] Setting volume from sync command:', command.data.volume);
                             video.volume = command.data.volume;
                         }
-                        if (command.data?.muted !== undefined) {
-                            console.log('[PRESENTATION] Setting muted from sync command:', command.data.muted);
-                            video.muted = command.data.muted;
-                        }
+                        // Don't apply mute state from sync commands - only from explicit volume commands
                         break;
 
                     case 'reset':
