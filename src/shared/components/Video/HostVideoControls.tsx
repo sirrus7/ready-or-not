@@ -25,7 +25,10 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
                                                                  presentationMuted = false
                                                              }) => {
     const [isMinimized, setIsMinimized] = useState(false);
-    const [volume, setVolume] = useState(1);
+    const [volume, setVolume] = useState(() => {
+        const stored = localStorage.getItem('hostVideoVolume');
+        return stored ? parseFloat(stored) : 1;
+    });
     const [isMuted, setIsMuted] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -204,19 +207,17 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
                                 className={`text-xs px-2 py-1 rounded-full ${isConnectedToPresentation ? 'bg-green-600/20 text-green-300' : 'bg-gray-600/20 text-gray-300'}`}>
                                 {isConnectedToPresentation ? '● Synced' : '● Local Only'}
                             </div>
-                            {!isConnectedToPresentation && (
-                                <div className="flex items-center gap-2 min-w-[120px]">
-                                    <button onClick={handleMuteToggle}
-                                            className="p-1 text-white/80 hover:text-white transition-colors"
-                                            title={isMuted ? 'Unmute' : 'Mute'}>
-                                        {isMuted ? <VolumeX size={18}/> : <Volume2 size={18}/>}
-                                    </button>
-                                    <input type="range" min="0" max="1" step="0.1" value={volume}
-                                           onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                                           className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white"
-                                           disabled={isMuted}/>
-                                </div>
-                            )}
+                            <div className="flex items-center gap-2 min-w-[120px]">
+                                <button onClick={handleMuteToggle}
+                                        className="p-1 text-white/80 hover:text-white transition-colors"
+                                        title={isMuted ? 'Unmute' : 'Mute'}>
+                                    {isMuted ? <VolumeX size={18}/> : <Volume2 size={18}/>}
+                                </button>
+                                <input type="range" min="0" max="1" step="0.1" value={volume}
+                                       onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                                       className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white"
+                                       disabled={isMuted}/>
+                            </div>
                             {isConnectedToPresentation && (
                                 <span className="text-xs text-gray-400 ml-2">
                                     (Controls presentation audio)
