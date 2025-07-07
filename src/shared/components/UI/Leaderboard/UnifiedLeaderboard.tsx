@@ -58,15 +58,24 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
         Math.max(...sortedData.map(item => item.value)), [sortedData]
     );
 
-    // Get appropriate gradient colors based on KPI
     const getGradientScheme = () => {
-        if (dataKey.includes('revenue')) return 'from-orange-500 to-orange-600';
-        if (dataKey.includes('income')) return 'from-yellow-400 to-yellow-600';
-        if (dataKey.includes('margin')) return 'from-purple-500 to-purple-600';
-        if (dataKey.includes('asp')) return 'from-green-500 to-green-600';
-        if (dataKey.includes('cpb') || dataKey.includes('cost')) return 'from-red-500 to-red-600';
+        if (dataKey.includes('revenue')) return 'from-purple-500 to-purple-600';
+        if (dataKey.includes('income')) return 'from-orange-500 to-orange-600';
+        if (dataKey.includes('margin')) return 'from-indigo-500 to-indigo-600';
+        if (dataKey.includes('asp')) return 'from-red-500 to-red-600';
+        if (dataKey.includes('cpb') || dataKey.includes('cost')) return 'from-green-500 to-green-600';
         if (dataKey.includes('capord')) return 'from-blue-500 to-blue-600';
         return 'from-indigo-500 to-indigo-600';
+    };
+
+    const getTextColor = () => {
+        if (dataKey.includes('revenue')) return 'text-purple-500';      // Purple for Revenue
+        if (dataKey.includes('income')) return 'text-orange-500';       // Orange for Net Income
+        if (dataKey.includes('margin')) return 'text-indigo-500';       // Light purple for Net Margin
+        if (dataKey.includes('asp')) return 'text-red-500';
+        if (dataKey.includes('cpb') || dataKey.includes('cost')) return 'text-green-500';
+        if (dataKey.includes('capord')) return 'text-blue-500';
+        return 'text-indigo-500';
     };
 
     // Get appropriate icon for the metric
@@ -104,6 +113,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                 {/* Header with icon */}
                 <div className={`text-center mb-10 transform transition-all duration-700 opacity-100 translate-y-0`}>
                     <div className="flex items-center justify-center gap-3 mb-2">
+                        {/* FIXED: Remove gradient background from icon */}
                         <div className={`p-3 bg-gradient-to-r ${getGradientScheme()} rounded-lg text-white`}>
                             {getMetricIcon()}
                         </div>
@@ -111,7 +121,8 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                             {roundDisplay.toUpperCase()}
                         </h1>
                     </div>
-                    <p className={`text-3xl font-bold bg-gradient-to-r ${getGradientScheme()} bg-clip-text text-transparent`}>
+                    {/* FIXED: Use solid color instead of gradient text */}
+                    <p className={`text-3xl font-bold ${getTextColor()}`}>
                         {kpiLabel.toUpperCase()}
                     </p>
                 </div>
@@ -208,6 +219,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                 isVisible ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'
             }`}>
                 <div className="flex items-center justify-center gap-3 mb-2">
+                    {/* FIXED: Remove gradient background from icon */}
                     <div className={`p-3 bg-gradient-to-r ${getGradientScheme()} rounded-lg text-white`}>
                         {getMetricIcon()}
                     </div>
@@ -223,8 +235,8 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                             <span className="text-yellow-400">{secondaryKpiLabel?.toUpperCase()}</span>
                         </>
                     ) : (
-                        <span
-                            className={`bg-gradient-to-r ${getGradientScheme()} bg-clip-text text-transparent`}>{kpiLabel.toUpperCase()}</span>
+                        /* FIXED: Use solid color instead of gradient text */
+                        <span className={getTextColor()}>{kpiLabel.toUpperCase()}</span>
                     )}
                 </p>
             </div>

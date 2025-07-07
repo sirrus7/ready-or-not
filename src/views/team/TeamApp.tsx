@@ -396,11 +396,11 @@ const TeamApp: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* ASP */}
-                                    <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 backdrop-blur-sm rounded-lg p-3 border border-purple-500/30 hover:border-purple-500/50 transition-colors">
+                                    {/* ASP - FIXED: Changed from purple to red colors */}
+                                    <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm rounded-lg p-3 border border-red-500/30 hover:border-red-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <TrendingUp className="text-purple-400" size={20}/>
+                                                <TrendingUp className="text-red-400" size={20}/>
                                                 <span className="text-sm font-semibold text-slate-200">ASP</span>
                                             </div>
                                             <div className="text-right">
