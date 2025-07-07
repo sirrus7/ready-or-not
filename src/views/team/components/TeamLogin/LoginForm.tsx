@@ -317,15 +317,9 @@ const LoginForm: React.FC<LoginFormProps> = ({
             <button
                 type="submit"
                 disabled={isLoggingIn || isLoadingTeams || availableTeams.length === 0}
-                className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-6 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none"
+                className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-game-orange-600 to-game-orange-700 hover:from-game-orange-700 hover:to-game-orange-800 text-white py-3 px-6 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-game-orange-600 disabled:hover:to-game-orange-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none"
                 aria-label={isLoggingIn ? "Joining game in progress" : "Join the game with selected team and passcode"}
             >
-                {/*
-                    DYNAMIC BUTTON CONTENT
-                    - Loading state shows spinner and different text
-                    - Normal state shows login icon and standard text
-                    - Proper ARIA attributes for screen readers
-                */}
                 {isLoggingIn ? (
                     <>
                         <Loader2 size={20} className="animate-spin" aria-hidden="true"/>

@@ -114,7 +114,7 @@ const TeamLogin: React.FC<TeamLoginProps> = ({sessionId, onLoginSuccess}) => {
                         - Professional visual hierarchy
                         - Consistent with application design language
                     */}
-                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8 text-center">
+                    <div className="bg-gradient-to-r from-game-orange-600 to-game-orange-700 px-6 py-8 text-center">
                         {/* Application icon with subtle background */}
                         <div className="flex justify-center mb-4">
                             <div className="bg-white/10 p-3 rounded-full">
@@ -128,7 +128,7 @@ const TeamLogin: React.FC<TeamLoginProps> = ({sessionId, onLoginSuccess}) => {
                         </h1>
 
                         {/* Descriptive subtitle */}
-                        <p className="text-blue-100 text-sm opacity-90">
+                        <p className="text-game-orange-100 text-sm opacity-90">
                             Select your team and enter the passcode provided by your facilitator.
                         </p>
                     </div>
