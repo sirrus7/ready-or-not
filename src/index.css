@@ -141,11 +141,28 @@
     color: var(--kpi-costs-color) !important;
 }
 
+/* ASP colors only (red) */
 .kpi-display .text-red-400,
-.kpi-display .text-red-500,
+.kpi-display .text-red-500 {
+    color: var(--kpi-asp-color) !important;
+}
+
+/* Revenue colors (purple) */
 .kpi-display .text-purple-400,
 .kpi-display .text-purple-500 {
-    color: var(--kpi-asp-color) !important;
+    color: #A855F7 !important; /* Purple color for revenue */
+}
+
+/* Net Margin colors (indigo/bluish purple) */
+.kpi-display .text-indigo-400,
+.kpi-display .text-indigo-500 {
+    color: #6366F1 !important; /* Indigo color for net margin */
+}
+
+/* Net Income colors (orange) */
+.kpi-display .text-orange-400,
+.kpi-display .text-orange-500 {
+    color: #F97316 !important; /* Orange color for net income */
 }
 
 /* ===== SOLID BACKGROUND COLORS ===== */
@@ -167,8 +184,9 @@
 }
 
 /* ===== ICON COLORS (in case there are any orange icons that should be different colors) ===== */
-.kpi-display .text-orange-600,
-.kpi-display .text-orange-500 {
+/* Make it more specific to only target icons, not all orange text */
+.kpi-display .text-orange-600.icon-class,
+.kpi-display .text-orange-500.icon-class {
     color: var(--kpi-capacity-color) !important;
 }
 
