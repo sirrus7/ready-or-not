@@ -293,7 +293,7 @@ const TeamApp: React.FC = () => {
                         {/* Team Status with Vertical KPI Layout for Sidebar */}
                         <div className="flex-shrink-0">
                             <div
-                                className="p-4 bg-gray-800/80 backdrop-blur-sm text-white rounded-xl shadow-lg border-b border-gray-700 overflow-hidden">
+                                className="kpi-display p-4 bg-gray-800/80 backdrop-blur-sm text-white rounded-xl shadow-lg border-b border-gray-700 overflow-hidden">
                                 <h2 className="text-xl font-bold text-center text-sky-300 mb-4">
                                     Team: <span className="text-white">{loggedInTeamName || 'N/A'}</span>
                                 </h2>

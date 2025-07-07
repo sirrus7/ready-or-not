@@ -2,6 +2,134 @@
 @tailwind components;
 @tailwind utilities;
 
+/* KPI Color Overrides - Match Physical Game Board Colors */
+/* Add this to the bottom of your existing src/index.css file */
+
+/* Override colors specifically for KPI components - leaderboards, team apps, etc. */
+.kpi-display,
+.kpi-display * {
+    /* Capacity (Blue) */
+    --kpi-capacity-color: #3B82F6 !important;
+    --kpi-capacity-bg: linear-gradient(to right, #3B82F6, #2563EB) !important;
+
+    /* Orders (Yellow) */
+    --kpi-orders-color: #F59E0B !important;
+    --kpi-orders-bg: linear-gradient(to right, #F59E0B, #D97706) !important;
+
+    /* Costs (Green) */
+    --kpi-costs-color: #22C55E !important;
+    --kpi-costs-bg: linear-gradient(to right, #22C55E, #16A34A) !important;
+
+    /* ASP (Red) */
+    --kpi-asp-color: #EF4444 !important;
+    --kpi-asp-bg: linear-gradient(to right, #EF4444, #DC2626) !important;
+}
+
+/* Specific overrides for KPI metrics */
+.kpi-display .bg-gradient-to-r.from-blue-500,
+.kpi-display .bg-gradient-to-r.from-blue-600 {
+    background: var(--kpi-capacity-bg) !important;
+}
+
+.kpi-display .bg-gradient-to-r.from-yellow-400,
+.kpi-display .bg-gradient-to-r.from-yellow-500 {
+    background: var(--kpi-orders-bg) !important;
+}
+
+.kpi-display .bg-gradient-to-r.from-green-500,
+.kpi-display .bg-gradient-to-r.from-green-600 {
+    background: var(--kpi-costs-bg) !important;
+}
+
+.kpi-display .bg-gradient-to-r.from-red-500,
+.kpi-display .bg-gradient-to-r.from-red-600 {
+    background: var(--kpi-asp-bg) !important;
+}
+
+/* Text colors for KPI displays */
+.kpi-display .text-blue-400,
+.kpi-display .text-blue-500 {
+    color: #3B82F6 !important;
+}
+
+.kpi-display .text-yellow-400,
+.kpi-display .text-yellow-500 {
+    color: #F59E0B !important;
+}
+
+.kpi-display .text-green-400,
+.kpi-display .text-green-500 {
+    color: #22C55E !important;
+}
+
+.kpi-display .text-red-400,
+.kpi-display .text-red-500 {
+    color: #EF4444 !important;
+}
+
+/* Specific KPI component overrides */
+.kpi-display .bg-blue-500 {
+    background-color: #3B82F6 !important;
+}
+
+.kpi-display .bg-yellow-500 {
+    background-color: #F59E0B !important;
+}
+
+.kpi-display .bg-green-500 {
+    background-color: #22C55E !important;
+}
+
+.kpi-display .bg-red-500 {
+    background-color: #EF4444 !important;
+}
+
+/* For KPI bars and progress indicators */
+.kpi-display .bg-gradient-to-r.from-orange-500,
+.kpi-display .bg-gradient-to-r.from-orange-600 {
+    background: var(--kpi-capacity-bg) !important;
+}
+
+/* Icon colors in KPI displays */
+.kpi-display .text-orange-600,
+.kpi-display .text-orange-500 {
+    color: #3B82F6 !important;
+}
+
+/* Border colors for KPI elements */
+.kpi-display .border-blue-500 {
+    border-color: #3B82F6 !important;
+}
+
+.kpi-display .border-yellow-500 {
+    border-color: #F59E0B !important;
+}
+
+.kpi-display .border-green-500 {
+    border-color: #22C55E !important;
+}
+
+.kpi-display .border-red-500 {
+    border-color: #EF4444 !important;
+}
+
+/* Ring colors for focus states in KPI displays */
+.kpi-display .focus\:ring-blue-500:focus {
+    --tw-ring-color: #3B82F6 !important;
+}
+
+.kpi-display .focus\:ring-yellow-500:focus {
+    --tw-ring-color: #F59E0B !important;
+}
+
+.kpi-display .focus\:ring-green-500:focus {
+    --tw-ring-color: #22C55E !important;
+}
+
+.kpi-display .focus\:ring-red-500:focus {
+    --tw-ring-color: #EF4444 !important;
+}
+
 @layer utilities {
     @keyframes fadeIn {
         from {

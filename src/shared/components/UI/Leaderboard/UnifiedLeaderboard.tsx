@@ -100,7 +100,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
     if (isNetIncomeReveal) {
         return (
             <div
-                className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-8">
+                className="kpi-display h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-8">
                 {/* Header with icon */}
                 <div className={`text-center mb-10 transform transition-all duration-700 opacity-100 translate-y-0`}>
                     <div className="flex items-center justify-center gap-3 mb-2">
@@ -202,7 +202,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
     // Standard leaderboard display with modern styling
     return (
         <div
-            className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-8">
+            className="kpi-display h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-8">
             {/* Header with icon */}
             <div className={`text-center mb-10 transform transition-all duration-700 ${
                 isVisible ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'
