@@ -205,9 +205,23 @@ const HostApp: React.FC = () => {
             className="h-screen w-screen bg-gradient-to-br from-gray-200 to-gray-400 p-4 flex flex-col overflow-hidden">
             <header
                 className="flex-shrink-0 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                <div>
-                    <h1 className="text-xl md:text-2xl font-bold text-gray-800">{gameStructure?.name || 'Game'}</h1>
-                    <p className="text-gray-500 text-sm md:text-base">Session: {currentSessionId?.substring(0, 8)}...</p>
+                <div className="flex items-center gap-3">
+                    {/* Logo */}
+                    <img
+                        src="/images/ready-or-not-logo.png"
+                        alt="Ready or Not 2.0"
+                        className="h-24 w-auto rounded-lg shadow-sm"
+                    />
+
+                    {/* Game Title and Session Info */}
+                    <div>
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-800">
+                            {gameStructure?.name || 'Game'}
+                        </h1>
+                        <p className="text-gray-500 text-sm md:text-base">
+                            Session: {currentSessionId?.substring(0, 8)}...
+                        </p>
+                    </div>
                 </div>
 
                 {/* TODO: Remove this for production */}

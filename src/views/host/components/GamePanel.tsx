@@ -61,9 +61,7 @@ const GamePanel: React.FC = () => {
                     <div className="flex items-center">
                         <Layers className="mr-2 text-blue-600" size={22}/>
                         <div className="min-w-0 flex-1">
-                            <h2 className="text-lg font-bold text-gray-800 leading-tight truncate">Host Control
-                                Panel</h2>
-                            <p className="text-xs text-gray-500 truncate">Session: {currentSessionId.substring(0, 12)}...</p>
+                            <h2 className="text-lg font-bold text-gray-800 leading-tight truncate">Host Control Panel</h2>
                         </div>
                     </div>
                 </div>

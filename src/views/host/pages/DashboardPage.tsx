@@ -170,17 +170,28 @@ const DashboardPage: React.FC = () => {
                 {/* Header */}
                 <header className="mb-8">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
-                                Welcome back!
-                            </h1>
-                            <p className="text-gray-600 text-lg">
-                                {user?.email ?
-                                    `Ready to facilitate, ${user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)}?` :
-                                    'Ready to create amazing simulation experiences?'
-                                }
-                            </p>
+                        <div className="flex items-center gap-4">
+                            {/* Logo */}
+                            <img
+                                src="/images/ready-or-not-logo.png"
+                                alt="Ready or Not 2.0"
+                                className="h-24 w-auto rounded-lg shadow-sm"
+                            />
+
+                            {/* Welcome Text */}
+                            <div>
+                                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
+                                    Welcome back!
+                                </h1>
+                                <p className="text-gray-600 text-lg">
+                                    {user?.email ?
+                                        `Ready to facilitate, ${user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)}?` :
+                                        'Ready to create amazing simulation experiences?'
+                                    }
+                                </p>
+                            </div>
                         </div>
+
                         <div className="flex items-center gap-3">
                             <Link
                                 to="/create"
