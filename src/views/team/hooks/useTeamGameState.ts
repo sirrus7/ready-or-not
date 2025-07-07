@@ -72,6 +72,10 @@ export const useTeamGameState = ({
     const resetDebounceRef = useRef<NodeJS.Timeout | null>(null);
     const fetchDebounceRef = useRef<NodeJS.Timeout | null>(null);
     const teamGameContext = useTeamGameContext();
+    const isSlideAfterKpiReset = (slide: any): boolean => {
+        // Slide 143 follows 142 (KPI reset), Slide 68 follows 67 (KPI reset)
+        return slide.id === 143 || slide.id === 68;
+    };
 
     // Update stable refs
     if (sessionId !== stableSessionId.current) {
@@ -96,7 +100,7 @@ export const useTeamGameState = ({
                 let newRoundData = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
 
                 // CRITICAL FIX: If this is a KPI reset slide and no data exists yet, wait for it
-                if (!newRoundData && currentActiveSlide.type === 'kpi_reset') {
+                if (!newRoundData && (currentActiveSlide.type === 'kpi_reset' || isSlideAfterKpiReset(currentActiveSlide))) {
                     // Retry logic: Wait up to 3 seconds for KPI reset processing to complete
                     let attempts = 0;
                     const maxAttempts = 6; // 6 attempts * 500ms = 3 seconds

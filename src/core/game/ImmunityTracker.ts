@@ -52,8 +52,14 @@ export class ImmunityTracker {
                 decision.selected_investment_options?.includes(rule.requiredInvestment)
             );
 
-            console.log(`[ImmunityTracker] Team ${teamId} immunity result: ${hasInvestment}`);
-            return hasInvestment;
+            // Check if the investment was sacrificed during double down
+            const wasSacrificed = teamDecisions.some(decision =>
+                decision.phase_id === 'ch-dd-prompt' &&
+                decision.double_down_sacrifice_id === rule.requiredInvestment
+            );
+
+            console.log(`[ImmunityTracker] Team ${teamId} immunity result: ${hasInvestment && !wasSacrificed}`);
+            return hasInvestment && !wasSacrificed;
         } catch (error) {
             console.error(`[ImmunityTracker] Error checking immunity:`, error);
             return false;

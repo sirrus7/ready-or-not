@@ -1618,7 +1618,8 @@ export const allGameSlides: Slide[] = [
         sub_text: "Systems restored, but you dodged a bullet...",
         details: ["-250 Capacity", "+$100k Costs", "+1M SHAME"],
         source_path: 'Slide_155.mp4',
-        background_css: 'bg-gray-700'
+        background_css: 'bg-gray-700',
+        auto_advance_after_video: true
     },
     {
         id: 155,
@@ -1629,7 +1630,9 @@ export const allGameSlides: Slide[] = [
         sub_text: "Customers appreciate honesty, systems restored",
         details: ["-250 Capacity", "+$100k Costs"],
         source_path: 'Slide_156.mp4',
-        background_css: 'bg-gray-700'
+        background_css: 'bg-gray-700',
+        auto_advance_after_video: true
+
     },
     {
         id: 156,
@@ -1640,7 +1643,8 @@ export const allGameSlides: Slide[] = [
         sub_text: "Rebuilding is slow and customers are furious",
         details: ["-500 Capacity", "-500 Orders", "+$75k Costs"],
         source_path: 'Slide_157.mp4',
-        background_css: 'bg-gray-700'
+        background_css: 'bg-gray-700',
+        auto_advance_after_video: true
     },
     {
         id: 157,
@@ -1731,7 +1735,8 @@ export const allGameSlides: Slide[] = [
         sub_text: "Rushed implementation costs orders & capacity",
         details: ["-250 Capacity", "+$150k Costs"],
         source_path: 'Slide_167.mp4',
-        background_css: 'bg-gray-700'
+        background_css: 'bg-gray-700',
+        auto_advance_after_video: true
     },
     {
         id: 167,
@@ -1742,7 +1747,8 @@ export const allGameSlides: Slide[] = [
         sub_text: "Firefighting is expensive and you lose orders",
         details: ["-1000 Orders", "+$50k Costs"],
         source_path: 'Slide_168.mp4',
-        background_css: 'bg-gray-700'
+        background_css: 'bg-gray-700',
+        auto_advance_after_video: true
     },
     {
         id: 168,
@@ -1753,7 +1759,8 @@ export const allGameSlides: Slide[] = [
         sub_text: "Your foresight paid off!",
         details: ["+500 Orders (from competitors' failures)"],
         source_path: 'Slide_169.mp4',
-        background_css: 'bg-gray-700'
+        background_css: 'bg-gray-700',
+        auto_advance_after_video: true
     },
     {
         id: 169,
@@ -1779,7 +1786,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Business Growth Strategy",
         sub_text: "Final round business growth impact",
         details: ["+250 Capacity", "+250 Orders", "+$20 ASP"],
-        source_path: 'Slide_172.mp4'
+        source_path: 'Slide_172.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 172,
@@ -1789,7 +1797,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Production Efficiency",
         sub_text: "Maximum efficiency gains",
         details: ["+3000 Capacity", "+$100k Costs"],
-        source_path: 'Slide_173.mp4'
+        source_path: 'Slide_173.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 173,
@@ -1799,7 +1808,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Expanded 2nd Shift",
         sub_text: "Massive capacity expansion",
         details: ["+4250 Capacity", "+$750k Costs"],
-        source_path: 'Slide_174.mp4'
+        source_path: 'Slide_174.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 174,
@@ -1809,7 +1819,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Supply Chain Optimization",
         sub_text: "Peak supply chain efficiency",
         details: ["+750 Capacity", "-$300k Costs"],
-        source_path: 'Slide_175.mp4'
+        source_path: 'Slide_175.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 175,
@@ -1819,7 +1830,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Employee Development",
         sub_text: "Maximized workforce potential",
         details: ["+1500 Capacity"],
-        source_path: 'Slide_176.mp4'
+        source_path: 'Slide_176.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 176,
@@ -1829,7 +1841,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Maximize Boutique Sales",
         sub_text: "Premium market dominance",
         details: ["+3000 Orders", "+$80 ASP"],
-        source_path: 'Slide_177.mp4'
+        source_path: 'Slide_177.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 177,
@@ -1839,7 +1852,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Big Box Expansion",
         sub_text: "Mass market penetration",
         details: ["+4000 Orders", "+$100k Costs", "-$40 ASP"],
-        source_path: 'Slide_178.mp4'
+        source_path: 'Slide_178.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 178,
@@ -1849,7 +1863,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Enterprise Resource Planning",
         sub_text: "System integration benefits",
         details: ["+250 Capacity", "+250 Orders", "+$25k Costs", "+$10 ASP"],
-        source_path: 'Slide_179.mp4'
+        source_path: 'Slide_179.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 179,
@@ -1859,7 +1874,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: IT & Cyber Security",
         sub_text: "Protected from cyber threats",
         details: ["Protection from future cyber attacks"],
-        source_path: 'Slide_180.mp4'
+        source_path: 'Slide_180.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 180,
@@ -1869,7 +1885,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Product Line Expansion",
         sub_text: "Diversified product portfolio",
         details: ["+4000 Capacity", "+4000 Orders", "+$200k Costs", "-$80 ASP"],
-        source_path: 'Slide_181.mp4'
+        source_path: 'Slide_181.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 181,
@@ -1879,7 +1896,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Payoff: Automation & Co-bots",
         sub_text: "Full automation benefits",
         details: ["+3750 Capacity", "+$150k Costs"],
-        source_path: 'Slide_182.mp4'
+        source_path: 'Slide_182.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 182,
@@ -1889,7 +1907,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Bonus: Production Efficiency Synergy",
         sub_text: "Integration bonus for Production Efficiency + manufacturing investments",
         details: ["Conditional bonuses for Production Efficiency + manufacturing"],
-        source_path: 'Slide_183.mp4'
+        source_path: 'Slide_183.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 183,
@@ -1899,7 +1918,8 @@ export const allGameSlides: Slide[] = [
         main_text: "RD-3 Bonus: Supply Chain + Distribution Synergy",
         sub_text: "Enhanced efficiency from integrated logistics and distribution",
         details: ["Conditional bonus: +2000 Orders, -$100K Costs"],
-        source_path: 'Slide_184.mp4'
+        source_path: 'Slide_184.mp4',
+        auto_advance_after_video: true
     },
     {
         id: 184,
