@@ -122,7 +122,7 @@ const ChoicePanel: React.FC<ChoicePanelProps> = ({
 
             {/* Multi-select instruction (only if not forced) */}
             {isMultiSelect && !forcedSelection && (
-                <div className="bg-blue-900/30 border border-blue-400 rounded-lg p-3 mb-4">
+                <div className="bg-blue-900/30 border border-game-orange-400 rounded-lg p-3 mb-4">
                     <p className="text-blue-200 text-sm">
                         💡 <strong>Special Challenge:</strong> You can select multiple options for this challenge.
                         Valid combinations: A, B, C, D individually, or A+C, B+C together.
@@ -145,7 +145,7 @@ const ChoicePanel: React.FC<ChoicePanelProps> = ({
                                 : forcedSelection && isSelected
                                     ? 'cursor-not-allowed bg-green-600/80 border-green-400 text-white shadow-md'
                                     : isSelected
-                                        ? 'bg-blue-600/80 border-blue-400 text-white shadow-md'
+                                        ? 'bg-game-orange-600/80 border-game-orange-400 text-white shadow-md'
                                         : 'cursor-pointer bg-gray-600/70 border-gray-500 hover:bg-gray-500/70'
                         }`}
                     >
@@ -154,7 +154,7 @@ const ChoicePanel: React.FC<ChoicePanelProps> = ({
                             <input
                                 type="checkbox"
                                 name={`challengeOption-${currentSlide.id}`}
-                                className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded"
+                                className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-game-orange-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded"
                                 checked={isSelected}
                                 onChange={(e) => handleMultiSelectChange(opt.id, e.target.checked)}
                                 disabled={isDisabled}
@@ -164,7 +164,7 @@ const ChoicePanel: React.FC<ChoicePanelProps> = ({
                             <input
                                 type="radio"
                                 name={`challengeOption-${currentSlide.id}`}
-                                className="form-radio h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0"
+                                className="form-radio h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-game-orange-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0"
                                 checked={selectedChallengeOptionId === opt.id}
                                 onChange={() => handleSingleSelect(opt.id)}
                                 disabled={isDisabled}

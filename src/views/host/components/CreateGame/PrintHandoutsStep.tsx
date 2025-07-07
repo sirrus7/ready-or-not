@@ -168,13 +168,13 @@ Thank you,
                 This simulation requires physical handouts for player interaction. Choose your preferred method to
                 obtain them:
             </p>
-            <div className="bg-sky-50 border-l-4 border-sky-500 p-4 rounded-md mb-6">
+            <div className="bg-game-cream-100 border-l-4 border-game-orange-500 p-4 rounded-md mb-6">
                 <div className="flex">
                     <div className="flex-shrink-0 pt-0.5">
-                        <Info className="h-5 w-5 text-sky-700"/>
+                        <Info className="h-5 w-5 text-game-brown-700"/>
                     </div>
                     <div className="ml-3">
-                        <p className="text-sm text-sky-700">
+                        <p className="text-sm text-game-brown-700">
                             The "DIY Printing" section below dynamically lists material quantities based on the <strong
                             className="font-medium">{gameData.num_players} players</strong> and <strong
                             className="font-medium">{gameData.num_teams} teams</strong> you specified in Step 1.
@@ -187,14 +187,14 @@ Thank you,
                 <button
                     onClick={() => setSelectedOption('order')}
                     className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all border-2 flex items-center justify-center gap-2
-                        ${selectedOption === 'order' ? 'bg-blue-600 text-white border-blue-700 shadow-lg scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'}`}
+                        ${selectedOption === 'order' ? 'bg-game-orange-600 text-white border-game-orange-700 shadow-lg scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-game-orange-400 hover:bg-game-orange-50'}`}
                 >
                     <ShoppingCart size={18}/> Order from Printing Partner
                 </button>
                 <button
                     onClick={() => setSelectedOption('diy')}
                     className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all border-2 flex items-center justify-center gap-2
-                        ${selectedOption === 'diy' ? 'bg-green-600 text-white border-green-700 shadow-lg scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-green-400 hover:bg-green-50'}`}
+                    ${selectedOption === 'diy' ? 'bg-game-orange-600 text-white border-game-orange-700 shadow-lg scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-game-orange-400 hover:bg-game-orange-50'}`}
                 >
                     <PrinterIcon size={18}/> DIY or Print Locally
                 </button>
@@ -219,14 +219,14 @@ Thank you,
                         </ul>
                         <p className="font-medium text-gray-800 mb-1">Contact for Quote & Order:</p>
                         <p className="text-gray-600">Phone: <a href="tel:5412655214"
-                                                               className="text-blue-600 hover:underline">(541)
+                                                               className="text-game-orange-600 hover:underline">(541)
                             265-5214</a></p>
                         <p className="text-gray-600 mb-3">Email: <a href="mailto:ppinfo@pioneerprinting.org"
-                                                                    className="text-blue-600 hover:underline">ppinfo@pioneerprinting.org</a>
+                                                                    className="text-game-orange-600 hover:underline">ppinfo@pioneerprinting.org</a>
                         </p>
                         <a
                             href={`mailto:ppinfo@pioneerprinting.org?subject=${encodeURIComponent(pioneerPressEmailSubject)}&body=${encodeURIComponent(pioneerPressEmailBody)}`}
-                            className="inline-flex items-center gap-2 bg-blue-500 text-white text-xs font-semibold py-2.5 px-4 rounded-md hover:bg-blue-600 transition-colors shadow hover:shadow-md"
+                            className="inline-flex items-center gap-2 bg-game-orange-500 text-white text-xs font-semibold py-2.5 px-4 rounded-md hover:bg-game-orange-600 transition-colors shadow hover:shadow-md"
                         >
                             <Mail size={15}/> Compose Order Email (Pre-filled)
                         </a>
@@ -254,13 +254,13 @@ Thank you,
                     <div className="mb-4">
                         <button
                             onClick={() => toggleSection('core')}
-                            className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                            className="w-full flex items-center justify-between p-3 bg-game-orange-50 hover:bg-game-orange-100 rounded-lg border border-game-orange-200 transition-colors"
                         >
                             <div className="flex items-center">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                                <div className="w-2 h-2 bg-game-orange-500 rounded-full mr-3"></div>
                                 <h4 className="font-medium text-gray-800 text-sm">Start Folder</h4>
                                 <span
-                                    className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">4 items</span>
+                                    className="ml-2 text-xs bg-game-orange-100 text-game-orange-700 px-2 py-1 rounded">4 items</span>
                             </div>
                             {expandedSections.core ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
                         </button>
@@ -272,12 +272,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Game Boards</h5>
                                         <span
-                                            className="text-sm font-bold bg-blue-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.gameBoards}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.gameBoards}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">11x17 recommended, color, laminated</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/core/game-board.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -288,12 +288,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Briefing Packets</h5>
                                         <span
-                                            className="text-sm font-bold bg-blue-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.briefingPackets}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.briefingPackets}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 per player, double-sided, color</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/core/briefing-packet.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -304,12 +304,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Vocabulary Sheets</h5>
                                         <span
-                                            className="text-sm font-bold bg-blue-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.vocabSheets}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.vocabSheets}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 per team, double-sided</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/core/vocabulary-definitions.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -320,12 +320,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Team Name Cards</h5>
                                         <span
-                                            className="text-sm font-bold bg-blue-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.teamNameCards}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.teamNameCards}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 per team, card stock, color</p>
                                     <button
                                         onClick={handleGenerateTeamCards}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -338,13 +338,13 @@ Thank you,
                     <div className="mb-4">
                         <button
                             onClick={() => toggleSection('round1')}
-                            className="w-full flex items-center justify-between p-3 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors"
+                            className="w-full flex items-center justify-between p-3 bg-game-orange-50 hover:bg-game-orange-100 rounded-lg border border-game-orange-200 transition-colors"
                         >
                             <div className="flex items-center">
-                                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                                <div className="w-2 h-2 bg-game-orange-500 rounded-full mr-3"></div>
                                 <h4 className="font-medium text-gray-800 text-sm">Round 1 Folder</h4>
                                 <span
-                                    className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded">3 items</span>
+                                    className="ml-2 text-xs bg-game-orange-100 text-game-orange-700 px-2 py-1 rounded">3 items</span>
                             </div>
                             {expandedSections.round1 ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
                         </button>
@@ -356,12 +356,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Position Sheets</h5>
                                         <span
-                                            className="text-sm font-bold bg-green-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd1PosSheets}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd1PosSheets}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 set per team</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/round-1/rd1-position-sheet.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -372,12 +372,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Investment Cards</h5>
                                         <span
-                                            className="text-sm font-bold bg-green-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd1InvestCards}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd1InvestCards}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 set per team</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/round-1/rd1-investment-cards.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -388,12 +388,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Summary Sheets</h5>
                                         <span
-                                            className="text-sm font-bold bg-green-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd1SummarySheets}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd1SummarySheets}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 per team</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/round-1/rd1-team-summary-sheet.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -406,13 +406,13 @@ Thank you,
                     <div className="mb-4">
                         <button
                             onClick={() => toggleSection('round2')}
-                            className="w-full flex items-center justify-between p-3 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors"
+                            className="w-full flex items-center justify-between p-3 bg-game-orange-50 hover:bg-game-orange-100 rounded-lg border border-game-orange-200 transition-colors"
                         >
                             <div className="flex items-center">
-                                <div className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></div>
+                                <div className="w-2 h-2 bg-game-orange-500 rounded-full mr-3"></div>
                                 <h4 className="font-medium text-gray-800 text-sm">Round 2 Folder</h4>
                                 <span
-                                    className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">3 items</span>
+                                    className="ml-2 text-xs bg-game-orange-100 text-game-orange-700 px-2 py-1 rounded">3 items</span>
                             </div>
                             {expandedSections.round2 ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
                         </button>
@@ -424,12 +424,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Position Sheets</h5>
                                         <span
-                                            className="text-sm font-bold bg-yellow-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd2PosSheets}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd2PosSheets}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 set per team</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/round-2/rd2-position-sheet.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -440,12 +440,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Investment Cards</h5>
                                         <span
-                                            className="text-sm font-bold bg-yellow-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd2InvestCards}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd2InvestCards}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 set per team</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/round-2/rd2-investment-cards.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -456,12 +456,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Summary Sheets</h5>
                                         <span
-                                            className="text-sm font-bold bg-yellow-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd2SummarySheets}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd2SummarySheets}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 per team</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/round-2/rd2-team-summary-sheet.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -474,13 +474,13 @@ Thank you,
                     <div className="mb-4">
                         <button
                             onClick={() => toggleSection('round3')}
-                            className="w-full flex items-center justify-between p-3 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors"
+                            className="w-full flex items-center justify-between p-3 bg-game-orange-50 hover:bg-game-orange-100 rounded-lg border border-game-orange-200 transition-colors"
                         >
                             <div className="flex items-center">
-                                <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
+                                <div className="w-2 h-2 bg-game-orange-500 rounded-full mr-3"></div>
                                 <h4 className="font-medium text-gray-800 text-sm">Round 3 Folder</h4>
                                 <span
-                                    className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">2 items</span>
+                                    className="ml-2 text-xs bg-game-orange-100 text-game-orange-700 px-2 py-1 rounded">2 items</span>
                             </div>
                             {expandedSections.round3 ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
                         </button>
@@ -492,12 +492,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Investment Cards</h5>
                                         <span
-                                            className="text-sm font-bold bg-purple-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd3InvestCards}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd3InvestCards}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 set per team</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/round-3/rd3-investment-cards.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -508,12 +508,12 @@ Thank you,
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Summary Sheets</h5>
                                         <span
-                                            className="text-sm font-bold bg-purple-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd3SummarySheets}</span>
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.rd3SummarySheets}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 per team</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/round-3/rd3-team-summary-sheet.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -526,45 +526,41 @@ Thank you,
                     <div className="mb-6">
                         <button
                             onClick={() => toggleSection('special')}
-                            className="w-full flex items-center justify-between p-3 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors"
+                            className="w-full flex items-center justify-between p-3 bg-game-orange-50 hover:bg-game-orange-100 rounded-lg border border-game-orange-200 transition-colors"
                         >
                             <div className="flex items-center">
-                                <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
+                                <div className="w-2 h-2 bg-game-orange-500 rounded-full mr-3"></div>
                                 <h4 className="font-medium text-gray-800 text-sm">Special Folder</h4>
-                                <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">2 items</span>
+                                <span className="ml-2 text-xs bg-game-orange-100 text-game-orange-700 px-2 py-1 rounded">2 items</span>
                             </div>
                             {expandedSections.special ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
                         </button>
 
                         {expandedSections.special && (
                             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pl-4">
-                                <div
-                                    className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">KPI Impact Cards</h5>
-                                        <span
-                                            className="text-sm font-bold bg-red-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.kpiImpactCards}</span>
+                                        <span className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.kpiImpactCards}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">Print and cut as needed, color</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/core/permanent-kpi-impact-cards.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
                                 </div>
 
-                                <div
-                                    className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Growth Strategy Reports</h5>
-                                        <span
-                                            className="text-sm font-bold bg-red-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.bizGrowthReports}</span>
+                                        <span className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.bizGrowthReports}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 per team</p>
                                     <button
                                         onClick={() => downloadItem('/game-materials/core/biz-growth-strategy-report.pdf')}
-                                        className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                                        className="w-full text-xs bg-game-orange-600 text-white py-2 px-3 rounded hover:bg-game-orange-700 transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Download size={12}/> Download PDF
                                     </button>
@@ -578,7 +574,7 @@ Thank you,
                         <button
                             disabled={isGeneratingTeamCardPDF}
                             onClick={handleDownloadAllPDFs}
-                            className="w-full bg-green-600 text-white text-sm font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-lg flex items-center justify-center gap-2"
+                            className="w-full bg-game-orange-600 text-white text-sm font-semibold py-3 px-6 rounded-lg hover:bg-game-orange-700 transition-colors shadow-lg flex items-center justify-center gap-2"
                         >
                             <Download size={18}/> Download All Materials (13 files)
                         </button>
@@ -594,14 +590,14 @@ Thank you,
                 <button
                     type="button"
                     onClick={onPrevious}
-                    className="flex items-center gap-2 text-gray-700 hover:text-blue-600 font-medium py-2.5 px-5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-300"
+                    className="flex items-center gap-2 text-gray-700 hover:text-game-orange-600 font-medium py-2.5 px-5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-300"
                 >
                     <ArrowLeft size={18}/> Previous
                 </button>
                 <button
                     type="button"
                     onClick={onNext}
-                    className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+                    className="flex items-center gap-2 bg-game-orange-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-game-orange-700 transition-colors shadow-md"
                 >
                     Next: Finalize & Start <ArrowRight size={18}/>
                 </button>

@@ -31,7 +31,7 @@ export {default as LoginPage} from '@views/host/pages/LoginPage';
 
 export const RouteLoadingFallback: React.FC<{ message?: string }> = ({message = "Loading..."}) => (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-game-orange-500"></div>
         <p className="ml-3 text-gray-700">{message}</p>
     </div>
 );

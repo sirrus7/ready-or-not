@@ -56,7 +56,7 @@ const ImmediatePurchaseModal: React.FC<ImmediatePurchaseModalProps> = ({
 
                 {/* Immediate Purchase Benefits */}
                 {option.immediate_purchase_message && (
-                    <div className="bg-blue-900/20 border border-blue-600 rounded-lg p-4">
+                    <div className="bg-blue-900/20 border border-game-orange-600 rounded-lg p-4">
                         <div className="flex items-start space-x-3">
                             <FileText className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0"/>
                             <div>

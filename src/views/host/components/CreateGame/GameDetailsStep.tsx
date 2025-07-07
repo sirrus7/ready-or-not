@@ -120,7 +120,7 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
                     <button
                         type="button"
                         onClick={handleNext}
-                        className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-3 px-8 rounded-lg hover:bg-blue-700 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-base"
+                        className="flex items-center gap-2 bg-game-orange-600 text-white font-semibold py-3 px-8 rounded-lg hover:bg-game-orange-700 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:ring-offset-2 text-base"
                     >
                         Next: Team Setup <ArrowRight size={18}/>
                     </button>

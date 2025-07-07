@@ -174,10 +174,10 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
                             className="relative h-2 bg-white/20 rounded-full cursor-pointer hover:bg-white/30 transition-colors group"
                             onMouseDown={handleMouseDown}
                         >
-                            <div className="absolute top-0 left-0 h-full bg-blue-500 rounded-full"
+                            <div className="absolute top-0 left-0 h-full bg-game-orange-500 rounded-full"
                                  style={{width: `${progress}%`}}/>
                             <div
-                                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-game-orange-500 rounded-full border-2 border-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
                                 style={{left: `calc(${progress}% - 8px)`}}/>
                         </div>
                         <div className="flex justify-between text-xs text-white/80 mt-1">
@@ -191,7 +191,7 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
                                     className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors"
                                     title="Skip back 10s"><RotateCcw size={20}/></button>
                             <button onClick={handlePlayPause}
-                                    className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors"
+                                    className="p-3 bg-game-orange-600 hover:bg-game-orange-700 text-white rounded-full shadow-lg transition-colors"
                                     title={isPlaying ? 'Pause' : 'Play'}>
                                 {isPlaying ? <Pause size={24}/> : <Play size={24}/>}
                             </button>

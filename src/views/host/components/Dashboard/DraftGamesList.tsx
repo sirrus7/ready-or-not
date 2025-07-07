@@ -95,7 +95,7 @@ const DraftGamesList: React.FC<DraftGamesListProps> = ({
                                 <div className="flex gap-2 ml-3 flex-shrink-0">
                                     <button
                                         onClick={() => onResume(game.id, game.name)}
-                                        className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-1"
+                                        className="bg-game-orange-600 text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-game-orange-700 transition-colors flex items-center gap-1"
                                         title="Resume game creation"
                                     >
                                         <Edit size={14}/>

@@ -22,7 +22,7 @@ const DecisionHistoryButton: React.FC<DecisionHistoryButtonProps> = ({
     let iconClasses = "mr-3 flex-shrink-0";
 
     if (isCurrent) {
-        baseClasses += " bg-blue-600 text-white shadow-lg scale-105 border-2 border-blue-400";
+        baseClasses += " bg-game-orange-600 text-white shadow-lg scale-105 border-2 border-game-orange-400";
         textClasses += " font-semibold";
         iconClasses += " text-white";
     } else if (isCompleted) {

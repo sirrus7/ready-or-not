@@ -21,7 +21,7 @@ const TeamCodesModal: React.FC<TeamCodesModalProps> = ({isOpen, onClose, teams})
                                 className="p-2.5 bg-gray-100 rounded-md text-sm flex justify-between items-center"
                             >
                                 <span className="font-semibold text-gray-800">{team.name}:</span>
-                                <span className="ml-2 text-blue-600 font-mono bg-blue-100 px-2 py-0.5 rounded">
+                                <span className="ml-2 text-game-orange-600 font-mono bg-game-orange-100 px-2 py-0.5 rounded">
                                     {team.passcode}
                                 </span>
                             </li>
@@ -35,7 +35,7 @@ const TeamCodesModal: React.FC<TeamCodesModalProps> = ({isOpen, onClose, teams})
                 <div className="mt-4 text-right">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
+                        className="px-4 py-2 bg-game-orange-500 text-white rounded-md hover:bg-game-orange-600 transition"
                     >
                         Close
                     </button>

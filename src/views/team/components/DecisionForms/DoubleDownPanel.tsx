@@ -64,7 +64,7 @@ const DoubleDownPanel: React.FC<DoubleDownPanelProps> = ({
                                 'bg-green-600 border-green-400 text-white shadow-lg transform scale-[1.02]' :
                                 'bg-red-600 border-red-400 text-white shadow-lg transform scale-[1.02]') :
                             'bg-gray-700 border-gray-500 text-gray-200 hover:bg-gray-600 hover:border-gray-400 hover:scale-[1.01]'}
-                        focus:outline-none focus:ring-4 focus:ring-blue-500/50
+                        focus:outline-none focus:ring-4 focus:ring-game-orange-500/50
                         disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         <div className="flex items-center justify-between">
@@ -105,7 +105,7 @@ const DoubleDownPanel: React.FC<DoubleDownPanelProps> = ({
                                 id="sacrifice-select"
                                 value={sacrificeInvestmentId || ''}
                                 onChange={(e) => onSacrificeChange(e.target.value)}
-                                className="w-full px-3 py-3 bg-gray-800 border border-gray-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-3 py-3 bg-gray-800 border border-gray-600 rounded-md text-white focus:ring-game-orange-500 focus:border-game-orange-500"
                                 disabled={isSubmitting}
                             >
                                 <option value="" disabled>Select investment to remove</option>
@@ -132,7 +132,7 @@ const DoubleDownPanel: React.FC<DoubleDownPanelProps> = ({
                                     id="double-down-select"
                                     value={doubleDownOnInvestmentId || ''}
                                     onChange={(e) => onDoubleDownChange(e.target.value)}
-                                    className="w-full px-3 py-3 bg-gray-800 border border-gray-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-3 bg-gray-800 border border-gray-600 rounded-md text-white focus:ring-game-orange-500 focus:border-game-orange-500"
                                     disabled={isSubmitting}
                                 >
                                     <option value="" disabled>Select investment to double down on</option>

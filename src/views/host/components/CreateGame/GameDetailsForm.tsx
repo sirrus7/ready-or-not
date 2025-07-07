@@ -100,7 +100,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                     name="game_version"
                     value={gameData.game_version}
                     onChange={(e) => onFieldChange('game_version', e.target.value as NewGameData['game_version'])}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-base"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 bg-white text-base"
                 >
                     <option value="2.0_dd">2.0 with Double Down</option>
                     <option value="1.5_dd">1.5 with Double Down</option>
@@ -120,7 +120,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                     onChange={(e) => onFieldChange('name', e.target.value)}
                     placeholder="e.g., Spring Semester Economics Challenge"
                     maxLength={40}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 text-base"
                 />
             </div>
 
@@ -138,7 +138,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                         onChange={(e) => onFieldChange('class_name', e.target.value)}
                         placeholder="e.g., Business 101, Math Club"
                         maxLength={30}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 text-base"
                     />
                 </div>
                 <div>
@@ -150,7 +150,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                         name="grade_level"
                         value={gameData.grade_level}
                         onChange={(e) => onFieldChange('grade_level', e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-base"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 bg-white text-base"
                     >
                         {gradeLevels.map(level => (
                             <option key={level} value={level}>{level}</option>
@@ -174,7 +174,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                         min="0"
                         max={100}
                         placeholder="e.g., 15"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 text-base"
                     />
                     <p className="mt-1 text-xs text-gray-500">
                         Total number of students participating
@@ -192,7 +192,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
                         onChange={handleTeamsChange}
                         min="0"
                         placeholder="e.g., 3"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 text-base"
                     />
                     <p className="mt-1 text-xs text-gray-500">
                         Teams will compete against each other

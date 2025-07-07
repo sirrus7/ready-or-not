@@ -103,7 +103,7 @@ const PresentationButton: React.FC = () => {
                 };
             default: // disconnected
                 return {
-                    bgClass: 'bg-blue-600',
+                    bgClass: 'bg-game-orange-600',
                     textClass: 'text-white',
                     iconClass: 'text-white',
                     statusText: 'Launch Presentation Display',

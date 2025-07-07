@@ -297,7 +297,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                                             )}
                                             {investment.isContinuation && (
                                                 <span
-                                                    className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full font-medium border border-blue-500/30">
+                                                    className="px-2 py-1 bg-game-orange-500/20 text-blue-300 text-xs rounded-full font-medium border border-game-orange-500/30">
                                                 Continue
                                             </span>
                                             )}

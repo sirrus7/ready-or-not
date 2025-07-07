@@ -46,7 +46,7 @@ const LoginPage: React.FC = () => {
             <div
                 className="max-w-md w-full bg-white rounded-lg shadow-xl border border-gray-200 p-8"> {/* Enhanced styling */}
                 <div className="flex items-center justify-center mb-6"> {/* Reduced margin */}
-                    <LogIn className="w-10 h-10 text-blue-600"/> {/* Slightly smaller icon */}
+                    <LogIn className="w-10 h-10 text-game-orange-600"/> {/* Slightly smaller icon */}
                 </div>
 
                 <h2 className="text-2xl font-bold text-center text-gray-800 mb-6"> {/* Reduced margin */}
@@ -70,7 +70,7 @@ const LoginPage: React.FC = () => {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" // Added shadow-sm, rounded-md
+                            className="w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500" // Added shadow-sm, rounded-md
                             required
                             autoComplete="email"
                         />
@@ -86,7 +86,7 @@ const LoginPage: React.FC = () => {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" // Added shadow-sm, rounded-md
+                            className="w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500" // Added shadow-sm, rounded-md
                             required
                             autoComplete={isSignUp ? "new-password" : "current-password"}
                         />
@@ -94,7 +94,7 @@ const LoginPage: React.FC = () => {
 
                     <button
                         type="submit"
-                        className="w-full bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-150 ease-in-out" // Enhanced styling
+                        className="w-full bg-game-orange-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-game-orange-700 focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:ring-offset-2 transition-colors duration-150 ease-in-out" // Enhanced styling
                     >
                         {isSignUp ? 'Create Account' : 'Sign In'}
                     </button>
@@ -106,7 +106,7 @@ const LoginPage: React.FC = () => {
                             setIsSignUp(!isSignUp);
                             setError('');
                         }} // Clear error on toggle
-                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none" // Added focus style
+                        className="text-sm text-game-orange-600 hover:text-game-orange-800 hover:underline focus:outline-none" // Added focus style
                     >
                         {isSignUp
                             ? 'Already have an account? Sign in'

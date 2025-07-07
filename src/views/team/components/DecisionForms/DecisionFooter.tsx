@@ -98,7 +98,7 @@ const DecisionFooter: React.FC<DecisionFooterProps> = ({
                             py-3 px-6 rounded-lg font-semibold transition-all duration-200 shadow-lg
                             ${isSubmitDisabled
                             ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
+                            : 'bg-game-orange-600 hover:bg-game-orange-700 text-white shadow-blue-500/25'
                         }`}
                     >
                         {isSubmitting ? (

@@ -30,7 +30,7 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
                 <Users size={16}/> Team Codes
             </button>
             <button onClick={onToggleNotes}
-                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors border ${showNotes ? 'bg-blue-50 text-blue-700 border-blue-300' : 'hover:bg-gray-100 text-gray-600 border-gray-300'}`}>
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors border ${showNotes ? 'bg-game-orange-50 text-game-orange-700 border-blue-300' : 'hover:bg-gray-100 text-gray-600 border-gray-300'}`}>
                 <FileText size={16}/> Notes
             </button>
             <button onClick={onExitGame}

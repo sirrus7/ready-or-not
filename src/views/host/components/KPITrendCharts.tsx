@@ -215,9 +215,9 @@ const KPITrendCharts: React.FC<KPITrendChartsProps> = ({teams, teamRoundData}) =
             </div>
 
             {/* Insights */}
-            <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+            <div className="bg-game-orange-50 rounded-lg p-6 border border-game-orange-200">
                 <h3 className="text-lg font-semibold text-blue-900 mb-3">📊 Reading the Trends</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-game-orange-800">
                     <div>
                         <strong>Steep upward lines</strong> indicate teams that made highly effective strategic
                         decisions

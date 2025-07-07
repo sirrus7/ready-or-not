@@ -159,7 +159,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
     const getTeamSelectClasses = () => {
         const baseClasses = "w-full px-4 py-3 bg-gray-700 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-white appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
         const errorClasses = "border-red-500 focus:ring-red-500 focus:border-red-500";
-        const normalClasses = "border-gray-600 focus:ring-blue-500 focus:border-blue-500";
+        const normalClasses = "border-gray-600 focus:ring-game-orange-500 focus:border-game-orange-500";
 
         return `${baseClasses} ${validationErrors.team ? errorClasses : normalClasses}`;
     };
@@ -172,7 +172,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
     const getPasscodeInputClasses = () => {
         const baseClasses = "w-full px-4 py-3 bg-gray-700 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-white placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed";
         const errorClasses = "border-red-500 focus:ring-red-500 focus:border-red-500";
-        const normalClasses = "border-gray-600 focus:ring-blue-500 focus:border-blue-500";
+        const normalClasses = "border-gray-600 focus:ring-game-orange-500 focus:border-game-orange-500";
 
         return `${baseClasses} ${validationErrors.passcode ? errorClasses : normalClasses}`;
     };

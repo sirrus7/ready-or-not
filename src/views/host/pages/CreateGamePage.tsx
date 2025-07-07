@@ -252,7 +252,7 @@ const CreateGamePage: React.FC = () => {
     if (isLoading) {
         return (
             <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-game-orange-600"></div>
                 <p className="mt-4 text-gray-600">
                     {resumeSessionId ? 'Resuming your draft game...' : 'Setting up your new game...'}
                 </p>
@@ -270,7 +270,7 @@ const CreateGamePage: React.FC = () => {
                     <p className="text-gray-600 mb-6">{error}</p>
                     <button
                         onClick={() => navigate('/dashboard')}
-                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                        className="w-full bg-game-orange-600 text-white py-2 px-4 rounded-lg hover:bg-game-orange-700 transition-colors"
                     >
                         Return to Dashboard
                     </button>
@@ -288,7 +288,7 @@ const CreateGamePage: React.FC = () => {
                 <div className="p-6 border-b border-gray-200">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                            <Zap size={32} className="text-blue-600 mr-3"/>
+                            <Zap size={32} className="text-game-orange-600 mr-3"/>
                             <div>
                                 <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
                                     Create New Game
@@ -301,7 +301,7 @@ const CreateGamePage: React.FC = () => {
                         <button
                             onClick={handleCancel}
                             disabled={isCancelling}
-                            className="text-sm text-gray-500 hover:text-blue-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-sm text-gray-500 hover:text-game-orange-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Cancel and return to Dashboard"
                         >
                             {isCancelling ? (
@@ -328,22 +328,22 @@ const CreateGamePage: React.FC = () => {
                                     className={`flex flex-col items-center text-center w-1/${WIZARD_STEPS.length} px-1`}>
                                     <div
                                         className={`w-10 h-10 rounded-full flex items-center justify-center border-2 mb-1.5 transition-all duration-300
-                                        ${currentStep === step.id ? 'bg-blue-600 text-white border-blue-700 shadow-lg scale-110' :
-                                            currentStep > step.id ? 'bg-green-500 text-white border-green-600' :
+                                            ${currentStep === step.id ? 'bg-game-orange-600 text-white border-game-orange-700 shadow-lg scale-110' :
+                                            currentStep > step.id ? 'bg-game-orange-200 text-game-orange-800 border-game-orange-300' :
                                                 'bg-white border-gray-300 text-gray-400'}`}
                                     >
                                         {currentStep > step.id ? <CheckCircle size={20}/> : <step.icon size={18}/>}
                                     </div>
                                     <span className={`text-xs font-medium transition-colors duration-300 truncate w-full
-                                    ${currentStep === step.id ? 'text-blue-700 font-semibold' :
-                                        currentStep > step.id ? 'text-green-700' :
+                                        ${currentStep === step.id ? 'text-game-orange-700 font-semibold' :
+                                        currentStep > step.id ? 'text-game-brown-700' :
                                             'text-gray-500'}`}>
                                         {step.title}
                                     </span>
                                 </div>
                                 {index < WIZARD_STEPS.length - 1 && (
                                     <div
-                                        className={`flex-1 h-0.5 mt-5 ${currentStep > step.id ? 'bg-green-500' : (currentStep === step.id + 1 ? 'bg-blue-200' : 'bg-gray-300')}`}/>
+                                        className={`flex-1 h-0.5 mt-5 ${currentStep > step.id ? 'bg-game-brown-600' : (currentStep === step.id + 1 ? 'bg-game-orange-200' : 'bg-gray-300')}`}/>
                                 )}
                             </React.Fragment>
                         ))}
@@ -353,7 +353,7 @@ const CreateGamePage: React.FC = () => {
                 {/* Main Content */}
                 <div className="p-6 md:p-8">
                     <div className="flex items-center mb-6 text-gray-700">
-                        <CurrentStepIcon size={22} className="text-blue-600 mr-2.5 flex-shrink-0"/>
+                        <CurrentStepIcon size={22} className="text-game-orange-600 mr-2.5 flex-shrink-0"/>
                         <h2 className="text-xl md:text-2xl font-semibold">
                             {WIZARD_STEPS[currentStep - 1].title}
                         </h2>

@@ -238,7 +238,7 @@ const DashboardPage: React.FC = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                                            <div className="bg-blue-100 p-2 rounded-lg">
+                                            <div className="bg-game-orange-100 p-2 rounded-lg">
                                                 <Play size={24} className="text-game-orange-600"/>
                                             </div>
                                             My Games
@@ -255,7 +255,7 @@ const DashboardPage: React.FC = () => {
                                 {isLoadingGames ? (
                                     <div className="flex items-center justify-center py-12">
                                         <div
-                                            className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
+                                            className="animate-spin rounded-full h-8 w-8 border-b-2 border-game-orange-500 mr-3"></div>
                                         <span className="text-gray-500">Loading games...</span>
                                     </div>
                                 ) : activeGames.length === 0 ? (

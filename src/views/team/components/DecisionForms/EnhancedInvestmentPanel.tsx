@@ -148,7 +148,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                     isDisabled
                         ? 'border-gray-600 bg-gray-800/30 opacity-50'
                         : isSelected || isExpanded
-                            ? 'border-blue-400 bg-blue-900/30 shadow-lg'
+                            ? 'border-game-orange-400 bg-blue-900/30 shadow-lg'
                             : 'border-gray-500 bg-gray-800/50 hover:bg-gray-700/50'
                 }`}
             >
@@ -159,7 +159,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                     {/* Checkbox */}
                     <input
                         type="checkbox"
-                        className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-blue-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded disabled:opacity-50"
+                        className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-game-orange-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded disabled:opacity-50"
                         checked={isSelected || isImmediatePurchased}
                         disabled={!isInteractable}
                         onChange={() => {
@@ -201,7 +201,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                 </span>
                             )}
                             {pricing && group === 'reinvest' && (
-                                <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded-full">
+                                <span className="px-2 py-1 text-xs bg-game-orange-600 text-white rounded-full">
                                     Reduced Price
                                 </span>
                             )}
@@ -259,7 +259,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                             {isSelected && !isExpanded && (
                                 <div className="flex items-center gap-1">
                                     <div className={`w-3 h-3 rounded-full flex items-center justify-center ${
-                                        isImmediatePurchased ? 'bg-green-500' : 'bg-blue-500'
+                                        isImmediatePurchased ? 'bg-green-500' : 'bg-game-orange-500'
                                     }`}>
                                         <CheckCircle className="w-3 h-3 text-white"/>
                                     </div>
@@ -340,7 +340,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
             {reinvestInvestments.length > 0 && (
                 <div className="space-y-4">
                     <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                        <div className="w-3 h-3 bg-game-orange-500 rounded"></div>
                         <h3 className="text-lg font-semibold text-white">💰 Reinvest (Reduced Price)</h3>
                     </div>
                     <div className="space-y-3">

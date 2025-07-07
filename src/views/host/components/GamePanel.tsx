@@ -41,7 +41,7 @@ const GamePanel: React.FC = () => {
 
     if (isLoading && !currentSessionId) {
         return <div className="bg-gray-100 p-6 rounded-lg shadow-md flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-game-orange-500 mr-3"></div>
             Loading...</div>;
     }
     if (appError && !currentSessionId) {
@@ -59,7 +59,7 @@ const GamePanel: React.FC = () => {
                 {/* Panel Header */}
                 <div className="flex-shrink-0 border-b border-gray-200 px-4 py-3">
                     <div className="flex items-center">
-                        <Layers className="mr-2 text-blue-600" size={22}/>
+                        <Layers className="mr-2 text-game-orange-600" size={22}/>
                         <div className="min-w-0 flex-1">
                             <h2 className="text-lg font-bold text-gray-800 leading-tight truncate">Host Control Panel</h2>
                         </div>
@@ -72,7 +72,7 @@ const GamePanel: React.FC = () => {
                         onClick={() => setActiveTab('timeline')}
                         className={`flex-1 flex items-center justify-center gap-2 p-3 text-sm font-medium transition-colors ${
                             activeTab === 'timeline' ?
-                                'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-100'
+                                'bg-white text-game-orange-600 border-b-2 border-game-orange-600' : 'text-gray-500 hover:bg-gray-100'
                         }`}
                     >
                         <History size={16}/>
@@ -82,7 +82,7 @@ const GamePanel: React.FC = () => {
                         onClick={() => setActiveTab('submissions')}
                         disabled={!isInteractiveStudentSlide}
                         className={`flex-1 flex items-center justify-center gap-2 p-3 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                            activeTab === 'submissions' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-100'
+                            activeTab === 'submissions' ? 'bg-white text-game-orange-600 border-b-2 border-game-orange-600' : 'text-gray-500 hover:bg-gray-100'
                         }`}
                     >
                         <ListChecks size={16}/>

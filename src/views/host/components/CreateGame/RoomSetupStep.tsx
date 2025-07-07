@@ -55,13 +55,13 @@ const RoomSetupStep: React.FC<RoomSetupStepProps> = ({
 
     return (
         <div className="space-y-6 text-gray-700">
-            <div className="bg-sky-50 border-l-4 border-sky-500 p-4 rounded-md">
+            <div className="bg-game-cream-100 border-l-4 border-game-orange-500 p-4 rounded-md">
                 <div className="flex">
                     <div className="flex-shrink-0 pt-0.5">
-                        <Info className="h-5 w-5 text-sky-700"/>
+                        <Info className="h-5 w-5 text-game-brown-700"/>
                     </div>
                     <div className="ml-3">
-                        <p className="text-sm text-sky-700">
+                        <p className="text-sm text-game-brown-700">
                             Proper room and screen setup is key for a smooth simulation. This step outlines the basics.
                             For detailed diagrams, table layouts for different team sizes
                             ({gameData.num_teams} teams, {gameData.num_players} players), and troubleshooting, please
@@ -75,13 +75,13 @@ const RoomSetupStep: React.FC<RoomSetupStepProps> = ({
             <div className="mb-4">
                 <button
                     onClick={() => toggleSection('screenSetup')}
-                    className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                    className="w-full flex items-center justify-between p-3 bg-game-orange-50 hover:bg-game-orange-100 rounded-lg border border-game-orange-200 transition-colors"
                 >
                     <div className="flex items-center">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                        <MonitorPlay size={18} className="mr-2 text-blue-600"/>
+                        <div className="w-2 h-2 bg-game-orange-500 rounded-full mr-3"></div>
+                        <MonitorPlay size={18} className="mr-2 text-game-orange-600"/>
                         <h4 className="font-medium text-gray-800 text-sm">Screen Setup Requirements</h4>
-                        <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Critical</span>
+                        <span className="ml-2 text-xs bg-game-orange-100 text-game-orange-700 px-2 py-1 rounded">Critical</span>
                     </div>
                     {expandedSections.screenSetup ?
                         <ChevronDown size={18} className="text-gray-500"/> :
@@ -142,13 +142,13 @@ const RoomSetupStep: React.FC<RoomSetupStepProps> = ({
             <div className="mb-4">
                 <button
                     onClick={() => toggleSection('roomSetup')}
-                    className="w-full flex items-center justify-between p-3 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors"
+                    className="w-full flex items-center justify-between p-3 bg-game-orange-50 hover:bg-game-orange-100 rounded-lg border border-game-orange-200 transition-colors"
                 >
                     <div className="flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                        <LayoutGrid size={18} className="mr-2 text-green-600"/>
+                        <div className="w-2 h-2 bg-game-orange-500 rounded-full mr-3"></div>
+                        <LayoutGrid size={18} className="mr-2 text-game-orange-600"/>
                         <h4 className="font-medium text-gray-800 text-sm">Physical Room & Table Setup</h4>
-                        <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Layout Guide</span>
+                        <span className="ml-2 text-xs bg-game-orange-100 text-game-orange-700 px-2 py-1 rounded">Layout Guide</span>
                     </div>
                     {expandedSections.roomSetup ?
                         <ChevronDown size={18} className="text-gray-500"/> :
@@ -194,7 +194,7 @@ const RoomSetupStep: React.FC<RoomSetupStepProps> = ({
             <div className="text-center mt-4">
                 <a
                     href={howToHostGuideUrl}
-                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold text-sm underline focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 p-1 rounded"
+                    className="inline-flex items-center gap-2 text-game-orange-600 hover:text-game-orange-800 font-semibold text-sm underline focus:outline-none focus:ring-2 focus:ring-game-orange-400 focus:ring-offset-2 p-1 rounded"
                     target="_blank"
                     rel="noopener noreferrer"
                 >
@@ -207,14 +207,14 @@ const RoomSetupStep: React.FC<RoomSetupStepProps> = ({
                 <button
                     type="button"
                     onClick={onPrevious}
-                    className="flex items-center gap-2 text-gray-700 hover:text-blue-600 font-medium py-2.5 px-5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-300"
+                    className="flex items-center gap-2 text-gray-700 hover:text-game-orange-600 font-medium py-2.5 px-5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-300"
                 >
                     <ArrowLeft size={18}/> Previous
                 </button>
                 <button
                     type="button"
                     onClick={() => onNext()}
-                    className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+                    className="flex items-center gap-2 bg-game-orange-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-game-orange-700 transition-colors shadow-md"
                 >
                     Next: Print Handouts <ArrowRight size={18}/>
                 </button>

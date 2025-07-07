@@ -106,7 +106,7 @@ const DoubleDownControl: React.FC<DoubleDownControlProps> = ({currentSlideId, se
             )}
 
             {/* Instructions */}
-            <div className="mt-4 p-3 bg-blue-900/20 rounded-lg border border-blue-800/30">
+            <div className="mt-4 p-3 bg-blue-900/20 rounded-lg border border-game-orange-800/30">
                 <p className="text-xs text-blue-300 flex items-start">
                     <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0 mt-0.5"/>
                     Click "Roll the Dice!" on the display to roll for each investment. Teams see the same roll result.

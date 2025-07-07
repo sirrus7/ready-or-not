@@ -22,7 +22,7 @@ const TeamRecommendationDisplay: React.FC<TeamRecommendationDisplayProps> = ({
         <div className={`p-3 rounded-md text-sm mt-2 ${
             isError
                 ? 'bg-red-50 text-red-700 border-red-200'
-                : 'bg-blue-50 text-blue-700 border-blue-200'
+                : 'bg-game-orange-50 text-game-orange-700 border-game-orange-200'
         }`}>
             {recommendation}
         </div>

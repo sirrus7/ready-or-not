@@ -77,7 +77,7 @@ const DecisionHeader: React.FC<DecisionHeaderProps> = ({
             <div className="mb-4">
                 <div className="bg-gray-600 rounded-full h-2 overflow-hidden">
                     <div
-                        className={`h-full transition-all duration-300 ${budgetStatus === 'over' ? 'bg-red-500' : budgetStatus === 'full' ? 'bg-green-500' : 'bg-blue-500'}`}
+                        className={`h-full transition-all duration-300 ${budgetStatus === 'over' ? 'bg-red-500' : budgetStatus === 'full' ? 'bg-green-500' : 'bg-game-orange-500'}`}
                         style={{width: `${Math.min(100, (state.spentBudget / investUpToBudget) * 100)}%`}}/>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400 mt-1">

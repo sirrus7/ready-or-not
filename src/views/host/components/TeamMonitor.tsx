@@ -278,10 +278,10 @@ const TeamMonitor: React.FC = () => {
         <>
             <div className="p-4">
                 {/* Submission Progress */}
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 className="font-semibold text-blue-800 mb-2">Submission Progress</h3>
+                <div className="mb-4 p-3 bg-game-orange-50 border border-game-orange-200 rounded-lg">
+                    <h3 className="font-semibold text-game-orange-800 mb-2">Submission Progress</h3>
                     <div className="flex items-center justify-between">
-                        <span className="text-sm text-blue-700">
+                        <span className="text-sm text-game-orange-700">
                             {submissionStats.submitted} of {submissionStats.total} teams submitted
                         </span>
                         <div className="flex items-center">
@@ -292,9 +292,9 @@ const TeamMonitor: React.FC = () => {
                             )}
                         </div>
                     </div>
-                    <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
+                    <div className="w-full bg-game-orange-200 rounded-full h-2 mt-2">
                         <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            className="bg-game-orange-600 h-2 rounded-full transition-all duration-300"
                             style={{width: `${teams.length > 0 ? (submissionStats.submitted / teams.length) * 100 : 0}%`}}
                         />
                     </div>

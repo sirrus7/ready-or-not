@@ -167,7 +167,7 @@ export const allGameSlides: Slide[] = [
         main_text: "CHALLENGE 1: Machinery Failure",
         sub_text: "How will you respond to the equipment failure?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900',
+        background_css: 'bg-game-orange-900',
         host_alert: {
             title: "Challenge Period Complete",
             message: "Before proceeding, please confirm that all teams have finalized and submitted their decisions. Once verified, click 'Next' to continue to the next phase."
@@ -307,7 +307,7 @@ export const allGameSlides: Slide[] = [
         main_text: "CHALLENGE 2: Corporate Activities Tax",
         sub_text: "How will you respond to the new tax?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900',
+        background_css: 'bg-game-orange-900',
         host_alert: {
             title: "CH2 Closed",
             message: "Challenge 2 decisions are in. Click OK for results."
@@ -451,7 +451,7 @@ export const allGameSlides: Slide[] = [
         main_text: "CHALLENGE 3: Recession Response",
         sub_text: "How will you handle the economic downturn?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900',
+        background_css: 'bg-game-orange-900',
         host_alert: {
             title: "CH3 Closed",
             message: "Challenge 3 decisions are in. Click OK for results."
@@ -813,7 +813,7 @@ export const allGameSlides: Slide[] = [
         main_text: "CHALLENGE 4: Supply Chain Crisis",
         sub_text: "How will you handle the supply chain disruption?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900',
+        background_css: 'bg-game-orange-900',
         host_alert: {
             title: "CH4 Closed",
             message: "Challenge 4 decisions are in. Click OK for results."
@@ -934,7 +934,7 @@ export const allGameSlides: Slide[] = [
         main_text: "CHALLENGE 5: Capacity Crisis",
         sub_text: "How will you meet the increased demand?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900',
+        background_css: 'bg-game-orange-900',
         host_alert: {
             title: "CH5 Closed",
             message: "Challenge 5 decisions are in. Click OK for results."
@@ -1066,7 +1066,7 @@ export const allGameSlides: Slide[] = [
         main_text: "CHALLENGE 6: Quality Crisis",
         sub_text: "How will you handle the defective products?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900',
+        background_css: 'bg-game-orange-900',
         host_alert: {
             title: "CH6 Closed",
             message: "Challenge 6 decisions are in. Click OK for results."
@@ -1190,7 +1190,7 @@ export const allGameSlides: Slide[] = [
         main_text: "CHALLENGE 7: Competition from Karit Co.",
         sub_text: "How will you respond to the new competitor?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900',
+        background_css: 'bg-game-orange-900',
         host_alert: {
             title: "CH7 Closed",
             message: "Challenge 7 decisions are in. Click OK for results."
@@ -1587,7 +1587,7 @@ export const allGameSlides: Slide[] = [
         main_text: "CHALLENGE 8: Cyber Attack",
         sub_text: "How will you respond to the ransomware attack?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900',
+        background_css: 'bg-game-orange-900',
         host_alert: {
             title: "CH8 Closed",
             message: "Challenge 8 decisions are in. Click OK for results."
@@ -1708,7 +1708,7 @@ export const allGameSlides: Slide[] = [
         main_text: "CHALLENGE 9: ERP System Constraint",
         sub_text: "How will you handle the system failures?",
         timer_duration_seconds: 180,
-        background_css: 'bg-purple-900',
+        background_css: 'bg-game-orange-900',
         host_alert: {
             title: "CH9 Closed",
             message: "Challenge 9 decisions are in. Click OK for results."

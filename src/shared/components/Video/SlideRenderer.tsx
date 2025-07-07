@@ -90,7 +90,7 @@ const SlideContent: React.FC<{
 
 const MediaLoadingIndicator: React.FC = () => (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-10">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-400 mb-3"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-game-orange-400 mb-3"></div>
         <p className="text-white text-sm">Loading Media...</p>
     </div>
 );

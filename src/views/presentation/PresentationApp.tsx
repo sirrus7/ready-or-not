@@ -140,7 +140,7 @@ const PresentationApp: React.FC = () => {
                                 <div className="flex flex-col gap-3">
                                     <button
                                         onClick={handleRetry}
-                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg mx-auto transition-colors"
+                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-game-orange-600 hover:bg-game-orange-700 text-white rounded-lg mx-auto transition-colors"
                                     >
                                         <RefreshCw size={16}/>
                                         Retry Connection

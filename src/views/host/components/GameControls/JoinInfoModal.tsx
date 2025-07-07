@@ -55,7 +55,7 @@ const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId
                             href={displayUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-mono text-blue-600 hover:text-blue-800 break-all text-lg"
+                            className="font-mono text-game-orange-600 hover:text-game-orange-800 break-all text-lg"
                         >
                             {displayUrl}
                         </a>
@@ -84,7 +84,7 @@ const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId
                 </p>
                 <button
                     onClick={onClose}
-                    className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
+                    className="mt-2 px-4 py-2 bg-game-orange-500 text-white rounded-md hover:bg-game-orange-600 transition"
                 >
                     Close
                 </button>

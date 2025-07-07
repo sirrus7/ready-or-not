@@ -228,13 +228,13 @@ const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
 
     return (
         <div className="space-y-6">
-            <div className="bg-sky-50 border-l-4 border-sky-500 p-4 rounded-md">
+            <div className="bg-game-cream-100 border-l-4 border-game-orange-500 p-4 rounded-md">
                 <div className="flex">
                     <div className="flex-shrink-0 pt-0.5">
-                        <Info className="h-5 w-5 text-sky-700"/>
+                        <Info className="h-5 w-5 text-game-brown-700"/>
                     </div>
                     <div className="ml-3">
-                        <p className="text-sm text-sky-700">
+                        <p className="text-sm text-game-brown-700">
                             Based on your selection of <strong
                             className="font-medium">{gameData.num_teams} teams</strong>,
                             team names and unique 3-digit passcodes have been generated. The names are inspired by
@@ -264,7 +264,7 @@ const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
                                         onChange={handleTempNameChange}
                                         onBlur={() => handleSaveName(team.id)}
                                         onKeyPress={(e) => e.key === 'Enter' && handleSaveName(team.id)}
-                                        className="w-full text-sm font-medium text-gray-800 border-blue-500 border px-2 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        className="w-full text-sm font-medium text-gray-800 border-game-orange-500 border px-2 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-game-orange-500"
                                         autoFocus
                                         maxLength={MAX_TEAM_NAME_LENGTH}
                                     />
@@ -278,7 +278,7 @@ const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
                         </div>
                         <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
                             <span
-                                className="text-sm text-blue-700 font-mono bg-blue-100 px-2.5 py-1 rounded-md shadow-sm">
+                                className="text-sm text-game-orange-700 font-mono bg-game-orange-100 px-2.5 py-1 rounded-md shadow-sm">
                                 {team.passcode}
                             </span>
                             {editingTeamId === team.id ? (
@@ -289,7 +289,7 @@ const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
                                 </button>
                             ) : (
                                 <button onClick={() => handleEditName(team)}
-                                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded-full"
+                                        className="p-1.5 text-gray-500 hover:text-game-orange-600 hover:bg-game-orange-100 rounded-full"
                                         title="Edit team name">
                                     <Edit2 size={16}/>
                                 </button>
@@ -355,14 +355,14 @@ const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
                 <button
                     type="button"
                     onClick={onPrevious}
-                    className="flex items-center gap-2 text-gray-700 hover:text-blue-600 font-medium py-2.5 px-5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-300"
+                    className="flex items-center gap-2 text-gray-700 hover:text-game-orange-600 font-medium py-2.5 px-5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-300"
                 >
                     <ArrowLeft size={18}/> Previous
                 </button>
                 <button
                     type="button"
                     onClick={() => onNext(gameData)}
-                    className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+                    className="flex items-center gap-2 bg-game-orange-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-game-orange-700 transition-colors shadow-md"
                 >
                     Next: Room Setup <ArrowRight size={18}/>
                 </button>

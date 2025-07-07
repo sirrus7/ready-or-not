@@ -343,7 +343,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                         <div className="space-y-3 mb-6">
                             {affectedTeams.map((team, index) => (
                                 <div key={index}
-                                     className="bg-blue-600/20 border border-blue-500/30 rounded-lg px-6 py-3">
+                                     className="bg-game-orange-600/20 border border-game-orange-500/30 rounded-lg px-6 py-3">
                                     <span className="text-xl font-medium text-white">{team}</span>
                                 </div>
                             ))}
@@ -465,7 +465,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                         <div className="flex flex-wrap gap-2 justify-center">
                                             {affectedTeams.map((team, index) => (
                                                 <div key={index}
-                                                     className="bg-blue-600/30 border border-blue-500/50 rounded-lg px-4 py-2">
+                                                     className="bg-game-orange-600/30 border border-game-orange-500/50 rounded-lg px-4 py-2">
                                                     <span className="text-lg font-medium text-white">{team}</span>
                                                 </div>
                                             ))}

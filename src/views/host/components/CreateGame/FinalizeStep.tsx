@@ -11,9 +11,9 @@ const FinalizeStep: React.FC<FinalizeStepProps> = ({
                                                    }) => {
     return (
         <div className="space-y-6 text-gray-700">
-            <div className="p-6 bg-green-50 border-l-4 border-green-500 rounded-md text-center shadow">
-                <Rocket size={40} className="text-green-600 mx-auto mb-3"/>
-                <h3 className="text-2xl font-bold text-green-700 mb-1">Almost There!</h3>
+            <div className="p-6 bg-game-orange-50 border-l-4 border-game-orange-500 rounded-md text-center shadow">
+                <Rocket size={40} className="text-game-orange-600 mx-auto mb-3"/>
+                <h3 className="text-2xl font-bold text-game-orange-700 mb-1">Almost There!</h3>
                 <p className="text-gray-600 text-sm">
                     Please review your game session details below. Clicking "Finalize & Start Game" will create the
                     session, generate team access, and take you to the facilitator control panel.
@@ -71,7 +71,7 @@ const FinalizeStep: React.FC<FinalizeStepProps> = ({
                 )}
             </div>
 
-            <div className="mt-3 p-4 bg-sky-50 border border-sky-200 rounded-lg text-sm text-sky-700">
+            <div className="mt-3 p-4 bg-game-cream-100 border border-game-cream-300 rounded-lg text-sm text-game-brown-700">
                 <h5 className="font-semibold mb-1 flex items-center">
                     <UsersIcon size={16} className="mr-2"/> Team Setup Summary
                 </h5>
@@ -87,7 +87,7 @@ const FinalizeStep: React.FC<FinalizeStepProps> = ({
                         names (Team A, Team B, etc.) and random passcodes.
                     </p>
                 ) : (
-                    <p className="italic text-sky-600">Team configuration will be based on the number of teams set in
+                    <p className="italic text-game-brown-600">Team configuration will be based on the number of teams set in
                         Step 1.</p>
                 )}
             </div>
@@ -101,15 +101,15 @@ const FinalizeStep: React.FC<FinalizeStepProps> = ({
                     type="button"
                     onClick={onPrevious}
                     disabled={isSubmitting}
-                    className="flex items-center gap-2 text-gray-700 hover:text-blue-600 font-medium py-2.5 px-5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-300 disabled:opacity-50"
+                    className="flex items-center gap-2 text-gray-700 hover:text-game-orange-600 font-medium py-2.5 px-5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-300 disabled:opacity-50"
                 >
                     <ArrowLeft size={18}/> Previous
                 </button>
                 <button
                     type="button"
-                    onClick={onNext} // Now uses onNext instead of onFinalize
+                    onClick={onNext}
                     disabled={isSubmitting || !gameData.name || gameData.num_players < 2 || gameData.num_teams < 1}
-                    className="flex items-center justify-center gap-2 bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[230px]"
+                    className="flex items-center justify-center gap-2 bg-game-orange-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-game-orange-700 transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[230px]"
                 >
                     {isSubmitting ? (
                         <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>

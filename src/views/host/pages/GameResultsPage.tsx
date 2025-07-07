@@ -115,9 +115,9 @@ const GameResultsPage: React.FC = () => {
 
     if (loading || isLoadingTeams || isLoadingRoundData) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-game-orange-600 mx-auto"></div>
                     <p className="mt-4 text-gray-600">Loading game results...</p>
                 </div>
             </div>
@@ -126,7 +126,7 @@ const GameResultsPage: React.FC = () => {
 
     if (error || teamDataError || !session) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100 flex items-center justify-center">
                 <div className="text-center">
                     <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                         <Trophy size={32} className="text-red-600"/>
@@ -135,7 +135,7 @@ const GameResultsPage: React.FC = () => {
                     <p className="text-gray-600 mb-6">{error || teamDataError || 'Unable to load game results'}</p>
                     <button
                         onClick={() => navigate('/dashboard')}
-                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        className="bg-game-orange-600 text-white px-6 py-2 rounded-lg hover:bg-game-orange-700 transition-colors"
                     >
                         Return to Dashboard
                     </button>
@@ -147,7 +147,7 @@ const GameResultsPage: React.FC = () => {
     const winner = finalStandings[0];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
@@ -218,12 +218,12 @@ const GameResultsPage: React.FC = () => {
 
                         <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
                             <div className="flex items-center gap-3 mb-3">
-                                <div className="bg-blue-100 p-2 rounded-lg">
-                                    <TrendingUp size={24} className="text-blue-600"/>
+                                <div className="bg-game-orange-100 p-2 rounded-lg">
+                                    <TrendingUp size={24} className="text-game-orange-600"/>
                                 </div>
                                 <div>
                                     <h3 className="font-semibold text-gray-900">Avg Net Income</h3>
-                                    <p className="text-2xl font-bold text-blue-600">
+                                    <p className="text-2xl font-bold text-game-orange-600">
                                         ${Math.round(gameStats.avgNetIncome).toLocaleString()}
                                     </p>
                                 </div>
@@ -246,12 +246,12 @@ const GameResultsPage: React.FC = () => {
 
                         <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
                             <div className="flex items-center gap-3 mb-3">
-                                <div className="bg-purple-100 p-2 rounded-lg">
-                                    <Users size={24} className="text-purple-600"/>
+                                <div className="bg-game-orange-100 p-2 rounded-lg">
+                                    <Users size={24} className="text-game-orange-600"/>
                                 </div>
                                 <div>
                                     <h3 className="font-semibold text-gray-900">Teams</h3>
-                                    <p className="text-2xl font-bold text-purple-600">
+                                    <p className="text-2xl font-bold text-game-orange-600">
                                         {gameStats.totalTeams}
                                     </p>
                                 </div>

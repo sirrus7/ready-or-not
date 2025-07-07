@@ -26,7 +26,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({
             </label>
             <textarea
                 id="teacherNotes"
-                className="w-full text-sm bg-gray-50 text-gray-800 p-2.5 rounded-md border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow focus:shadow-md"
+                className="w-full text-sm bg-gray-50 text-gray-800 p-2.5 rounded-md border border-gray-300 focus:border-game-orange-500 focus:ring-1 focus:ring-game-orange-500 outline-none transition-shadow focus:shadow-md"
                 rows={3}
                 placeholder="Type your private notes for this slide..."
                 value={currentNotes}

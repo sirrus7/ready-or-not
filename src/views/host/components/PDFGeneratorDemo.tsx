@@ -75,7 +75,7 @@ const TeamCardsPDFDemo: React.FC = () => {
                     <button
                         onClick={handleGenerate}
                         disabled={isGeneratingTeamCardPDF}
-                        className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center"
+                        className="w-full bg-game-orange-600 text-white py-2 px-4 rounded hover:bg-game-orange-700 disabled:bg-gray-400 flex items-center justify-center"
                     >
                         {isGeneratingTeamCardPDF ? (
                             <>Generating PDF...</>
@@ -114,7 +114,7 @@ const TeamCardsPDFDemo: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mt-8 bg-blue-50 rounded-lg p-6">
+            <div className="mt-8 bg-game-orange-50 rounded-lg p-6">
                 <h3 className="text-lg font-semibold mb-3">File Organization</h3>
                 <div className="text-xs font-mono bg-white p-4 rounded">
                     <div>src/</div>
