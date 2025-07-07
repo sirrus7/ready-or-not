@@ -17,6 +17,10 @@ interface CachedUrl {
 class MediaManager {
     private static instance: MediaManager;
     private urlCache = new Map<string, CachedUrl>();
+    private static blobCache = new Map<string, {
+        blobUrl: string;
+        expiresAt: number;
+    }>();
     private readonly BUCKET_NAME = 'slide-content';
     private readonly SIGNED_URL_EXPIRY_SECONDS = 3600; // 1 hour
     private readonly REFRESH_BUFFER_MS = 60 * 1000; // 1 minute buffer
@@ -38,19 +42,28 @@ class MediaManager {
 
     /**
      * Asynchronously gets a valid signed URL for a given media file.
-     * It will first check the cache, and if the URL is missing or expired,
-     * it will fetch a new one from Supabase.
-     * @param fileName The name of the file (e.g., 'slide_001.jpg').
-     * @returns A promise that resolves to the signed URL string.
+     * For video files, returns a cached blob URL to reduce bandwidth.
+     * For other files, returns the regular signed URL.
      */
     public async getSignedUrl(fileName: string): Promise<string> {
-        const cached = this.urlCache.get(fileName);
+        // Check if this is a video file
+        const isVideoFile = /\.(mp4|webm|mov|avi|mkv)$/i.test(fileName);
 
-        // If we have a valid, non-expired URL in the cache, return it immediately.
-        if (cached && cached.expiresAt > Date.now()) {
-            return cached.url;
+        if (isVideoFile) {
+            // For video files, use blob cache
+            const cached = MediaManager.blobCache.get(fileName);
+            if (cached && cached.expiresAt > Date.now()) {
+                return cached.blobUrl;
+            }
+        } else {
+            // For non-video files, use regular URL cache
+            const cached = this.urlCache.get(fileName);
+            if (cached && cached.expiresAt > Date.now()) {
+                return cached.url;
+            }
         }
 
+        // Fetch new signed URL
         const {data, error} = await supabase.storage
             .from(this.BUCKET_NAME)
             .createSignedUrl(fileName, this.SIGNED_URL_EXPIRY_SECONDS);
@@ -67,14 +80,30 @@ class MediaManager {
             throw new Error(`No signed URL returned for ${fileName}`);
         }
 
-        // Cache the new URL with its expiry time (plus a safety buffer).
         const expiresAt = Date.now() + (this.SIGNED_URL_EXPIRY_SECONDS * 1000) - this.REFRESH_BUFFER_MS;
-        this.urlCache.set(fileName, {
-            url: data.signedUrl,
-            expiresAt,
-        });
 
-        return data.signedUrl;
+        if (isVideoFile) {
+            // For video files, fetch and cache as blob
+            try {
+                const response = await fetch(data.signedUrl);
+                if (!response.ok) throw new Error(`Failed to fetch video: ${response.status}`);
+
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+
+                MediaManager.blobCache.set(fileName, { blobUrl, expiresAt });
+                return blobUrl;
+            } catch (error) {
+                console.error('[MediaManager] Failed to cache video blob:', error);
+                // Fallback to signed URL
+                this.urlCache.set(fileName, { url: data.signedUrl, expiresAt });
+                return data.signedUrl;
+            }
+        } else {
+            // For non-video files, cache the signed URL
+            this.urlCache.set(fileName, { url: data.signedUrl, expiresAt });
+            return data.signedUrl;
+        }
     }
 
     /**
