@@ -198,7 +198,7 @@ export class SimpleBroadcastManager {
 
     // HOST METHODS
 
-    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync', data?: any): void {
+    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume', data?: any): void {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const command: HostCommand = {

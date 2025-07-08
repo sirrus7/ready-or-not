@@ -80,18 +80,27 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             if (!video) return;
 
             if (connected) {
-                // Mute host and pause when presentation connects
+                // Mute host when presentation connects
                 video.muted = true;
-                video.pause();
-                stopSyncInterval();
-
-                // Send initial state to presentation
-                sendCommand('pause', {
-                    time: video.currentTime,
-                    playbackRate: video.playbackRate,
-                    volume: video.volume,
-                    muted: presentationMuted,
-                });
+                
+                console.log('[useHostVideo] 📡 Presentation connected, sending current state');
+                
+                // Send current state to presentation (but don't pause the host video)
+                const wasPlaying = !video.paused;
+                if (wasPlaying && video.readyState >= 3) {
+                    console.log('[useHostVideo] 🎬 Sending play command to presentation');
+                    sendCommand('play', {
+                        time: video.currentTime,
+                        playbackRate: video.playbackRate,
+                    });
+                    startSyncInterval();
+                } else {
+                    console.log('[useHostVideo] ⏸️ Sending pause command to presentation');
+                    sendCommand('pause', {
+                        time: video.currentTime,
+                        playbackRate: video.playbackRate,
+                    });
+                }
             } else {
                 // Unmute host when presentation disconnects
                 video.muted = false;
@@ -247,6 +256,12 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
 
             if (video.currentSrc !== sourceUrl) {
+                // Reset presentation muted state for new video
+                if (isNewVideo) {
+                    console.log('[useHostVideo] New video detected, resetting presentation muted state');
+                    setPresentationMuted(false);
+                }
+                
                 video.src = sourceUrl;
                 video.load();
 
@@ -259,14 +274,14 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                             await play(0); // Start from beginning
                             console.log('[useHostVideo] Autoplay started successfully');
 
-                            // Ensure presentation audio is enabled when playing new video
-                            if (isConnected && presentationMuted) {
-                                console.log('[useHostVideo] Unmuting presentation for new video');
+                            // Always ensure presentation audio is enabled when playing new video
+                            if (isConnected) {
+                                console.log('[useHostVideo] Ensuring presentation audio for new video');
                                 setPresentationMuted(false);
                                 sendCommand('volume', {
                                     time: Date.now(),
                                     volume: video.volume || 1, // Default to full volume if not set
-                                    muted: false, // Ensure audio plays
+                                    muted: false, // Always enable audio for new videos
                                 });
                             }
                         } catch (error) {
