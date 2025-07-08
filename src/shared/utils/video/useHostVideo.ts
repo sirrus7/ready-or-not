@@ -23,6 +23,7 @@ interface UseHostVideoReturn {
     toggleMute: () => void;
     isConnectedToPresentation: boolean;
     presentationMuted: boolean;
+    presentationVolume: number;
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
 }
 
@@ -35,6 +36,7 @@ interface UseHostVideoProps {
 export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoProps): UseHostVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [presentationMuted, setPresentationMuted] = useState(false);
+    const [presentationVolume, setPresentationVolume] = useState(1);
     const [localIsConnected, setLocalIsConnected] = useState(false);
     const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const onEndedRef = useRef<(() => void) | undefined>();
@@ -49,6 +51,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         sessionId,
         role: 'host'
     });
+
 
     // Sync interval management
     const startSyncInterval = useCallback(() => {
@@ -92,6 +95,8 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                     sendCommand('play', {
                         time: video.currentTime,
                         playbackRate: video.playbackRate,
+                        volume: presentationVolume,
+                        muted: presentationMuted,
                     });
                     startSyncInterval();
                 } else {
@@ -101,6 +106,16 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                         playbackRate: video.playbackRate,
                     });
                 }
+                
+                // Always send volume state when connecting
+                console.log('[useHostVideo] 🔊 Sending volume state to presentation:', {
+                    volume: presentationVolume,
+                    muted: presentationMuted
+                });
+                sendCommand('volume', {
+                    volume: presentationVolume,
+                    muted: presentationMuted,
+                });
             } else {
                 // Unmute host when presentation disconnects
                 video.muted = false;
@@ -129,8 +144,8 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 sendCommand('play', {
                     time: video.currentTime,
                     playbackRate: video.playbackRate,
-                    volume: video.volume,
-                    muted: presentationMuted,
+                    volume: persistentVolumeRef.current,
+                    muted: persistentMutedRef.current,
                 });
                 startSyncInterval();
             }
@@ -181,8 +196,12 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         const video = videoRef.current;
         if (!video) return;
 
+        // Update presentation volume state
+        setPresentationVolume(volume);
+
         if (isConnected) {
             // Don't change host volume, just send to presentation
+            console.log('[useHostVideo] Sending volume command:', { volume });
             sendCommand('volume', {
                 volume,
                 muted: presentationMuted,
@@ -191,7 +210,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             // Change host volume when not connected
             video.volume = volume;
         }
-    }, [isConnected, sendCommand, presentationMuted]);
+    }, [isConnected, sendCommand]);
 
     // Mute control (for presentation when connected)
     const toggleMute = useCallback(() => {
@@ -203,7 +222,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             const newMuted = !presentationMuted;
             setPresentationMuted(newMuted);
             sendCommand('volume', {
-                volume: video.volume,
+                volume: presentationVolume,
                 muted: newMuted,
             });
         } else {
@@ -256,42 +275,44 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
 
             if (video.currentSrc !== sourceUrl) {
-                // Reset presentation muted state for new video
+                // Use persistent volume state for new video
                 if (isNewVideo) {
-                    console.log('[useHostVideo] New video detected, resetting presentation muted state');
-                    setPresentationMuted(false);
+                    console.log('[useHostVideo] New video detected, keeping volume state:', {
+                        volume: presentationVolume,
+                        muted: presentationMuted
+                    });
                 }
                 
                 video.src = sourceUrl;
                 video.load();
 
-                // Auto-play on slide change for new videos
-                if (isNewVideo) {
-                    console.log('[useHostVideo] New video detected, will autoplay after load');
+                // Auto-play on slide change
+                console.log('[useHostVideo] Video source changed, will autoplay after load');
 
-                    const handleCanPlay = async () => {
-                        try {
-                            await play(0); // Start from beginning
-                            console.log('[useHostVideo] Autoplay started successfully');
+                const handleCanPlay = async () => {
+                    try {
+                        await play(0); // Start from beginning
+                        console.log('[useHostVideo] Autoplay started successfully');
 
-                            // Always ensure presentation audio is enabled when playing new video
-                            if (isConnected) {
-                                console.log('[useHostVideo] Ensuring presentation audio for new video');
-                                setPresentationMuted(false);
-                                sendCommand('volume', {
-                                    time: Date.now(),
-                                    volume: video.volume || 1, // Default to full volume if not set
-                                    muted: false, // Always enable audio for new videos
-                                });
-                            }
-                        } catch (error) {
-                            console.error('[useHostVideo] Autoplay failed:', error);
+                        // Always send persistent volume settings when video loads
+                        if (isConnected) {
+                            console.log('[useHostVideo] Applying volume settings:', {
+                                volume: presentationVolume,
+                                muted: presentationMuted,
+                                isNewVideo
+                            });
+                            sendCommand('volume', {
+                                volume: presentationVolume,
+                                muted: presentationMuted,
+                            });
                         }
-                        video.removeEventListener('canplay', handleCanPlay);
-                    };
+                    } catch (error) {
+                        console.error('[useHostVideo] Autoplay failed:', error);
+                    }
+                    video.removeEventListener('canplay', handleCanPlay);
+                };
 
-                    video.addEventListener('canplay', handleCanPlay);
-                }
+                video.addEventListener('canplay', handleCanPlay);
             }
 
             // Update previous source URL
@@ -343,6 +364,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         toggleMute,
         isConnectedToPresentation: localIsConnected,
         presentationMuted,
+        presentationVolume,
         getVideoProps,
     };
 };

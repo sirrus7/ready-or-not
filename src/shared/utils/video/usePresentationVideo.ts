@@ -72,9 +72,7 @@ export const usePresentationVideo = ({
             });
             
             try {
-                // Force unmute and full volume
-                video.muted = false;
-                video.volume = 1.0;
+                // Don't force volume settings - use what the host has set
                 
                 // CRITICAL: Ensure we start from the very beginning
                 video.currentTime = 0;
@@ -171,10 +169,15 @@ export const usePresentationVideo = ({
                             }
                         }
                         
-                        // TEMPORARY: Always force full volume and unmuted
-                        console.log('[Presentation] 🔊 TEMP: Forcing volume=1.0, muted=false');
-                        video.volume = 1.0;
-                        video.muted = false;
+                        // Apply volume settings from command if provided
+                        if (command.data?.volume !== undefined) {
+                            console.log('[Presentation] 🔊 Setting volume:', command.data.volume);
+                            video.volume = command.data.volume;
+                        }
+                        if (command.data?.muted !== undefined) {
+                            console.log('[Presentation] 🔇 Setting muted:', command.data.muted);
+                            video.muted = command.data.muted;
+                        }
                         
                         // Wait for video to be ready before playing
                         if (video.readyState < 2) {
@@ -206,9 +209,6 @@ export const usePresentationVideo = ({
                         if (command.data?.time !== undefined) {
                             video.currentTime = command.data.time;
                         }
-                        // TEMPORARY: Always force full volume and unmuted
-                        video.volume = 1.0;
-                        video.muted = false;
                         break;
 
                     case 'seek':
@@ -218,9 +218,15 @@ export const usePresentationVideo = ({
                         break;
 
                     case 'volume':
-                        // TEMPORARY: Always force full volume and unmuted
-                        video.volume = 1.0;
-                        video.muted = false;
+                        // Apply volume settings from command
+                        if (command.data?.volume !== undefined) {
+                            console.log('[Presentation] 🔊 Volume command - setting volume:', command.data.volume);
+                            video.volume = command.data.volume;
+                        }
+                        if (command.data?.muted !== undefined) {
+                            console.log('[Presentation] 🔇 Volume command - setting muted:', command.data.muted);
+                            video.muted = command.data.muted;
+                        }
                         break;
 
                     case 'sync':
@@ -403,10 +409,8 @@ export const usePresentationVideo = ({
                 video.load();
                 console.log('[Presentation] 🔄 video.load() called');
                 
-                // TEMPORARY: Force volume settings after loading
-                video.volume = 1.0;
-                video.muted = false;
-                console.log('[Presentation] 🔊 TEMP: Forced volume=1.0, muted=false after load');
+                // Don't set default volume - let the host control it
+                console.log('[Presentation] 🔊 Waiting for volume settings from host');
                 
                 // Don't pause here - let the host control playback
                 // The host will send a play command when the slide changes
