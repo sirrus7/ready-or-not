@@ -3,6 +3,12 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
 import { HostCommand } from '@core/sync/types';
+import {
+    applyVideoCommand,
+    forcePlayFromBeginning,
+    isVideoFullyLoaded,
+    createVideoEventLogger
+} from '@shared/utils/video/videoSyncUtils';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -60,61 +66,20 @@ export const usePresentationVideo = ({
         
         const video = videoRef.current;
         
-        const forcePlay = async () => {
-            console.log('[Presentation] 🚨 FORCE PLAY - Video ready, attempting to play...');
-            console.log('[Presentation] 🚨 FORCE PLAY - Current state:', {
-                paused: video.paused,
-                readyState: video.readyState,
-                muted: video.muted,
-                volume: video.volume,
-                currentTime: video.currentTime,
-                src: video.src
-            });
-            
-            try {
-                // Don't force volume settings - use what the host has set
-                
-                // CRITICAL: Ensure we start from the very beginning
-                video.currentTime = 0;
-                console.log('[Presentation] 🚨 FORCE PLAY - Reset to beginning, currentTime:', video.currentTime);
-                
-                // Wait for canplaythrough to ensure ALL audio is loaded
-                if (video.readyState < 4) {
-                    console.log('[Presentation] 🚨 FORCE PLAY - Waiting for canplaythrough...');
-                    await new Promise<void>((resolve) => {
-                        const handleCanPlayThrough = () => {
-                            video.removeEventListener('canplaythrough', handleCanPlayThrough);
-                            console.log('[Presentation] 🚨 FORCE PLAY - canplaythrough received');
-                            resolve();
-                        };
-                        video.addEventListener('canplaythrough', handleCanPlayThrough);
-                    });
-                }
-                
-                // Double-check we're still at the beginning
-                if (video.currentTime !== 0) {
-                    console.log('[Presentation] 🚨 FORCE PLAY - Resetting to 0 again, was at:', video.currentTime);
-                    video.currentTime = 0;
-                }
-                
-                // Try to play
-                await video.play();
-                console.log('[Presentation] 🚨 FORCE PLAY - SUCCESS! Playing from:', video.currentTime);
-            } catch (e) {
-                console.error('[Presentation] 🚨 FORCE PLAY - FAILED:', e);
-            }
-        };
-        
         // Always wait for canplaythrough for complete audio loading
         const handleCanPlayThrough = () => {
             video.removeEventListener('canplaythrough', handleCanPlayThrough);
-            forcePlay();
+            forcePlayFromBeginning(video).catch(error => {
+                console.error('[Presentation] Force play failed:', error);
+            });
         };
         video.addEventListener('canplaythrough', handleCanPlayThrough);
         
         // If already at canplaythrough, trigger immediately
-        if (video.readyState >= 4) {
-            forcePlay();
+        if (isVideoFullyLoaded(video)) {
+            forcePlayFromBeginning(video).catch(error => {
+                console.error('[Presentation] Force play failed:', error);
+            });
         }
         
         return () => {
@@ -136,125 +101,11 @@ export const usePresentationVideo = ({
             }
 
             console.log('[Presentation] 📨 Received command:', command.action, command.data);
-            console.log('[Presentation] 📊 Video state before command:', {
-                currentTime: video.currentTime,
-                paused: video.paused,
-                muted: video.muted,
-                volume: video.volume,
-                readyState: video.readyState,
-                src: video.src
-            });
+            const logVideoState = createVideoEventLogger('Presentation');
+            logVideoState('Before command', video);
 
             try {
-                // Update playback rate if provided
-                if (command.data?.playbackRate && video.playbackRate !== command.data.playbackRate) {
-                    console.log('[Presentation] 🎭 Changing playback rate:', video.playbackRate, '->', command.data.playbackRate);
-                    video.playbackRate = command.data.playbackRate;
-                }
-
-                switch (command.action) {
-                    case 'play':
-                        console.log('[Presentation] 🎬 PLAY command processing...');
-                        if (command.data?.time !== undefined) {
-                            const timeDiff = Math.abs(video.currentTime - command.data.time);
-                            console.log('[Presentation] 🕐 Time sync check:', {
-                                commandTime: command.data.time,
-                                currentTime: video.currentTime,
-                                timeDiff,
-                                willSeek: timeDiff > 0.2
-                            });
-                            if (timeDiff > 0.2) {
-                                video.currentTime = command.data.time;
-                                console.log('[Presentation] 🎯 Seeked to:', video.currentTime);
-                            }
-                        }
-                        
-                        // Apply volume settings from command if provided
-                        if (command.data?.volume !== undefined) {
-                            console.log('[Presentation] 🔊 Setting volume:', command.data.volume);
-                            video.volume = command.data.volume;
-                        }
-                        if (command.data?.muted !== undefined) {
-                            console.log('[Presentation] 🔇 Setting muted:', command.data.muted);
-                            video.muted = command.data.muted;
-                        }
-                        
-                        // Wait for video to be ready before playing
-                        if (video.readyState < 2) {
-                            console.log('[Presentation] ⏳ Video not ready (readyState=' + video.readyState + '), waiting for canplay...');
-                            await new Promise<void>((resolve) => {
-                                const onCanPlay = () => {
-                                    console.log('[Presentation] ✅ Video ready after wait');
-                                    video.removeEventListener('canplay', onCanPlay);
-                                    resolve();
-                                };
-                                video.addEventListener('canplay', onCanPlay);
-                            });
-                        } else {
-                            console.log('[Presentation] ✅ Video already ready (readyState=' + video.readyState + ')');
-                        }
-                        
-                        console.log('[Presentation] 🎵 About to call video.play()...');
-                        try {
-                            await video.play();
-                            console.log('[Presentation] ✅ video.play() SUCCESS');
-                        } catch (playError) {
-                            console.error('[Presentation] 🚨 video.play() FAILED:', playError);
-                            throw playError;
-                        }
-                        break;
-
-                    case 'pause':
-                        video.pause();
-                        if (command.data?.time !== undefined) {
-                            video.currentTime = command.data.time;
-                        }
-                        break;
-
-                    case 'seek':
-                        if (command.data?.time !== undefined) {
-                            video.currentTime = command.data.time;
-                        }
-                        break;
-
-                    case 'volume':
-                        // Apply volume settings from command
-                        if (command.data?.volume !== undefined) {
-                            console.log('[Presentation] 🔊 Volume command - setting volume:', command.data.volume);
-                            video.volume = command.data.volume;
-                        }
-                        if (command.data?.muted !== undefined) {
-                            console.log('[Presentation] 🔇 Volume command - setting muted:', command.data.muted);
-                            video.muted = command.data.muted;
-                        }
-                        break;
-
-                    case 'sync':
-                        // Handle periodic sync to prevent drift
-                        if (command.data?.time !== undefined && !video.paused && !isBufferingRef.current) {
-                            // IMPORTANT: Don't sync during the first 3 seconds to prevent audio cutout
-                            if (video.currentTime < 3.0) {
-                                console.log(`[Presentation] 🎵 Ignoring sync during first 3 seconds to preserve audio (currentTime: ${video.currentTime.toFixed(2)})`);
-                                break;
-                            }
-                            
-                            const timeDiff = Math.abs(video.currentTime - command.data.time);
-                            if (timeDiff > 0.2) {
-                                console.log(`[Presentation] Adjusting drift: ${timeDiff.toFixed(2)}s`);
-                                video.currentTime = command.data.time;
-                            }
-                        }
-                        break;
-
-                    case 'reset':
-                        video.pause();
-                        video.currentTime = 0;
-                        break;
-
-                    case 'close_presentation':
-                        window.close();
-                        break;
-                }
+                await applyVideoCommand(video, command, isBufferingRef.current);
             } catch (error) {
                 console.error('[Presentation] Command execution failed:', error);
             }
@@ -268,56 +119,42 @@ export const usePresentationVideo = ({
         const video = videoRef.current;
         if (!video) return;
 
-        const logVideoState = (eventType: string) => {
-            console.log(`[Presentation] 🎥 VIDEO EVENT: ${eventType}`, {
-                currentTime: video.currentTime,
-                duration: video.duration,
-                paused: video.paused,
-                ended: video.ended,
-                muted: video.muted,
-                volume: video.volume,
-                readyState: video.readyState,
-                networkState: video.networkState,
-                buffered: video.buffered.length > 0 ? `${video.buffered.start(0)}-${video.buffered.end(0)}` : 'none',
-                src: video.src,
-                currentSrc: video.currentSrc,
-                error: video.error ? `${video.error.code}: ${video.error.message}` : null
-            });
-        };
+        const logVideoState = createVideoEventLogger('Presentation');
 
         const handleWaiting = () => {
             isBufferingRef.current = true;
-            logVideoState('WAITING (buffering)');
+            logVideoState('WAITING (buffering)', video);
         };
 
         const handleCanPlay = () => {
             isBufferingRef.current = false;
-            logVideoState('CANPLAY (ready to play)');
+            logVideoState('CANPLAY (ready to play)', video);
         };
 
         // ALL VIDEO EVENTS
-        const handleLoadStart = () => logVideoState('LOADSTART');
-        const handleLoadedMetadata = () => logVideoState('LOADEDMETADATA');
-        const handleLoadedData = () => logVideoState('LOADEDDATA');
-        const handleCanPlayThrough = () => logVideoState('CANPLAYTHROUGH');
-        const handlePlay = () => logVideoState('PLAY');
-        const handlePlaying = () => logVideoState('PLAYING');
-        const handlePause = () => logVideoState('PAUSE');
-        const handleSeeked = () => logVideoState('SEEKED');
-        const handleSeeking = () => logVideoState('SEEKING');
-        const handleTimeUpdate = () => logVideoState('TIMEUPDATE');
-        const handleEnded = () => logVideoState('ENDED');
+        // YEA this is kind of insane but desperate times
+        const handleLoadStart = () => logVideoState('LOADSTART', video);
+        const handleLoadedMetadata = () => logVideoState('LOADEDMETADATA', video);
+        const handleLoadedData = () => logVideoState('LOADEDDATA', video);
+        const handleCanPlayThrough = () => logVideoState('CANPLAYTHROUGH', video);
+        const handlePlay = () => logVideoState('PLAY', video);
+        const handlePlaying = () => logVideoState('PLAYING', video);
+        const handlePause = () => logVideoState('PAUSE', video);
+        const handleSeeked = () => logVideoState('SEEKED', video);
+        const handleSeeking = () => logVideoState('SEEKING', video);
+        const handleTimeUpdate = () => logVideoState('TIMEUPDATE', video);
+        const handleEnded = () => logVideoState('ENDED', video);
         const handleError = (e: Event) => {
-            logVideoState('ERROR');
+            logVideoState('ERROR', video);
             console.error('[Presentation] 🚨 VIDEO ERROR EVENT:', e);
         };
-        const handleAbort = () => logVideoState('ABORT');
-        const handleEmptied = () => logVideoState('EMPTIED');
-        const handleStalled = () => logVideoState('STALLED');
-        const handleSuspend = () => logVideoState('SUSPEND');
-        const handleVolumeChange = () => logVideoState('VOLUMECHANGE');
-        const handleRateChange = () => logVideoState('RATECHANGE');
-        const handleProgress = () => logVideoState('PROGRESS');
+        const handleAbort = () => logVideoState('ABORT', video);
+        const handleEmptied = () => logVideoState('EMPTIED', video);
+        const handleStalled = () => logVideoState('STALLED', video);
+        const handleSuspend = () => logVideoState('SUSPEND', video);
+        const handleVolumeChange = () => logVideoState('VOLUMECHANGE', video);
+        const handleRateChange = () => logVideoState('RATECHANGE', video);
+        const handleProgress = () => logVideoState('PROGRESS', video);
 
         // Add all event listeners
         video.addEventListener('loadstart', handleLoadStart);
@@ -343,7 +180,7 @@ export const usePresentationVideo = ({
         video.addEventListener('waiting', handleWaiting);
 
         // Log initial state
-        logVideoState('INITIAL_STATE');
+        logVideoState('INITIAL_STATE', video);
 
         return () => {
             video.removeEventListener('loadstart', handleLoadStart);
