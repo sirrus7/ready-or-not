@@ -7,6 +7,14 @@ import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
+export type TeamData = {
+    teams: Team[];
+    teamRoundData: Record<string, Record<number, TeamRoundData>>;
+    teamDecisions: TeamDecision[];
+}
+
+export type SlideHandler = (slide: Slide, teamData?: TeamData) => void;
+
 /**
  * SimpleBroadcastManager - Host ↔ Presentation Communication
  *
@@ -47,7 +55,7 @@ export class SimpleBroadcastManager {
 
     // Message handlers
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
-    private slideHandlers: Set<(slide: Slide) => void> = new Set();
+    private slideHandlers: Set<SlideHandler> = new Set();
     private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
 
     // Track if this instance has been destroyed
@@ -219,7 +227,6 @@ export class SimpleBroadcastManager {
             id: `cmd_${Date.now()}`,
             action,
             data,
-            time: Date.now(),
             timestamp: Date.now(),
         };
 
