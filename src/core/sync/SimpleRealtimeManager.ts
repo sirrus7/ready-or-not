@@ -14,6 +14,11 @@ export interface InteractiveSlideData {
     challengeOptions?: ChallengeOption[];
     budgetForPhase?: number;
     rd3Investments?: InvestmentOption[];
+    decisionType: string;
+    decisionKey: string;
+    roundNumber: number;
+    title: string;
+    isDecisionTime: boolean;
 }
 
 

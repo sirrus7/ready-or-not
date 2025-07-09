@@ -25,9 +25,19 @@ const broadcastInteractiveSlideData = (
         challengeOptions?: ChallengeOption[];
         budgetForPhase?: number;
         rd3Investments?: InvestmentOption[];
+        decisionType: string;
+        decisionKey: string;
+        roundNumber: number;
+        title: string;
+        isDecisionTime: boolean;
     } = {
         slideId: currentSlideData.id,
-        slide: currentSlideData
+        slide: currentSlideData,
+        decisionType: currentSlideData.type,
+        decisionKey: dataKey,
+        roundNumber: currentSlideData.round_number || 1,
+        title: currentSlideData.title || '',
+        isDecisionTime: true
     };
 
     // Add investment options if needed
@@ -107,14 +117,8 @@ const HostApp: React.FC = () => {
         // ✅ EXISTING: Broadcast to teams if slide is relevant
         const isInteractiveSlide = currentSlideData.interactive_data_key &&
             currentSlideData.type.startsWith('interactive_');
-        if (isInteractiveSlide) {
-            console.log('📱 Broadcasting decision_time for:', currentSlideData.interactive_data_key);
-            realtimeManager.sendDecisionTime(currentSlideData);
-
-            // 🆕 NEW: Broadcast interactive slide data (much cleaner!)
-            if (gameStructure) {
-                broadcastInteractiveSlideData(realtimeManager, currentSlideData, gameStructure);
-            }
+        if (isInteractiveSlide && gameStructure) {
+            broadcastInteractiveSlideData(realtimeManager, currentSlideData, gameStructure);
         }
     }, [currentSessionId, currentSlideData, gameStructure]);
 

@@ -192,9 +192,14 @@ export const useTeamGameState = ({
         console.log(`[useTeamGameState] 📱 Received ${event.type}:`, event.data);
 
         switch (event.type) {
-            case 'decision_time':
-                console.log('🔍 Processing decision_time event:', event.data);
-                console.log('🔍 gameStructure exists:', !!gameStructure);
+            case 'interactive_slide_data':
+                console.log('🔍 Processing interactive_slide_data event:', event.data);
+
+                // Set the interactive data
+                setInteractiveData(event.data);
+
+                // Handle the decision time logic (previously in decision_time case)
+                console.log('🔍 gameStructure exists:', !gameStructure);
                 console.log('🔍 Looking for slideId:', event.data?.slideId);
 
                 if (event.data?.slideId && gameStructure) {
@@ -368,19 +373,6 @@ export const useTeamGameState = ({
 
         verifySessionExists();
     }, [sessionId]);
-
-    useEffect(() => {
-        if (!sessionId || !loggedInTeamId) return;
-
-        const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'team');
-
-        return realtimeManager.onTeamEvent((event) => {
-            if (event.type === 'interactive_slide_data') {
-                console.log(`[useTeamGameState] Received interactive data for slide ${event.data.slideId}`);
-                setInteractiveData(event.data);
-            }
-        });
-    }, [sessionId, loggedInTeamId]);
 
     // ========================================================================
     // COMPUTED VALUES
