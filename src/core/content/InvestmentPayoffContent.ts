@@ -139,14 +139,15 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
             id: 'B',
             name: "Production Efficiency II",
             effects: [
-                {kpi: 'capacity', change_value: 2500, timing: 'immediate'}
+                {kpi: 'capacity', change_value: 2000, timing: 'immediate'},
+                {kpi: 'cost', change_value: 50000, timing: 'immediate'}
             ]
         },
         {
             id: 'C',
             name: "Add/Expand 2nd Shift",
             effects: [
-                {kpi: 'capacity', change_value: 2000, timing: 'immediate'},
+                {kpi: 'capacity', change_value: 3000, timing: 'immediate'},
                 {kpi: 'cost', change_value: 575000, timing: 'immediate'}
             ]
         },
@@ -214,11 +215,6 @@ export const allInvestmentPayoffsData: Record<string, InvestmentPayoff[]> = {
                 {kpi: 'capacity', change_value: 1500, timing: 'immediate'},
                 {kpi: 'cost', change_value: 150000, timing: 'immediate'}
             ]
-        },
-        {
-            id: 'L',
-            name: "Market Share Attack",
-            effects: []
         },
     ],
     'rd3-payoff': [
