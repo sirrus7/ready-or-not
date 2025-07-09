@@ -13,6 +13,8 @@ interface UseVideoSyncManagerReturn {
   sendCommand: (action: HostCommand['action'], data?: HostCommand['data']) => void;
   onCommand: (callback: (command: HostCommand) => void) => () => void;
   onConnectionChange: (callback: (connected: boolean) => void) => () => void;
+  sendVideoReady: (ready: boolean) => void;
+  onVideoReady: (callback: (ready: boolean) => void) => () => void;
 }
 
 export const useVideoSyncManager = ({
@@ -102,10 +104,26 @@ export const useVideoSyncManager = ({
     }
   }, [role, broadcastManager]);
 
+  // Send video ready status (presentation only)
+  const sendVideoReady = useCallback((ready: boolean) => {
+    if (broadcastManager && role === 'presentation') {
+      console.log(`[VideoSync] Sending video ready status: ${ready}`);
+      broadcastManager.sendVideoReady(ready);
+    }
+  }, [broadcastManager, role]);
+
+  // Listen for video ready status (host only)
+  const onVideoReady = useCallback((callback: (ready: boolean) => void) => {
+    if (!broadcastManager || role !== 'host') return () => {};
+    return broadcastManager.onVideoReady(callback);
+  }, [broadcastManager, role]);
+
   return {
     isConnected,
     sendCommand,
     onCommand,
     onConnectionChange,
+    sendVideoReady,
+    onVideoReady,
   };
 };

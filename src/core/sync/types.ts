@@ -50,3 +50,10 @@ export interface JoinInfoMessage {
     qrCodeDataUrl: string;
     timestamp: number;
 }
+
+export interface VideoReadyMessage {
+    type: 'VIDEO_READY';
+    sessionId: string;
+    ready: boolean;
+    timestamp: number;
+}

@@ -2,7 +2,7 @@
 // Enhanced version with KPI update broadcasting support
 
 import {Slide} from '@shared/types/game';
-import {HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage} from './types';
+import {HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, VideoReadyMessage} from './types';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
@@ -57,6 +57,7 @@ export class SimpleBroadcastManager {
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
     private slideHandlers: Set<SlideHandler> = new Set();
     private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
+    private videoReadyHandlers: Set<(ready: boolean) => void> = new Set();
 
     // Track if this instance has been destroyed
     private isDestroyed: boolean = false;
@@ -152,6 +153,13 @@ export class SimpleBroadcastManager {
                     break;
 
                 case 'COMMAND_ACK':
+                    break;
+
+                case 'VIDEO_READY':
+                    if (this.mode === 'host') {
+                        const videoReady = message as VideoReadyMessage;
+                        this.videoReadyHandlers.forEach(handler => handler(videoReady.ready));
+                    }
                     break;
             }
         };
@@ -347,6 +355,7 @@ export class SimpleBroadcastManager {
         this.statusCallbacks.clear();
         this.commandHandlers.clear();
         this.slideHandlers.clear();
+        this.videoReadyHandlers.clear();
 
         // Remove from instances map
         const key = `${this.sessionId}-${this.mode}`;
@@ -359,6 +368,29 @@ export class SimpleBroadcastManager {
         this.joinInfoHandlers.add(callback);
         return () => {
             this.joinInfoHandlers.delete(callback);
+        };
+    }
+
+    // Video ready methods
+    sendVideoReady(ready: boolean): void {
+        if (this.mode !== 'presentation' || this.isDestroyed) return;
+
+        const message: VideoReadyMessage = {
+            type: 'VIDEO_READY',
+            sessionId: this.sessionId,
+            ready,
+            timestamp: Date.now()
+        };
+
+        this.sendMessage(message);
+    }
+
+    onVideoReady(callback: (ready: boolean) => void): () => void {
+        if (this.isDestroyed) return () => {};
+
+        this.videoReadyHandlers.add(callback);
+        return () => {
+            this.videoReadyHandlers.delete(callback);
         };
     }
 
