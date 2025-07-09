@@ -29,8 +29,9 @@ const SlideContent: React.FC<{
     sessionId?: string | null,
     teams?: Team[],
     teamRoundData?: Record<string, Record<number, TeamRoundData>>,
-    teamDecisions?: TeamDecision[]
-}> = ({slide, sourceUrl, className, sessionId, teams, teamRoundData, teamDecisions}) => {
+    teamDecisions?: TeamDecision[],
+    isHost: boolean
+}> = ({slide, sourceUrl, className, sessionId, teams, teamRoundData, teamDecisions, isHost}) => {
     switch (slide.type) {
         case 'image':
             return (
@@ -75,6 +76,7 @@ const SlideContent: React.FC<{
                         investmentId={investment.id}
                         investmentName={investment.name}
                         slideId={slide.id}
+                        isHost={isHost}
                     />
                 </div>
             );
@@ -175,6 +177,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 teams={teams}
                 teamRoundData={teamRoundData}
                 teamDecisions={teamDecisions}
+                isHost={isHost}
             />
         );
     };

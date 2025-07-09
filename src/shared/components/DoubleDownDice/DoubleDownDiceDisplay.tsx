@@ -29,6 +29,7 @@ interface DoubleDownDiceDisplayProps {
     investmentId: string;
     investmentName: string;
     slideId: number;
+    isHost?: boolean;
 }
 
 // TWO DICE: Sum ranges from 2-12 (using existing correct mapping)
@@ -63,7 +64,8 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                                                          sessionId,
                                                                          investmentId,
                                                                          investmentName,
-                                                                         slideId
+                                                                         slideId,
+                                                                         isHost = false
                                                                      }) => {
     const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
     const [kpiChanges, setKpiChanges] = useState<KpiChange[]>([]);
@@ -149,33 +151,97 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         setIsRolling(true);
         setCurrentPhase('rolling');
 
-        // Simulate dice rolling animation
-        const rollDuration = 2000;
-        const rollInterval = 100;
-        const animationSteps = rollDuration / rollInterval;
+        let finalDice1: number;
+        let finalDice2: number;
+        let finalTotal: number;
+        let finalBoost: number;
 
-        for (let i = 0; i < animationSteps; i++) {
-            await new Promise(resolve => setTimeout(resolve, rollInterval));
+        if (isHost) {
+            // HOST: Generate random dice results
+            console.log('[DoubleDownDiceDisplay] HOST: Generating random dice results');
 
-            // Show random dice values during rolling
-            const tempResult: DiceResult = {
-                investment_id: investmentId,
-                dice1_value: Math.floor(Math.random() * 6) + 1,
-                dice2_value: Math.floor(Math.random() * 6) + 1,
-                total_value: 0,
-                boost_percentage: 0,
-                affected_teams: teamsToUse
-            };
-            tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
-            tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
-            setDiceResult(tempResult);
+            // Simulate dice rolling animation
+            const rollDuration = 2000;
+            const rollInterval = 100;
+            const animationSteps = rollDuration / rollInterval;
+
+            for (let i = 0; i < animationSteps; i++) {
+                await new Promise(resolve => setTimeout(resolve, rollInterval));
+
+                // Show random dice values during rolling
+                const tempResult: DiceResult = {
+                    investment_id: investmentId,
+                    dice1_value: Math.floor(Math.random() * 6) + 1,
+                    dice2_value: Math.floor(Math.random() * 6) + 1,
+                    total_value: 0,
+                    boost_percentage: 0,
+                    affected_teams: teamsToUse
+                };
+                tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
+                tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
+                setDiceResult(tempResult);
+            }
+
+            // Generate final dice result
+            finalDice1 = Math.floor(Math.random() * 6) + 1;
+            finalDice2 = Math.floor(Math.random() * 6) + 1;
+            finalTotal = finalDice1 + finalDice2;
+            finalBoost = DICE_BOOSTS[finalTotal as keyof typeof DICE_BOOSTS];
+
+            console.log('[DoubleDownDiceDisplay] HOST: Generated dice results:', {finalDice1, finalDice2, finalTotal, finalBoost});
+        } else {
+            // PRESENTATION: Fetch results from database
+            console.log('[DoubleDownDiceDisplay] PRESENTATION: Fetching dice results from database');
+
+            // Show rolling animation while fetching
+            const rollDuration = 2000;
+            const rollInterval = 100;
+            const animationSteps = rollDuration / rollInterval;
+
+            for (let i = 0; i < animationSteps; i++) {
+                await new Promise(resolve => setTimeout(resolve, rollInterval));
+
+                // Show random dice values during rolling (just for animation)
+                const tempResult: DiceResult = {
+                    investment_id: investmentId,
+                    dice1_value: Math.floor(Math.random() * 6) + 1,
+                    dice2_value: Math.floor(Math.random() * 6) + 1,
+                    total_value: 0,
+                    boost_percentage: 0,
+                    affected_teams: teamsToUse
+                };
+                tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
+                tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
+                setDiceResult(tempResult);
+            }
+
+            // Fetch results from database (retry until available)
+            let existingResult = null;
+            let attempts = 0;
+            const maxAttempts = 10;
+
+            while (!existingResult && attempts < maxAttempts) {
+                existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+                if (!existingResult) {
+                    console.log('[DoubleDownDiceDisplay] PRESENTATION: No result found, retrying...');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    attempts++;
+                }
+            }
+
+            if (!existingResult) {
+                console.error('[DoubleDownDiceDisplay] PRESENTATION: No dice result found after retries');
+                setCurrentPhase('complete');
+                return;
+            }
+
+            finalDice1 = existingResult.dice1_value;
+            finalDice2 = existingResult.dice2_value;
+            finalTotal = existingResult.total_value;
+            finalBoost = existingResult.boost_percentage;
+
+            console.log('[DoubleDownDiceDisplay] PRESENTATION: Using database results:', {finalDice1, finalDice2, finalTotal, finalBoost});
         }
-
-        // Final dice result
-        const finalDice1 = Math.floor(Math.random() * 6) + 1;
-        const finalDice2 = Math.floor(Math.random() * 6) + 1;
-        const finalTotal = finalDice1 + finalDice2;
-        const finalBoost = DICE_BOOSTS[finalTotal as keyof typeof DICE_BOOSTS];
 
         const result: DiceResult = {
             investment_id: investmentId,
@@ -183,7 +249,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             dice2_value: finalDice2,
             total_value: finalTotal,
             boost_percentage: finalBoost,
-            affected_teams: teamsToUse // Use the parameter instead of state
+            affected_teams: teamsToUse
         };
 
         setDiceResult(result);
@@ -191,8 +257,10 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         setHasRolled(true);
         setCurrentPhase('showing_results');
 
-        // Save to database
-        await saveResult(result);
+        // Only save if host
+        if (isHost) {
+            await saveResult(result);
+        }
 
         // Show results for 3 seconds, then apply effects
         setTimeout(async () => {
