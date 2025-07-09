@@ -2,6 +2,7 @@
 import {ScoringEngine} from './ScoringEngine';
 import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {db} from '@shared/services/supabase';
+import {formatCurrency, formatNumber} from "@shared/utils/formatUtils";
 
 interface KpiChangeDetail {
     kpi: string;
@@ -10,6 +11,19 @@ interface KpiChangeDetail {
 }
 
 export class DoubleDownEffectsProcessor {
+
+    /**
+     * Calculate the multiplier for double down effects
+     * @param boostPercentage The boost percentage from dice roll (0, 25, 75, or 100)
+     * @returns The multiplier to apply to base effects (0.75 = 75% additional)
+     */
+    private static calculateDoubleDownMultiplier(boostPercentage: number): number {
+        // Double down adds a percentage of the original effect
+        // 75% boost = add 75% more = multiply by 0.75
+        // 100% boost = add 100% more = multiply by 1.0 (double)
+        return boostPercentage / 100;
+    }
+
     /**
      * Process double down effects for a specific investment when dice are rolled
      */
@@ -27,9 +41,7 @@ export class DoubleDownEffectsProcessor {
                 return;
             }
 
-            // FIXED: Calculate multiplier correctly - this is the ADDITIONAL amount to add
-            // 100% = add 100% of original (1x), 75% = add 75% of original (0.75x), etc.
-            const multiplier = boostPercentage / 100; // NOT (1 + boostPercentage / 100)
+            const multiplier = this.calculateDoubleDownMultiplier(boostPercentage);
 
             console.log(`[DoubleDownEffectsProcessor] Applying ${boostPercentage}% bonus (${multiplier}x additional) to ${decisions.length} teams for investment ${investmentId}`);
 
@@ -171,7 +183,7 @@ export class DoubleDownEffectsProcessor {
                 return [];
             }
 
-            const multiplier = 1 + (boostPercentage / 100);
+            const multiplier = this.calculateDoubleDownMultiplier(boostPercentage);
 
             return payoffForOption.effects.map(effect => ({
                 kpi: effect.kpi,
@@ -184,32 +196,21 @@ export class DoubleDownEffectsProcessor {
         }
     }
 
-    /**
-     * Format KPI values for display
-     */
+    // Replace the entire formatKpiValue method with:
     private static formatKpiValue(kpi: string, value: number): string {
         switch (kpi) {
             case 'capacity':
             case 'orders':
-                return Math.round(value).toLocaleString();
-
+                return formatNumber(value);
             case 'cost':
             case 'revenue':
             case 'net_margin':
             case 'net_income':
-                if (Math.abs(value) >= 1_000_000) {
-                    return `$${(value / 1_000_000).toFixed(1)}M`;
-                } else if (Math.abs(value) >= 1_000) {
-                    return `$${(value / 1_000).toFixed(0)}K`;
-                } else {
-                    return `$${Math.round(value).toLocaleString()}`;
-                }
-
+                return formatCurrency(value);
             case 'asp':
-                return `$${Math.round(value)}`;
-
+                return formatCurrency(value);
             default:
-                return Math.round(value).toLocaleString();
+                return formatNumber(value);
         }
     }
 }

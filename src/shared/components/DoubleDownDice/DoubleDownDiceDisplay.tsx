@@ -1,10 +1,11 @@
 // src/shared/components/DoubleDownDice/DoubleDownDiceDisplay.tsx
-import React, {useState, useEffect} from 'react';
-import {Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Users, TrendingUp, CheckCircle} from 'lucide-react';
+import React, {useState, useEffect, useRef} from 'react';
+import {Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Users, TrendingUp, CheckCircle, BarChart} from 'lucide-react';
 import {DoubleDownEffectsProcessor} from '@core/game/DoubleDownEffectsProcessor';
 import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
 import {KpiChange, Slide} from "@shared/types";
+import {formatCurrency, formatNumber} from "@shared/utils/formatUtils";
 
 interface DiceResult {
     investment_id: string;
@@ -60,18 +61,21 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                                                      }) => {
     const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
     const [kpiChanges, setKpiChanges] = useState<KpiChange[]>([]);
-    const [isRolling, setIsRolling] = useState(false);
     const [hasRolled, setHasRolled] = useState(false);
     const [hasAppliedEffects, setHasAppliedEffects] = useState(false);
     const [currentPhase, setCurrentPhase] = useState<'loading' | 'showing_teams' | 'rolling' | 'showing_results' | 'applying_effects' | 'complete'>('loading');
     const [affectedTeams, setAffectedTeams] = useState<string[]>([]);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         initializeDoubleDownRoll();
 
-        // REMOVED: No longer subscribing to unnecessary broadcasts
-        // The component manages its own state locally
-    }, [sessionId, investmentId]);
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, [sessionId, investmentId, slideId]);
 
     const waitForHostResult = async (teamNames: string[]) => {
         console.log('[DoubleDownDiceDisplay] PRESENTATION: Waiting for host result...');
@@ -116,9 +120,11 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 setHasRolled(true);
                 setCurrentPhase('showing_results');
 
-                // Show results for 3 seconds, then apply effects
+                // FIX #3: Presentation should only get display changes, not apply effects
                 setTimeout(async () => {
-                    await applyDoubleDownEffects(finalResult);
+                    await applyEffectsAsPresentation(finalResult);
+                    setHasAppliedEffects(true);
+                    setCurrentPhase('complete');
                 }, 3000);
 
                 return;
@@ -135,8 +141,19 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
     const initializeDoubleDownRoll = async () => {
         try {
+            console.log(`[DoubleDownDiceDisplay] Initializing for slide ${slideId}, investment ${investmentId}`);
+
+            // RESET STATE when moving to new investment
+            setDiceResult(null);
+            setKpiChanges([]);
+            setHasRolled(false);
+            setHasAppliedEffects(false);
+            setCurrentPhase('loading');
+            setAffectedTeams([]);
+
             // First, check if this investment has already been processed
             const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+            console.log(`[DoubleDownDiceDisplay] Existing result for ${investmentId}:`, existingResult);
 
             if (existingResult) {
                 // Already processed - show the completed state
@@ -183,7 +200,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             // Show teams for 3 seconds, then proceed based on mode
             setCurrentPhase('showing_teams');
 
-            setTimeout(() => {
+            timeoutRef.current = setTimeout(() => {
                 console.log('[DoubleDownDiceDisplay] setTimeout fired with captured teamNames:', teamNames);
 
                 if (isHost) {
@@ -214,7 +231,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
         console.log('[DoubleDownDiceDisplay] ✅ Proceeding with dice roll for teams:', teamsToUse);
 
-        setIsRolling(true);
         setCurrentPhase('rolling');
 
         let finalDice1: number;
@@ -254,7 +270,12 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             finalTotal = finalDice1 + finalDice2;
             finalBoost = DICE_BOOSTS[finalTotal as keyof typeof DICE_BOOSTS];
 
-            console.log('[DoubleDownDiceDisplay] HOST: Generated dice results:', {finalDice1, finalDice2, finalTotal, finalBoost});
+            console.log('[DoubleDownDiceDisplay] HOST: Generated dice results:', {
+                finalDice1,
+                finalDice2,
+                finalTotal,
+                finalBoost
+            });
         } else {
             // PRESENTATION: Fetch results from database
             console.log('[DoubleDownDiceDisplay] PRESENTATION: Fetching dice results from database');
@@ -306,7 +327,12 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             finalTotal = existingResult.total_value;
             finalBoost = existingResult.boost_percentage;
 
-            console.log('[DoubleDownDiceDisplay] PRESENTATION: Using database results:', {finalDice1, finalDice2, finalTotal, finalBoost});
+            console.log('[DoubleDownDiceDisplay] PRESENTATION: Using database results:', {
+                finalDice1,
+                finalDice2,
+                finalTotal,
+                finalBoost
+            });
         }
 
         const result: DiceResult = {
@@ -319,7 +345,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         };
 
         setDiceResult(result);
-        setIsRolling(false);
         setHasRolled(true);
         setCurrentPhase('showing_results');
 
@@ -520,12 +545,29 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
     const formatKpiChange = (change: { kpi: string; change_value: number; display_value: string }) => {
         const sign = change.change_value >= 0 ? '+' : '';
-        const color = change.change_value >= 0 ? 'text-green-400' : 'text-red-400';
+
+        // Color logic based on KPI type
+        let color;
+        if (change.kpi === 'cost') {
+            // For cost: increase is bad (red), decrease is good (green)
+            color = change.change_value >= 0 ? 'text-red-400' : 'text-green-400';
+        } else {
+            // For capacity, orders, revenue, etc.: increase is good (green), decrease is bad (red)
+            color = change.change_value >= 0 ? 'text-green-400' : 'text-red-400';
+        }
+
+        // Use shared formatting utilities
+        const formattedValue = change.kpi === 'capacity' || change.kpi === 'orders'
+            ? formatNumber(change.change_value)
+            : formatCurrency(change.change_value);
+
+        // Add KPI label
+        const kpiLabel = change.kpi.toUpperCase();
 
         return (
-            <span className={`${color} font-medium`}>
-                {sign}{change.display_value} {change.kpi.toUpperCase()}
-            </span>
+            <span className={color}>
+            {sign}{formattedValue} {kpiLabel}
+        </span>
         );
     };
 
@@ -683,29 +725,24 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                             </>
                         )}
 
+                        {/* KPI Changes Display */}
                         {kpiChanges.length > 0 && (
-                            <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 mt-6">
-                                <h3 className="text-xl font-bold text-white mb-4 flex items-center justify-center gap-2">
-                                    📊 KPI Changes - Update Your Physical Boards!
-                                </h3>
-                                <div className="space-y-4">
-                                    {kpiChanges.map((teamChange, index) => (
-                                        <div key={index} className="bg-slate-700/50 rounded-lg p-4">
-                                            <div className="text-lg font-semibold text-white mb-2">
-                                                {teamChange.team_name}
-                                            </div>
-                                            <div className="flex flex-wrap gap-3">
-                                                {teamChange.changes.map((change, changeIndex) => (
-                                                    <div key={changeIndex}>
-                                                        {formatKpiChange(change)}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
+                            <div className="mt-8 p-6 bg-slate-800/50 rounded-lg border border-slate-700">
+                                <div className="flex items-center justify-center mb-4">
+                                    <BarChart className="w-5 h-5 text-blue-400 mr-2"/>
+                                    <h3 className="text-lg font-semibold text-white">KPI Changes - Update Your Physical Boards!</h3>
                                 </div>
-                                <div className="text-sm text-gray-400 mt-4">
-                                    Teams: Check your apps to verify these numbers match your physical boards!
+
+                                <div className="bg-slate-700/30 rounded-lg p-4">
+                                    <div className="text-center">
+                                        <div className="flex flex-col items-center gap-2">
+                                            {kpiChanges[0]?.changes.map((change, changeIndex) => (
+                                                <div key={changeIndex} className="text-lg font-bold">
+                                                    {formatKpiChange(change)}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}

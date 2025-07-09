@@ -31,3 +31,13 @@ export const formatPercentage = (value: number | undefined | null): string => {
     if (value == null || isNaN(value)) return '0%';
     return `${(value * 100).toFixed(1)}%`;
 };
+
+/**
+ * Format number values with commas (for capacity, orders, etc.)
+ * @param value - The numeric value to format
+ * @returns Formatted number string (e.g., "1,234")
+ */
+export const formatNumber = (value: number | undefined | null): string => {
+    if (value == null || isNaN(value)) return '0';
+    return Math.abs(value).toLocaleString();
+};
