@@ -3,6 +3,7 @@
 
 import {Slide} from '@shared/types/game';
 import {HostCommand, SlideUpdate, PresentationStatus} from './types';
+import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -105,7 +106,7 @@ export class SimpleBroadcastManager {
 
                 case 'SLIDE_UPDATE':
                     if (this.mode === 'presentation') {
-                        this.slideHandlers.forEach(handler => handler(message.slide));
+                        this.slideHandlers.forEach(handler => handler(message.slide, message.teamData));
                     }
                     break;
 
@@ -210,13 +211,18 @@ export class SimpleBroadcastManager {
         this.sendMessage(command);
     }
 
-    sendSlideUpdate(slide: Slide): void {
+    sendSlideUpdate(slide: Slide, teamData?: {
+        teams: Team[];
+        teamRoundData: Record<string, Record<number, TeamRoundData>>;
+        teamDecisions: TeamDecision[];
+    }): void {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const update: SlideUpdate = {
             type: 'SLIDE_UPDATE',
             sessionId: this.sessionId,
             slide,
+            teamData,
             timestamp: Date.now()
         };
 
@@ -248,9 +254,8 @@ export class SimpleBroadcastManager {
         };
     }
 
-    onSlideUpdate(callback: (slide: Slide) => void): () => void {
-        if (this.isDestroyed) return () => {
-        };
+    onSlideUpdate(callback: (slide: Slide, teamData?: any) => void): () => void {
+        if (this.isDestroyed) return () => {};
 
         this.slideHandlers.add(callback);
         return () => {

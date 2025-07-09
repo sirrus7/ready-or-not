@@ -10,20 +10,27 @@ import HostVideoControls from '@shared/components/Video/HostVideoControls';
 import {useSignedMediaUrl} from '@shared/hooks/useSignedMediaUrl';
 import DoubleDownDiceDisplay from '@shared/components/DoubleDownDice/DoubleDownDiceDisplay';
 import {getInvestmentBySlideId} from '@core/content/DoubleDownMapping';
+import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 interface SlideRendererProps {
     slide: Slide | null;
     sessionId?: string | null;
     isHost: boolean;
     onVideoEnd?: () => void;
+    teams?: Team[];
+    teamRoundData?: Record<string, Record<number, TeamRoundData>>;
+    teamDecisions?: TeamDecision[];
 }
 
 const SlideContent: React.FC<{
     slide: Slide,
     sourceUrl: string,
     className?: string,
-    sessionId?: string | null
-}> = ({slide, sourceUrl, className, sessionId}) => {
+    sessionId?: string | null,
+    teams?: Team[],
+    teamRoundData?: Record<string, Record<number, TeamRoundData>>,
+    teamDecisions?: TeamDecision[]
+}> = ({slide, sourceUrl, className, sessionId, teams, teamRoundData, teamDecisions}) => {
     switch (slide.type) {
         case 'image':
             return (
@@ -42,6 +49,9 @@ const SlideContent: React.FC<{
                     <LeaderboardChartDisplay
                         slideId={slide.id}
                         currentRoundForDisplay={slide.round_number}
+                        teams={teams}
+                        teamRoundData={teamRoundData}
+                        teamDecisions={teamDecisions}
                     />
                 </div>
             );
@@ -95,7 +105,15 @@ const MediaLoadingIndicator: React.FC = () => (
     </div>
 );
 
-const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, onVideoEnd}) => {
+const SlideRenderer: React.FC<SlideRendererProps> = ({
+                                                         slide,
+                                                         sessionId,
+                                                         isHost,
+                                                         onVideoEnd,
+                                                         teams,
+                                                         teamRoundData,
+                                                         teamDecisions
+                                                     }) => {
     const [videoError, setVideoError] = useState(false);
 
     // Use the hook to get the signed URL for the current slide's media
@@ -103,21 +121,21 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
 
     const isVideoSlide = isVideo(slide?.source_path);
 
-    // Host video controls (when this is the host interface)
-    const hostVideo = isHost ? useHostVideo({
-        sessionId,
+    // Always call hooks unconditionally to follow Rules of Hooks
+    const hostVideo = useHostVideo({
+        sessionId: sessionId || null,
         sourceUrl,
-        isEnabled: isVideoSlide && !!sourceUrl
-    }) : null;
+        isEnabled: isHost && isVideoSlide && !!sourceUrl
+    });
 
-    // Presentation video sync (when this is the presentation display)
-    const presentationVideo = !isHost ? usePresentationVideo({
-        sessionId,
+    const presentationVideo = usePresentationVideo({
+        sessionId: sessionId || null,
         sourceUrl,
-        isEnabled: isVideoSlide && !!sourceUrl
-    }) : null;
+        isEnabled: !isHost && isVideoSlide && !!sourceUrl
+    });
 
-    const activeVideo = hostVideo || presentationVideo;
+    // Use the same logic as before to select active video
+    const activeVideo = isHost ? hostVideo : presentationVideo;
 
     useEffect(() => {
         setVideoError(false);
@@ -154,6 +172,9 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
                 sourceUrl={sourceUrl || ''}
                 sessionId={sessionId}
                 className="w-full h-full"
+                teams={teams}
+                teamRoundData={teamRoundData}
+                teamDecisions={teamDecisions}
             />
         );
     };
@@ -164,12 +185,16 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({slide, sessionId, isHost, 
             {isUrlLoading && <MediaLoadingIndicator/>}
 
             {/* Video element for video slides */}
-            {isVideoSlide && sourceUrl && activeVideo && (
-                <video
-                    {...activeVideo.getVideoProps(onVideoEnd, () => setVideoError(true))}
-                    className={`w-full h-full ${videoError ? 'opacity-0' : 'opacity-100'}`}
-                />
-            )}
+            {isVideoSlide && sourceUrl && activeVideo && (() => {
+                const videoProps = activeVideo.getVideoProps(onVideoEnd, () => setVideoError(true));
+                return (
+                    <video
+                        {...videoProps}
+                        crossOrigin={videoProps.crossOrigin as "anonymous" | "use-credentials" | "" | undefined}
+                        className={`w-full h-full ${videoError ? 'opacity-0' : 'opacity-100'}`}
+                    />
+                );
+            })()}
 
             {/* Content overlay for non-video slides and special slides */}
             <div className={`absolute inset-0 transition-opacity duration-300 flex items-center justify-center ${

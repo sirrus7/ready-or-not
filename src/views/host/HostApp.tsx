@@ -112,7 +112,13 @@ const HostApp: React.FC = () => {
 
         // ✅ EXISTING: Broadcast to presentation display (unchanged)
         const broadcastManager = SimpleBroadcastManager.getInstance(currentSessionId, 'host');
-        broadcastManager.sendSlideUpdate(currentSlideData);
+        broadcastManager.sendSlideUpdate(currentSlideData, {
+            teams: state.teams,
+            teamRoundData: state.teamRoundData,
+            teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
+                Object.values(teamDecisionsByPhase)
+            )
+        });
 
         // ✅ EXISTING: Broadcast to teams if slide is relevant
         const isInteractiveSlide = currentSlideData.interactive_data_key &&

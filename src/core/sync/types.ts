@@ -1,5 +1,6 @@
 // src/core/sync/types.ts
 import {Slide} from '@shared/types/game';
+import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export interface HostCommand {
     type: 'HOST_COMMAND';
@@ -20,6 +21,11 @@ export interface SlideUpdate {
     type: 'SLIDE_UPDATE';
     sessionId: string;
     slide: Slide;
+    teamData?: { // NEW: Add optional team data
+        teams: Team[];
+        teamRoundData: Record<string, Record<number, TeamRoundData>>;
+        teamDecisions: TeamDecision[];
+    };
     timestamp: number;
 }
 

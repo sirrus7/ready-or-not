@@ -6,6 +6,7 @@ import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from 'lucide-react';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import {HostCommand} from "@core/sync/types";
+import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 /**
  * Simplified presentation app that immediately displays content from the host.
@@ -17,6 +18,11 @@ const PresentationApp: React.FC = () => {
     const [statusMessage, setStatusMessage] = useState('Initializing display...');
     const [connectionError, setConnectionError] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [broadcastedTeamData, setBroadcastedTeamData] = useState<{
+        teams: Team[];
+        teamRoundData: Record<string, Record<number, TeamRoundData>>;
+        teamDecisions: TeamDecision[];
+    } | null>(null);
 
     useEffect(() => {
         document.title = "Ready or Not - Presentation";
@@ -67,11 +73,16 @@ const PresentationApp: React.FC = () => {
     useEffect(() => {
         // TODO - can we move this functionality somewhere like useVideoSyncManager
         if (!broadcastManager) return;
-        const unsubscribeSlides = broadcastManager.onSlideUpdate((slide: Slide) => {
+        const unsubscribeSlides = broadcastManager.onSlideUpdate((slide: Slide, teamData?: any) => {
             setCurrentSlide(slide);
             setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
             setConnectionError(false);
+
+            // NEW: Update team data if provided
+            if (teamData) {
+                setBroadcastedTeamData(teamData);
+            }
         });
 
         const handleHostCommand = (command: HostCommand) => {
@@ -126,6 +137,9 @@ const PresentationApp: React.FC = () => {
                 sessionId={sessionId}
                 isHost={false}
                 onVideoEnd={handleVideoEnd}
+                teams={broadcastedTeamData?.teams || []}
+                teamRoundData={broadcastedTeamData?.teamRoundData || {}}
+                teamDecisions={broadcastedTeamData?.teamDecisions || []}
             />
 
             {/* OVERLAYS for status messages */}
