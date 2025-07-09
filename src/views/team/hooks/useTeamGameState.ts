@@ -1,7 +1,7 @@
 // src/views/team/hooks/useTeamGameState.ts
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {db, supabase} from '@shared/services/supabase';
-import {InteractiveSlideData, SimpleRealtimeManager, TeamGameEvent} from '@core/sync/SimpleRealtimeManager';
+import {InteractiveSlideData, TeamGameEvent} from '@core/sync/SimpleRealtimeManager';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {GameStructure, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
 import {useTeamGameContext} from "@app/providers/TeamGameProvider";

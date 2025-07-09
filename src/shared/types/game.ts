@@ -118,3 +118,12 @@ export interface ChallengeMetadata {
     impact_card_description: string;
     consequence_slides: number[];
 }
+
+export interface KpiChange {
+    team_name: string;
+    changes: {
+        kpi: string;
+        change_value: number;
+        display_value: string;
+    }[];
+}

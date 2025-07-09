@@ -4,7 +4,7 @@ import {Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Users, TrendingUp, CheckCircle
 import {DoubleDownEffectsProcessor} from '@core/game/DoubleDownEffectsProcessor';
 import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
-import {Slide} from "@shared/types";
+import {KpiChange, Slide} from "@shared/types";
 
 interface DiceResult {
     investment_id: string;
@@ -13,15 +13,6 @@ interface DiceResult {
     total_value: number;
     boost_percentage: number;
     affected_teams: string[];
-}
-
-interface KpiChange {
-    team_name: string;
-    changes: {
-        kpi: string;
-        change_value: number;
-        display_value: string;
-    }[];
 }
 
 interface DoubleDownDiceDisplayProps {
@@ -82,6 +73,66 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         // The component manages its own state locally
     }, [sessionId, investmentId]);
 
+    const waitForHostResult = async (teamNames: string[]) => {
+        console.log('[DoubleDownDiceDisplay] PRESENTATION: Waiting for host result...');
+
+        setCurrentPhase('rolling');
+
+        // Show rolling animation while waiting
+        const rollInterval = setInterval(() => {
+            const tempResult: DiceResult = {
+                investment_id: investmentId,
+                dice1_value: Math.floor(Math.random() * 6) + 1,
+                dice2_value: Math.floor(Math.random() * 6) + 1,
+                total_value: 0,
+                boost_percentage: 0,
+                affected_teams: teamNames
+            };
+            tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
+            tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
+            setDiceResult(tempResult);
+        }, 100);
+
+        // Poll for host result
+        let attempts = 0;
+        const maxAttempts = 20; // 10 seconds total
+
+        while (attempts < maxAttempts && !hasRolled) {
+            const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+
+            if (existingResult) {
+                clearInterval(rollInterval);
+
+                const finalResult: DiceResult = {
+                    investment_id: existingResult.investment_id,
+                    dice1_value: existingResult.dice1_value,
+                    dice2_value: existingResult.dice2_value,
+                    total_value: existingResult.total_value,
+                    boost_percentage: existingResult.boost_percentage,
+                    affected_teams: existingResult.affected_teams || teamNames
+                };
+
+                setDiceResult(finalResult);
+                setHasRolled(true);
+                setCurrentPhase('showing_results');
+
+                // Show results for 3 seconds, then apply effects
+                setTimeout(async () => {
+                    await applyDoubleDownEffects(finalResult);
+                }, 3000);
+
+                return;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+        }
+
+        clearInterval(rollInterval);
+        console.error('[DoubleDownDiceDisplay] PRESENTATION: Timeout waiting for host result');
+        setCurrentPhase('complete');
+    };
+
     const initializeDoubleDownRoll = async () => {
         try {
             // First, check if this investment has already been processed
@@ -99,8 +150,19 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
                 // Load KPI changes for display if teams were affected
                 if (existingResult.affected_teams && existingResult.affected_teams.length > 0) {
-                    const changes = await loadKpiChangesForDisplay(existingResult.affected_teams, existingResult.boost_percentage);
-                    setKpiChanges(changes);
+                    const displayChanges = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
+                        sessionId,
+                        investmentId,
+                        existingResult.boost_percentage
+                    );
+
+                    // Format for the component's KpiChange interface
+                    const formattedChanges: KpiChange[] = existingResult.affected_teams.map(teamName => ({
+                        team_name: teamName,
+                        changes: displayChanges
+                    }));
+
+                    setKpiChanges(formattedChanges);
                 }
 
                 return;
@@ -118,16 +180,20 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 return;
             }
 
-            // Show teams for 3 seconds, then proceed to rolling
+            // Show teams for 3 seconds, then proceed based on mode
             setCurrentPhase('showing_teams');
 
-            // FIX: Use closure variable instead of relying on state that might get reset
             setTimeout(() => {
                 console.log('[DoubleDownDiceDisplay] setTimeout fired with captured teamNames:', teamNames);
-                console.log('[DoubleDownDiceDisplay] Current affectedTeams state:', affectedTeams);
 
-                if (!hasRolled && teamNames.length > 0) {
-                    rollDice(teamNames);
+                if (isHost) {
+                    // HOST: Roll dice and save result
+                    if (!hasRolled && teamNames.length > 0) {
+                        rollDice(teamNames);
+                    }
+                } else {
+                    // PRESENTATION: Wait for host result (don't roll independently)
+                    waitForHostResult(teamNames);
                 }
             }, 3000);
 
@@ -295,6 +361,129 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }
     };
 
+    const getTeamDecisionsForInvestment = async () => {
+        return await db.doubleDown.getTeamsForInvestment(sessionId, investmentId);
+    };
+
+    const getBeforeKpiValues = async (teamDecisions: any[]) => {
+        const beforeValues: Record<string, any> = {};
+        for (const decision of teamDecisions) {
+            beforeValues[decision.team_id] = await db.kpis.getForTeamRound(sessionId, decision.team_id, 3);
+        }
+        return beforeValues;
+    };
+
+    const calculateActualChanges = async (teamDecisions: any[], beforeValues: Record<string, any>) => {
+        const actualChanges: KpiChange[] = [];
+
+        for (const decision of teamDecisions) {
+            const teamId = decision.team_id;
+            const teamName = decision.teams.name;
+            const beforeKpis = beforeValues[teamId];
+            const afterKpis = await db.kpis.getForTeamRound(sessionId, teamId, 3);
+
+            if (beforeKpis && afterKpis) {
+                const changes = [
+                    {
+                        kpi: 'capacity',
+                        change_value: afterKpis.current_capacity - beforeKpis.current_capacity,
+                        display_value: `${afterKpis.current_capacity - beforeKpis.current_capacity}`
+                    },
+                    {
+                        kpi: 'cost',
+                        change_value: afterKpis.current_cost - beforeKpis.current_cost,
+                        display_value: `$${(afterKpis.current_cost - beforeKpis.current_cost).toLocaleString()}`
+                    }
+                ].filter(change => change.change_value !== 0);
+
+                actualChanges.push({
+                    team_name: teamName,
+                    changes
+                });
+            }
+        }
+
+        return actualChanges;
+    };
+
+    const getUpdatedKpisForBroadcast = async (teamDecisions: any[]) => {
+        const updatedKpis: Record<string, any> = {};
+
+        for (const decision of teamDecisions) {
+            const teamId = decision.team_id;
+            const afterKpis = await db.kpis.getForTeamRound(sessionId, teamId, 3);
+            if (afterKpis) {
+                updatedKpis[teamId] = afterKpis;
+            }
+        }
+
+        return updatedKpis;
+    };
+
+    const broadcastKpiUpdatesToTeams = async (updatedKpis: Record<string, any>, result: DiceResult) => {
+        const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'host');
+
+        const mockSlide: Slide = {
+            id: slideId,
+            type: 'double_down_dice_roll' as const,
+            round_number: 3,
+            title: `Bonus: ${investmentName}`,
+            interactive_data_key: investmentId
+        };
+
+        realtimeManager.sendKpiUpdated(mockSlide, {
+            updatedKpis,
+            investmentId,
+            investmentName,
+            boostPercentage: result.boost_percentage,
+            message: `Double Down bonus applied: ${result.boost_percentage}% boost from ${investmentName}`
+        });
+
+        console.log(`[DoubleDownDiceDisplay] Broadcasted KPI data to teams`);
+    };
+
+    const applyEffectsAsHost = async (result: DiceResult) => {
+        console.log(`[DoubleDownDiceDisplay] HOST: Applying effects to database`);
+
+        // Get team data and before values
+        const teamDecisions = await getTeamDecisionsForInvestment();
+        const beforeValues = await getBeforeKpiValues(teamDecisions);
+
+        // Apply effects to database
+        await DoubleDownEffectsProcessor.processDoubleDownForInvestment(
+            sessionId,
+            investmentId,
+            result.boost_percentage
+        );
+
+        // Calculate actual changes and broadcast
+        const actualChanges = await calculateActualChanges(teamDecisions, beforeValues);
+        const updatedKpis = await getUpdatedKpisForBroadcast(teamDecisions);
+
+        setKpiChanges(actualChanges);
+        await broadcastKpiUpdatesToTeams(updatedKpis, result);
+
+        console.log(`[DoubleDownDiceDisplay] HOST: Applied effects and broadcasted to teams`);
+    };
+
+    const applyEffectsAsPresentation = async (result: DiceResult) => {
+        console.log(`[DoubleDownDiceDisplay] PRESENTATION: Getting display changes only`);
+
+        const displayChanges = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
+            sessionId,
+            investmentId,
+            result.boost_percentage
+        );
+
+        const formattedChanges: KpiChange[] = result.affected_teams.map(teamName => ({
+            team_name: teamName,
+            changes: displayChanges
+        }));
+
+        setKpiChanges(formattedChanges);
+        console.log(`[DoubleDownDiceDisplay] PRESENTATION: Set display changes`);
+    };
+
     const applyDoubleDownEffects = async (result: DiceResult) => {
         if (hasAppliedEffects || result.affected_teams.length === 0) {
             console.log(`[DoubleDownDiceDisplay] Skipping effects application - already applied: ${hasAppliedEffects}, teams: ${result.affected_teams.length}`);
@@ -306,68 +495,19 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         try {
             console.log(`[DoubleDownDiceDisplay] Applying effects for investment ${investmentId} with ${result.boost_percentage}% boost`);
 
-            // Apply effects using the existing processor (updates database)
-            await DoubleDownEffectsProcessor.processDoubleDownForInvestment(
-                sessionId,
-                investmentId,
-                result.boost_percentage
-            );
-
-            // Get the KPI changes for display (local display only)
-            const changes = await loadKpiChangesForDisplay(result.affected_teams, result.boost_percentage);
-            setKpiChanges(changes);
+            if (isHost) {
+                await applyEffectsAsHost(result);
+            } else {
+                await applyEffectsAsPresentation(result);
+            }
 
             setHasAppliedEffects(true);
             setCurrentPhase('complete');
-
-            console.log(`[DoubleDownDiceDisplay] Successfully applied effects for investment ${investmentId}`);
-
-            // FIXED: Use centralized real-time system to notify teams
-            const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'host');
-
-            // Create a mock slide object for the sendKpiUpdated method
-            const mockSlide: Slide = {
-                id: slideId,
-                type: 'double_down_dice_roll' as const,
-                round_number: 3,
-                title: `Bonus: ${investmentName}`,
-                interactive_data_key: investmentId
-            };
-
-            // Broadcast KPI update - teams will refresh their KPIs from database
-            realtimeManager.sendKpiUpdated(mockSlide, {
-                // Additional context for teams (optional)
-                doubleDownApplied: true,
-                investment_name: investmentName,
-                boost_percentage: result.boost_percentage,
-                affected_teams: result.affected_teams
-            });
-
-            console.log(`[DoubleDownDiceDisplay] 📱 Broadcasted KPI update to teams via team-events-${sessionId}`);
+            console.log(`[DoubleDownDiceDisplay] Successfully completed effects application for investment ${investmentId}`);
 
         } catch (error) {
-            console.error('Error applying double down effects:', error);
+            console.error('[DoubleDownDiceDisplay] Error applying double down effects:', error);
             setCurrentPhase('complete');
-        }
-    };
-
-    const loadKpiChangesForDisplay = async (teamNames: string[], boostPercentage: number): Promise<KpiChange[]> => {
-        try {
-            // Get the KPI changes for this investment
-            const kpiChanges = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
-                sessionId,
-                investmentId,
-                boostPercentage
-            );
-
-            // Convert to display format grouped by team
-            return teamNames.map(teamName => ({
-                team_name: teamName,
-                changes: kpiChanges
-            }));
-        } catch (error) {
-            console.error('Error loading KPI changes for display:', error);
-            return [];
         }
     };
 
