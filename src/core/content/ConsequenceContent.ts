@@ -1021,7 +1021,6 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                     challenge_id: 'ch9',
                     option_id: 'C'
                 }
-                // ✅ REMOVED: -$25K cost effect not shown in slide
             ]
         }
     ]

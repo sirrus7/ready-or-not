@@ -79,7 +79,7 @@ const Router: React.FC = () => {
                             }/>
 
                             {/* Game Results Route */}
-                            <Route path="/results/:sessionId" element={
+                            <Route path="/game-results/:sessionId" element={
                                 <AuthenticatedPage>
                                     <VideoSettingsProvider>
                                         <GameProvider>
