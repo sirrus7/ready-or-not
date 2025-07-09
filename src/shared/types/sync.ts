@@ -16,3 +16,5 @@ export interface HostBroadcastPayload {
     decisionOptionsKey?: string;
     decisionPhaseTimerEndTime?: number;
 }
+
+export type SyncAction = 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume';

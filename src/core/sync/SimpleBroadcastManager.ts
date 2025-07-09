@@ -3,7 +3,7 @@
 
 import {Slide} from '@shared/types/game';
 import {HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, VideoReadyMessage} from './types';
-import {Team, TeamDecision, TeamRoundData} from "@shared/types";
+import {SyncAction, Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -230,7 +230,7 @@ export class SimpleBroadcastManager {
 
     // HOST METHODS
 
-    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume', data?: any): void {
+    sendCommand(action: SyncAction, data?: any): void {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const command: HostCommand = {

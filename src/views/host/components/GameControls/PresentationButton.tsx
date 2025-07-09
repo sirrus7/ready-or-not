@@ -48,7 +48,7 @@ const PresentationButton: React.FC = () => {
                 presentationTabRef.current = null;
                 clearInterval(checkInterval);
             }
-        }, 2000);
+        }, 500);
 
         return () => clearInterval(checkInterval);
     }, [presentationTabRef.current]);
