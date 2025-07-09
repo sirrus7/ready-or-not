@@ -45,7 +45,20 @@ const EnhancedDecisionContent: React.FC<EnhancedDecisionContentProps> = ({
                     spentBudget={decisionState.spentBudget}
                     investUpToBudget={investUpToBudget}
                     onInvestmentToggleById={decisionActions.handleInvestmentToggleById}
-                    onImmediatePurchase={(optionIndex: number) => decisionActions.handleImmediatePurchase(optionIndex, 0)}
+                    onImmediatePurchase={async (optionIndex: number) => {
+                        // Get the investment option
+                        const option = investmentOptions[optionIndex];
+                        if (!option) {
+                            throw new Error("Invalid investment option");
+                        }
+
+                        // For immediate purchases, use the original cost from the investment option
+                        // Immediate purchases typically don't use continuation pricing - they use the base cost
+                        const cost = option.cost;
+
+                        // Call the actual handler with both parameters
+                        await decisionActions.handleImmediatePurchase(optionIndex, cost);
+                    }}
                     isSubmitting={isSubmitting}
                     immediatePurchases={decisionState.immediatePurchases}
                 />

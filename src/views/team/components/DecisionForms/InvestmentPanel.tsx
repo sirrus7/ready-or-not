@@ -194,7 +194,7 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                                         Cancel
                                     </button>
                                     <button
-                                        onClick={() => handleImmediatePurchaseConfirm(optionIndex, opt.cost ?? 0)}
+                                        onClick={() => handleImmediatePurchaseConfirm(optionIndex, opt.cost ?? 50000)}
                                         disabled={isPurchasing}
                                         className="flex-1 px-4 py-3 bg-yellow-600 hover:bg-yellow-500 disabled:bg-yellow-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
                                     >
