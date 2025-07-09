@@ -289,6 +289,29 @@ export const useTeamGameState = ({
                 case 'SUBSCRIBED':
                     setConnectionStatus('connected');
                     console.log(`[useTeamGameState] ✅ Connected to team events`);
+
+                    // Load/sync state on every connection (initial + reconnect)
+                    if (sessionId && loggedInTeamId) {
+                        const syncState = async () => {
+                            try {
+                                const session = await db.sessions.getById(sessionId);
+                                if (!session) return;
+
+                                const slideIndex = session.current_slide_index || 0;
+                                const initialSlide = readyOrNotGame_2_0_DD.slides[slideIndex];
+                                if (initialSlide) {
+                                    setCurrentActiveSlide(initialSlide);
+                                    const targetRound = (initialSlide.round_number as 1 | 2 | 3) || 1;
+                                    const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
+                                    setCurrentTeamKpis(kpis);
+                                }
+                            } catch (error) {
+                                console.error('Error syncing state:', error);
+                            }
+                        };
+
+                        syncState();
+                    }
                     break;
                 case 'CHANNEL_ERROR':
                 case 'TIMED_OUT':
@@ -310,37 +333,6 @@ export const useTeamGameState = ({
     // ========================================================================
     // EFFECTS - CLEAN
     // ========================================================================
-
-    // Load initial slide from database
-    useEffect(() => {
-        const loadInitialSlide = async () => {
-            if (!sessionId || !loggedInTeamId) return;
-
-            try {
-                const session = await db.sessions.getById(sessionId);
-                if (!session) return;
-
-                // Set initial slide
-                const slideIndex = session.current_slide_index || 0;
-                const initialSlide = readyOrNotGame_2_0_DD.slides[slideIndex];
-                if (initialSlide) {
-                    setCurrentActiveSlide(initialSlide);
-
-                    // Fetch initial KPIs
-                    const targetRound = (initialSlide.round_number as 1 | 2 | 3) || 1;
-                    const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
-                    setCurrentTeamKpis(kpis);
-                }
-
-                setConnectionStatus('connected');
-            } catch (error) {
-                console.error('Error loading initial slide:', error);
-                setConnectionStatus('disconnected');
-            }
-        };
-
-        loadInitialSlide();
-    }, [sessionId, loggedInTeamId]);
 
     // Cleanup timeouts on unmount
     useEffect(() => {
