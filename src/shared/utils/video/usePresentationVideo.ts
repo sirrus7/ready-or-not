@@ -5,7 +5,6 @@ import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
 import { HostCommand } from '@core/sync/types';
 import {
     applyVideoCommand,
-    forcePlayFromBeginning,
     isVideoFullyLoaded,
     createVideoEventLogger
 } from '@shared/utils/video/videoSyncUtils';
@@ -49,7 +48,7 @@ export const usePresentationVideo = ({
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
     // Use sync manager for communication only
-    const { isConnected, onCommand, onConnectionChange, sendVideoReady } = useVideoSyncManager({
+    const { onCommand, onConnectionChange, sendVideoReady } = useVideoSyncManager({
         sessionId,
         role: 'presentation'
     });

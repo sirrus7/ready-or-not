@@ -7,7 +7,6 @@ import {
     isVideoReady,
     isNewVideoSource,
     handleHostConnection,
-    setupAutoplay,
     HOST_MUTE_CHECK_INTERVAL
 } from '@shared/utils/video/videoSyncUtils';
 
@@ -94,6 +93,12 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                     sendCommand
                 );
                 
+                // Always send volume state when presentation connects
+                sendCommand('volume', {
+                    volume: presentationVolume,
+                    muted: presentationMuted,
+                });
+                
                 if (!video.paused) {
                     startSyncInterval();
                 }
@@ -113,6 +118,11 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     useEffect(() => {
         const unsubscribe = onVideoReady((ready) => {
             console.log('[useHostVideo] Presentation video ready status:', ready);
+            sendCommand('volume', {
+                volume: presentationVolume,
+                muted: presentationMuted,
+                time: Date.now(),
+            });
             setPresentationVideoReady(ready);
         });
         return unsubscribe;
@@ -213,7 +223,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
 
         // Update presentation volume state
         setPresentationVolume(volume);
-
+        console.log('[useHostVideo] - sending volume command')
         if (isConnected) {
             // Don't change host volume, just send to presentation
             console.log('[useHostVideo] Sending volume command:', { volume });
@@ -223,6 +233,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             });
         } else {
             // Change host volume when not connected
+            console.log('[useHostVideo] Setting its own volume command:', { volume });
             video.volume = volume;
         }
     }, [isConnected, sendCommand]);
@@ -344,7 +355,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
         };
-    }, [sourceUrl, isEnabled, stopSyncInterval, play, isConnected, presentationVolume, presentationMuted, sendCommand]);
+    }, [sourceUrl, isEnabled, stopSyncInterval, play, isConnected, presentationVolume, presentationMuted, sendCommand, localIsConnected]);
 
     // Cleanup on unmount
     useEffect(() => {

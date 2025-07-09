@@ -1,12 +1,12 @@
 // src/core/sync/types.ts
 import {Slide} from '@shared/types/game';
-import {Team, TeamDecision, TeamRoundData} from "@shared/types";
+import {Team, TeamDecision, TeamRoundData, SyncAction } from "@shared/types";
 
 export interface HostCommand {
     type: 'HOST_COMMAND';
     sessionId: string;
     id: string;
-    action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume';
+    action: SyncAction;
     data?: {
         time: number;
         volume: number;
