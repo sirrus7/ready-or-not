@@ -59,7 +59,7 @@ export const useTeamGameState = ({
     // ========================================================================
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
     const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
-    const [gameStructure, setGameStructure] = useState<GameStructure | null>(null);
+    const [gameStructure, setGameStructure] = useState<GameStructure | null>(readyOrNotGame_2_0_DD);
     const [isLoadingKpis, setIsLoadingKpis] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting');
     const [decisionResetTrigger, setDecisionResetTrigger] = useState(0);
@@ -90,6 +90,7 @@ export const useTeamGameState = ({
     // ========================================================================
     const fetchCurrentKpis = useCallback(async () => {
         if (!sessionId || !loggedInTeamId || !currentActiveSlide) return;
+        console.log("[useTeamGameState] currentActiveSlide: ", currentActiveSlide)
 
         setIsLoadingKpis(true);
         try {
@@ -148,8 +149,11 @@ export const useTeamGameState = ({
     const handleSlideUpdate = useCallback((payload: SessionPayload) => {
         const updatedSession = payload.new;
 
+        console.log('📊 [useTeamGameState] handleSlideUpdate - updatedSession:', updatedSession);
+
         if (updatedSession?.current_slide_index !== undefined && gameStructure) {
             const newSlide = gameStructure.slides[updatedSession.current_slide_index];
+            console.log('📊 [useTeamGameState] handleSlideUpdate - newSlide:', newSlide);
             if (newSlide) {
                 setCurrentActiveSlide(newSlide);
 
@@ -299,24 +303,20 @@ export const useTeamGameState = ({
             console.log(`[useTeamGameState] 🔌 Disconnecting team events`);
             supabase.removeChannel(channel);
         };
-    }, [sessionId, loggedInTeamId, handleTeamEvent]);
+    }, [sessionId, loggedInTeamId]);
 
     // ========================================================================
     // EFFECTS - CLEAN
     // ========================================================================
 
-    // Load game structure and initialize slide
+    // Load initial slide from database
     useEffect(() => {
-        const loadGameStructure = async () => {
+        const loadInitialSlide = async () => {
             if (!sessionId || !loggedInTeamId) return;
 
             try {
-                // Load session data to get current slide
                 const session = await db.sessions.getById(sessionId);
                 if (!session) return;
-
-                // Load game structure
-                setGameStructure(readyOrNotGame_2_0_DD);
 
                 // Set initial slide
                 const slideIndex = session.current_slide_index || 0;
@@ -324,7 +324,7 @@ export const useTeamGameState = ({
                 if (initialSlide) {
                     setCurrentActiveSlide(initialSlide);
 
-                    // Fetch initial KPIs for this slide
+                    // Fetch initial KPIs
                     const targetRound = (initialSlide.round_number as 1 | 2 | 3) || 1;
                     const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
                     setCurrentTeamKpis(kpis);
@@ -332,12 +332,12 @@ export const useTeamGameState = ({
 
                 setConnectionStatus('connected');
             } catch (error) {
-                console.error('🔌 [useTeamGameState] Error loading game structure:', error);
+                console.error('Error loading initial slide:', error);
                 setConnectionStatus('disconnected');
             }
         };
 
-        loadGameStructure();
+        loadInitialSlide();
     }, [sessionId, loggedInTeamId]);
 
     // Cleanup timeouts on unmount

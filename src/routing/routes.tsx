@@ -7,20 +7,32 @@ import {VideoSettingsProvider} from '@shared/providers/VideoSettingsProvider';
 import AuthGuard from '@routing/guards/AuthGuard';
 
 // ============================================================================
+// CONDITIONAL IMPORTS - Direct imports in development for IntelliJ debugging
+// ============================================================================
+
+// Import directly in development for IDE debugging, lazy load in production
+import HostAppDirect from '@views/host/HostApp';
+import DashboardPageDirect from '@views/host/pages/DashboardPage';
+import CreateGamePageDirect from '@views/host/pages/CreateGamePage';
+import GameResultsPageDirect from '@views/host/pages/GameResultsPage';
+import TeamAppDirect from '@views/team/TeamApp';
+import PresentationAppDirect from '@views/presentation/PresentationApp';
+
+// ============================================================================
 // LAZY LOADED COMPONENTS - Code Splitting by Route
 // ============================================================================
 
 // Host-related components (largest bundle)
-export const HostApp = lazy(() => import('@views/host/HostApp'));
-export const DashboardPage = lazy(() => import('@views/host/pages/DashboardPage'));
-export const CreateGamePage = lazy(() => import('@views/host/pages/CreateGamePage'));
-export const GameResultsPage = lazy(() => import('@views/host/pages/GameResultsPage'));
+export const HostApp = import.meta.env.DEV ? HostAppDirect : lazy(() => import('@views/host/HostApp'));
+export const DashboardPage = import.meta.env.DEV ? DashboardPageDirect : lazy(() => import('@views/host/pages/DashboardPage'));
+export const CreateGamePage = import.meta.env.DEV ? CreateGamePageDirect : lazy(() => import('@views/host/pages/CreateGamePage'));
+export const GameResultsPage = import.meta.env.DEV ? GameResultsPageDirect : lazy(() => import('@views/host/pages/GameResultsPage'));
 
 // Team components (second largest)
-export const TeamApp = lazy(() => import('@views/team/TeamApp'));
+export const TeamApp = import.meta.env.DEV ? TeamAppDirect : lazy(() => import('@views/team/TeamApp'));
 
 // Presentation components (third largest)
-export const PresentationApp = lazy(() => import('@views/presentation/PresentationApp'));
+export const PresentationApp = import.meta.env.DEV ? PresentationAppDirect : lazy(() => import('@views/presentation/PresentationApp'));
 
 // Login page - keep static since it's small and needed immediately
 export {default as LoginPage} from '@views/host/pages/LoginPage';

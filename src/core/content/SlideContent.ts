@@ -594,7 +594,7 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_062.mp4',
         host_alert: {
             title: "RD-1 Payoffs Complete",
-            message: "All investment payoffs for Round 1 have been revealed. Click OK to review End of Round KPIs."
+            message: "Make sure all teams have updated the KPI's on their boards, then click Next."
         }
     },
     {
@@ -606,7 +606,7 @@ export const allGameSlides: Slide[] = [
         auto_advance_after_video: false,
         host_alert: {
             title: "End of Round 1",
-            message: "CFOs should write KPIs from board on team summary sheets. Collect sheets before proceeding."
+            message: "Ensure CFOs have written KPIs from their boards on their Team Summary Sheets, then click Next"
         }
     },
     {
@@ -705,7 +705,11 @@ export const allGameSlides: Slide[] = [
         title: "KPI Reset Example",
         type: 'kpi_reset',
         source_path: 'Slide_068.mp4',
-        auto_advance_after_video: true
+        auto_advance_after_video: false,
+        host_alert: {
+            title: "Reset KPIs",
+            message: "Ensure all teams have reset their KPIs to starting values and adjusted to all Permanent KPI Impact cards before proceeding."
+        }
     },
     {
         id: 68,
@@ -713,11 +717,7 @@ export const allGameSlides: Slide[] = [
         title: "RD-2 Starting KPIs",
         type: 'video',
         source_path: 'Slide_069.mp4',
-        auto_advance_after_video: false,
-        host_alert: {
-            title: "Reset KPIs",
-            message: "Ensure all teams have reset their KPIs to starting values before proceeding."
-        }
+        auto_advance_after_video: true,
     },
     {
         id: 69,
@@ -728,7 +728,7 @@ export const allGameSlides: Slide[] = [
         auto_advance_after_video: false,
         host_alert: {
             title: "Hand Out RD-2 Materials",
-            message: "Distribute RD-2 Investment Cards and Position Updates to all teams."
+            message: "Distribute RD-2 Investment Cards, Team Summary Sheets and Position Sheets to all teams."
         }
     },
     {

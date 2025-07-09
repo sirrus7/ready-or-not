@@ -42,7 +42,6 @@
  */
 
 import React, {useEffect, useState} from 'react';
-import {useParams} from 'react-router-dom';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import DecisionModeContainer from '@views/team/components/InteractionPanel/DecisionContainer';
 import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards';
@@ -56,7 +55,6 @@ import {Building, ShoppingCart, DollarSign, TrendingUp, AlertTriangle} from 'luc
 // MAIN TEAM APP COMPONENT
 // ============================================================================
 const TeamApp: React.FC = () => {
-    const {sessionId} = useParams<{ sessionId: string }>();
     const [loggedInTeamId, setLoggedInTeamId] = useState<string | null>(null);
     const [loggedInTeamName, setLoggedInTeamName] = useState<string | null>(null);
     const [kpiChanges, setKpiChanges] = useState<Record<string, number>>({});
@@ -65,6 +63,7 @@ const TeamApp: React.FC = () => {
 
     // ADDED: Get centralized adjustment data from TeamGameProvider (lightweight, no auth)
     const teamGameContext = useTeamGameContext();
+    const sessionId = teamGameContext.sessionId;
     const {permanentAdjustments, isLoadingAdjustments} = teamGameContext;
 
     // ========================================================================

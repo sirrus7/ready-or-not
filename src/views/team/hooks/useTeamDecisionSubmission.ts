@@ -299,6 +299,8 @@ export const useTeamDecisionSubmission = ({
                 // NEW: Trigger investment display refresh
                 onDecisionSubmitted?.();
 
+                checkForExistingDecision();
+
                 // ✅ YOUR ORIGINAL LOGIC - Only wrapped with circuit breaker
                 setTimeout(() => {
                     withCircuitBreaker(checkForExistingDecision, 'success decision check');
