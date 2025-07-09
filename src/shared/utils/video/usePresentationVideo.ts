@@ -49,7 +49,7 @@ export const usePresentationVideo = ({
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
     // Use sync manager for communication only
-    const { isConnected, onCommand, onConnectionChange } = useVideoSyncManager({
+    const { isConnected, onCommand, onConnectionChange, sendVideoReady } = useVideoSyncManager({
         sessionId,
         role: 'presentation'
     });
@@ -60,7 +60,7 @@ export const usePresentationVideo = ({
         return unsubscribe;
     }, [onConnectionChange]);
 
-    // TEMPORARY: Force play when video becomes ready
+    // Send video ready status when video is loaded
     useEffect(() => {
         if (!isEnabled || !sourceUrl || !videoRef.current) return;
         
@@ -69,23 +69,23 @@ export const usePresentationVideo = ({
         // Always wait for canplaythrough for complete audio loading
         const handleCanPlayThrough = () => {
             video.removeEventListener('canplaythrough', handleCanPlayThrough);
-            forcePlayFromBeginning(video).catch(error => {
-                console.error('[Presentation] Force play failed:', error);
-            });
+            console.log('[Presentation] Video is ready, sending ready status');
+            sendVideoReady(true);
         };
         video.addEventListener('canplaythrough', handleCanPlayThrough);
         
         // If already at canplaythrough, trigger immediately
         if (isVideoFullyLoaded(video)) {
-            forcePlayFromBeginning(video).catch(error => {
-                console.error('[Presentation] Force play failed:', error);
-            });
+            console.log('[Presentation] Video already ready, sending ready status');
+            sendVideoReady(true);
         }
         
         return () => {
             video.removeEventListener('canplaythrough', handleCanPlayThrough);
+            // Send not ready when unmounting or source changes
+            sendVideoReady(false);
         };
-    }, [isEnabled, sourceUrl]);
+    }, [isEnabled, sourceUrl, sendVideoReady]);
 
     // Listen for commands from host
     useEffect(() => {
