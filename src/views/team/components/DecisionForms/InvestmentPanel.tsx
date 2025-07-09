@@ -80,13 +80,12 @@ const InvestmentPanel: React.FC<InvestmentPanelProps> = ({
                             <input
                                 type="checkbox"
                                 className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-game-orange-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded disabled:opacity-50"
-                                checked={isSelected}
+                                checked={isSelected || isImmediatePurchased || (isImmediate && isExpanded)}
                                 disabled={!isInteractable}
                                 onChange={() => {
                                     if (!isInteractable) return;
 
                                     if (isImmediate && !isImmediatePurchased) {
-                                        onInvestmentToggleById(opt.id, opt.cost ?? 0);
                                         setExpandedImmediate(isExpanded ? null : optionIndex);
                                     } else {
                                         onInvestmentToggleById(opt.id, opt.cost ?? 0);

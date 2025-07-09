@@ -160,14 +160,13 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                     <input
                         type="checkbox"
                         className="form-checkbox h-5 w-5 text-blue-500 mt-1 bg-gray-700 border-gray-500 focus:ring-game-orange-400 focus:ring-offset-0 focus:ring-opacity-50 flex-shrink-0 rounded disabled:opacity-50"
-                        checked={isSelected || isImmediatePurchased}
+                        checked={isSelected || isImmediatePurchased || (isImmediate && isExpanded)}
                         disabled={!isInteractable}
                         onChange={() => {
                             if (!isInteractable) return;
                             if (isImmediate && !isImmediatePurchased) {
                                 // For immediate purchases, we still need the correct index
                                 const correctIndex = investmentOptions.findIndex(opt => opt.id === investment.id);
-                                onInvestmentToggleById(investment.id, effectivePrice ?? 0);
                                 setExpandedImmediate(correctIndex);
                             } else {
                                 // USE ID-BASED APPROACH - eliminates index confusion completely
