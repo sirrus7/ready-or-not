@@ -7,8 +7,54 @@ import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import PresentationButton from '@views/host/components/GameControls/PresentationButton';
 import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import {SimpleRealtimeManager} from "@core/sync";
-import {Slide} from "@shared/types";
+import {ChallengeOption, GameStructure, InvestmentOption, Slide} from "@shared/types";
 import {shouldAutoAdvance} from '@shared/utils/versionUtils';
+
+const broadcastInteractiveSlideData = (
+    realtimeManager: SimpleRealtimeManager,
+    currentSlideData: Slide,
+    gameStructure: GameStructure
+): void => {
+    const dataKey = currentSlideData.interactive_data_key;
+    if (!dataKey) return;
+
+    const interactiveData: {
+        slideId: number;
+        slide: Slide;
+        investmentOptions?: InvestmentOption[];
+        challengeOptions?: ChallengeOption[];
+        budgetForPhase?: number;
+        rd3Investments?: InvestmentOption[];
+    } = {
+        slideId: currentSlideData.id,
+        slide: currentSlideData
+    };
+
+    // Add investment options if needed
+    if (currentSlideData.type === 'interactive_invest' || currentSlideData.type === 'interactive_double_down_select') {
+        interactiveData.investmentOptions = currentSlideData.type === 'interactive_invest'
+            ? gameStructure.all_investment_options[dataKey] || []
+            : gameStructure.all_investment_options['rd3-invest'] || [];
+
+        // Add budget info for investment slides
+        if (currentSlideData.type === 'interactive_invest') {
+            interactiveData.budgetForPhase = gameStructure.investment_phase_budgets[dataKey] || 0;
+        }
+    }
+
+    // Add challenge options if needed
+    if (currentSlideData.type === 'interactive_choice' || currentSlideData.type === 'interactive_double_down_select') {
+        interactiveData.challengeOptions = gameStructure.all_challenge_options[dataKey] || [];
+    }
+
+    // Add RD3 investments for double down
+    if (currentSlideData.type === 'interactive_double_down_select') {
+        interactiveData.rd3Investments = gameStructure.all_investment_options['rd3-invest'] || [];
+    }
+
+    console.log('📱 Broadcasting interactive slide data for:', dataKey);
+    realtimeManager.sendInteractiveSlideData(interactiveData);
+};
 
 const HostApp: React.FC = () => {
     const {
@@ -64,8 +110,13 @@ const HostApp: React.FC = () => {
         if (isInteractiveSlide) {
             console.log('📱 Broadcasting decision_time for:', currentSlideData.interactive_data_key);
             realtimeManager.sendDecisionTime(currentSlideData);
+
+            // 🆕 NEW: Broadcast interactive slide data (much cleaner!)
+            if (gameStructure) {
+                broadcastInteractiveSlideData(realtimeManager, currentSlideData, gameStructure);
+            }
         }
-    }, [currentSessionId, currentSlideData]);
+    }, [currentSessionId, currentSlideData, gameStructure]);
 
     const isFirstSlideOverall = current_slide_index === 0;
     const isLastSlideOverall = current_slide_index === (gameStructure.slides.length - 1);

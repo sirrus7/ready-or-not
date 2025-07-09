@@ -464,6 +464,7 @@ const TeamApp: React.FC = () => {
                             currentSlide={currentActiveSlide}
                             sessionId={sessionId || ''}
                             gameStructure={teamGameState.gameStructure}
+                            interactiveData={teamGameState.interactiveData}
                             decisionResetTrigger={resetTrigger}
                             onDecisionSubmitted={() => {
                                 triggerDecisionRefresh();

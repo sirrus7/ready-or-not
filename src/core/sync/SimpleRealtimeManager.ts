@@ -3,13 +3,23 @@
 // Mirrors SimpleBroadcastManager structure but uses Supabase custom channels
 
 import {supabase} from '@shared/services/supabase';
-import type {Slide} from '@shared/types/game';
+import type {InvestmentOption, Slide, ChallengeOption} from '@shared/types';
 
 export type RealtimeConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
+export interface InteractiveSlideData {
+    slideId: number;
+    slide: Slide;
+    investmentOptions?: InvestmentOption[];
+    challengeOptions?: ChallengeOption[];
+    budgetForPhase?: number;
+    rd3Investments?: InvestmentOption[];
+}
+
+
 // Team game event structure
 export interface TeamGameEvent {
-    type: 'decision_time' | 'decision_closed' | 'kpi_updated' | 'decision_reset' | 'game_ended';
+    type: 'decision_time' | 'decision_closed' | 'kpi_updated' | 'decision_reset' | 'game_ended' | 'interactive_slide_data';
     sessionId: string;
     data?: any;
     timestamp: number;
@@ -165,8 +175,8 @@ export class SimpleRealtimeManager {
     sendDecisionReset(message?: string, teamId?: string, decisionKey?: string): void {
         this.sendTeamEvent('decision_reset', {
             message: message || 'Decisions have been reset by the host',
-            ...(teamId && { teamId }),
-            ...(decisionKey && { decisionKey })
+            ...(teamId && {teamId}),
+            ...(decisionKey && {decisionKey})
         });
     }
 
@@ -174,6 +184,11 @@ export class SimpleRealtimeManager {
         this.sendTeamEvent('game_ended', {
             message: 'Game session has ended'
         });
+    }
+
+    sendInteractiveSlideData(slideData: InteractiveSlideData): void {
+        console.log(`[SimpleRealtimeManager] Broadcasting interactive slide data for slide ${slideData.slideId}`);
+        this.sendTeamEvent('interactive_slide_data', slideData);
     }
 
     // TEAM METHODS - Listening to host events

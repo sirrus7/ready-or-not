@@ -1,14 +1,9 @@
 // src/views/team/hooks/useTeamGameState.ts
-import {useEffect, useCallback, useState, useRef} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {db, supabase} from '@shared/services/supabase';
-import type { TeamGameEvent } from '@core/sync/SimpleRealtimeManager';
-import { readyOrNotGame_2_0_DD } from '@core/content/GameStructure';
-import {
-    Slide,
-    TeamRoundData,
-    PermanentKpiAdjustment,
-    GameStructure
-} from '@shared/types';
+import {InteractiveSlideData, SimpleRealtimeManager, TeamGameEvent} from '@core/sync/SimpleRealtimeManager';
+import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
+import {GameStructure, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
 import {useTeamGameContext} from "@app/providers/TeamGameProvider";
 
 interface UseTeamGameStateProps {
@@ -32,6 +27,7 @@ interface UseTeamGameStateReturn {
     fetchCurrentKpis: () => Promise<void>;
     sessionStatus: 'active' | 'deleted' | 'unknown';
     triggerDecisionRefresh: () => void;
+    interactiveData: InteractiveSlideData | null;
 }
 
 interface PayloadData {
@@ -65,6 +61,7 @@ export const useTeamGameState = ({
     const [decisionResetTrigger, setDecisionResetTrigger] = useState(0);
     const [sessionStatus, setSessionStatus] = useState<'active' | 'deleted' | 'unknown'>('unknown');
     const [closedDecisionKeys, setClosedDecisionKeys] = useState<Set<string>>(new Set());
+    const [interactiveData, setInteractiveData] = useState<InteractiveSlideData | null>(null);
 
     // Stable refs to prevent subscription recreation
     const stableSessionId = useRef<string | null>(null);
@@ -212,7 +209,7 @@ export const useTeamGameState = ({
                         console.log('🔍 Calling handleSlideUpdate with INDEX:', slideIndex, 'for slide ID:', slide.id);
 
                         // Pass the INDEX, not the ID
-                        handleSlideUpdate({ new: { current_slide_index: slideIndex } });
+                        handleSlideUpdate({new: {current_slide_index: slideIndex}});
 
                         // Reopen the decision when host navigates back
                         if (slide.interactive_data_key) {
@@ -273,7 +270,7 @@ export const useTeamGameState = ({
 
         const channel = supabase.channel(`team-events-${sessionId}`);
 
-        channel.on('broadcast', { event: 'team_game_event' }, (payload: any) => {
+        channel.on('broadcast', {event: 'team_game_event'}, (payload: any) => {
             try {
                 const event = payload.payload as TeamGameEvent;
                 handleTeamEvent(event);
@@ -372,6 +369,19 @@ export const useTeamGameState = ({
         verifySessionExists();
     }, [sessionId]);
 
+    useEffect(() => {
+        if (!sessionId || !loggedInTeamId) return;
+
+        const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'team');
+
+        return realtimeManager.onTeamEvent((event) => {
+            if (event.type === 'interactive_slide_data') {
+                console.log(`[useTeamGameState] Received interactive data for slide ${event.data.slideId}`);
+                setInteractiveData(event.data);
+            }
+        });
+    }, [sessionId, loggedInTeamId]);
+
     // ========================================================================
     // COMPUTED VALUES
     // ========================================================================
@@ -400,5 +410,6 @@ export const useTeamGameState = ({
         fetchCurrentKpis,
         sessionStatus,
         triggerDecisionRefresh: () => setDecisionResetTrigger(prev => prev + 1),
+        interactiveData,
     };
 };

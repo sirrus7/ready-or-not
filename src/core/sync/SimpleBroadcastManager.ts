@@ -6,34 +6,37 @@ import {HostCommand, SlideUpdate, PresentationStatus} from './types';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
-// Enhanced KPI update data structure
-export interface KpiUpdateData {
-    type: 'kpi_update';
-    timestamp: number;
-    updatedTeams: Array<{
-        teamId: string;
-        roundNumber: number;
-        kpis: {
-            capacity: number;
-            orders: number;
-            cost: number;
-            asp: number;
-            revenue: number;
-            net_income: number;
-            net_margin: number;
-        };
-    }>;
-}
-
 /**
- * Enhanced SimpleBroadcastManager with KPI update support
- * Uses native BroadcastChannel API directly with singleton pattern
+ * SimpleBroadcastManager - Host ↔ Presentation Communication
+ *
+ * PURPOSE: Handles real-time communication between the host interface and presentation
+ * display within the same browser/device using the BroadcastChannel API.
+ *
+ * RESPONSIBILITIES:
+ * - Slide synchronization for projection display
+ * - Video controls (play, pause, seek, volume)
+ * - Presentation window connection status
+ * - Host commands and acknowledgments
+ *
+ * ARCHITECTURE:
+ * - Uses BroadcastChannel API for same-browser communication
+ * - Singleton pattern per session-mode combination
+ * - Automatic reconnection and status tracking
+ *
+ * NOT USED FOR:
+ * - Team communication (use SimpleRealtimeManager instead)
+ * - KPI updates to teams (use Supabase Realtime instead)
+ * - Cross-device communication (use Supabase Realtime instead)
+ *
+ * USAGE:
+ * - Host mode: Send slide updates and commands to presentation
+ * - Presentation mode: Receive slide updates and commands from host
  */
 export class SimpleBroadcastManager {
     private static instances: Map<string, SimpleBroadcastManager> = new Map();
     private channel: BroadcastChannel;
     private sessionId: string;
-    private mode: 'host' | 'presentation' | 'team';
+    private mode: 'host' | 'presentation';
 
     // Connection tracking
     private connectionStatus: ConnectionStatus = 'disconnected';
@@ -44,12 +47,11 @@ export class SimpleBroadcastManager {
     // Message handlers
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
     private slideHandlers: Set<(slide: Slide) => void> = new Set();
-    private kpiHandlers: Set<(data: KpiUpdateData) => void> = new Set(); // NEW: KPI update handlers
 
     // Track if this instance has been destroyed
     private isDestroyed: boolean = false;
 
-    private constructor(sessionId: string, mode: 'host' | 'presentation' | 'team') {
+    private constructor(sessionId: string, mode: 'host' | 'presentation') {
         this.sessionId = sessionId;
         this.mode = mode;
         this.channel = new BroadcastChannel(`game-session-${sessionId}`);
@@ -57,7 +59,7 @@ export class SimpleBroadcastManager {
         this.startPingPong();
     }
 
-    static getInstance(sessionId: string, mode: 'host' | 'presentation' | 'team'): SimpleBroadcastManager {
+    static getInstance(sessionId: string, mode: 'host' | 'presentation'): SimpleBroadcastManager {
         const key = `${sessionId}-${mode}`;
 
         // Check if existing instance is destroyed and clean it up
@@ -89,7 +91,7 @@ export class SimpleBroadcastManager {
 
             switch (message.type) {
                 case 'HOST_COMMAND':
-                    if (this.mode === 'presentation' || this.mode === 'team') {
+                    if (this.mode === 'presentation') {
                         this.commandHandlers.forEach(handler => handler(message as HostCommand));
                         // Send acknowledgment
                         this.sendMessage({
@@ -102,14 +104,8 @@ export class SimpleBroadcastManager {
                     break;
 
                 case 'SLIDE_UPDATE':
-                    if (this.mode === 'presentation' || this.mode === 'team') {
+                    if (this.mode === 'presentation') {
                         this.slideHandlers.forEach(handler => handler(message.slide));
-                    }
-                    break;
-
-                case 'KPI_UPDATE': // NEW: Handle KPI updates
-                    if (this.mode === 'team') {
-                        this.kpiHandlers.forEach(handler => handler(message.payload));
                     }
                     break;
 
@@ -227,20 +223,6 @@ export class SimpleBroadcastManager {
         this.sendMessage(update);
     }
 
-    // NEW: Send KPI updates to all team interfaces
-    sendKpiUpdate(data: KpiUpdateData): void {
-        if (this.mode !== 'host' || this.isDestroyed) return;
-
-        const update = {
-            type: 'KPI_UPDATE',
-            sessionId: this.sessionId,
-            payload: data,
-            timestamp: Date.now()
-        };
-
-        this.sendMessage(update);
-    }
-
     onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
         if (this.isDestroyed) return () => {
         };
@@ -276,17 +258,6 @@ export class SimpleBroadcastManager {
         };
     }
 
-    // NEW: Listen for KPI updates (for team interfaces)
-    onKpiUpdate(callback: (data: KpiUpdateData) => void): () => void {
-        if (this.isDestroyed) return () => {
-        };
-
-        this.kpiHandlers.add(callback);
-        return () => {
-            this.kpiHandlers.delete(callback);
-        };
-    }
-
     sendStatus(status: 'ready' | 'pong'): void {
         if (this.mode !== 'presentation' || this.isDestroyed) return;
 
@@ -298,12 +269,6 @@ export class SimpleBroadcastManager {
         };
 
         this.sendMessage(statusMessage);
-    }
-
-    // COMMON METHODS
-
-    getConnectionStatus(): ConnectionStatus {
-        return this.connectionStatus;
     }
 
     destroy(): void {
@@ -329,7 +294,6 @@ export class SimpleBroadcastManager {
         this.statusCallbacks.clear();
         this.commandHandlers.clear();
         this.slideHandlers.clear();
-        this.kpiHandlers.clear(); // NEW: Clear KPI handlers
 
         // Remove from instances map
         const key = `${this.sessionId}-${this.mode}`;
