@@ -23,6 +23,10 @@ const PresentationApp: React.FC = () => {
         teamRoundData: Record<string, Record<number, TeamRoundData>>;
         teamDecisions: TeamDecision[];
     } | null>(null);
+    const [joinInfo, setJoinInfo] = useState<{
+        joinUrl: string;
+        qrCodeDataUrl: string;
+    } | null>(null);
 
     useEffect(() => {
         document.title = "Ready or Not - Presentation";
@@ -85,6 +89,17 @@ const PresentationApp: React.FC = () => {
             }
         });
 
+        // Join info handler
+        const joinInfoUnsubscribe = broadcastManager.onJoinInfo((joinUrl, qrCodeDataUrl) => {
+            if (joinUrl && qrCodeDataUrl) {
+                // Show join info
+                setJoinInfo({ joinUrl, qrCodeDataUrl });
+            } else {
+                // Close join info (empty strings mean close)
+                setJoinInfo(null);
+            }
+        });
+
         const handleHostCommand = (command: HostCommand) => {
             if (command.action === 'close_presentation') {
                 window.close();
@@ -93,6 +108,7 @@ const PresentationApp: React.FC = () => {
         const unsubscribeCommands = broadcastManager.onHostCommand(handleHostCommand);
         return () => {
             unsubscribeSlides();
+            joinInfoUnsubscribe();
             unsubscribeCommands();
         };
     }, [broadcastManager]);
@@ -241,6 +257,33 @@ const PresentationApp: React.FC = () => {
                     <div>Connected: {isConnectedToHost ? 'Yes' : 'No'}</div>
                     <div>Fullscreen: {isFullscreen ? 'Yes' : 'No'}</div>
                     <div>Session: {sessionId?.substring(0, 8)}...</div>
+                </div>
+            )}
+
+            {joinInfo && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4 text-center">
+                        <h2 className="text-2xl font-bold mb-4 text-gray-900">Team Join Information</h2>
+                        <p className="text-gray-600 mb-4">Teams join at:</p>
+                        <div className="bg-gray-100 p-4 rounded-md mb-4">
+                            <div className="font-mono text-blue-600 break-all text-lg">
+                                {joinInfo.joinUrl}
+                            </div>
+                        </div>
+                        <div className="flex justify-center mb-4">
+                            <div className="p-4 bg-white rounded-lg shadow-md border border-gray-200">
+                                <img
+                                    src={joinInfo.qrCodeDataUrl}
+                                    alt="QR Code for student join link"
+                                    className="w-48 h-48"
+                                />
+                                <p className="text-sm text-gray-500 mt-2">Scan to join game</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                            Players will also need their Team Name and Team Passcode.
+                        </p>
+                    </div>
                 </div>
             )}
         </div>

@@ -2,7 +2,7 @@
 // Enhanced version with KPI update broadcasting support
 
 import {Slide} from '@shared/types/game';
-import {HostCommand, SlideUpdate, PresentationStatus} from './types';
+import {HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage} from './types';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
@@ -48,6 +48,7 @@ export class SimpleBroadcastManager {
     // Message handlers
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
     private slideHandlers: Set<(slide: Slide) => void> = new Set();
+    private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
 
     // Track if this instance has been destroyed
     private isDestroyed: boolean = false;
@@ -119,6 +120,20 @@ export class SimpleBroadcastManager {
                             this.lastPong = Date.now();
                             this.updateConnectionStatus('connected');
                         }
+                    }
+                    break;
+
+                case 'JOIN_INFO':
+                    if (this.mode === 'presentation') {
+                        this.joinInfoHandlers.forEach(handler =>
+                            handler(message.joinUrl, message.qrCodeDataUrl)
+                        );
+                    }
+                    break;
+
+                case 'JOIN_INFO_CLOSE':
+                    if (this.mode === 'presentation') {
+                        this.joinInfoHandlers.forEach(handler => handler('', ''));
                     }
                     break;
 
@@ -229,6 +244,32 @@ export class SimpleBroadcastManager {
         this.sendMessage(update);
     }
 
+    sendJoinInfo(joinUrl: string, qrCodeDataUrl: string): void {
+        if (this.mode !== 'host' || this.isDestroyed) return;
+
+        const message: JoinInfoMessage = {
+            type: 'JOIN_INFO',
+            sessionId: this.sessionId,
+            joinUrl,
+            qrCodeDataUrl,
+            timestamp: Date.now()
+        };
+
+        this.sendMessage(message);
+    }
+
+    sendJoinInfoClose(): void {
+        if (this.mode !== 'host' || this.isDestroyed) return;
+
+        const message = {
+            type: 'JOIN_INFO_CLOSE',
+            sessionId: this.sessionId,
+            timestamp: Date.now()
+        };
+
+        this.sendMessage(message);
+    }
+
     onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
         if (this.isDestroyed) return () => {
         };
@@ -303,6 +344,15 @@ export class SimpleBroadcastManager {
         // Remove from instances map
         const key = `${this.sessionId}-${this.mode}`;
         SimpleBroadcastManager.instances.delete(key);
+    }
+
+    onJoinInfo(callback: (joinUrl: string, qrCodeDataUrl: string) => void): () => void {
+        if (this.isDestroyed) return () => {};
+
+        this.joinInfoHandlers.add(callback);
+        return () => {
+            this.joinInfoHandlers.delete(callback);
+        };
     }
 
     private sendDisconnectMessage(): void {

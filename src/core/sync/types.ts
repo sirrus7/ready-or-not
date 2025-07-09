@@ -42,3 +42,11 @@ export interface CommandAck {
     commandId: string;
     timestamp: number;
 }
+
+export interface JoinInfoMessage {
+    type: 'JOIN_INFO';
+    sessionId: string;
+    joinUrl: string;
+    qrCodeDataUrl: string;
+    timestamp: number;
+}

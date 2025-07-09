@@ -3,6 +3,7 @@ import React, {useState, useEffect} from 'react';
 import QRCode from 'qrcode';
 import Modal from '@shared/components/UI/Modal';
 import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
+import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 interface JoinInfoModalProps {
     isOpen: boolean;
@@ -34,12 +35,25 @@ const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId
                         light: '#FFFFFF'
                     }
                 })
-                    .then(qr => setQrCodeDataUrl(qr))
+                    .then(qr => {
+                        setQrCodeDataUrl(qr);
+
+                        // Send to presentation display
+                        SimpleBroadcastManager.getInstance(sessionId, 'host').sendJoinInfo(url, qr);
+                    })
                     .catch(err => {
                         console.error('Error generating QR code:', err);
                         setQrCodeDataUrl(null);
                     });
             });
+        }
+    }, [isOpen, sessionId]);
+
+    // Send close message to presentation when modal closes
+    useEffect(() => {
+        if (!isOpen && sessionId) {
+            const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'host');
+            broadcastManager.sendJoinInfoClose();
         }
     }, [isOpen, sessionId]);
 
