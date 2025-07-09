@@ -48,7 +48,7 @@ export const CHALLENGE_REGISTRY: Record<string, ChallengeMetadata> = {
         id: 'ch5',
         title: 'Capacity Crisis',
         round: 2,
-        impact_card_title: 'Capacity Impact',
+        impact_card_title: 'Hiring Impact',
         impact_card_description: 'Capacity management decisions have lasting effects.',
         consequence_slides: [86, 93, 94, 95, 96]
     },

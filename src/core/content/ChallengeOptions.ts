@@ -117,7 +117,7 @@ export const allChallengeOptionsData: Record<string, ChallengeOption[]> = {
         {
             id: "D",
             text: "Do nothing.",
-            is_default_choice: true
+            is_default_choice: false
         }
     ],
     'ch6': [

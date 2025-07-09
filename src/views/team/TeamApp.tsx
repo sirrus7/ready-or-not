@@ -124,10 +124,9 @@ const TeamApp: React.FC = () => {
             setKpiChanges(changes);
             playNotificationSound();
 
-            // Clear changes after 3 seconds
             setTimeout(() => {
                 setKpiChanges({});
-            }, 5000);
+            }, 15000);
         }
 
         setLastKpiValues(newKpiValues);
