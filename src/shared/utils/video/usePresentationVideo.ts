@@ -3,11 +3,11 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
 import { HostCommand } from '@core/sync/types';
+import { isVideoFullyLoaded } from '@shared/utils/video/commonVideoUtils';
 import {
     applyVideoCommand,
-    isVideoFullyLoaded,
     createVideoEventLogger
-} from '@shared/utils/video/videoSyncUtils';
+} from '@shared/utils/video/presentationVideoUtils';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
