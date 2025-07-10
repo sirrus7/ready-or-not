@@ -47,7 +47,7 @@ export class SimpleBroadcastManager {
 
     // Message handlers
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
-    private slideHandlers: Set<(slide: Slide) => void> = new Set();
+    private slideHandlers: Set<(slide: Slide, teamData?: any) => void> = new Set();
     private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
 
     // Track if this instance has been destroyed
@@ -218,8 +218,10 @@ export class SimpleBroadcastManager {
             sessionId: this.sessionId,
             id: `cmd_${Date.now()}`,
             action,
-            data,
-            time: Date.now(),
+            data: {
+                time: Date.now(),
+                ...data
+            },
             timestamp: Date.now(),
         };
 
