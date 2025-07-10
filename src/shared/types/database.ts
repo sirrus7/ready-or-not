@@ -7,11 +7,9 @@ export interface PermanentKpiAdjustment {
     kpi_key: string;
     change_value: number;
     description: string;
-    created_at: string;
-
-    // NEW: Explicit challenge tracking
     challenge_id: string;  // 'ch1', 'ch2', etc.
     option_id: string;     // 'A', 'B', 'C', 'D'
+    created_at: string;
 }
 
 export interface TeamRoundData {

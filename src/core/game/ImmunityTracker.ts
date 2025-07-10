@@ -1,5 +1,6 @@
 // src/core/game/ImmunityTracker.ts
 import {db} from '@shared/services/supabase';
+import {Team, TeamDecision} from "@shared/types";
 
 export interface ImmunityRule {
     challengeId: string;
@@ -39,21 +40,21 @@ export class ImmunityTracker {
     static async hasImmunity(sessionId: string, teamId: string, challengeId: string): Promise<boolean> {
         console.log(`[ImmunityTracker] Checking immunity for team ${teamId}, challenge ${challengeId}`);
 
-        const rule = this.IMMUNITY_RULES.find(r => r.challengeId === challengeId);
+        const rule: ImmunityRule | undefined = this.IMMUNITY_RULES.find(r => r.challengeId === challengeId);
         if (!rule) return false;
 
         try {
-            const allDecisions = await db.decisions.getBySession(sessionId);
-            const teamDecisions = allDecisions.filter(d => d.team_id === teamId);
+            const allDecisions: TeamDecision[] = await db.decisions.getBySession(sessionId);
+            const teamDecisions: TeamDecision[] = allDecisions.filter(d => d.team_id === teamId);
 
             // Check if team made the required investment in the required round
-            const hasInvestment = teamDecisions.some(decision =>
+            const hasInvestment: boolean = teamDecisions.some(decision =>
                 decision.phase_id === `rd${rule.requiredRound}-invest` &&
                 decision.selected_investment_options?.includes(rule.requiredInvestment)
             );
 
             // Check if the investment was sacrificed during double down
-            const wasSacrificed = teamDecisions.some(decision =>
+            const wasSacrificed: boolean = teamDecisions.some(decision =>
                 decision.phase_id === 'ch-dd-prompt' &&
                 decision.double_down_sacrifice_id === rule.requiredInvestment
             );
@@ -70,7 +71,7 @@ export class ImmunityTracker {
      * Get immunity message for display
      */
     static getImmunityMessage(challengeId: string): string | null {
-        const rule = this.IMMUNITY_RULES.find(r => r.challengeId === challengeId);
+        const rule: ImmunityRule | undefined = this.IMMUNITY_RULES.find(r => r.challengeId === challengeId);
         return rule?.message || null;
     }
 
@@ -79,7 +80,7 @@ export class ImmunityTracker {
      */
     static async getImmuneTeams(sessionId: string, challengeId: string): Promise<string[]> {
         try {
-            const teams = await db.teams.getBySession(sessionId);
+            const teams: Team[] = await db.teams.getBySession(sessionId);
             const immuneTeamIds: string[] = [];
 
             for (const team of teams) {

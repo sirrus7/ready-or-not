@@ -2,7 +2,7 @@
 // Tracks strategy investments as permanent effects that persist across all resets
 
 import {db} from '@shared/services/supabase';
-import {KpiEffect} from '@shared/types';
+import {KpiEffect, TeamDecision} from '@shared/types';
 import {PermanentKpiAdjustment} from '@shared/types/database';
 
 /**
@@ -71,14 +71,14 @@ export class StrategyInvestmentTracker {
         console.log(`[StrategyInvestmentTracker] Detecting strategy investments for team ${teamId}`);
 
         try {
-            const allDecisions = await db.decisions.getBySession(sessionId);
-            const teamDecisions = allDecisions.filter(d => d.team_id === teamId);
+            const allDecisions: TeamDecision[] = await db.decisions.getBySession(sessionId);
+            const teamDecisions: TeamDecision[] = allDecisions.filter(d => d.team_id === teamId);
 
             const strategyInvestments: StrategyInvestmentRecord[] = [];
 
             // Check for RD-1 Business Growth Strategy (immediate purchase)
-            const rd1ImmediatePurchases = teamDecisions.filter(d =>
-                d.is_immediate_purchase === true &&
+            const rd1ImmediatePurchases: TeamDecision[] = teamDecisions.filter(d =>
+                d.is_immediate_purchase &&
                 d.immediate_purchase_type === STRATEGY_INVESTMENT_TYPES.RD1_BUSINESS_GROWTH
             );
 
@@ -96,8 +96,8 @@ export class StrategyInvestmentTracker {
             });
 
             // Check for RD-2 Strategic Plan (immediate purchase)
-            const rd2ImmediatePurchases = teamDecisions.filter(d =>
-                d.is_immediate_purchase === true &&
+            const rd2ImmediatePurchases: TeamDecision[] = teamDecisions.filter(d =>
+                d.is_immediate_purchase &&
                 d.immediate_purchase_type === STRATEGY_INVESTMENT_TYPES.RD2_STRATEGIC_PLAN
             );
 
@@ -115,14 +115,14 @@ export class StrategyInvestmentTracker {
             });
 
             // Check for regular Strategy investments (option 'A' in investment phases)
-            const regularInvestments = teamDecisions.filter(d =>
+            const regularInvestments: TeamDecision[] = teamDecisions.filter(d =>
                 !d.is_immediate_purchase &&
                 (d.phase_id === 'rd1-invest' || d.phase_id === 'rd2-invest') &&
                 d.selected_investment_options?.includes('A')
             );
 
             regularInvestments.forEach(decision => {
-                const purchaseRound = decision.phase_id === 'rd1-invest' ? 1 : 2;
+                const purchaseRound: 1 | 2 = decision.phase_id === 'rd1-invest' ? 1 : 2;
                 const investmentType = purchaseRound === 1
                     ? STRATEGY_INVESTMENT_TYPES.RD1_BUSINESS_GROWTH
                     : STRATEGY_INVESTMENT_TYPES.RD2_STRATEGIC_PLAN;
@@ -169,8 +169,8 @@ export class StrategyInvestmentTracker {
 
         try {
             // Detect strategy investments
-            const investments = await this.detectStrategyInvestments(sessionId, teamId);
-            const hasStrategy = investments.length > 0;
+            const investments: StrategyInvestmentRecord[] = await this.detectStrategyInvestments(sessionId, teamId);
+            const hasStrategy: boolean = investments.length > 0;
 
             if (!hasStrategy) {
                 return {
@@ -181,7 +181,7 @@ export class StrategyInvestmentTracker {
             }
 
             // Get the most recent strategy investment
-            const mostRecentInvestment = investments.reduce((latest, current) => {
+            const mostRecentInvestment: StrategyInvestmentRecord = investments.reduce((latest, current) => {
                 return new Date(current.purchasedAt) > new Date(latest.purchasedAt) ? current : latest;
             });
 

@@ -2,7 +2,7 @@
 import {
     Consequence,
     GameSession,
-    GameStructure,
+    GameStructure, InvestmentPayoff,
     KpiEffect,
     Slide,
     Team,
@@ -244,8 +244,8 @@ export class UnifiedEffectsProcessor {
      */
     private async checkCncMachine(sessionId: string, teamId: string): Promise<boolean> {
         try {
-            const allDecisions = await db.decisions.getBySession(sessionId);
-            const teamDecisions = allDecisions.filter(d => d.team_id === teamId);
+            const allDecisions: TeamDecision[] = await db.decisions.getBySession(sessionId);
+            const teamDecisions: TeamDecision[] = allDecisions.filter(d => d.team_id === teamId);
 
             // Check for CNC machine (CH1 Option A)
             return teamDecisions.some(decision =>
@@ -263,8 +263,8 @@ export class UnifiedEffectsProcessor {
      */
     private async checkAutomationInvestment(sessionId: string, teamId: string): Promise<boolean> {
         try {
-            const allDecisions = await db.decisions.getBySession(sessionId);
-            const teamDecisions = allDecisions.filter(d => d.team_id === teamId);
+            const allDecisions: TeamDecision[] = await db.decisions.getBySession(sessionId);
+            const teamDecisions: TeamDecision[] = allDecisions.filter(d => d.team_id === teamId);
 
             // Check for Automation investment (RD-2 Option K)
             return teamDecisions.some(decision =>
@@ -287,9 +287,9 @@ export class UnifiedEffectsProcessor {
         } = this.props;
 
         // Get setup consequence from existing challenge consequences
-        const consequenceKey = `${challengeId}-conseq`;
-        const allConsequences = allConsequencesData[consequenceKey] || [];
-        const setupConsequence = allConsequences.find(cons => cons.challenge_option_id === 'setup');
+        const consequenceKey: string = `${challengeId}-conseq`;
+        const allConsequences: Consequence[] = allConsequencesData[consequenceKey] || [];
+        const setupConsequence: Consequence | undefined = allConsequences.find(cons => cons.challenge_option_id === 'setup');
 
         if (!setupConsequence) {
             console.warn(`[UnifiedEffectsProcessor] No setup consequence found for ${challengeId}`);
@@ -301,7 +301,7 @@ export class UnifiedEffectsProcessor {
         // Apply to ALL teams (skip decision checking)
         for (const team of teams) {
             const currentRound = slide.round_number as 1 | 2 | 3;
-            const currentKpis = await KpiDataUtils.ensureTeamRoundData(
+            const currentKpis: TeamRoundData = await KpiDataUtils.ensureTeamRoundData(
                 currentDbSession!.id,
                 team.id,
                 currentRound,
@@ -310,8 +310,8 @@ export class UnifiedEffectsProcessor {
             );
 
             // Apply effects using existing engine
-            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, setupConsequence.effects);
-            const finalMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
+            const updatedKpis: TeamRoundData = ScoringEngine.applyKpiEffects(currentKpis, setupConsequence.effects);
+            const finalMetrics: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
             const finalKpis = {...updatedKpis, ...finalMetrics};
 
             // Save using existing method
@@ -667,28 +667,28 @@ export class UnifiedEffectsProcessor {
                 console.log(`[UnifiedEffectsProcessor] Processing bonus slide ${payoffSlide.id} for team ${team.name}`);
 
                 // Get all team decisions to check investment combinations
-                const allDecisions = await db.decisions.getBySession(currentDbSession.id);
-                const teamDecisions = allDecisions.filter(d => d.team_id === team.id);
+                const allDecisions: TeamDecision[] = await db.decisions.getBySession(currentDbSession.id);
+                const teamDecisions: TeamDecision[] = allDecisions.filter(d => d.team_id === team.id);
 
                 const bonusEffects: KpiEffect[] = [];
 
                 // RD-2 BONUSES (slides 137-138)
                 if (payoffSlide.id === 137) {
                     // Production Efficiency Bonus - requires Production Efficiency (B) + manufacturing investments
-                    const hasProductionEfficiency = teamDecisions.some(decision =>
+                    const hasProductionEfficiency: boolean = teamDecisions.some(decision =>
                         decision.phase_id === 'rd2-invest' &&
                         decision.selected_investment_options?.includes('B')
                     );
 
                     if (hasProductionEfficiency) {
                         // Check for Expanded 2nd Shift (C)
-                        const hasExpandedShift = teamDecisions.some(decision =>
+                        const hasExpandedShift: boolean = teamDecisions.some(decision =>
                             decision.phase_id === 'rd2-invest' &&
                             decision.selected_investment_options?.includes('C')
                         );
 
                         // Check for Automation (K)
-                        const hasAutomation = teamDecisions.some(decision =>
+                        const hasAutomation: boolean = teamDecisions.some(decision =>
                             decision.phase_id === 'rd2-invest' &&
                             decision.selected_investment_options?.includes('K')
                         );
@@ -730,12 +730,12 @@ export class UnifiedEffectsProcessor {
 
                 } else if (payoffSlide.id === 138) {
                     // Supply Chain + Distribution Bonus - requires both Supply Chain (D) AND Distribution Channels (G)
-                    const hasSupplyChain = teamDecisions.some(decision =>
+                    const hasSupplyChain: boolean = teamDecisions.some(decision =>
                         decision.phase_id === 'rd2-invest' &&
                         decision.selected_investment_options?.includes('D')
                     );
 
-                    const hasDistributionChannels = teamDecisions.some(decision =>
+                    const hasDistributionChannels: boolean = teamDecisions.some(decision =>
                         decision.phase_id === 'rd2-invest' &&
                         decision.selected_investment_options?.includes('G')
                     );
@@ -760,20 +760,20 @@ export class UnifiedEffectsProcessor {
                     // ✅ NEW: RD-3 BONUSES (slides 182-183)
                 } else if (payoffSlide.id === 182) {
                     // RD-3 Production Efficiency Bonus - requires Production Efficiency (B) + manufacturing investments
-                    const hasProductionEfficiency = teamDecisions.some(decision =>
+                    const hasProductionEfficiency: boolean = teamDecisions.some(decision =>
                         decision.phase_id === 'rd3-invest' &&
                         decision.selected_investment_options?.includes('B')
                     );
 
                     if (hasProductionEfficiency) {
                         // Check for Expanded 2nd Shift (C)
-                        const hasExpandedShift = teamDecisions.some(decision =>
+                        const hasExpandedShift: boolean = teamDecisions.some(decision =>
                             decision.phase_id === 'rd3-invest' &&
                             decision.selected_investment_options?.includes('C')
                         );
 
                         // Check for Automation (K)
-                        const hasAutomation = teamDecisions.some(decision =>
+                        const hasAutomation: boolean = teamDecisions.some(decision =>
                             decision.phase_id === 'rd3-invest' &&
                             decision.selected_investment_options?.includes('K')
                         );
@@ -819,12 +819,12 @@ export class UnifiedEffectsProcessor {
 
                 } else if (payoffSlide.id === 183) {
                     // RD-3 Supply Chain + Distribution Bonus - requires both Supply Chain (D) AND Distribution Channels (G)
-                    const hasSupplyChain = teamDecisions.some(decision =>
+                    const hasSupplyChain: boolean = teamDecisions.some(decision =>
                         decision.phase_id === 'rd3-invest' &&
                         decision.selected_investment_options?.includes('D')
                     );
 
-                    const hasDistributionChannels = teamDecisions.some(decision =>
+                    const hasDistributionChannels: boolean = teamDecisions.some(decision =>
                         decision.phase_id === 'rd3-invest' &&
                         decision.selected_investment_options?.includes('G')
                     );
@@ -853,7 +853,7 @@ export class UnifiedEffectsProcessor {
                 // Apply bonus effects if any qualify
                 if (bonusEffects.length > 0) {
                     const currentRound = payoffSlide.round_number as 1 | 2 | 3;
-                    const currentKpis = await KpiDataUtils.ensureTeamRoundData(
+                    const currentKpis: TeamRoundData = await KpiDataUtils.ensureTeamRoundData(
                         currentDbSession.id,
                         team.id,
                         currentRound,
@@ -861,8 +861,8 @@ export class UnifiedEffectsProcessor {
                         setTeamRoundDataDirectly
                     );
 
-                    const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, bonusEffects);
-                    const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
+                    const updatedKpis: TeamRoundData = ScoringEngine.applyKpiEffects(currentKpis, bonusEffects);
+                    const finalKpis: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
 
                     await db.kpis.update(currentKpis.id, {
                         ...updatedKpis,
@@ -883,13 +883,13 @@ export class UnifiedEffectsProcessor {
             // ========================================================================
 
             // Get team's investment decisions for this phase
-            const regularDecision = teamDecisions[team.id]?.[investmentPhase];
-            const immediateDecision = teamDecisions[team.id]?.[`${investmentPhase}_immediate`];
+            const regularDecision: TeamDecision = teamDecisions[team.id]?.[investmentPhase];
+            const immediateDecision: TeamDecision = teamDecisions[team.id]?.[`${investmentPhase}_immediate`];
 
             // Combine regular and immediate purchase options
-            const regularOptions = regularDecision?.selected_investment_options || [];
-            const immediateOptions = immediateDecision?.selected_investment_options || [];
-            const selectedOptions = [...regularOptions, ...immediateOptions];
+            const regularOptions: string[] = regularDecision?.selected_investment_options || [];
+            const immediateOptions: string[] = immediateDecision?.selected_investment_options || [];
+            const selectedOptions: string[] = [...regularOptions, ...immediateOptions];
 
             // Skip if team made no investment decisions at all
             if (!regularDecision && !immediateDecision) {
@@ -913,7 +913,7 @@ export class UnifiedEffectsProcessor {
             await this.processStrategyInvestmentEffects(team, investmentPhase, slideOption);
 
             // Find payoff effects for this option
-            const payoffForOption = allPayoffsForPhase.find(payoff => payoff.id === slideOption);
+            const payoffForOption: InvestmentPayoff | undefined = allPayoffsForPhase.find(payoff => payoff.id === slideOption);
             if (!payoffForOption?.effects) {
                 console.warn(`[UnifiedEffectsProcessor] ⚠️ No effects found for option ${slideOption} in ${payoffKey}`);
                 continue;
@@ -921,7 +921,7 @@ export class UnifiedEffectsProcessor {
 
             // Apply effects to team round data
             const currentRound = payoffSlide.round_number as 1 | 2 | 3;
-            const currentKpis = await KpiDataUtils.ensureTeamRoundData(
+            const currentKpis: TeamRoundData = await KpiDataUtils.ensureTeamRoundData(
                 currentDbSession.id,
                 team.id,
                 currentRound,
@@ -929,8 +929,8 @@ export class UnifiedEffectsProcessor {
                 setTeamRoundDataDirectly
             );
 
-            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, payoffForOption.effects);
-            const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
+            const updatedKpis: TeamRoundData = ScoringEngine.applyKpiEffects(currentKpis, payoffForOption.effects);
+            const finalKpis: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
 
             // Save to database
             await db.kpis.update(currentKpis.id, {

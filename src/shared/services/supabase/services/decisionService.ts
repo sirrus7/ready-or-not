@@ -5,11 +5,13 @@ import {supabase} from '../client';
 import {withRetry} from '../database';
 import {TeamDecision} from '@shared/types';
 
+const TEAM_DECISIONS_TABLE = 'team_decisions';
+
 export const decisionService = {
-    async getBySession(sessionId: string) {
+    async getBySession(sessionId: string): Promise<TeamDecision[]> {
         return withRetry(async () => {
             const {data, error} = await supabase
-                .from('team_decisions')
+                .from(TEAM_DECISIONS_TABLE)
                 .select('*')
                 .eq('session_id', sessionId)
                 .order('submitted_at', {ascending: false});
@@ -17,15 +19,15 @@ export const decisionService = {
                 console.error(`[decisionService.getBySession(sessionId:${sessionId})] failed with error: ${error}`)
                 throw error;
             }
-            return data || [];
+            return data || [] as TeamDecision[];
         }, 3, 1000, `Fetch decisions for session ${sessionId.substring(0, 8)}`);
     },
 
     // ENHANCED: Now protects immediate purchases from being deleted
-    async delete(sessionId: string, teamId: string, phaseId: string) {
+    async delete(sessionId: string, teamId: string, phaseId: string): Promise<void> {
         return withRetry(async () => {
             const {error} = await supabase
-                .from('team_decisions')
+                .from(TEAM_DECISIONS_TABLE)
                 .delete()
                 .eq('session_id', sessionId)
                 .eq('team_id', teamId)
@@ -39,10 +41,10 @@ export const decisionService = {
         }, 2, 1000, `Delete regular decision for team ${teamId.substring(0, 8)} phase ${phaseId}`, 5000);
     },
 
-    async deleteBySession(sessionId: string) {
+    async deleteBySession(sessionId: string): Promise<void> {
         return withRetry(async () => {
             const {error} = await supabase
-                .from('team_decisions')
+                .from(TEAM_DECISIONS_TABLE)
                 .delete()
                 .eq('session_id', sessionId);
             if (error) {
@@ -53,10 +55,10 @@ export const decisionService = {
     },
 
     // EXISTING: Get regular decisions (non-immediate purchases)
-    async getForPhase(sessionId: string, teamId: string, phaseId: string) {
+    async getForPhase(sessionId: string, teamId: string, phaseId: string): Promise<TeamDecision | null> {
         return withRetry(async () => {
             const {data, error} = await supabase
-                .from('team_decisions')
+                .from(TEAM_DECISIONS_TABLE)
                 .select('*')
                 .eq('session_id', sessionId)
                 .eq('team_id', teamId)
@@ -68,16 +70,16 @@ export const decisionService = {
                 console.error(`[decisionService.getForPhase(sessionId:${sessionId}, teamId:${teamId.substring(0, 8)}, phaseId:${phaseId})] failed with error: ${error}`)
                 throw error;
             }
-            return data;
+            return data as TeamDecision | null;
         }, 2, 1000, `Get decision for team ${teamId.substring(0, 8)} phase ${phaseId}`, 8000);
     },
 
     // NEW: Get immediate purchases for a phase
-    async getImmediatePurchases(sessionId: string, teamId: string, phaseId: string) {
+    async getImmediatePurchases(sessionId: string, teamId: string, phaseId: string): Promise<TeamDecision[]> {
         return withRetry(async () => {
             const immediatePhaseId = `${phaseId}_immediate`;
             const {data, error} = await supabase
-                .from('team_decisions')
+                .from(TEAM_DECISIONS_TABLE)
                 .select('*')
                 .eq('session_id', sessionId)
                 .eq('team_id', teamId)
@@ -88,16 +90,16 @@ export const decisionService = {
                 console.error(`[decisionService.getImmediatePurchases(sessionId:${sessionId}, teamId:${teamId.substring(0, 8)}, phaseId:${phaseId})] failed with error: ${error}`)
                 throw error;
             }
-            return data || [];
+            return data || [] as TeamDecision[];
         }, 2, 1000, `Get immediate purchases for team ${teamId.substring(0, 8)} phase ${phaseId}`, 8000);
     },
 
     // NEW: Get all immediate purchases for a session (for host monitoring)
-    async getAllImmediatePurchases(sessionId: string) {
+    async getAllImmediatePurchases(sessionId: string): Promise<TeamDecision[]> {
         return withRetry(async () => {
             const {data, error} = await supabase
-                .from('team_decisions')
-                .select('id, team_id, total_spent_budget, submitted_at, report_given, selected_investment_options')
+                .from(TEAM_DECISIONS_TABLE)
+                .select('*')
                 .eq('session_id', sessionId)
                 .eq('is_immediate_purchase', true)
                 .eq('immediate_purchase_type', 'business_growth_strategy')
@@ -107,15 +109,15 @@ export const decisionService = {
                 console.error(`[decisionService.getAllImmediatePurchases(sessionId:${sessionId})] failed with error: ${error}`)
                 throw error;
             }
-            return data || [];
+            return data || [] as TeamDecision[];
         }, 3, 1000, `Get all immediate purchases for session ${sessionId.substring(0, 8)}`, 8000);
     },
 
     // ENHANCED: Create with longer timeout for submissions
-    async create(decisionData: Omit<TeamDecision, 'id' | 'created_at'>) {
+    async create(decisionData: Omit<TeamDecision, 'id' | 'created_at'>): Promise<TeamDecision> {
         return withRetry(async () => {
             const {data, error} = await supabase
-                .from('team_decisions')
+                .from(TEAM_DECISIONS_TABLE)
                 .insert({
                     ...decisionData,
                     submitted_at: decisionData.submitted_at || new Date().toISOString()
@@ -129,14 +131,14 @@ export const decisionService = {
                 })})] failed with error: ${error}`)
                 throw error;
             }
-            return data;
+            return data as TeamDecision;
         }, 2, 1000, `Create decision for team ${decisionData.team_id?.substring(0, 8)}`, 15000); // Longer timeout for submissions
     },
 
-    async upsert(decisionData: any) {
+    async upsert(decisionData: Partial<TeamDecision>): Promise<TeamDecision> {
         return withRetry(async () => {
             const {data, error} = await supabase
-                .from('team_decisions')
+                .from(TEAM_DECISIONS_TABLE)
                 .upsert(decisionData, {onConflict: 'id'})
                 .select()
                 .single();
@@ -147,7 +149,7 @@ export const decisionService = {
                 })})] failed with error: ${error}`)
                 throw error;
             }
-            return data;
+            return data as TeamDecision;
         }, 2, 1000, `Upsert decision for team ${decisionData.team_id?.substring(0, 8)}`, 10000);
     }
 };
