@@ -102,7 +102,11 @@ export const getMetricAndSortOrder = (dataKey: string): {
 
     switch (metricKey) {
         case 'income':
-            return {metric: 'net_income', kpiLabel: 'Net Income', higherIsBetter: true};
+            return {
+                metric: 'net_income',
+                kpiLabel: dataKey.includes('consolidated') ? 'Consolidated Net Income' : 'Net Income',
+                higherIsBetter: true
+            };
         case 'margin':
             return {metric: 'net_margin', kpiLabel: 'Net Margin', higherIsBetter: true};
         case 'revenue':
@@ -218,6 +222,22 @@ export const calculateKpiValue = (
     }
 };
 
+export const calculateConsolidatedNetIncome = (
+    teamRoundData: Record<string, Record<number, TeamRoundData>>,
+    teamId: string,
+    teamDecisions?: TeamDecision[]
+): number => {
+    let totalNetIncome = 0;
+    for (let round = 1; round <= 3; round++) {
+        const roundData = teamRoundData[teamId]?.[round];
+        if (roundData) {
+            const netIncome = calculateKpiValue(roundData, 'net_income', teamDecisions, teamId);
+            totalNetIncome += netIncome;
+        }
+    }
+    return totalNetIncome;
+};
+
 // Generate data key from slide ID
 export const getDataKeyFromSlideId = (slideId: number): string => {
     switch (slideId) {
@@ -268,6 +288,8 @@ export const getDataKeyFromSlideId = (slideId: number): string => {
             return 'rd3_leaderboard_margin';
         case 196.7:
             return 'rd3_leaderboard_income';
+        case 196.8:
+            return 'rd3_leaderboard_consolidated_income';
 
         default:
             console.warn(`Unknown leaderboard slide ID: ${slideId}`);

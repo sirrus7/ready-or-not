@@ -2094,14 +2094,18 @@ export const allGameSlides: Slide[] = [
     {
         id: 196.7,
         round_number: 3,
-        title: "FINAL LEADERBOARD: Net Income (WINNERS!)",
+        title: "Final Leaderboard: Net Income",
         type: 'leaderboard_chart',
         main_text: "🏆 FINAL RANKINGS 🏆",
-        sub_text: "The ultimate winners of Ready or Not! Congratulations to all teams!",
-        host_alert: {
-            title: "Game Complete!",
-            message: "The simulation is finished! Congratulations to all teams!"
-        }
+        sub_text: "The ultimate winners of Ready or Not! Congratulations to all teams!"
+    },
+    {
+        id: 196.8,
+        round_number: 3,
+        title: "🏆 CONSOLIDATED NET INCOME: GAME WINNERS! 🏆",
+        type: 'leaderboard_chart',
+        main_text: "🏆 CONSOLIDATED NET INCOME 🏆",
+        sub_text: "Total profitability across ALL THREE ROUNDS - The TRUE winners of Ready or Not!"
     },
     {
         id: 197,

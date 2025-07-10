@@ -8,7 +8,7 @@ import {
     getDataKeyFromSlideId,
     getMetricAndSortOrder,
     calculateKpiValue,
-    formatValueForDisplay
+    formatValueForDisplay, calculateConsolidatedNetIncome
 } from './utils';
 import UnifiedLeaderboard from './UnifiedLeaderboard';
 
@@ -53,6 +53,29 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
 
     const leaderboardData = useMemo((): LeaderboardItem[] => {
         if (!currentRoundForDisplay || teams.length === 0) return [];
+
+        if (dataKey === 'rd3_leaderboard_consolidated_income') {
+            const dataForConsolidated = teams.map(team => {
+                const consolidatedNetIncome = calculateConsolidatedNetIncome(teamRoundData, team.id, teamDecisions);
+                return {
+                    team,
+                    consolidatedNetIncome
+                };
+            });
+
+            const sortedItems = dataForConsolidated.map(({team, consolidatedNetIncome}) => ({
+                teamName: team.name,
+                value: consolidatedNetIncome,
+                formattedValue: formatValueForDisplay(consolidatedNetIncome, 'net_income'),
+                rank: 0
+            }));
+
+            sortedItems.sort((a, b) => b.value - a.value);
+            return sortedItems.map((item, index) => ({
+                ...item,
+                rank: index + 1
+            }));
+        }
 
         const dataForRound: { team: Team; roundData: TeamRoundData | undefined }[] = teams.map(team => ({
             team,
@@ -135,6 +158,7 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
     // Use unified component for all leaderboard types
     return (
         <UnifiedLeaderboard
+            key={dataKey}
             leaderboardData={leaderboardData}
             kpiLabel={kpiLabel}
             secondaryKpiLabel={secondaryKpiLabel}
