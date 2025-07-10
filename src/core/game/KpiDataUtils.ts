@@ -1,7 +1,7 @@
 // src/core/game/KpiDataUtils.ts
 // NEW FILE: Shared utility functions to eliminate duplicate code
 
-import {TeamRoundData, KpiEffect} from '@shared/types';
+import {TeamRoundData, KpiEffect, PermanentKpiAdjustment} from '@shared/types';
 import {db} from '@shared/services/supabase';
 import {ScoringEngine} from './ScoringEngine';
 
@@ -42,7 +42,7 @@ export class KpiDataUtils {
         }
 
         // Create new round data with permanent adjustments applied
-        const newRoundData = ScoringEngine.createNewRoundData(
+        const newRoundData: Omit<TeamRoundData, 'id'> = ScoringEngine.createNewRoundData(
             sessionId,
             teamId,
             roundNumber,
@@ -50,8 +50,8 @@ export class KpiDataUtils {
         );
 
         // Apply any existing permanent adjustments
-        const adjustments = await db.adjustments.getBySession(sessionId);
-        const adjustedData = ScoringEngine.applyPermanentAdjustments(
+        const adjustments: PermanentKpiAdjustment[] = await db.adjustments.getBySession(sessionId);
+        const adjustedData: Omit<TeamRoundData, 'id'> = ScoringEngine.applyPermanentAdjustments(
             newRoundData,
             adjustments,
             teamId,
@@ -59,7 +59,7 @@ export class KpiDataUtils {
         );
 
         // Insert into database
-        const insertedData = await db.kpis.create(adjustedData);
+        const insertedData: TeamRoundData = await db.kpis.create(adjustedData);
 
         // Update local state
         setTeamRoundDataDirectly(prev => ({
@@ -67,7 +67,7 @@ export class KpiDataUtils {
             [teamId]: {...(prev[teamId] || {}), [roundNumber]: insertedData as TeamRoundData}
         }));
 
-        return insertedData as TeamRoundData;
+        return insertedData;
     }
 
     /**

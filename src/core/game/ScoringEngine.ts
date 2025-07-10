@@ -95,7 +95,7 @@ export class ScoringEngine {
      * OPTIMIZED: Now expects team-specific adjustments (no filtering needed)
      */
     static applyPermanentAdjustments(roundData: Omit<TeamRoundData, 'id'>, adjustments: PermanentKpiAdjustment[], _teamId: string, roundNumber: number): Omit<TeamRoundData, 'id'> {
-        const applicableAdjustments = adjustments.filter(adj =>
+        const applicableAdjustments: PermanentKpiAdjustment[] = adjustments.filter(adj =>
             adj.applies_to_round_start === roundNumber
         );
 

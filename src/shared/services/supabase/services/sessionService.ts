@@ -1,12 +1,15 @@
 // src/shared/services/supabase/services/sessionService.ts - Session management
 import {supabase} from '../client';
 import {withRetry} from '../database';
+import {GameSession} from "@shared/types";
+
+const SESSIONS_TABLE = 'sessions';
 
 export const sessionService = {
-    async getById(sessionId: string) {
+    async getById(sessionId: string): Promise<GameSession> {
         return withRetry(async () => {
             const {data, error} = await supabase
-                .from('sessions')
+                .from(SESSIONS_TABLE)
                 .select('*')
                 .eq('id', sessionId)
                 .single();
@@ -14,14 +17,14 @@ export const sessionService = {
                 console.error(`[sessionService.getById(sessionId:${sessionId})] failed with error: ${error}`)
                 throw error;
             }
-            return data;
+            return data as GameSession;
         }, 3, 1000, `Fetch session ${sessionId.substring(0, 8)}`);
     },
 
-    async update(sessionId: string, updates: any) {
+    async update(sessionId: string, updates: Partial<Omit<GameSession, 'id' | 'created_at' | 'updated_at'>>): Promise<GameSession> {
         return withRetry(async () => {
             const {data, error} = await supabase
-                .from('sessions')
+                .from(SESSIONS_TABLE)
                 .update({
                     ...updates,
                     updated_at: new Date().toISOString()
@@ -33,14 +36,14 @@ export const sessionService = {
                 console.error(`[sessionService.update(sessionId:${sessionId}, updates:${JSON.stringify(updates)})] failed with error: ${error}`)
                 throw error;
             }
-            return data;
+            return data as GameSession;
         }, 2, 1000, `Update session ${sessionId.substring(0, 8)}`);
     },
 
-    async create(sessionData: any) {
+    async create(sessionData: Omit<GameSession, 'id' | 'created_at' | 'updated_at'>): Promise<GameSession> {
         return withRetry(async () => {
             const {data, error} = await supabase
-                .from('sessions')
+                .from(SESSIONS_TABLE)
                 .insert({
                     ...sessionData,
                     created_at: new Date().toISOString(),
@@ -52,43 +55,30 @@ export const sessionService = {
                 console.error(`[sessionService.create(sessionData:${JSON.stringify(sessionData)})] failed with error: ${error}`)
                 throw error;
             }
-            return data;
+            return data as GameSession;
         }, 2, 1000, 'Create session');
     },
 
     // Updated method name and column reference
-    async getByHost(hostId: string) {
+    async getByHost(hostId: string): Promise<GameSession[]> {
         return withRetry(async () => {
             const {data, error} = await supabase
-                .from('sessions')
+                .from(SESSIONS_TABLE)
                 .select('*')
-                .eq('host_id', hostId) // Changed from teacher_id
+                .eq('host_id', hostId)
                 .order('created_at', {ascending: false});
             if (error) {
                 console.error(`[sessionService.getByHost(hostId:${hostId.substring(0, 8)})] failed with error: ${error}`)
                 throw error;
             }
-            return data || [];
+            return (data || []) as GameSession[];
         }, 3, 1000, `Fetch sessions for host ${hostId.substring(0, 8)}`);
     },
 
-    // Keep the old method name for backward compatibility (can remove later)
-    async getByTeacher(hostId: string) {
-        return this.getByHost(hostId);
-    },
-
-    async delete(sessionId: string) {
+    async delete(sessionId: string): Promise<void> {
         return withRetry(async () => {
-            // Delete in correct order to respect foreign key constraints
-            await supabase.from('payoff_applications').delete().eq('session_id', sessionId);
-            await supabase.from('consequence_applications').delete().eq('session_id', sessionId);
-            await supabase.from('permanent_kpi_adjustments').delete().eq('session_id', sessionId);
-            await supabase.from('team_round_data').delete().eq('session_id', sessionId);
-            await supabase.from('team_decisions').delete().eq('session_id', sessionId);
-            await supabase.from('teams').delete().eq('session_id', sessionId);
-
             const {error} = await supabase
-                .from('sessions')
+                .from(SESSIONS_TABLE)
                 .delete()
                 .eq('id', sessionId);
             if (error) {
@@ -96,5 +86,5 @@ export const sessionService = {
                 throw error;
             }
         }, 2, 1000, `Delete session ${sessionId.substring(0, 8)}`);
-    }
+    },
 };

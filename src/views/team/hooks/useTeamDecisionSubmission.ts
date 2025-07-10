@@ -1,13 +1,12 @@
 // src/views/team/hooks/useTeamDecisionSubmission.ts
 // FIXED VERSION - No endless loops, stable reset handling
 
-import {useState, useCallback, useMemo, useEffect, useRef} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSupabaseMutation, useSupabaseQuery} from '@shared/hooks/supabase';
-import {db, supabase} from '@shared/services/supabase';
-import {Slide, InvestmentOption, ChallengeOption, GameStructure} from '@shared/types';
+import {db} from '@shared/services/supabase';
+import {ChallengeOption, GameStructure, InvestmentOption, Slide, TeamDecision} from '@shared/types';
 import {DecisionState} from './useDecisionMaking';
-import {InvestmentPurchaseHandler} from '@core/game/InvestmentPurchaseHandler';
-import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
+import {ContinuationPricingEngine, ContinuationPricingResult} from '@core/game/ContinuationPricingEngine';
 import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
 import {formatCurrency} from '@shared/utils/formatUtils';
 
@@ -195,7 +194,7 @@ export const useTeamDecisionSubmission = ({
     // DECISION SUBMISSION MUTATION
     // ========================================================================
     const {mutate: submitDecision, isLoading: isSubmitting} = useSupabaseMutation(
-        async () => {
+        async (): Promise<TeamDecision> => {
             if (!sessionId || !teamId || !decisionKey) {
                 throw new Error('Missing required data for submission');
             }
@@ -203,7 +202,7 @@ export const useTeamDecisionSubmission = ({
             let totalCost = 0;
 
             if (decisionState.selectedInvestmentOptions.length > 0) {
-                const currentRound = currentSlide?.round_number || 1;
+                const currentRound: 1 | 2 | 3 = currentSlide?.round_number || 1;
 
                 // Helper function for original price calculation
                 const calculateOriginalTotalCost = () => {
@@ -223,7 +222,7 @@ export const useTeamDecisionSubmission = ({
                 } else {
                     // Round 2+: Use continuation pricing
                     try {
-                        const continuationPricing = await ContinuationPricingEngine.calculateContinuationPricing(
+                        const continuationPricing: ContinuationPricingResult = await ContinuationPricingEngine.calculateContinuationPricing(
                             sessionId,
                             teamId,
                             currentRound as 2 | 3
@@ -250,7 +249,7 @@ export const useTeamDecisionSubmission = ({
                 // but structure is ready if needed
             }
 
-            const submissionData = {
+            const submissionData: Omit<TeamDecision, 'id' | 'created_at'> = {
                 session_id: sessionId,
                 team_id: teamId,
                 phase_id: decisionKey,
@@ -270,26 +269,7 @@ export const useTeamDecisionSubmission = ({
                 report_given_at: null
             };
 
-            const {data, error} = await supabase
-                .from('team_decisions')
-                .insert([submissionData])
-                .select()
-                .single();
-
-            if (error) throw error;
-            if (decisionState.selectedInvestmentOptions?.length > 0) {
-                await InvestmentPurchaseHandler.processInvestmentPurchases({
-                    sessionId,
-                    teamId,
-                    investmentPhase: decisionKey,
-                    selectedInvestments: decisionState.selectedInvestmentOptions,
-                    teamRoundData: {}, // Will be fetched inside the processor
-                    setTeamRoundDataDirectly: () => {
-                    } // No direct UI update needed here
-                });
-            }
-
-            return data;
+            return await db.decisions.create(submissionData);
         },
         {
             onSuccess: () => {
@@ -319,8 +299,8 @@ export const useTeamDecisionSubmission = ({
     // ========================================================================
     // COMPUTED VALUES
     // ========================================================================
-    const hasExistingSubmission = !!(existingDecision?.submitted_at);
-    const isSubmitDisabled = !isValidSubmission || isSubmitting || hasExistingSubmission;
+    const hasExistingSubmission: boolean = !!(existingDecision?.submitted_at);
+    const isSubmitDisabled: boolean = !isValidSubmission || isSubmitting || hasExistingSubmission;
 
     // ========================================================================
     // SUBMISSION SUMMARY FORMATTING
@@ -328,7 +308,7 @@ export const useTeamDecisionSubmission = ({
     const existingSubmissionSummary = useMemo(() => {
         if (!currentSlide || !gameStructure || !existingDecision) return null;
 
-        const key = currentSlide.interactive_data_key;
+        const key: string | undefined = currentSlide.interactive_data_key;
         if (!key) return null;
         try {
             const gameStructureWithData = gameStructure as GameStructure & {

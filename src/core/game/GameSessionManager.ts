@@ -1,7 +1,7 @@
 // src/core/game/GameSessionManager.ts - COMPLETE VERSION
-import {GameStructure, GameSession, GameSessionInsert, NewGameData, TeamRoundData} from '@shared/types';
+import {GameSession, GameSessionInsert, GameStructure, NewGameData, TeamRoundData} from '@shared/types';
 import {db, formatSupabaseError} from '@shared/services/supabase';
-import { ScoringEngine } from './ScoringEngine';
+import {ScoringEngine} from './ScoringEngine';
 import {SimpleRealtimeManager} from "@core/sync";
 
 export class GameSessionManager {
@@ -116,8 +116,8 @@ export class GameSessionManager {
 
     async getLatestDraftForHost(hostId: string): Promise<GameSession | null> {
         try {
-            const sessions = await db.sessions.getByHost(hostId);
-            const draftSessions = sessions.filter(s => (s as any).status === 'draft');
+            const sessions: GameSession[] = await db.sessions.getByHost(hostId);
+            const draftSessions: GameSession[] = sessions.filter(s => (s as any).status === 'draft');
             if (draftSessions.length > 0) {
                 return draftSessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] as GameSession;
             }
@@ -130,8 +130,8 @@ export class GameSessionManager {
 
     async checkForExistingDraft(hostId: string): Promise<GameSession | null> {
         try {
-            const sessions = await db.sessions.getByHost(hostId);
-            const draftSessions = sessions.filter(s => (s as any).status === 'draft');
+            const sessions: GameSession[] = await db.sessions.getByHost(hostId);
+            const draftSessions: GameSession[] = sessions.filter(s => (s as any).status === 'draft');
             if (draftSessions.length > 0) {
                 return draftSessions[0] as GameSession;
             }
@@ -148,7 +148,7 @@ export class GameSessionManager {
         completed: GameSession[];
     }> {
         try {
-            const allSessions = await db.sessions.getByHost(hostId);
+            const allSessions: GameSession[] = await db.sessions.getByHost(hostId);
             return {
                 draft: allSessions.filter(s => (s as any).status === 'draft'),
                 active: allSessions.filter(s => (s as any).status === 'active' && !s.is_complete),
@@ -216,9 +216,9 @@ export class GameSessionManager {
 
     async loadSession(sessionId: string): Promise<GameSession> {
         try {
-            const sessionData = await db.sessions.getById(sessionId);
+            const sessionData: GameSession = await db.sessions.getById(sessionId);
             if (!sessionData) throw new Error(`Session with ID '${sessionId}' not found.`);
-            return sessionData as GameSession;
+            return sessionData;
         } catch (error) {
             throw new Error(`Failed to load session: ${formatSupabaseError(error)}`);
         }
@@ -251,26 +251,6 @@ export class GameSessionManager {
         } catch (error) {
             throw new Error(`Failed to delete session: ${formatSupabaseError(error)}`);
         }
-    }
-
-    async getSessionsForHost(hostId: string): Promise<GameSession[]> {
-        try {
-            const sessions = await db.sessions.getByHost(hostId);
-            return sessions as GameSession[];
-        } catch (error) {
-            throw new Error(`Failed to fetch sessions: ${formatSupabaseError(error)}`);
-        }
-    }
-
-    async resetSessionProgress(sessionId: string): Promise<GameSession> {
-        return this.updateSession(sessionId, {
-            current_slide_index: 0,
-            is_playing: false,
-            is_complete: false,
-            host_notes: {},
-            status: 'active',
-            wizard_state: null,
-        });
     }
 
     async completeSession(sessionId: string): Promise<GameSession> {

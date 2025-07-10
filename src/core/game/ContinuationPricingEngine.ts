@@ -3,6 +3,7 @@
 
 import {db} from '@shared/services/supabase';
 import {INVESTMENT_BUDGETS} from '@shared/utils/budgetUtils';
+import {StrategyInvestmentTracker} from "@core/game/StrategyInvestmentTracker.ts";
 
 export type InvestmentAvailability = 'fresh' | 'continue' | 'not_available';
 
@@ -192,7 +193,7 @@ export class ContinuationPricingEngine {
             const immediateDecisions = allDecisions.filter(d =>
                 d.team_id === teamId &&
                 d.phase_id === immediatePhaseId &&
-                d.is_immediate_purchase === true
+                d.is_immediate_purchase
             );
 
             // Combine all investment IDs
@@ -211,9 +212,7 @@ export class ContinuationPricingEngine {
             });
 
             // Remove duplicates and sort
-            const uniqueInvestments = [...new Set(investments)].sort();
-
-            return uniqueInvestments;
+            return [...new Set(investments)].sort();
         } catch (error) {
             console.error(`[ContinuationPricingEngine] Error getting previous investments:`, error);
             return [];
@@ -348,27 +347,6 @@ export class ContinuationPricingEngine {
     }
 
     /**
-     * Check if team has Strategy investment (permanent effect)
-     */
-    static async hasStrategyInvestment(sessionId: string, teamId: string): Promise<boolean> {
-        try {
-            const adjustments = await db.adjustments.getBySession(sessionId);
-            const teamAdjustments = adjustments.filter(adj => adj.team_id === teamId);
-
-            // Look for strategy investment in permanent adjustments
-            return teamAdjustments.some(adj =>
-                adj.challenge_id === 'strategy' ||
-                adj.description?.toLowerCase().includes('strategy') ||
-                adj.challenge_id === 'rd1-invest' && adj.option_id === 'A' ||
-                adj.challenge_id === 'rd2-invest' && adj.option_id === 'A'
-            );
-        } catch (error) {
-            console.error(`[ContinuationPricingEngine] Error checking strategy investment:`, error);
-            return false;
-        }
-    }
-
-    /**
      * MAIN METHOD: Calculate continuation pricing for all investments for a team
      */
     static async calculateContinuationPricing(
@@ -380,7 +358,7 @@ export class ContinuationPricingEngine {
             // Get previous investments and strategy status
             const [previousInvestments, hasStrategy] = await Promise.all([
                 this.getPreviousInvestments(sessionId, teamId, targetRound),
-                this.hasStrategyInvestment(sessionId, teamId)
+                StrategyInvestmentTracker.hasStrategyInvestment(sessionId, teamId)
             ]);
 
             const roundKey = `rd${targetRound}` as keyof typeof CONTINUATION_PRICING_TABLES;
@@ -416,68 +394,5 @@ export class ContinuationPricingEngine {
             console.error(`[ContinuationPricingEngine] ❌ Error calculating pricing for team ${teamId}:`, error);
             throw error;
         }
-    }
-
-    /**
-     * BATCH OPERATION: Calculate continuation pricing for all teams
-     */
-    static async calculateContinuationPricingForAllTeams(
-        sessionId: string,
-        targetRound: 2 | 3
-    ): Promise<Record<string, ContinuationPricingResult>> {
-        try {
-            const teams = await db.teams.getBySession(sessionId);
-            const results: Record<string, ContinuationPricingResult> = {};
-
-            // Calculate pricing for each team
-            for (const team of teams) {
-                results[team.id] = await this.calculateContinuationPricing(sessionId, team.id, targetRound);
-            }
-
-            return results;
-        } catch (error) {
-            console.error(`[ContinuationPricingEngine] ❌ Batch pricing failed:`, error);
-            throw error;
-        }
-    }
-
-    /**
-     * UTILITY: Get investment pricing for a specific investment and team
-     */
-    static async getInvestmentPricing(
-        sessionId: string,
-        teamId: string,
-        targetRound: 2 | 3,
-        investmentId: string
-    ): Promise<InvestmentPricing | null> {
-        try {
-            const fullPricing = await this.calculateContinuationPricing(sessionId, teamId, targetRound);
-            return fullPricing.investmentPricing.find(p => p.investmentId === investmentId) || null;
-        } catch (error) {
-            console.error(`[ContinuationPricingEngine] Error getting specific investment pricing:`, error);
-            return null;
-        }
-    }
-
-    /**
-     * UTILITY: Validate if a team can afford their selected investments
-     */
-    static validateInvestmentAffordability(
-        pricingResult: ContinuationPricingResult,
-        selectedInvestmentIds: string[]
-    ): { canAfford: boolean; totalCost: number; remainingBudget: number } {
-        const totalCost = selectedInvestmentIds.reduce((sum, investmentId) => {
-            const pricing = pricingResult.investmentPricing.find(p => p.investmentId === investmentId);
-            return sum + (pricing?.finalPrice || 0);
-        }, 0);
-
-        const remainingBudget = pricingResult.totalBudget - totalCost;
-        const canAfford = remainingBudget >= 0;
-
-        return {
-            canAfford,
-            totalCost,
-            remainingBudget
-        };
     }
 }

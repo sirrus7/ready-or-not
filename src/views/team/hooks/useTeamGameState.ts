@@ -3,7 +3,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {db, supabase} from '@shared/services/supabase';
 import {InteractiveSlideData, TeamGameEvent} from '@core/sync/SimpleRealtimeManager';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
-import {GameStructure, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
+import {GameSession, GameStructure, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
 import {useTeamGameContext} from "@app/providers/TeamGameProvider";
 
 interface UseTeamGameStateProps {
@@ -294,15 +294,15 @@ export const useTeamGameState = ({
                     if (sessionId && loggedInTeamId) {
                         const syncState = async () => {
                             try {
-                                const session = await db.sessions.getById(sessionId);
+                                const session: GameSession = await db.sessions.getById(sessionId);
                                 if (!session) return;
 
-                                const slideIndex = session.current_slide_index || 0;
-                                const initialSlide = readyOrNotGame_2_0_DD.slides[slideIndex];
+                                const slideIndex: number = session.current_slide_index || 0;
+                                const initialSlide: Slide = readyOrNotGame_2_0_DD.slides[slideIndex];
                                 if (initialSlide) {
                                     setCurrentActiveSlide(initialSlide);
-                                    const targetRound = (initialSlide.round_number as 1 | 2 | 3) || 1;
-                                    const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
+                                    const targetRound: 1 | 2 | 3 = (initialSlide.round_number as 1 | 2 | 3) || 1;
+                                    const kpis: TeamRoundData | null = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
                                     setCurrentTeamKpis(kpis);
                                 }
                             } catch (error) {
@@ -354,7 +354,7 @@ export const useTeamGameState = ({
             }
 
             try {
-                const session = await db.sessions.getById(sessionId);
+                const session: GameSession = await db.sessions.getById(sessionId);
                 setSessionStatus(session ? 'active' : 'deleted');
             } catch (error: unknown) {
                 // If session not found, mark as deleted
