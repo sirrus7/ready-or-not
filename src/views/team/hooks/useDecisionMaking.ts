@@ -2,8 +2,8 @@
 // FIXED VERSION: Updated to use investment option letters instead of full IDs
 
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {ChallengeOption, InvestmentOption, Slide} from '@shared/types';
-import {supabase} from '@shared/services/supabase';
+import {ChallengeOption, InvestmentOption, Slide, TeamDecision} from '@shared/types';
+import {db} from '@shared/services/supabase';
 import {StrategyInvestmentTracker, StrategyInvestmentType} from "@core/game/StrategyInvestmentTracker.ts";
 import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
 import {ForcedSelectionTracker} from "@core/game/ForcedSelectionTracker.ts";
@@ -167,20 +167,12 @@ export const useDecisionMaking = ({
             // Add this inside the loadExistingDecisions function
             if (currentSlide?.type === 'interactive_double_down_select') {
                 try {
-                    // Load team's RD3 investment decisions to filter available options
-                    const {data: rd3Decision} = await supabase
-                        .from('team_decisions')
-                        .select('selected_investment_options')
-                        .eq('session_id', sessionId)
-                        .eq('team_id', teamId)
-                        .eq('phase_id', 'rd3-invest')
-                        .single();
-
-                    if (rd3Decision?.selected_investment_options) {
-                        // Store these so DecisionContent can filter investments
+                    const rd3Decision = await db.decisions.getForPhase(sessionId, teamId, 'rd3-invest')
+                    const investmentOptions = rd3Decision?.selected_investment_options;
+                    if (investmentOptions) {
                         setState(prev => ({
                             ...prev,
-                            immediatePurchases: rd3Decision.selected_investment_options
+                            immediatePurchases: investmentOptions
                         }));
                     }
                 } catch (error) {
@@ -191,22 +183,15 @@ export const useDecisionMaking = ({
             try {
                 // Create the immediate purchase phase_id
                 const immediatePhaseId = `${currentSlide.interactive_data_key}_immediate`;
+                const decisions: TeamDecision[] = await db.decisions.getImmediatePurchases(sessionId, teamId, immediatePhaseId)
 
-                const {data, error} = await supabase
-                    .from('team_decisions')
-                    .select('*')
-                    .eq('session_id', sessionId)
-                    .eq('team_id', teamId)
-                    .eq('phase_id', immediatePhaseId)
-                    .eq('is_immediate_purchase', true);
-
-                if (data && !error && data.length > 0) {
+                if (decisions && decisions.length > 0) {
                     // CHANGED: Extract immediate purchase options (now letters)
                     const immediatePurchaseOptions: string[] = [];
                     let immediateSpending = 0;
 
-                    data.forEach(decision => {
-                        if (decision.selected_investment_options) {  // CHANGED: column name
+                    decisions.forEach(decision => {
+                        if (decision.selected_investment_options) {
                             immediatePurchaseOptions.push(...decision.selected_investment_options);
                         }
                         immediateSpending += decision.total_spent_budget || 0;
@@ -214,7 +199,7 @@ export const useDecisionMaking = ({
 
                     setState(prev => ({
                         ...prev,
-                        immediatePurchases: immediatePurchaseOptions,  // CHANGED
+                        immediatePurchases: immediatePurchaseOptions,
                         spentBudget: immediateSpending
                     }));
                 }
@@ -225,21 +210,24 @@ export const useDecisionMaking = ({
 
         // Reset state when slide changes
         const newState: DecisionState = {
-            selectedInvestmentOptions: [],  // CHANGED
+            selectedInvestmentOptions: [],
             spentBudget: 0,
             selectedChallengeOptionId: null,
             sacrificeInvestmentId: null,
             doubleDownOnInvestmentId: null,
             error: null,
-            immediatePurchases: []
+            immediatePurchases: [],
+            forcedSelection: null,
+            forcedSelectionReason: null,
+            isCheckingForcedSelection: false
         };
 
         // Set default challenge option if applicable
         if (currentSlide?.type === 'interactive_choice' && challengeOptions.length > 0) {
-            const defaultChoice = challengeOptions.find(opt => opt.is_default_choice);
+            const defaultChoice: ChallengeOption | undefined = challengeOptions.find(opt => opt.is_default_choice);
             newState.selectedChallengeOptionId = defaultChoice?.id || challengeOptions[challengeOptions.length - 1].id;
         } else if (currentSlide?.type === 'interactive_double_down_select' && challengeOptions.length > 0) {
-            const defaultOptOut = challengeOptions.find(opt => opt.id === 'no_dd') || challengeOptions.find(opt => opt.is_default_choice);
+            const defaultOptOut: ChallengeOption | undefined = challengeOptions.find(opt => opt.id === 'no_dd') || challengeOptions.find(opt => opt.is_default_choice);
             newState.selectedChallengeOptionId = defaultOptOut?.id || null;
         }
 
@@ -352,35 +340,30 @@ export const useDecisionMaking = ({
             // DATA-DRIVEN: Use the option's immediate_purchase_type or default to the option ID
             const immediateType = option.immediate_purchase_type || option.id;
 
-            const {data, error} = await supabase
-                .from('team_decisions')
-                .insert({
-                    session_id: sessionId,
-                    team_id: teamId,
-                    phase_id: immediatePhaseId,
-                    round_number: currentSlide.round_number || 1,
-                    selected_investment_options: [optionLetter],
-                    selected_challenge_option_id: null,
-                    total_spent_budget: cost,
-                    submitted_at: new Date().toISOString(),
-                    is_immediate_purchase: true,
-                    // DATA-DRIVEN: Use the option's immediate_purchase_type
+            await db.decisions.create({
+                session_id: sessionId,
+                team_id: teamId,
+                phase_id: immediatePhaseId,
+                round_number: currentSlide.round_number || 1,
+                selected_investment_options: [optionLetter],
+                selected_challenge_option_id: null,
+                total_spent_budget: cost,
+                is_immediate_purchase: true,
+                immediate_purchase_type: immediateType,
+                immediate_purchase_data: {
+                    option_letter: optionLetter,
+                    option_index: optionIndex,
+                    option_name: option.name,
                     immediate_purchase_type: immediateType,
-                    immediate_purchase_data: {
-                        option_letter: optionLetter,
-                        option_index: optionIndex,
-                        option_name: option.name,
-                        immediate_purchase_type: immediateType,
-                        host_notification_message: option.host_notification_message,
-                        report_name: option.report_name,
-                        cost: cost
-                    },
-                    report_given: false
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
+                    host_notification_message: option.host_notification_message,
+                    report_name: option.report_name,
+                    cost: cost
+                },
+                report_given: false,
+                double_down_sacrifice_id: null,
+                double_down_on_id: null,
+                report_given_at: null,
+            });
 
             // NEW: Process strategy investment if this is a strategy purchase
             if (immediateType === 'business_growth_strategy' || immediateType === 'strategic_plan') {

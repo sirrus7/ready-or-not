@@ -7,7 +7,7 @@ import Modal from '@shared/components/UI/Modal';
 import {TeamDecision} from '@shared/types';
 import {Info} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
-import {supabase} from '@shared/services/supabase';
+import {db} from '@shared/services/supabase';
 import SelectionDisplay, {SelectionData} from './SelectionDisplay';
 import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
 
@@ -40,16 +40,7 @@ const DecisionReviewModal: React.FC<DecisionReviewModalProps> = ({isOpen, onClos
             );
 
             if (interactiveSlide?.type !== 'interactive_invest') return [];
-
-            const {data, error} = await supabase
-                .from('team_decisions')
-                .select('id, team_id, total_spent_budget, submitted_at, report_given, selected_investment_options')
-                .eq('session_id', currentSessionId)
-                .eq('is_immediate_purchase', true)
-                .eq('immediate_purchase_type', 'business_growth_strategy')
-                .like('phase_id', '%_immediate');
-
-            if (error) throw error;
+            const data: TeamDecision[] = await db.decisions.getAllImmediatePurchases(currentSessionId);
 
             return (data || []).map(item => ({
                 id: item.id,

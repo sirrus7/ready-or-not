@@ -114,13 +114,13 @@ export const decisionService = {
     },
 
     // ENHANCED: Create with longer timeout for submissions
-    async create(decisionData: Omit<TeamDecision, 'id' | 'created_at'>): Promise<TeamDecision> {
+    async create(decisionData: Omit<TeamDecision, 'id' | 'created_at' | 'submitted_at'>): Promise<TeamDecision> {
         return withRetry(async () => {
             const {data, error} = await supabase
                 .from(TEAM_DECISIONS_TABLE)
                 .insert({
                     ...decisionData,
-                    submitted_at: decisionData.submitted_at || new Date().toISOString()
+                    submitted_at: new Date().toISOString()
                 })
                 .select()
                 .single();
