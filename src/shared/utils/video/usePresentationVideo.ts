@@ -48,8 +48,9 @@ export const usePresentationVideo = ({
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
     // Use sync manager for communication only
+    // Only create sync manager if this presentation video is actually enabled
     const { onCommand, onConnectionChange, sendVideoReady } = useVideoSyncManager({
-        sessionId,
+        sessionId: isEnabled ? sessionId : null,
         role: 'presentation'
     });
 

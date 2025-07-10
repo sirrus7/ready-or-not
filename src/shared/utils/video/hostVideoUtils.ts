@@ -1,7 +1,7 @@
 // src/shared/utils/video/hostVideoUtils.ts
 // Host-specific video utilities with extensive logging
 
-import { isVideoReady } from './commonVideoUtils';
+import { isVideoReady, SYNC_INTERVAL_MS } from './commonVideoUtils';
 
 // Constants
 export const HOST_MUTE_CHECK_INTERVAL = 100; // ms

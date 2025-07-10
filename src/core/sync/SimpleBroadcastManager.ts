@@ -70,6 +70,7 @@ export class SimpleBroadcastManager {
         this.sessionId = sessionId;
         this.mode = mode;
         this.channel = new BroadcastChannel(`game-session-${sessionId}`);
+        console.log(`[SimpleBroadcastManager-${mode}] Created new instance for session ${sessionId}, initial status: ${this.connectionStatus}`);
         this.setupMessageHandling();
         this.startPingPong();
     }
@@ -97,6 +98,8 @@ export class SimpleBroadcastManager {
 
             // Only process messages for this session
             if (message.sessionId !== this.sessionId) return;
+
+            console.log(`[SimpleBroadcastManager-${this.mode}] Received message:`, message.type, message);
 
             if (message.type === 'PRESENTATION_DISCONNECT' && this.mode === 'host') {
                 console.log('[SimpleBroadcastManager] Received explicit disconnect from presentation');
@@ -171,7 +174,7 @@ export class SimpleBroadcastManager {
 
     private startPingPong(): void {
         if (this.mode === 'host') {
-            // Host sends ping every 5 seconds
+            // Host sends ping every 2 seconds
             this.pingInterval = setInterval(() => {
                 if (this.isDestroyed) return;
 
@@ -181,11 +184,13 @@ export class SimpleBroadcastManager {
                     timestamp: Date.now()
                 });
 
-                // Check for presentation timeout (10 seconds)
-                if (Date.now() - this.lastPong > 10000 && this.connectionStatus === 'connected') {
+                // Check for presentation timeout (5 seconds)
+                // Only check timeout if we've ever been connected (lastPong > 0)
+                if (this.lastPong > 0 && Date.now() - this.lastPong > 5000 && this.connectionStatus === 'connected') {
+                    console.log('[SimpleBroadcastManager] Presentation timeout detected');
                     this.updateConnectionStatus('disconnected');
                 }
-            }, 500);
+            }, 2000);
         } else {
             // Presentation announces ready after a short delay
             if (this.mode === 'presentation') {
@@ -217,6 +222,7 @@ export class SimpleBroadcastManager {
         if (this.isDestroyed) return;
 
         if (this.connectionStatus !== status) {
+            console.log(`[SimpleBroadcastManager-${this.mode}] Connection status changing from '${this.connectionStatus}' to '${status}'`);
             this.connectionStatus = status;
             this.statusCallbacks.forEach(callback => {
                 try {
