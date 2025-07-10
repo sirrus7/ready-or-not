@@ -23,10 +23,11 @@ export const useVideoSyncManager = ({
                                     }: UseVideoSyncManagerProps): UseVideoSyncManagerReturn => {
   const [isConnected, setIsConnected] = useState(false);
 
-  const broadcastManager = useMemo(() =>
-          sessionId ? SimpleBroadcastManager.getInstance(sessionId, role) : null,
-      [sessionId, role]
-  );
+  const broadcastManager = useMemo(() => {
+    if (!sessionId) return null;
+    console.log(`[VideoSyncManager] Creating broadcast manager for ${role} with session ${sessionId}`);
+    return SimpleBroadcastManager.getInstance(sessionId, role);
+  }, [sessionId, role]);
 
   // Send commands (host only)
   const sendCommand = useCallback((action: HostCommand['action'], data?: HostCommand['data']) => {
@@ -46,8 +47,11 @@ export const useVideoSyncManager = ({
   const onConnectionChange = useCallback((callback: (connected: boolean) => void) => {
     if (!broadcastManager) return () => {};
 
+    console.log("[VIDEO SYNC MANAGER] ", "onConnectionChange");
+
     if (role === 'host') {
       return broadcastManager.onPresentationStatus((status) => {
+        console.log("[VIDEO SYNC MANAGER] ", "connection status change - ", status);
         const connected = status === 'connected';
         callback(connected);
       });
@@ -86,9 +90,12 @@ export const useVideoSyncManager = ({
   useEffect(() => {
     if (!broadcastManager) return;
 
-    const unsubscribe = onConnectionChange(setIsConnected);
+    const unsubscribe = onConnectionChange((connected) => {
+      console.log(`[VideoSyncManager-${role}] Connection status changed to:`, connected);
+      setIsConnected(connected);
+    });
     return unsubscribe;
-  }, [broadcastManager, onConnectionChange]);
+  }, [broadcastManager, onConnectionChange, role]);
 
   // Send ready status for presentation
   useEffect(() => {

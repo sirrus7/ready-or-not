@@ -59,19 +59,22 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const previousSourceUrl = useRef<string | null>(null);
     const pendingAutoplayRef = useRef<boolean>(false);
 
-    console.log('[Host] 🚀 useHostVideo initialized:', {
-        sessionId,
-        sourceUrl: sourceUrl?.substring(sourceUrl.lastIndexOf('/') + 1) || 'none',
-        isEnabled
-    });
-
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
     // Use sync manager for communication only
+    // Only create sync manager if this host video is actually enabled
     const { isConnected, sendCommand, onConnectionChange, onVideoReady } = useVideoSyncManager({
-        sessionId,
+        sessionId: isEnabled ? sessionId : null,
         role: 'host'
+    });
+
+    console.log('[Host] 🚀 useHostVideo initialized:', {
+        sessionId,
+        sourceUrl: sourceUrl?.substring(sourceUrl.lastIndexOf('/') + 1) || 'none',
+        isEnabled,
+        initialLocalIsConnected: localIsConnected,
+        syncManagerIsConnected: isConnected
     });
 
 
@@ -279,20 +282,28 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         }
     }, [isConnected, sendCommand, presentationMuted, presentationVolume]);
 
-    // Keep host muted when connected
+    // Keep host muted when connected, unmuted when not connected
     useEffect(() => {
-        if (!isConnected) {
-            console.log('[Host] 🔊 Not connected, host can unmute');
-            return;
-        }
-
         const video = videoRef.current;
         if (!video) {
-            console.log('[Host] ⚠️ No video element for mute enforcement');
+            console.log('[Host] ⚠️ No video element for mute control');
             return;
         }
 
-        // Force initial mute
+        console.log('[Host] 🎵 Mute control effect running:', { 
+            isConnected,
+            localIsConnected,
+            currentMuted: video.muted 
+        });
+
+        if (!localIsConnected) {
+            console.log('[Host] 🔊 Not connected, ensuring host is unmuted');
+            video.muted = false;
+            logHostVideoState('Host unmuted (not connected)', video);
+            return;
+        }
+
+        // Force initial mute when connected
         console.log('[Host] 🔇 Enforcing host mute while connected');
         video.muted = true;
         logHostVideoState('Mute enforcement started', video);
@@ -310,7 +321,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             console.log('[Host] 🔊 Stopping mute enforcement, violations:', muteViolations);
             clearInterval(interval);
         };
-    }, [isConnected]);
+    }, [localIsConnected, isConnected]);
 
     // Handle video source changes
     useEffect(() => {
@@ -358,6 +369,11 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 logHostVideoState('Before source change', video);
                 video.src = sourceUrl;
                 video.load();
+                // Ensure proper mute state based on connection
+                if (!localIsConnected) {
+                    video.muted = false;
+                    console.log('[Host] 🔊 Ensuring host unmuted for new video (not connected)');
+                }
                 logHostVideoState('After source change', video);
                 
                 // Reset ready states
