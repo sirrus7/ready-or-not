@@ -15,6 +15,12 @@ export const ROUND_BASE_VALUES = {
     3: {orders: 7250, cost: 1350000}                     // ✅ FIXED: RD-2→RD-3 Reset values
 };
 
+export interface FinancialMetrics {
+    revenue: number,
+    net_income: number,
+    net_margin: number,
+}
+
 export class ScoringEngine {
 
     /**
@@ -48,11 +54,7 @@ export class ScoringEngine {
     /**
      * Calculates derived financial metrics
      */
-    static calculateFinancialMetrics(kpis: TeamRoundData): {
-        revenue: number;
-        net_income: number;
-        net_margin: number;
-    } {
+    static calculateFinancialMetrics(kpis: TeamRoundData): FinancialMetrics {
         const unitsProduced = Math.min(kpis.current_capacity, kpis.current_orders);
         const revenue = unitsProduced * kpis.current_asp;
         const netIncome = revenue - kpis.current_cost;
@@ -68,7 +70,7 @@ export class ScoringEngine {
     /**
      * Creates new round data with base values for a team
      */
-    static createNewRoundData(sessionId: string, teamId: string, roundNumber: 1 | 2 | 3, existingTeamData?: Record<number, TeamRoundData>): Omit<TeamRoundData, 'id'> {
+    static createNewRoundData(sessionId: string, teamId: string, roundNumber: 1 | 2 | 3, _existingTeamData?: Record<number, TeamRoundData>): Omit<TeamRoundData, 'id'> {
         const roundBases = ROUND_BASE_VALUES[roundNumber];
         return {
             session_id: sessionId,
@@ -92,7 +94,7 @@ export class ScoringEngine {
      * Applies permanent adjustments to round starting values
      * OPTIMIZED: Now expects team-specific adjustments (no filtering needed)
      */
-    static applyPermanentAdjustments(roundData: Omit<TeamRoundData, 'id'>, adjustments: PermanentKpiAdjustment[], teamId: string, roundNumber: number): Omit<TeamRoundData, 'id'> {
+    static applyPermanentAdjustments(roundData: Omit<TeamRoundData, 'id'>, adjustments: PermanentKpiAdjustment[], _teamId: string, roundNumber: number): Omit<TeamRoundData, 'id'> {
         const applicableAdjustments = adjustments.filter(adj =>
             adj.applies_to_round_start === roundNumber
         );

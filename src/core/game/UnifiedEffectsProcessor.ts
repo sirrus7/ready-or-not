@@ -1,7 +1,16 @@
 // src/core/game/UnifiedEffectsProcessor.ts
-import {GameSession, GameStructure, KpiEffect, Slide, Team, TeamDecision, TeamRoundData,} from '@shared/types';
+import {
+    Consequence,
+    GameSession,
+    GameStructure,
+    KpiEffect,
+    Slide,
+    Team,
+    TeamDecision,
+    TeamRoundData,
+} from '@shared/types';
 import {db} from '@shared/services/supabase';
-import {ScoringEngine} from './ScoringEngine';
+import {FinancialMetrics, ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
 import {StrategyInvestmentTracker} from './StrategyInvestmentTracker';
 import {KpiResetEngine} from './KpiResetEngine';
@@ -269,7 +278,13 @@ export class UnifiedEffectsProcessor {
     }
 
     private async processSetupSlide(slide: Slide, challengeId: string): Promise<void> {
-        const {currentDbSession, teams, teamRoundData, setTeamRoundDataDirectly, fetchTeamRoundDataFromHook} = this.props;
+        const {
+            currentDbSession,
+            teams,
+            teamRoundData,
+            setTeamRoundDataDirectly,
+            fetchTeamRoundDataFromHook
+        } = this.props;
 
         // Get setup consequence from existing challenge consequences
         const consequenceKey = `${challengeId}-conseq`;
@@ -297,7 +312,7 @@ export class UnifiedEffectsProcessor {
             // Apply effects using existing engine
             const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, setupConsequence.effects);
             const finalMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
-            const finalKpis = { ...updatedKpis, ...finalMetrics };
+            const finalKpis = {...updatedKpis, ...finalMetrics};
 
             // Save using existing method
             await db.kpis.update(currentKpis.id, finalKpis);
@@ -347,27 +362,27 @@ export class UnifiedEffectsProcessor {
         }
 
         // Use the SLIDE_TO_CHALLENGE_MAP to get challenge ID and option
-        const challengeId = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
+        const challengeId: string | undefined = SLIDE_TO_CHALLENGE_MAP.get(consequenceSlide.id);
         console.log(`[UnifiedEffectsProcessor] 🎯 Looking for challenge ID: ${challengeId}`);
         if (!challengeId) {
             return;
         }
 
         // NEW: Handle setup slides that affect all teams
-        const isSetupSlide = consequenceSlide.id === 42 || consequenceSlide.id === 86 || consequenceSlide.id === 100;
+        const isSetupSlide: boolean = consequenceSlide.id === 42 || consequenceSlide.id === 86 || consequenceSlide.id === 100;
         if (isSetupSlide) {
             await this.processSetupSlide(consequenceSlide, challengeId);
             return;
         }
 
-        const slideOption = this.getSlideOption(consequenceSlide);
+        const slideOption: string | null = this.getSlideOption(consequenceSlide);
         if (!slideOption) {
             return;
         }
 
         // Get consequence data
         const consequenceKey = `${challengeId}-conseq`;
-        const allConsequencesForChallenge = allConsequencesData[consequenceKey] || [];
+        const allConsequencesForChallenge: Consequence[] = allConsequencesData[consequenceKey] || [];
         console.log(`[UnifiedEffectsProcessor] 📊 Found ${allConsequencesForChallenge?.length || 0} consequences for ${consequenceKey}`);
         if (allConsequencesForChallenge.length === 0) {
             console.warn(`[UnifiedEffectsProcessor] ⚠️ No consequences defined for challenge ${consequenceKey}`);
@@ -379,7 +394,7 @@ export class UnifiedEffectsProcessor {
         for (const team of teams) {
             console.log(`[UnifiedEffectsProcessor] 🏢 Processing team: ${team.name} (${team.id})`);
             // Get team's decision for this challenge
-            const teamDecision = teamDecisions[team.id]?.[challengeId];
+            const teamDecision: TeamDecision = teamDecisions[team.id]?.[challengeId];
             console.log(`[UnifiedEffectsProcessor] 📝 Team ${team.name} decision:`, teamDecision);
             if (!teamDecision) {
                 console.warn(`[UnifiedEffectsProcessor] ⚠️ No decision found for team ${team.name} challenge ${challengeId}`);
@@ -387,7 +402,7 @@ export class UnifiedEffectsProcessor {
             }
 
             // Get team's exact selection (could be "A", "A,C", "B,C", etc.)
-            const teamSelection = teamDecision.selected_challenge_option_id;
+            const teamSelection: string | null = teamDecision.selected_challenge_option_id;
             console.log(`[UnifiedEffectsProcessor] ✅ Team ${team.name} selected option: ${teamSelection}`);
             if (!teamSelection) {
                 continue;
@@ -401,7 +416,7 @@ export class UnifiedEffectsProcessor {
                 }
             } else {
                 // For single-select challenges, use simple option matching
-                const slideOption = this.getSlideOption(consequenceSlide);
+                const slideOption: string | null = this.getSlideOption(consequenceSlide);
                 if (!slideOption) {
                     console.warn(`[UnifiedEffectsProcessor] Could not determine slide option for ${consequenceSlide.title}`);
                     continue;
@@ -414,7 +429,7 @@ export class UnifiedEffectsProcessor {
             }
 
             // Find consequence that matches the team's EXACT selection
-            const consequenceForTeamSelection = allConsequencesForChallenge.find(cons =>
+            const consequenceForTeamSelection: Consequence | undefined = allConsequencesForChallenge.find(cons =>
                 cons.challenge_option_id === teamSelection
             );
 
@@ -434,18 +449,18 @@ export class UnifiedEffectsProcessor {
             }
 
             // Check immunity before applying effects
-            const hasImmunity = await ImmunityTracker.hasImmunity(currentDbSession.id, team.id, challengeId);
+            const hasImmunity: boolean = await ImmunityTracker.hasImmunity(currentDbSession.id, team.id, challengeId);
 
             if (hasImmunity) {
                 console.log(`[UnifiedEffectsProcessor] Team ${team.name} has immunity for ${challengeId}`);
 
                 // UPDATED: Check for immunity-specific consequences (positive effects)
                 const immunityConsequenceKey = `${challengeId}-immunity`;
-                const immunityConsequences = allConsequencesData[immunityConsequenceKey] || [];
+                const immunityConsequences: Consequence[] = allConsequencesData[immunityConsequenceKey] || [];
 
                 if (immunityConsequences.length > 0) {
                     // Find immunity consequence for this team's selection
-                    const immunityConsequence = immunityConsequences.find(cons =>
+                    const immunityConsequence: Consequence | undefined = immunityConsequences.find(cons =>
                         cons.challenge_option_id === teamSelection
                     );
 
@@ -454,7 +469,7 @@ export class UnifiedEffectsProcessor {
 
                         // Apply immunity effects (positive benefits)
                         const currentRound = consequenceSlide.round_number as 1 | 2 | 3;
-                        const currentKpis = await KpiDataUtils.ensureTeamRoundData(
+                        const currentKpis: TeamRoundData = await KpiDataUtils.ensureTeamRoundData(
                             currentDbSession.id,
                             team.id,
                             currentRound,
@@ -462,8 +477,8 @@ export class UnifiedEffectsProcessor {
                             setTeamRoundDataDirectly
                         );
 
-                        const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, immunityConsequence.effects);
-                        const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
+                        const updatedKpis: TeamRoundData = ScoringEngine.applyKpiEffects(currentKpis, immunityConsequence.effects);
+                        const finalKpis: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
 
                         // Save to database
                         await db.kpis.update(currentKpis.id, {
@@ -471,7 +486,7 @@ export class UnifiedEffectsProcessor {
                             ...finalKpis
                         });
 
-                        this.updatedKpisForBroadcast[team.id] = { ...updatedKpis, ...finalKpis };
+                        this.updatedKpisForBroadcast[team.id] = {...updatedKpis, ...finalKpis};
 
                         console.log(`[UnifiedEffectsProcessor] Applied immunity benefits for team ${team.name}`);
                     } else {
@@ -492,7 +507,7 @@ export class UnifiedEffectsProcessor {
 
             // Apply effects to team round data
             const currentRound = consequenceSlide.round_number as 1 | 2 | 3;
-            const currentKpis = await KpiDataUtils.ensureTeamRoundData(
+            const currentKpis: TeamRoundData = await KpiDataUtils.ensureTeamRoundData(
                 currentDbSession.id,
                 team.id,
                 currentRound,
@@ -501,15 +516,15 @@ export class UnifiedEffectsProcessor {
             );
 
             // SPECIAL HANDLING: CH7 Option C customization needs automation capability check
-            let effectsToApply = consequenceForTeamSelection.effects;
+            let effectsToApply: KpiEffect[] = consequenceForTeamSelection.effects;
             if (challengeId === 'ch7' && teamSelection === 'C') {
                 // Check for automation capability (CNC machine OR Automation investment)
-                const hasCncMachine = await this.checkCncMachine(currentDbSession.id, team.id);
-                const hasAutomationInvestment = await this.checkAutomationInvestment(currentDbSession.id, team.id);
-                const hasAutomationCapability = hasCncMachine || hasAutomationInvestment;
+                const hasCncMachine: boolean = await this.checkCncMachine(currentDbSession.id, team.id);
+                const hasAutomationInvestment: boolean = await this.checkAutomationInvestment(currentDbSession.id, team.id);
+                const hasAutomationCapability: boolean = hasCncMachine || hasAutomationInvestment;
 
                 // Calculate capacity impact: 0 if automated, -500 if not
-                const capacityImpact = hasAutomationCapability ? 0 : -500;
+                const capacityImpact: 0 | -500 = hasAutomationCapability ? 0 : -500;
 
                 // Update capacity effect
                 effectsToApply = consequenceForTeamSelection.effects.map(effect => {
@@ -528,8 +543,8 @@ export class UnifiedEffectsProcessor {
                 console.log(`[UnifiedEffectsProcessor] CH7 customization for team ${team.name}: ${capacityImpact} (automation: ${hasAutomationCapability})`);
             }
 
-            const updatedKpis = ScoringEngine.applyKpiEffects(currentKpis, effectsToApply);
-            const finalKpis = ScoringEngine.calculateFinancialMetrics(updatedKpis);
+            const updatedKpis: TeamRoundData = ScoringEngine.applyKpiEffects(currentKpis, effectsToApply);
+            const finalKpis: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
 
             // Save to database
             await db.kpis.update(currentKpis.id, {
@@ -537,12 +552,12 @@ export class UnifiedEffectsProcessor {
                 ...finalKpis
             });
 
-            this.updatedKpisForBroadcast[team.id] = { ...updatedKpis, ...finalKpis };
+            this.updatedKpisForBroadcast[team.id] = {...updatedKpis, ...finalKpis};
 
             // ========================================================================
             // MINIMAL CHANGE: Handle permanent effects with Employee Development check
             // ========================================================================
-            const permanentEffects = consequenceForTeamSelection.effects.filter(eff =>
+            const permanentEffects: KpiEffect[] = consequenceForTeamSelection.effects.filter(eff =>
                 eff.timing === 'permanent_next_round_start'
             );
 
@@ -556,10 +571,10 @@ export class UnifiedEffectsProcessor {
                     );
 
                     // Calculate dynamic permanent effects with conditional bonus
-                    const dynamicPermanentEffects = permanentEffects.map(effect => {
+                    const dynamicPermanentEffects: KpiEffect[] = permanentEffects.map(effect => {
                         if (effect.kpi === 'capacity' && effect.description?.includes('Permanent Hiring Capacity Impact')) {
                             // Apply conditional bonus: 1000 base + 500 if Employee Development
-                            const finalCapacityValue = EmployeeDevelopmentTracker.getConditionalCapacityBonus(hasEmployeeDevelopment);
+                            const finalCapacityValue: number = EmployeeDevelopmentTracker.getConditionalCapacityBonus(hasEmployeeDevelopment);
 
                             return {
                                 ...effect,

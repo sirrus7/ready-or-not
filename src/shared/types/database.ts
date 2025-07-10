@@ -65,15 +65,15 @@ export interface TeamDecision {
     team_id: string;
     phase_id: string;
     round_number: number;
-    selected_investment_options: string[] | null;
     selected_challenge_option_id: string | null;
     double_down_sacrifice_id: string | null;
     double_down_on_id: string | null;
-    total_spent_budget: number;
+    total_spent_budget: number | null;
     submitted_at: string;
     is_immediate_purchase: boolean;
     immediate_purchase_type: string | null;
     immediate_purchase_data: any | null;
     report_given: boolean;
     report_given_at: string | null;
+    selected_investment_options: string[] | null;
 }
