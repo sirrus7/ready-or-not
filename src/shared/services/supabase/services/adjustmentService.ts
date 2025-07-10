@@ -26,7 +26,7 @@ export const adjustmentService = {
             const {data, error} = await supabase
                 .from(PERMANENT_KPI_ADJUSTMENTS_TABLE)
                 .insert(adjustmentData)
-                .select();
+                .single();
             if (error) {
                 console.error(`[adjustmentService.create(adjustmentData:${JSON.stringify(adjustmentData)})] failed with error: ${error}`)
                 throw error;
@@ -35,9 +35,9 @@ export const adjustmentService = {
         }, 2, 1000, 'Create KPI adjustments');
     },
 
-    async upsert(adjustments: Omit<PermanentKpiAdjustment, 'id' | 'created_at'>[]): Promise<PermanentKpiAdjustment> {
+    async upsert(adjustments: Omit<PermanentKpiAdjustment, 'id' | 'created_at'>[]): Promise<PermanentKpiAdjustment | null> {
         return withRetry(async () => {
-            if (adjustments.length === 0) return [];
+            if (adjustments.length === 0) return null;
 
             const {data, error} = await supabase
                 .from(PERMANENT_KPI_ADJUSTMENTS_TABLE)
@@ -46,18 +46,18 @@ export const adjustmentService = {
                     onConflict: 'session_id,team_id,applies_to_round_start,kpi_key,challenge_id,option_id',
                     ignoreDuplicates: true
                 })
-                .select();
+                .single();
 
             if (error) {
                 // Ignore "no rows returned" error for pure ignore-duplicate upserts
                 if (error.code === 'PGRST116') {
                     console.log('[adjustmentService.upsert] Upsert completed, no new rows were inserted (duplicates ignored).');
-                    return [];
+                    return null;
                 }
                 console.error(`[adjustmentService.upsert(adjustments:${adjustments.length} items)] failed with error: ${error}`)
                 throw error;
             }
-            return data as PermanentKpiAdjustment;
+            return data as PermanentKpiAdjustment | null;
         }, 2, 1000, `Upsert KPI adjustments`);
     },
 

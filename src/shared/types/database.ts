@@ -75,3 +75,34 @@ export interface TeamDecision {
     report_given_at: string | null;
     selected_investment_options: string[] | null;
 }
+
+// Used to get the specific data we need from the team_decisions for double down selection
+export interface DoubleDownDecision {
+    team_id: string;
+    team_name: string;
+    double_down_sacrifice_id: string | null;
+    double_down_on_id: string;
+}
+
+export interface DoubleDownResult {
+    id: string;
+    session_id: string;
+    investment_id: string;
+    dice1_value: number;
+    dice2_value: number;
+    total_value: number;
+    boost_percentage: number;
+    affected_teams: string[];
+    created_at: string;
+}
+
+export interface PayoffApplication {
+    id: string;
+    session_id: string;
+    team_id: string;
+    slide_id: number;
+    applied_at: string;
+    created_at: string;
+    investment_phase_id: string;
+    option_id: string;
+}

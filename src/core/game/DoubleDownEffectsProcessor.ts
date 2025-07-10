@@ -3,6 +3,7 @@ import {ScoringEngine} from './ScoringEngine';
 import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {db} from '@shared/services/supabase';
 import {formatCurrency, formatNumber} from "@shared/utils/formatUtils";
+import {DoubleDownDecision, InvestmentPayoff} from "@shared/types";
 
 interface KpiChangeDetail {
     kpi: string;
@@ -34,14 +35,14 @@ export class DoubleDownEffectsProcessor {
     ): Promise<void> {
         try {
             // Get all teams that doubled down on this investment
-            const decisions = await db.doubleDown.getTeamsForInvestment(sessionId, investmentId);
+            const decisions: DoubleDownDecision[] = await db.decisions.getTeamsDoubledDownOnInvestment(sessionId, investmentId);
 
             if (!decisions || decisions.length === 0) {
                 console.log(`[DoubleDownEffectsProcessor] No teams found for investment ${investmentId}`);
                 return;
             }
 
-            const multiplier = this.calculateDoubleDownMultiplier(boostPercentage);
+            const multiplier: number = this.calculateDoubleDownMultiplier(boostPercentage);
 
             console.log(`[DoubleDownEffectsProcessor] Applying ${boostPercentage}% bonus (${multiplier}x additional) to ${decisions.length} teams for investment ${investmentId}`);
 
@@ -56,7 +57,7 @@ export class DoubleDownEffectsProcessor {
                     185 // Default slide ID for double down, could be passed as parameter
                 );
 
-                console.log(`[DoubleDownEffectsProcessor] Applied ${boostPercentage}% bonus to team ${decision.teams.name} for investment ${investmentId}`);
+                console.log(`[DoubleDownEffectsProcessor] Applied ${boostPercentage}% bonus to team ${decision.team_name} for investment ${investmentId}`);
             }
         } catch (error) {
             console.error('[DoubleDownEffectsProcessor] Error processing double down for investment:', error);
@@ -101,11 +102,12 @@ export class DoubleDownEffectsProcessor {
     ) {
         try {
             // Check if effects have already been applied to prevent duplicates
-            const alreadyApplied = await db.doubleDown.hasEffectsBeenApplied(
-                sessionId,
-                teamId,
-                investmentOptionId
-            );
+            const alreadyApplied: boolean = await db.payoffApplications.hasBeenApplied({
+                session_id: sessionId,
+                team_id: teamId,
+                option_id: investmentOptionId,
+                investment_phase_id: 'double-down'
+            });
 
             if (alreadyApplied) {
                 console.log(`[DoubleDownEffectsProcessor] Double down effects already applied for team ${teamId.substring(0, 8)}, investment ${investmentOptionId}, skipping`);
@@ -115,8 +117,8 @@ export class DoubleDownEffectsProcessor {
             console.log(`[DoubleDownEffectsProcessor] Applying ${boostPercentage}% boost to team ${teamId.substring(0, 8)} for investment ${investmentOptionId}`);
 
             // Get the base payoff effects for this investment from RD3 payoffs
-            const rd3Payoffs = allInvestmentPayoffsData['rd3-payoff'] || [];
-            const payoffForOption = rd3Payoffs.find(p => p.id === investmentOptionId);
+            const rd3Payoffs: InvestmentPayoff[] = allInvestmentPayoffsData['rd3-payoff'] || [];
+            const payoffForOption: InvestmentPayoff | undefined = rd3Payoffs.find(p => p.id === investmentOptionId);
 
             if (!payoffForOption?.effects) {
                 console.warn(`[DoubleDownEffectsProcessor] No payoff effects found for investment ${investmentOptionId}`);
@@ -149,13 +151,13 @@ export class DoubleDownEffectsProcessor {
             });
 
             // Record that double down effects have been applied
-            // This will handle duplicates gracefully now
-            await db.doubleDown.recordEffectsApplied(
-                sessionId,
-                teamId,
-                investmentOptionId,
-                slideId
-            );
+            await db.payoffApplications.recordApplication({
+                session_id: sessionId,
+                team_id: teamId,
+                option_id: investmentOptionId,
+                slide_id: slideId,
+                investment_phase_id: 'double-down'
+            });
 
             console.log(`[DoubleDownEffectsProcessor] Successfully applied ${boostPercentage}% boost to team ${teamId.substring(0, 8)} for investment ${investmentOptionId}`);
 
@@ -171,7 +173,7 @@ export class DoubleDownEffectsProcessor {
      * Get KPI changes for display purposes
      */
     static async getKpiChangesForDisplay(
-        sessionId: string,
+        _sessionId: string,
         investmentId: string,
         boostPercentage: number
     ): Promise<KpiChangeDetail[]> {

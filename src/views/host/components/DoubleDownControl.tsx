@@ -3,6 +3,7 @@ import React, {useState, useEffect} from 'react';
 import {Dice1, AlertCircle, CheckCircle} from 'lucide-react';
 import {db} from '@shared/services/supabase';
 import {SLIDE_TO_INVESTMENT_MAP, getInvestmentBySlideId} from '@core/content/DoubleDownMapping';
+import {DoubleDownDecision} from "@shared/types";
 
 interface DoubleDownControlProps {
     currentSlideId: number;
@@ -33,9 +34,9 @@ const DoubleDownControl: React.FC<DoubleDownControlProps> = ({currentSlideId, se
             // Get all investment statuses using the centralized mapping
             const statuses: InvestmentRollStatus[] = [];
 
-            for (const [slideId, investment] of Object.entries(SLIDE_TO_INVESTMENT_MAP)) {
+            for (const [_slideId, investment] of Object.entries(SLIDE_TO_INVESTMENT_MAP)) {
                 const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investment.id);
-                const teamsForInvestment = await db.doubleDown.getTeamsForInvestment(sessionId, investment.id);
+                const teamsForInvestment: DoubleDownDecision[] = await db.decisions.getTeamsDoubledDownOnInvestment(sessionId, investment.id);
 
                 statuses.push({
                     investmentId: investment.id,

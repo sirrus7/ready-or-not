@@ -3,7 +3,7 @@
 
 import {supabase} from '../client';
 import {withRetry} from '../database';
-import {TeamDecision} from '@shared/types';
+import {DoubleDownDecision, TeamDecision} from '@shared/types';
 
 const TEAM_DECISIONS_TABLE = 'team_decisions';
 
@@ -151,5 +151,41 @@ export const decisionService = {
             }
             return data as TeamDecision;
         }, 2, 1000, `Upsert decision for team ${decisionData.team_id?.substring(0, 8)}`, 10000);
-    }
+    },
+
+    async getTeamsDoubledDownOnInvestment(sessionId: string, investmentId: string): Promise<DoubleDownDecision[]> {
+        return withRetry(async () => {
+            // Fetch with join to get all needed data
+            const {data, error} = await supabase
+                .from(TEAM_DECISIONS_TABLE)
+                .select(`
+                team_id,
+                double_down_on_id,
+                double_down_sacrifice_id,
+                teams!inner(name)
+            `)
+                .eq('session_id', sessionId)
+                .eq('phase_id', 'ch-dd-prompt')
+                .eq('double_down_on_id', investmentId);
+
+            if (error) {
+                console.error(`[decisionService.getTeamsDoubledDownOnInvestment(sessionId:${sessionId}, investmentId:${investmentId})] failed with error: ${error}`);
+                throw error;
+            }
+
+            if (!data) {
+                return [];
+            }
+
+            // Transform to flat structure
+            const flattenedData: DoubleDownDecision[] = data.map((item: any) => ({
+                team_id: item.team_id,
+                team_name: item.teams.name,
+                double_down_sacrifice_id: item.double_down_sacrifice_id,
+                double_down_on_id: item.double_down_on_id
+            }));
+
+            return flattenedData;
+        }, 3, 1000, `Get teams doubled down on investment ${investmentId}`);
+    },
 };
