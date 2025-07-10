@@ -886,6 +886,14 @@ export class UnifiedEffectsProcessor {
                 continue;
             }
 
+            // Check if this investment was sacrificed during double down
+            if (investmentPhase === 'rd3-invest') {
+                const doubleDownDecision = teamDecisions[team.id]?.['ch-dd-prompt'];
+                if (doubleDownDecision?.double_down_sacrifice_id === slideOption) {
+                    continue;
+                }
+            }
+
             // Process strategy investment effects first (if applicable)
             await this.processStrategyInvestmentEffects(team, investmentPhase, slideOption);
 
