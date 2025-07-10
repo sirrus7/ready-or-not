@@ -318,8 +318,8 @@ export const useTeamDecisionSubmission = ({
 
             const parts: string[] = [];
 
-            // Add investment selections
-            if (existingDecision.selected_investment_options?.length > 0) {
+            const investmentOptions: string[] | null = existingDecision.selected_investment_options;
+            if (investmentOptions && investmentOptions.length > 0) {
                 const decisionKey = currentSlide.interactive_data_key;
                 const investmentOptions = decisionKey ?
                     gameStructureWithData.all_investment_options?.[decisionKey] || [] : [];

@@ -55,7 +55,6 @@ export const useTeamGameState = ({
     // ========================================================================
     const [currentActiveSlide, setCurrentActiveSlide] = useState<Slide | null>(null);
     const [currentTeamKpis, setCurrentTeamKpis] = useState<TeamRoundData | null>(null);
-    const [gameStructure, setGameStructure] = useState<GameStructure | null>(readyOrNotGame_2_0_DD);
     const [isLoadingKpis, setIsLoadingKpis] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting');
     const [decisionResetTrigger, setDecisionResetTrigger] = useState(0);
@@ -73,6 +72,7 @@ export const useTeamGameState = ({
         // Slide 143 follows 142 (KPI reset), Slide 68 follows 67 (KPI reset)
         return slide.id === 143 || slide.id === 68;
     };
+    const gameStructure: GameStructure = readyOrNotGame_2_0_DD;
 
     // Update stable refs
     if (sessionId !== stableSessionId.current) {
@@ -230,16 +230,6 @@ export const useTeamGameState = ({
                 }
                 break;
             case 'kpi_updated':
-                console.log('🔍 kpi_updated debug detailed:', {
-                    loggedInTeamId,
-                    updatedKpis: event.data?.updatedKpis,
-                    teamDataRaw: event.data?.updatedKpis?.[loggedInTeamId],
-                    teamDataExists: !!(loggedInTeamId && event.data?.updatedKpis?.[loggedInTeamId]),
-                    teamDataType: typeof event.data?.updatedKpis?.[loggedInTeamId],
-                    data: event.data,
-                    teamGameContext: teamGameContext,
-                });
-
                 // Fix: Use flat structure, not nested
                 if (loggedInTeamId && event.data?.updatedKpis?.[loggedInTeamId]) {
                     setCurrentTeamKpis(event.data.updatedKpis[loggedInTeamId]);
