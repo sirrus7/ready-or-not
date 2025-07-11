@@ -1,7 +1,9 @@
 // src/shared/utils/video/hostVideoUtils.ts
 // Host-specific video utilities with extensive logging
 
+import { SyncAction } from '@shared/types';
 import { isVideoReady, SYNC_INTERVAL_MS } from './commonVideoUtils';
+import { HostCommand } from '@core/sync';
 
 // Constants
 export const HOST_MUTE_CHECK_INTERVAL = 100; // ms
@@ -51,7 +53,7 @@ export const logHostVideoState = (context: string, video: HTMLVideoElement | nul
 export const createSyncInterval = (
     videoRef: React.RefObject<HTMLVideoElement>,
     isConnected: boolean,
-    sendCommand: (action: string, data?: Record<string, any>) => void
+    sendCommand: (action: SyncAction, data?: HostCommand['data']) => void
 ): NodeJS.Timeout | null => {
     if (!isConnected) {
         console.log('[Host] 🔄 Sync interval NOT created - not connected');
