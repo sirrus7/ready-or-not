@@ -9,8 +9,8 @@ export interface HostCommand {
     action: SyncAction;
     data?: {
         time: number;
-        volume: number;
-        muted: boolean;
+        volume?: number;
+        muted?: boolean;
         playbackRate?: number;
         // [key: string]: any;
     }; // ✅ NEW: Added data field for custom command data

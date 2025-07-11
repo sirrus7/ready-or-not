@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { SimpleBroadcastManager } from '@core/sync/SimpleBroadcastManager';
 import { HostCommand } from '@core/sync/types';
+import { SyncAction } from '@shared/types';
 
 interface UseVideoSyncManagerProps {
   sessionId: string | null;
@@ -30,7 +31,7 @@ export const useVideoSyncManager = ({
   }, [sessionId, role]);
 
   // Send commands (host only)
-  const sendCommand = useCallback((action: HostCommand['action'], data?: HostCommand['data']) => {
+  const sendCommand = useCallback((action: SyncAction, data?: HostCommand['data']) => {
     if (broadcastManager && role === 'host') {
       console.log(`[VideoSync] Sending command: ${action}`, data);
       broadcastManager.sendCommand(action, data);
