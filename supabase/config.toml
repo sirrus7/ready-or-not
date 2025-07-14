@@ -1,0 +1,4 @@
+[remotes.dev]
+project_id = "xdlbisjtgupxapchyrks"
+[remotes.dev.db.seed]
+sql_paths = ["./migrations/20250714000001_initial_database_setup.sql"]
