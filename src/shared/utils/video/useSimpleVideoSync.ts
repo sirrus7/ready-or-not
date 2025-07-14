@@ -229,10 +229,10 @@ export const useSimpleVideoSync = ({ sessionId, sourceUrl, isEnabled }: UseSimpl
         if (!state.presentationConnected) {
             video.volume = volume;
         } else {
-            // Send to presentation
-            sendCommand('volume', { volume, muted: state.isMuted });
+            // Send to presentation - only send volume, not muted state
+            sendCommand('volume', { volume });
         }
-    }, [state.presentationConnected, state.isMuted, sendCommand, updateState]);
+    }, [state.presentationConnected, sendCommand, updateState]);
     
     const toggleMute = useCallback(() => {
         const newMuted = !state.isMuted;

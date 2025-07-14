@@ -168,19 +168,20 @@ export const usePresentationVideo = ({
                         video.volume = volumeData.volume;
                         setState(prev => ({ ...prev, volume: volumeData.volume! }));
                     }
+                    // Only update muted state if explicitly provided
                     if (volumeData?.muted !== undefined) {
                         video.muted = volumeData.muted;
                         setState(prev => ({ ...prev, isMuted: volumeData.muted! }));
                         console.log('[Presentation] Set muted to:', volumeData.muted, 'actual:', video.muted);
-                        console.log('[Presentation] Video state:', {
-                            paused: video.paused,
-                            currentTime: video.currentTime,
-                            duration: video.duration,
-                            volume: video.volume,
-                            muted: video.muted,
-                            readyState: video.readyState
-                        });
                     }
+                    console.log('[Presentation] Video state after volume command:', {
+                        paused: video.paused,
+                        currentTime: video.currentTime,
+                        duration: video.duration,
+                        volume: video.volume,
+                        muted: video.muted,
+                        readyState: video.readyState
+                    });
                     break;
             }
         });
