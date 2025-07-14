@@ -48,7 +48,6 @@ const DecisionFooter: React.FC<DecisionFooterProps> = ({
             <div className="border-t-2 border-yellow-500 bg-yellow-900/40 p-4 animate-fade-in">
                 <div className="text-center">
                     <h4 className="text-lg font-semibold text-yellow-300 mb-2">Confirm Your Submission</h4>
-                    <p className="text-sm text-yellow-200 mb-4">{submissionSummary}</p>
                     <div className="flex justify-center gap-4">
                         <button
                             onClick={handleCancelConfirm}
@@ -80,14 +79,6 @@ const DecisionFooter: React.FC<DecisionFooterProps> = ({
     return (
         <div className="border-t border-gray-700 bg-gray-800/80 rounded-b-xl p-4">
             <div className="flex flex-col gap-4">
-                {/* Submission Summary */}
-                {isValidSubmission && submissionSummary && (
-                    <div className="bg-gray-700/50 rounded-lg p-3 border border-gray-600">
-                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Ready to Submit:</p>
-                        <p className="text-sm text-gray-200">{submissionSummary}</p>
-                    </div>
-                )}
-
                 {/* Main Submit Button */}
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                     <button
