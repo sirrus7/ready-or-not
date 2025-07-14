@@ -75,13 +75,6 @@ export const useSimpleVideoSync = ({ sessionId, sourceUrl, isEnabled }: UseSimpl
             if (!connected) {
                 updateState({ presentationReady: false });
             }
-            
-            // Pause video when presentation connects or disconnects
-            const video = videoRef.current;
-            if (video && !video.paused) {
-                video.pause();
-                updateState({ isPlaying: false });
-            }
         });
         return unsubscribe;
     }, [onConnectionChange, updateState]);
