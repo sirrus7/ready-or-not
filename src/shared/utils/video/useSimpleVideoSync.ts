@@ -104,6 +104,9 @@ export const useSimpleVideoSync = ({ sessionId, sourceUrl, isEnabled }: UseSimpl
         if (video.src !== sourceUrl) {
             video.src = sourceUrl;
             video.load();
+            // Apply current volume settings to the new video
+            video.volume = state.volume;
+            video.muted = state.presentationConnected ? true : state.isMuted;
             updateState({ 
                 hostReady: false, 
                 presentationReady: false,
@@ -140,7 +143,7 @@ export const useSimpleVideoSync = ({ sessionId, sourceUrl, isEnabled }: UseSimpl
             video.removeEventListener('play', handlePlay);
             video.removeEventListener('pause', handlePause);
         };
-    }, [sourceUrl, isEnabled, updateState]);
+    }, [sourceUrl, isEnabled, updateState, state.volume, state.isMuted, state.presentationConnected]);
     
     // Apply audio routing
     useEffect(() => {

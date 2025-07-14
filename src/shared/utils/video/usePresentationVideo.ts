@@ -71,6 +71,10 @@ export const usePresentationVideo = ({
             console.log('[Presentation] Loading new video source:', sourceUrl);
             video.src = sourceUrl;
             video.load();
+            // Apply current volume settings to the new video
+            video.volume = state.volume;
+            video.muted = state.isMuted;
+            console.log('[Presentation] Applied volume settings to new video:', { volume: state.volume, muted: state.isMuted });
             setState(prev => ({ ...prev, isReady: false }));
             sendVideoReady(false);
         } else {
@@ -106,7 +110,7 @@ export const usePresentationVideo = ({
             video.removeEventListener('error', handleError);
             sendVideoReady(false);
         };
-    }, [sourceUrl, isEnabled, sendVideoReady]);
+    }, [sourceUrl, isEnabled, sendVideoReady, state.volume, state.isMuted]);
     
     // Listen for commands from host
     useEffect(() => {
