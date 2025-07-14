@@ -6,6 +6,7 @@ import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
 import {DoubleDownDecision, DoubleDownResult, KpiChange, Slide, TeamRoundData} from "@shared/types";
 import {formatCurrency, formatNumber} from "@shared/utils/formatUtils";
+import {DoubleDownAudioManager} from '@shared/utils/audio';
 
 type DiceResult = Omit<DoubleDownResult, 'id' | 'created_at' | 'session_id'>;
 
@@ -59,6 +60,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     const [currentPhase, setCurrentPhase] = useState<'loading' | 'showing_teams' | 'rolling' | 'showing_results' | 'applying_effects' | 'complete'>('loading');
     const [affectedTeams, setAffectedTeams] = useState<string[]>([]);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const audioManager = DoubleDownAudioManager.getInstance();
 
     useEffect(() => {
         initializeDoubleDownRoll();
@@ -67,8 +69,15 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
             }
+            audioManager.cleanupAudio(investmentId);
         };
-    }, [sessionId, investmentId, slideId]);
+    }, [slideId, investmentId, sessionId]);
+
+    useEffect(() => {
+        if (currentPhase === 'showing_teams' && affectedTeams.length > 0) {
+            audioManager.playIntroAudio(investmentId);
+        }
+    }, [currentPhase, affectedTeams.length]);
 
     const waitForHostResult = async (teamNames: string[]) => {
         console.log('[DoubleDownDiceDisplay] PRESENTATION: Waiting for host result...');
@@ -115,9 +124,15 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
                 // FIX #3: Presentation should only get display changes, not apply effects
                 setTimeout(async () => {
-                    await applyEffectsAsPresentation(finalResult);
-                    setHasAppliedEffects(true);
-                    setCurrentPhase('complete');
+                    if (finalResult) {
+                        // Play result audio immediately when dice settle
+                        audioManager.playResultAudio(investmentId, finalResult.total_value);
+
+                        // Wait a bit for audio to start, then apply effects
+                        await applyEffectsAsPresentation(finalResult);
+                        setHasAppliedEffects(true);
+                        setCurrentPhase('complete');
+                    }
                 }, 3000);
 
                 return;
@@ -192,6 +207,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
             // Show teams for 3 seconds, then proceed based on mode
             setCurrentPhase('showing_teams');
+            audioManager.loadIntroAudio(investmentId);
 
             timeoutRef.current = setTimeout(() => {
                 console.log('[DoubleDownDiceDisplay] setTimeout fired with captured teamNames:', teamNames);
