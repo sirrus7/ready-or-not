@@ -4,7 +4,6 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {ChallengeOption, InvestmentOption, Slide, TeamDecision} from '@shared/types';
 import {db} from '@shared/services/supabase';
-import {StrategyInvestmentTracker, StrategyInvestmentType} from "@core/game/StrategyInvestmentTracker.ts";
 import {MultiSelectChallengeTracker} from "@core/game/MultiSelectChallengeTracker.ts";
 import {ForcedSelectionTracker} from "@core/game/ForcedSelectionTracker.ts";
 import {formatCurrency} from '@shared/utils/formatUtils';
@@ -364,22 +363,6 @@ export const useDecisionMaking = ({
                 double_down_on_id: null,
                 report_given_at: null,
             });
-
-            // NEW: Process strategy investment if this is a strategy purchase
-            if (immediateType === 'business_growth_strategy' || immediateType === 'strategic_plan') {
-                try {
-                    const purchaseRound = currentSlide.round_number || 1;
-                    await StrategyInvestmentTracker.processStrategyInvestment(
-                        sessionId,
-                        teamId,
-                        immediateType as StrategyInvestmentType,
-                        purchaseRound as 1 | 2
-                    );
-                } catch (strategyError) {
-                    console.error('Strategy investment processing failed:', strategyError);
-                    // Don't throw - the purchase was successful, strategy processing is bonus
-                }
-            }
 
             // Update local state with letter
             setState(prev => ({

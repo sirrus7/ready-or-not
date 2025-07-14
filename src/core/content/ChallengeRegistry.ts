@@ -4,14 +4,6 @@
 import {ChallengeMetadata} from '@shared/types/game';
 
 export const CHALLENGE_REGISTRY: Record<string, ChallengeMetadata> = {
-    'strategy': {
-        id: 'strategy',
-        title: 'Business Growth Strategy',
-        round: 1, // Can be purchased in RD-1 or RD-2
-        impact_card_title: 'STRATEGY',
-        impact_card_description: 'By investing in a strategy, you have permanently elevated your company beyond the need to invest again. You\'ll get these KPI impacts at the end of the round to adjust your board.',
-        consequence_slides: [] // No consequence slides for investments
-    },
     'ch1': {
         id: 'ch1',
         title: 'Equipment Failure',

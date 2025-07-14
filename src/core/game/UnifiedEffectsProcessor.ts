@@ -12,7 +12,6 @@ import {
 import {db} from '@shared/services/supabase';
 import {FinancialMetrics, ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
-import {StrategyInvestmentTracker} from './StrategyInvestmentTracker';
 import {KpiResetEngine} from './KpiResetEngine';
 import {ImmunityTracker} from './ImmunityTracker';
 import {MultiSelectChallengeTracker} from './MultiSelectChallengeTracker';
@@ -205,38 +204,6 @@ export class UnifiedEffectsProcessor {
 
         // STEP 4: Refresh UI data (triggers real-time updates to team apps)
         await fetchTeamRoundDataFromHook(currentDbSession.id);
-    }
-
-    /**
-     * ADDED: Process strategy investment permanent effects
-     */
-    private async processStrategyInvestmentEffects(
-        team: Team,
-        investmentPhase: string,
-        slideOption: string
-    ): Promise<void> {
-        // Check if this is a strategy investment (option 'A' in any investment phase)
-        if (slideOption !== 'A') {
-            return; // Not a strategy investment
-        }
-        try {
-            // Determine investment type and round
-            const investmentType = investmentPhase === 'rd1-invest'
-                ? 'business_growth_strategy' as const
-                : 'strategic_plan' as const;
-            const purchaseRound = investmentPhase === 'rd1-invest' ? 1 : 2;
-
-            // Process the strategy investment to create permanent effects
-            await StrategyInvestmentTracker.processStrategyInvestment(
-                this.props.currentDbSession!.id,
-                team.id,
-                investmentType,
-                purchaseRound
-            );
-        } catch (error) {
-            console.error(`[UnifiedEffectsProcessor] ❌ Error processing strategy investment for team ${team.name}:`, error);
-            // Don't throw - let the regular payoff processing continue
-        }
     }
 
     /**
@@ -886,31 +853,41 @@ export class UnifiedEffectsProcessor {
             const regularDecision: TeamDecision = teamDecisions[team.id]?.[investmentPhase];
             const immediateDecision: TeamDecision = teamDecisions[team.id]?.[`${investmentPhase}_immediate`];
 
-            // Combine regular and immediate purchase options
-            const regularOptions: string[] = regularDecision?.selected_investment_options || [];
-            const immediateOptions: string[] = immediateDecision?.selected_investment_options || [];
-            const selectedOptions: string[] = [...regularOptions, ...immediateOptions];
+            // UPDATED: For strategy investment (option 'A'), check if they bought it in ANY round
+            if (slideOption === 'A') {
+                // Strategy investment - check if bought in ANY round
+                const hasStrategyInvestment = await db.decisions.hasStrategyInvestment(
+                    currentDbSession.id,
+                    team.id
+                );
 
-            // Skip if team made no investment decisions at all
-            if (!regularDecision && !immediateDecision) {
-                continue;
-            }
+                if (!hasStrategyInvestment) {
+                    continue; // Team doesn't have strategy investment in any round
+                }
+            } else {
+                // Regular investments - check if bought in this specific phase
+                // Combine regular and immediate purchase options
+                const regularOptions: string[] = regularDecision?.selected_investment_options || [];
+                const immediateOptions: string[] = immediateDecision?.selected_investment_options || [];
+                const selectedOptions: string[] = [...regularOptions, ...immediateOptions];
 
-            // Check if team selected this option
-            if (!selectedOptions.includes(slideOption)) {
-                continue;
-            }
-
-            // Check if this investment was sacrificed during double down
-            if (investmentPhase === 'rd3-invest') {
-                const doubleDownDecision = teamDecisions[team.id]?.['ch-dd-prompt'];
-                if (doubleDownDecision?.double_down_sacrifice_id === slideOption) {
+                // Skip if team made no investment decisions at all
+                if (!regularDecision && !immediateDecision) {
                     continue;
                 }
-            }
 
-            // Process strategy investment effects first (if applicable)
-            await this.processStrategyInvestmentEffects(team, investmentPhase, slideOption);
+                if (!selectedOptions.includes(slideOption)) {
+                    continue;
+                }
+
+                // Check if this investment was sacrificed during double down
+                if (investmentPhase === 'rd3-invest') {
+                    const doubleDownDecision = teamDecisions[team.id]?.['ch-dd-prompt'];
+                    if (doubleDownDecision?.double_down_sacrifice_id === slideOption) {
+                        continue;
+                    }
+                }
+            }
 
             // Find payoff effects for this option
             const payoffForOption: InvestmentPayoff | undefined = allPayoffsForPhase.find(payoff => payoff.id === slideOption);

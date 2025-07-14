@@ -113,6 +113,26 @@ export const decisionService = {
         }, 3, 1000, `Get all immediate purchases for session ${sessionId.substring(0, 8)}`, 8000);
     },
 
+    // Check if team has strategy investment from any round
+    async hasStrategyInvestment(sessionId: string, teamId: string): Promise<boolean> {
+        return withRetry(async () => {
+            const {data, error} = await supabase
+                .from(TEAM_DECISIONS_TABLE)
+                .select('id')
+                .eq('session_id', sessionId)
+                .eq('team_id', teamId)
+                .eq('is_immediate_purchase', true)
+                .in('immediate_purchase_type', ['business_growth_strategy', 'strategic_plan']);
+
+            if (error) {
+                console.error(`[decisionService.hasStrategyInvestment] failed:`, error);
+                throw error;
+            }
+
+            return (data || []).length > 0;
+        }, 2, 1000, `Check strategy investment for team ${teamId.substring(0, 8)}`, 8000);
+    },
+
     // ENHANCED: Create with longer timeout for submissions
     async create(decisionData: Omit<TeamDecision, 'id' | 'created_at' | 'submitted_at'>): Promise<TeamDecision> {
         return withRetry(async () => {

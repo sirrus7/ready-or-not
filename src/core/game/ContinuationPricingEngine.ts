@@ -3,7 +3,6 @@
 
 import {db} from '@shared/services/supabase';
 import {INVESTMENT_BUDGETS} from '@shared/utils/budgetUtils';
-import {StrategyInvestmentTracker} from "@core/game/StrategyInvestmentTracker.ts";
 
 export type InvestmentAvailability = 'fresh' | 'continue' | 'not_available';
 
@@ -358,7 +357,7 @@ export class ContinuationPricingEngine {
             // Get previous investments and strategy status
             const [previousInvestments, hasStrategy] = await Promise.all([
                 this.getPreviousInvestments(sessionId, teamId, targetRound),
-                StrategyInvestmentTracker.hasStrategyInvestment(sessionId, teamId)
+                db.decisions.hasStrategyInvestment(sessionId, teamId)
             ]);
 
             const roundKey = `rd${targetRound}` as keyof typeof CONTINUATION_PRICING_TABLES;
