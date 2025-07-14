@@ -143,6 +143,108 @@ describe('useSimpleVideoSync', () => {
         });
     });
 
+    describe('connection behavior', () => {
+        it('should not pause video when presentation connects', async () => {
+            const { result } = renderHook(() => useSimpleVideoSync({
+                sessionId: 'test-session',
+                sourceUrl: 'test-video.mp4',
+                isEnabled: true
+            }));
+
+            // Start playing the video
+            mockVideoElement.paused = false;
+            await act(async () => {
+                await result.current.controls.play();
+            });
+
+            // Clear any previous calls
+            mockVideoElement.pause.mockClear();
+
+            // Simulate presentation connecting
+            act(() => {
+                if ((global as any).__connectionCallback) {
+                    (global as any).__connectionCallback(true);
+                }
+            });
+
+            // Verify video was NOT paused
+            expect(mockVideoElement.pause).not.toHaveBeenCalled();
+            expect(result.current.state.presentationConnected).toBe(true);
+        });
+
+        it('should not pause video when presentation disconnects', () => {
+            const { result } = renderHook(() => useSimpleVideoSync({
+                sessionId: 'test-session',
+                sourceUrl: 'test-video.mp4',
+                isEnabled: true
+            }));
+
+            // First connect presentation
+            act(() => {
+                if ((global as any).__connectionCallback) {
+                    (global as any).__connectionCallback(true);
+                }
+            });
+
+            // Start playing the video
+            mockVideoElement.paused = false;
+            act(async () => {
+                await result.current.controls.play();
+            });
+
+            // Clear any previous calls
+            mockVideoElement.pause.mockClear();
+
+            // Simulate presentation disconnecting
+            act(() => {
+                if ((global as any).__connectionCallback) {
+                    (global as any).__connectionCallback(false);
+                }
+            });
+
+            // Verify video was NOT paused
+            expect(mockVideoElement.pause).not.toHaveBeenCalled();
+            expect(result.current.state.presentationConnected).toBe(false);
+            expect(result.current.state.presentationReady).toBe(false);
+        });
+
+        it('should maintain playback state through connection changes', () => {
+            const { result } = renderHook(() => useSimpleVideoSync({
+                sessionId: 'test-session',
+                sourceUrl: 'test-video.mp4',
+                isEnabled: true
+            }));
+
+            // Start playing
+            mockVideoElement.paused = false;
+            act(async () => {
+                await result.current.controls.play();
+            });
+
+            expect(result.current.state.isPlaying).toBe(true);
+
+            // Connect presentation
+            act(() => {
+                if ((global as any).__connectionCallback) {
+                    (global as any).__connectionCallback(true);
+                }
+            });
+
+            // State should still be playing
+            expect(result.current.state.isPlaying).toBe(true);
+
+            // Disconnect presentation
+            act(() => {
+                if ((global as any).__connectionCallback) {
+                    (global as any).__connectionCallback(false);
+                }
+            });
+
+            // State should still be playing
+            expect(result.current.state.isPlaying).toBe(true);
+        });
+    });
+
     describe('volume persistence during slide transitions', () => {
         it('should persist volume when video source changes', () => {
             const { result, rerender } = renderHook(
