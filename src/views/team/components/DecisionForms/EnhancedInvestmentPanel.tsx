@@ -76,7 +76,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
     }, [sessionId, teamId, currentRound]);
 
     // Enhanced investment data with grouping
-    const {reinvestInvestments, newInvestments} = useMemo(() => {
+    const {allInvestments} = useMemo(() => {
         if (!investmentOptions.length) {
             return {reinvestInvestments: [], newInvestments: []};
         }
@@ -103,10 +103,15 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
             } as EnhancedInvestment;
         });
 
-        return {
-            reinvestInvestments: enhanced.filter(inv => inv.group === 'reinvest' && inv.pricing?.availability !== 'not_available'),
-            newInvestments: enhanced.filter(inv => inv.group === 'new' && inv.pricing?.availability !== 'not_available')
-        };
+        const allInvestments = enhanced
+            .filter(inv => inv.pricing?.availability !== 'not_available')
+            .sort((a, b) => {
+                const aNum = parseInt(InvestmentDisplayUtils.letterToNumber(a.id));
+                const bNum = parseInt(InvestmentDisplayUtils.letterToNumber(b.id));
+                return aNum - bNum;
+            });
+
+        return { allInvestments };
     }, [investmentOptions, investmentPricing, selectedInvestmentIds, immediatePurchases]);
 
     // Handle immediate purchase confirmation
@@ -335,31 +340,9 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Reinvest Section */}
-            {reinvestInvestments.length > 0 && (
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-game-orange-500 rounded"></div>
-                        <h3 className="text-lg font-semibold text-white">💰 Reinvest (Reduced Price)</h3>
-                    </div>
-                    <div className="space-y-3">
-                        {reinvestInvestments.map(investment => renderInvestmentCard(investment))}
-                    </div>
-                </div>
-            )}
-
-            {/* New Investments Section */}
-            {newInvestments.length > 0 && (
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-gray-500 rounded"></div>
-                        <h3 className="text-lg font-semibold text-white">✨ New Investments</h3>
-                    </div>
-                    <div className="space-y-3">
-                        {newInvestments.map(investment => renderInvestmentCard(investment))}
-                    </div>
-                </div>
-            )}
+            <div className="space-y-3">
+                {(allInvestments || []).map(investment => renderInvestmentCard(investment))}
+            </div>
 
             {/* Loading State */}
             {isLoadingPricing && currentRound > 1 && (

@@ -122,21 +122,6 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
         return value >= 0 ? `+${value.toLocaleString()}` : value.toLocaleString();
     };
 
-    const getKpiLabel = (kpi: string): string => {
-        switch (kpi) {
-            case 'capacity':
-                return 'Capacity';
-            case 'orders':
-                return 'Orders';
-            case 'cost':
-                return 'Cost';
-            case 'asp':
-                return 'ASP';
-            default:
-                return kpi.toUpperCase();
-        }
-    };
-
     // ========================================================================
     // RENDER
     // ========================================================================
@@ -203,11 +188,11 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="text-sm font-medium text-white">
-                            Permanent KPI Impact ({impactCards.length})
+                            Permanent KPI Impact Cards ({impactCards.length})
                         </div>
                         {!isExpanded && (
                             <div className="flex gap-1 ml-2">
-                                {impactCards.slice(0, 3).map((card, index) => (
+                                {impactCards.slice(0, 3).map((card, _index) => (
                                     <div key={card.id}
                                          className="w-6 h-6 bg-slate-600 rounded-full flex items-center justify-center">
                                         <span className="text-xs font-bold text-slate-300">{card.title.charAt(0)}</span>
@@ -222,7 +207,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                             </div>
                         )}
                     </div>
-                    {isExpanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+                    {isExpanded ? <ChevronDown size={16} className="text-white"/> : <ChevronRight size={16} className="text-white"/>}
                 </div>
             </div>
 
@@ -233,7 +218,7 @@ const KpiImpactCards: React.FC<KpiImpactCardsProps> = ({
                         <div key={card.id} className="bg-slate-800/50 rounded-lg border border-slate-600/30 p-3">
                             {/* Card Header - No click handler, always visible */}
                             <div className="flex items-center gap-2 mb-2">
-                                <div className="w-6 h-6 bg-slate-600 rounded-full flex items-center justify-center">
+                                <div className="w-6 h-6 bg-game-orange-500 rounded-full flex items-center justify-center">
                                     <span className="text-xs font-bold text-slate-300">{card.title.charAt(0)}</span>
                                 </div>
                                 <span className="font-medium text-white text-sm">{card.title}</span>
