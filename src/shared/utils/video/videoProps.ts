@@ -10,6 +10,8 @@ export interface VideoElementProps {
     preload: string;
     crossOrigin: string;
     style: React.CSSProperties;
+    onEnded?: () => void;
+    onError?: () => void;
 }
 
 export interface VideoPropsConfig {
@@ -52,6 +54,8 @@ export const createVideoProps = (config: VideoPropsConfig): VideoElementProps =>
             height: '100%',
             objectFit: 'contain' as const,
         },
+        onEnded: onVideoEnd,
+        onError: onError,
     };
 };
 

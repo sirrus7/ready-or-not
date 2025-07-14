@@ -1,5 +1,5 @@
 // Simplified host video hook
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 import { useSimpleVideoSync } from './useSimpleVideoSync';
 
@@ -31,9 +31,10 @@ interface UseHostVideoProps {
     sessionId: string | null;
     sourceUrl: string | null;
     isEnabled: boolean;
+    autoPlay?: boolean;
 }
 
-export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoProps): UseHostVideoReturn => {
+export const useHostVideo = ({ sessionId, sourceUrl, isEnabled, autoPlay = false }: UseHostVideoProps): UseHostVideoReturn => {
     // Use the simplified sync hook
     const { videoRef, state, controls, audioTarget } = useSimpleVideoSync({
         sessionId,
@@ -41,8 +42,20 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         isEnabled
     });
     
+    // Track if we've auto-played this source
+    const autoPlayedRef = useRef<string | null>(null);
+    
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
+    
+    // Auto-play when video is ready (only once per source)
+    useEffect(() => {
+        if (autoPlay && state.hostReady && sourceUrl && autoPlayedRef.current !== sourceUrl) {
+            console.log('[HostVideo] Auto-playing video');
+            autoPlayedRef.current = sourceUrl;
+            controls.play();
+        }
+    }, [autoPlay, state.hostReady, sourceUrl, controls]);
     
     // Wrapped control functions that handle the time parameter
     const play = useCallback(async (time?: number) => {
@@ -64,11 +77,11 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         return createVideoProps({
             videoRef,
             muted: audioTarget === 'presentation', // Host muted when presentation is active
-            autoPlay: false,
+            autoPlay,
             onVideoEnd,
             onError
         });
-    }, [videoRef, audioTarget]);
+    }, [videoRef, audioTarget, autoPlay]);
     
     return {
         videoRef,
