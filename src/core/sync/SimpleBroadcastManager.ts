@@ -165,6 +165,7 @@ export class SimpleBroadcastManager {
                 case 'VIDEO_READY':
                     if (this.mode === 'host') {
                         const videoReady = message as VideoReadyMessage;
+                        console.log(`[SimpleBroadcastManager-${this.mode}] Received VIDEO_READY:`, videoReady.ready);
                         this.videoReadyHandlers.forEach(handler => handler(videoReady.ready));
                     }
                     break;
@@ -391,7 +392,8 @@ export class SimpleBroadcastManager {
     // Video ready methods
     sendVideoReady(ready: boolean): void {
         if (this.mode !== 'presentation' || this.isDestroyed) return;
-
+        
+        console.log(`[SimpleBroadcastManager-${this.mode}] Sending video ready:`, ready);
         const message: VideoReadyMessage = {
             type: 'VIDEO_READY',
             sessionId: this.sessionId,
