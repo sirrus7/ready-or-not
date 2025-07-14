@@ -1,13 +1,8 @@
-// src/shared/utils/video/usePresentationVideo.ts
-import { useRef, useCallback, useState, useEffect } from 'react';
-import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
+// Simple presentation video hook
+import { useRef, useState, useCallback, useEffect } from 'react';
+import { createVideoProps } from '@shared/utils/video/videoProps';
 import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
 import { HostCommand } from '@core/sync/types';
-import { isVideoFullyLoaded } from '@shared/utils/video/commonVideoUtils';
-import {
-    applyVideoCommand,
-    createVideoEventLogger
-} from '@shared/utils/video/presentationVideoUtils';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -20,10 +15,10 @@ interface VideoElementProps {
     style: React.CSSProperties;
 }
 
-interface UsePresentationVideoReturn {
-    videoRef: React.RefObject<HTMLVideoElement>;
-    isConnectedToHost: boolean;
-    getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
+interface VideoPresentationState {
+    isReady: boolean;
+    volume: number;
+    isMuted: boolean;
 }
 
 interface UsePresentationVideoProps {
@@ -32,268 +27,181 @@ interface UsePresentationVideoProps {
     isEnabled: boolean;
 }
 
-export const usePresentationVideo = ({
-                                         sessionId,
-                                         sourceUrl,
-                                         isEnabled
-                                     }: UsePresentationVideoProps): UsePresentationVideoReturn => {
+interface UsePresentationVideoReturn {
+    videoRef: React.RefObject<HTMLVideoElement>;
+    isConnectedToHost: boolean;
+    getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
+}
+
+export const usePresentationVideo = ({ 
+    sessionId, 
+    sourceUrl, 
+    isEnabled 
+}: UsePresentationVideoProps): UsePresentationVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [localIsConnected, setLocalIsConnected] = useState(false);
-    const onEndedRef = useRef<(() => void) | undefined>();
-    const onErrorRef = useRef<(() => void) | undefined>();
-    const isBufferingRef = useRef(false);
-    const previousSourceUrl = useRef<string | null>(null);
-
-    // Use Chrome/Supabase optimizations
-    useChromeSupabaseOptimizations(videoRef, sourceUrl);
-
-    // Use sync manager for communication only
-    // Only create sync manager if this presentation video is actually enabled
+    const [isConnected, setIsConnected] = useState(false);
+    const [state, setState] = useState<VideoPresentationState>({
+        isReady: false,
+        volume: 1,
+        isMuted: false
+    });
+    
+    // Sync manager for receiving commands
     const { onCommand, onConnectionChange, sendVideoReady } = useVideoSyncManager({
         sessionId: isEnabled ? sessionId : null,
         role: 'presentation'
     });
-
+    
     // Track connection status
     useEffect(() => {
-        const unsubscribe = onConnectionChange(setLocalIsConnected);
+        const unsubscribe = onConnectionChange(setIsConnected);
         return unsubscribe;
     }, [onConnectionChange]);
-
-    // Send video ready status when video is loaded
+    
+    // Setup video element
     useEffect(() => {
-        if (!isEnabled || !sourceUrl || !videoRef.current) return;
-        
         const video = videoRef.current;
+        console.log('[Presentation] Video setup effect:', { hasVideo: !!video, isEnabled, sourceUrl });
+        if (!video || !isEnabled || !sourceUrl) return;
         
-        // Always wait for canplaythrough for complete audio loading
-        const handleCanPlayThrough = () => {
-            video.removeEventListener('canplaythrough', handleCanPlayThrough);
-            console.log('[Presentation] Video is ready, sending ready status');
+        // Load new source
+        if (video.src !== sourceUrl) {
+            console.log('[Presentation] Loading new video source:', sourceUrl);
+            video.src = sourceUrl;
+            video.load();
+            setState(prev => ({ ...prev, isReady: false }));
+            sendVideoReady(false);
+        } else {
+            console.log('[Presentation] Video source unchanged, skipping load');
+        }
+        
+        // Event handlers
+        const handleCanPlay = () => {
+            console.log('[Presentation] Video can play, sending ready status');
+            setState(prev => ({ ...prev, isReady: true }));
             sendVideoReady(true);
         };
-        video.addEventListener('canplaythrough', handleCanPlayThrough);
         
-        // If already at canplaythrough, trigger immediately
-        if (isVideoFullyLoaded(video)) {
-            console.log('[Presentation] Video already ready, sending ready status');
+        const handleError = (e: Event) => {
+            console.error('[Presentation] Video error:', e);
+            if (video.error) {
+                console.error('[Presentation] Video error details:', video.error);
+            }
+        };
+        
+        video.addEventListener('canplay', handleCanPlay);
+        video.addEventListener('error', handleError);
+        
+        // Check if already ready
+        if (video.readyState >= 3) {
+            console.log('[Presentation] Video already ready (readyState:', video.readyState, ')');
+            setState(prev => ({ ...prev, isReady: true }));
             sendVideoReady(true);
         }
         
         return () => {
-            video.removeEventListener('canplaythrough', handleCanPlayThrough);
-            // Send not ready when unmounting or source changes
+            video.removeEventListener('canplay', handleCanPlay);
+            video.removeEventListener('error', handleError);
             sendVideoReady(false);
         };
-    }, [isEnabled, sourceUrl, sendVideoReady]);
-
+    }, [sourceUrl, isEnabled, sendVideoReady]);
+    
     // Listen for commands from host
     useEffect(() => {
         const unsubscribe = onCommand(async (command: HostCommand) => {
             const video = videoRef.current;
-            if (!video || !isEnabled) {
-                console.log('[Presentation] 🚫 Command ignored - video not available or not enabled:', {
-                    hasVideo: !!video,
-                    isEnabled,
-                    command: command.action
-                });
+            console.log('[Presentation] Received command:', command.action, { hasVideo: !!video, isReady: state.isReady });
+            if (!video) return;
+            
+            // Volume commands should work even if video isn't ready yet
+            if (command.action === 'volume') {
+                console.log('[Presentation] Processing volume command regardless of ready state');
+            } else if (!state.isReady) {
+                console.log('[Presentation] Skipping non-volume command - video not ready');
                 return;
             }
-
-            console.log('[Presentation] 📨 Received command:', command.action, command.data);
-            const logVideoState = createVideoEventLogger('Presentation');
-            logVideoState('Before command', video);
-
-            try {
-                await applyVideoCommand(video, command, isBufferingRef.current);
-            } catch (error) {
-                console.error('[Presentation] Command execution failed:', error);
+            
+            switch (command.action) {
+                case 'play':
+                    if (command.data?.time !== undefined) {
+                        video.currentTime = command.data.time;
+                    }
+                    // Apply volume settings that may have come with play command
+                    if (command.data?.volume !== undefined) {
+                        video.volume = command.data.volume;
+                        setState(prev => ({ ...prev, volume: command.data.volume }));
+                    }
+                    if (command.data?.muted !== undefined) {
+                        video.muted = command.data.muted;
+                        setState(prev => ({ ...prev, isMuted: command.data.muted }));
+                    }
+                    await video.play();
+                    break;
+                    
+                case 'pause':
+                    video.pause();
+                    if (command.data?.time !== undefined) {
+                        video.currentTime = command.data.time;
+                    }
+                    break;
+                    
+                case 'seek':
+                    if (command.data?.time !== undefined) {
+                        video.currentTime = command.data.time;
+                    }
+                    break;
+                    
+                case 'sync':
+                    // Simple sync: if we're more than 1 second off, adjust
+                    if (command.data?.time !== undefined && !video.paused) {
+                        const diff = Math.abs(video.currentTime - command.data.time);
+                        if (diff > 1) {
+                            video.currentTime = command.data.time;
+                        }
+                    }
+                    break;
+                    
+                case 'volume':
+                    console.log('[Presentation] Applying volume command:', command.data);
+                    const volumeData = command.data as { volume?: number; muted?: boolean };
+                    if (volumeData?.volume !== undefined) {
+                        video.volume = volumeData.volume;
+                        setState(prev => ({ ...prev, volume: volumeData.volume! }));
+                    }
+                    if (volumeData?.muted !== undefined) {
+                        video.muted = volumeData.muted;
+                        setState(prev => ({ ...prev, isMuted: volumeData.muted! }));
+                        console.log('[Presentation] Set muted to:', volumeData.muted, 'actual:', video.muted);
+                        console.log('[Presentation] Video state:', {
+                            paused: video.paused,
+                            currentTime: video.currentTime,
+                            duration: video.duration,
+                            volume: video.volume,
+                            muted: video.muted,
+                            readyState: video.readyState
+                        });
+                    }
+                    break;
             }
         });
-
+        
         return unsubscribe;
-    }, [onCommand, isEnabled]);
-
-    // Handle buffering states AND COMPREHENSIVE VIDEO LOGGING
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        const logVideoState = createVideoEventLogger('Presentation');
-
-        const handleWaiting = () => {
-            isBufferingRef.current = true;
-            logVideoState('WAITING (buffering)', video);
-        };
-
-        const handleCanPlay = () => {
-            isBufferingRef.current = false;
-            logVideoState('CANPLAY (ready to play)', video);
-        };
-
-        // ALL VIDEO EVENTS
-        // YEA this is kind of insane but desperate times
-        const handleLoadStart = () => logVideoState('LOADSTART', video);
-        const handleLoadedMetadata = () => logVideoState('LOADEDMETADATA', video);
-        const handleLoadedData = () => logVideoState('LOADEDDATA', video);
-        const handleCanPlayThrough = () => logVideoState('CANPLAYTHROUGH', video);
-        const handlePlay = () => logVideoState('PLAY', video);
-        const handlePlaying = () => logVideoState('PLAYING', video);
-        const handlePause = () => logVideoState('PAUSE', video);
-        const handleSeeked = () => logVideoState('SEEKED', video);
-        const handleSeeking = () => logVideoState('SEEKING', video);
-        const handleTimeUpdate = () => logVideoState('TIMEUPDATE', video);
-        const handleEnded = () => logVideoState('ENDED', video);
-        const handleError = (e: Event) => {
-            logVideoState('ERROR', video);
-            console.error('[Presentation] 🚨 VIDEO ERROR EVENT:', e);
-        };
-        const handleAbort = () => logVideoState('ABORT', video);
-        const handleEmptied = () => logVideoState('EMPTIED', video);
-        const handleStalled = () => logVideoState('STALLED', video);
-        const handleSuspend = () => logVideoState('SUSPEND', video);
-        const handleVolumeChange = () => logVideoState('VOLUMECHANGE', video);
-        const handleRateChange = () => logVideoState('RATECHANGE', video);
-        const handleProgress = () => logVideoState('PROGRESS', video);
-
-        // Add all event listeners
-        video.addEventListener('loadstart', handleLoadStart);
-        video.addEventListener('loadedmetadata', handleLoadedMetadata);
-        video.addEventListener('loadeddata', handleLoadedData);
-        video.addEventListener('canplay', handleCanPlay);
-        video.addEventListener('canplaythrough', handleCanPlayThrough);
-        video.addEventListener('play', handlePlay);
-        video.addEventListener('playing', handlePlaying);
-        video.addEventListener('pause', handlePause);
-        video.addEventListener('seeked', handleSeeked);
-        video.addEventListener('seeking', handleSeeking);
-        video.addEventListener('timeupdate', handleTimeUpdate);
-        video.addEventListener('ended', handleEnded);
-        video.addEventListener('error', handleError);
-        video.addEventListener('abort', handleAbort);
-        video.addEventListener('emptied', handleEmptied);
-        video.addEventListener('stalled', handleStalled);
-        video.addEventListener('suspend', handleSuspend);
-        video.addEventListener('volumechange', handleVolumeChange);
-        video.addEventListener('ratechange', handleRateChange);
-        video.addEventListener('progress', handleProgress);
-        video.addEventListener('waiting', handleWaiting);
-
-        // Log initial state
-        logVideoState('INITIAL_STATE', video);
-
-        return () => {
-            video.removeEventListener('loadstart', handleLoadStart);
-            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-            video.removeEventListener('loadeddata', handleLoadedData);
-            video.removeEventListener('canplay', handleCanPlay);
-            video.removeEventListener('canplaythrough', handleCanPlayThrough);
-            video.removeEventListener('play', handlePlay);
-            video.removeEventListener('playing', handlePlaying);
-            video.removeEventListener('pause', handlePause);
-            video.removeEventListener('seeked', handleSeeked);
-            video.removeEventListener('seeking', handleSeeking);
-            video.removeEventListener('timeupdate', handleTimeUpdate);
-            video.removeEventListener('ended', handleEnded);
-            video.removeEventListener('error', handleError);
-            video.removeEventListener('abort', handleAbort);
-            video.removeEventListener('emptied', handleEmptied);
-            video.removeEventListener('stalled', handleStalled);
-            video.removeEventListener('suspend', handleSuspend);
-            video.removeEventListener('volumechange', handleVolumeChange);
-            video.removeEventListener('ratechange', handleRateChange);
-            video.removeEventListener('progress', handleProgress);
-            video.removeEventListener('waiting', handleWaiting);
-        };
-    }, []);
-
-    // Load video source
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        const handleEnded = () => {
-            onEndedRef.current?.();
-        };
-
-        const handleError = (e: Event) => {
-            console.error('[Presentation] Video error event:', e);
-            if (video.error) {
-                console.error('[Presentation] Video error details:', video.error);
-            }
-            onErrorRef.current?.();
-        };
-
-        if (isEnabled && sourceUrl) {
-            if (video.currentSrc !== sourceUrl) {
-                console.log('[Presentation] 📼 Loading new video source:', {
-                    newUrl: sourceUrl,
-                    oldUrl: video.currentSrc,
-                    previousSourceUrl: previousSourceUrl.current
-                });
-                
-                console.log('[Presentation] 📊 Video state before loading:', {
-                    currentTime: video.currentTime,
-                    paused: video.paused,
-                    muted: video.muted,
-                    volume: video.volume,
-                    readyState: video.readyState,
-                    networkState: video.networkState
-                });
-                
-                video.src = sourceUrl;
-                console.log('[Presentation] 📥 Set video.src, about to call video.load()...');
-                video.load();
-                console.log('[Presentation] 🔄 video.load() called');
-                
-                // Don't set default volume - let the host control it
-                console.log('[Presentation] 🔊 Waiting for volume settings from host');
-                
-                // Don't pause here - let the host control playback
-                // The host will send a play command when the slide changes
-            } else {
-                console.log('[Presentation] 🔄 Video source unchanged, skipping load');
-            }
-            previousSourceUrl.current = sourceUrl;
-        } else {
-            console.log('[Presentation] 🚫 Video disabled or no source URL:', {
-                isEnabled,
-                sourceUrl
-            });
-            previousSourceUrl.current = null;
-            // Not a video slide, ensure it's paused
-            if (!video.paused) {
-                console.log('[Presentation] ⏸️ Pausing video for non-video slide');
-                video.pause();
-            }
-        }
-
-        video.addEventListener('ended', handleEnded);
-        video.addEventListener('error', handleError);
-
-        return () => {
-            video.removeEventListener('ended', handleEnded);
-            video.removeEventListener('error', handleError);
-        };
-    }, [sourceUrl, isEnabled]);
-
+    }, [onCommand, state.isReady]);
+    
     // Create video props
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
-        onEndedRef.current = onVideoEnd;
-        onErrorRef.current = onError;
-
         return createVideoProps({
             videoRef,
-            muted: false, // Presentation handles audio
-            autoPlay: false, // Never autoplay - wait for commands
+            muted: state.isMuted,
+            autoPlay: false,
             onVideoEnd,
             onError
         });
-    }, []);
-
+    }, [state.isMuted]);
+    
     return {
         videoRef,
-        isConnectedToHost: localIsConnected,
-        getVideoProps,
+        isConnectedToHost: isConnected,
+        getVideoProps
     };
 };

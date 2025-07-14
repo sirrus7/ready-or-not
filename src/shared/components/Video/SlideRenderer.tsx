@@ -217,7 +217,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                             onSeek={hostVideo.seek}
                             onVolumeChange={hostVideo.setVolume}
                             onMuteToggle={hostVideo.toggleMute}
-                            controlTarget={hostVideo.isConnectedToPresentation ? 'presentation' : 'host'}
+                            isConnectedToPresentation={hostVideo.isConnectedToPresentation}
                             muted={hostVideo.presentationMuted}
                             volume={hostVideo.presentationVolume}
                         />
