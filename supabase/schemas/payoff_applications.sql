@@ -21,3 +21,18 @@ CREATE INDEX idx_payoff_applications_session_id ON public.payoff_applications (s
 CREATE INDEX idx_payoff_applications_team_id ON public.payoff_applications (team_id);
 CREATE INDEX idx_payoff_applications_slide_id ON public.payoff_applications (slide_id);
 CREATE INDEX idx_payoff_applications_applied_at ON public.payoff_applications (applied_at);
+
+-- Enable RLS
+ALTER TABLE public.payoff_applications ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE
+POLICY hosts_manage_payoffs ON public.payoff_applications FOR ALL TO PUBLIC AS PERMISSIVE USING (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = payoff_applications.session_id) AND (sessions.host_id = auth.uid())))))) WITH CHECK (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = payoff_applications.session_id) AND (sessions.host_id = auth.uid()))))));
+
+CREATE
+POLICY teams_read_payoffs ON public.payoff_applications FOR
+SELECT TO PUBLIC AS PERMISSIVE USING (true);

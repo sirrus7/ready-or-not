@@ -29,3 +29,24 @@ CREATE INDEX idx_team_decisions_session_id ON public.team_decisions (session_id)
 CREATE INDEX idx_team_decisions_team_id ON public.team_decisions (team_id);
 CREATE INDEX idx_team_decisions_phase_round ON public.team_decisions (phase_id, round_number);
 CREATE INDEX idx_team_decisions_submitted_at ON public.team_decisions (submitted_at);
+
+-- Enable RLS
+ALTER TABLE public.team_decisions ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE
+POLICY hosts_manage_decisions ON public.team_decisions FOR ALL TO PUBLIC AS PERMISSIVE USING (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = team_decisions.session_id) AND (sessions.host_id = auth.uid())))))) WITH CHECK (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = team_decisions.session_id) AND (sessions.host_id = auth.uid()))))));
+
+CREATE
+POLICY teams_insert_decisions ON public.team_decisions FOR INSERT TO PUBLIC AS PERMISSIVE WITH CHECK (true);
+
+CREATE
+POLICY teams_read_decisions ON public.team_decisions FOR
+SELECT TO PUBLIC AS PERMISSIVE USING (true);
+
+CREATE
+POLICY universal_team_decisions ON public.team_decisions FOR ALL TO PUBLIC AS PERMISSIVE USING (true) WITH CHECK (true);

@@ -30,3 +30,18 @@ CREATE INDEX idx_team_round_data_session_id ON public.team_round_data (session_i
 CREATE INDEX idx_team_round_data_team_id ON public.team_round_data (team_id);
 CREATE INDEX idx_team_round_data_team_round ON public.team_round_data (team_id, round_number);
 CREATE INDEX idx_team_round_data_updated_at ON public.team_round_data (updated_at);
+
+-- Enable RLS
+ALTER TABLE public.team_round_data ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE
+POLICY hosts_manage_kpis ON public.team_round_data FOR ALL TO PUBLIC AS PERMISSIVE USING (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = team_round_data.session_id) AND (sessions.host_id = auth.uid())))))) WITH CHECK (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = team_round_data.session_id) AND (sessions.host_id = auth.uid()))))));
+
+CREATE
+POLICY teams_read_kpis ON public.team_round_data FOR
+SELECT TO PUBLIC AS PERMISSIVE USING (true);

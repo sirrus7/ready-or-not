@@ -23,3 +23,14 @@ CREATE INDEX idx_permanent_kpi_adjustments_session_id ON public.permanent_kpi_ad
 CREATE INDEX idx_permanent_kpi_adjustments_team_id ON public.permanent_kpi_adjustments (team_id);
 CREATE INDEX idx_permanent_kpi_adjustments_round_start ON public.permanent_kpi_adjustments (applies_to_round_start);
 CREATE INDEX idx_permanent_kpi_adjustments_kpi_key ON public.permanent_kpi_adjustments (kpi_key);
+
+-- Enable RLS
+ALTER TABLE public.permanent_kpi_adjustments ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE
+POLICY "Allow all operations for now" ON public.permanent_kpi_adjustments FOR ALL TO PUBLIC AS PERMISSIVE USING (true);
+
+CREATE
+POLICY teams_read_adjustments ON public.permanent_kpi_adjustments FOR
+SELECT TO PUBLIC AS PERMISSIVE USING (true);

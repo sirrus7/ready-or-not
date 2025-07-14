@@ -25,3 +25,14 @@ CREATE TABLE public.sessions
 CREATE INDEX idx_sessions_host_id ON public.sessions (host_id);
 CREATE INDEX idx_sessions_status ON public.sessions (status);
 CREATE INDEX idx_sessions_created_at ON public.sessions (created_at);
+
+-- Enable RLS
+ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE
+POLICY hosts_full_sessions_access ON public.sessions FOR ALL TO PUBLIC AS PERMISSIVE USING (((auth.uid() IS NOT NULL) AND (auth.uid() = host_id))) WITH CHECK (((auth.uid() IS NOT NULL) AND (auth.uid() = host_id)));
+
+CREATE
+POLICY teams_read_sessions ON public.sessions FOR
+SELECT TO PUBLIC AS PERMISSIVE USING (true);

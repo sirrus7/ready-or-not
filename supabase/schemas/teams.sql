@@ -15,3 +15,18 @@ CREATE TABLE public.teams
 -- Indexes
 CREATE INDEX idx_teams_session_id ON public.teams (session_id);
 CREATE INDEX idx_teams_passcode ON public.teams (passcode);
+
+-- Enable RLS
+ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE
+POLICY hosts_manage_teams ON public.teams FOR ALL TO PUBLIC AS PERMISSIVE USING (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = teams.session_id) AND (sessions.host_id = auth.uid())))))) WITH CHECK (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = teams.session_id) AND (sessions.host_id = auth.uid()))))));
+
+CREATE
+POLICY teams_read_all ON public.teams FOR
+SELECT TO PUBLIC AS PERMISSIVE USING (true);

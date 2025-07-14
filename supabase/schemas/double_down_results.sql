@@ -21,3 +21,24 @@ CREATE INDEX idx_double_down_results_session_id ON public.double_down_results (s
 CREATE INDEX idx_double_down_results_investment_id ON public.double_down_results (investment_id);
 CREATE INDEX idx_double_down_results_total_value ON public.double_down_results (total_value);
 CREATE INDEX idx_double_down_results_created_at ON public.double_down_results (created_at);
+
+-- Enable RLS
+ALTER TABLE public.double_down_results ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE
+POLICY authenticated_users_manage_doubledown ON public.double_down_results FOR ALL TO PUBLIC AS PERMISSIVE USING (true) WITH CHECK (true);
+
+CREATE
+POLICY hosts_manage_doubledown ON public.double_down_results FOR ALL TO PUBLIC AS PERMISSIVE USING (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = double_down_results.session_id) AND (sessions.host_id = auth.uid())))))) WITH CHECK (((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM sessions
+  WHERE ((sessions.id = double_down_results.session_id) AND (sessions.host_id = auth.uid()))))));
+
+CREATE
+POLICY teams_read_doubledown ON public.double_down_results FOR
+SELECT TO PUBLIC AS PERMISSIVE USING (true);
+
+CREATE
+POLICY universal_insert_doubledown ON public.double_down_results FOR INSERT TO PUBLIC AS PERMISSIVE WITH CHECK (true);
