@@ -25,6 +25,7 @@ interface UsePresentationVideoProps {
     sessionId: string | null;
     sourceUrl: string | null;
     isEnabled: boolean;
+    autoPlay?: boolean;
 }
 
 interface UsePresentationVideoReturn {
@@ -36,7 +37,8 @@ interface UsePresentationVideoReturn {
 export const usePresentationVideo = ({ 
     sessionId, 
     sourceUrl, 
-    isEnabled 
+    isEnabled,
+    autoPlay = false 
 }: UsePresentationVideoProps): UsePresentationVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isConnected, setIsConnected] = useState(false);
@@ -194,11 +196,11 @@ export const usePresentationVideo = ({
         return createVideoProps({
             videoRef,
             muted: state.isMuted,
-            autoPlay: false,
+            autoPlay,
             onVideoEnd,
             onError
         });
-    }, [state.isMuted]);
+    }, [state.isMuted, autoPlay]);
     
     return {
         videoRef,
