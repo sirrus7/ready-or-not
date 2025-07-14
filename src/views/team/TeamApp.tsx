@@ -51,6 +51,9 @@ import {BASE_VALUES, ROUND_BASE_VALUES} from "@core/game/ScoringEngine.ts";
 import TeamInvestmentDisplay from "@views/team/components/GameStatus/TeamInvestmentDisplay.tsx";
 import {Building, ShoppingCart, DollarSign, TrendingUp, AlertTriangle} from 'lucide-react';
 
+// Sets the duration (in MS) that the KPI changes are shown in the TeamApp
+const KPI_CHANGE_DURATION = 15000;
+
 // ============================================================================
 // MAIN TEAM APP COMPONENT
 // ============================================================================
@@ -126,7 +129,7 @@ const TeamApp: React.FC = () => {
 
             setTimeout(() => {
                 setKpiChanges({});
-            }, 15000);
+            }, KPI_CHANGE_DURATION);
         }
 
         setLastKpiValues(newKpiValues);
@@ -383,7 +386,7 @@ const TeamApp: React.FC = () => {
                                                         <span className={`ml-2 text-lg font-bold animate-pulse ${
                                                             kpiChanges.cost > 0 ? 'text-red-400' : 'text-green-400'
                                                         }`}>
-                                                            {kpiChanges.cost > 0 ? '+' : ''}${Math.abs(kpiChanges.cost).toLocaleString()}
+                                                            {kpiChanges.cost > 0 ? '+' : '-'}${Math.abs(kpiChanges.cost).toLocaleString()}
                                                         </span>
                                                     )}
                                                 </div>
@@ -415,7 +418,7 @@ const TeamApp: React.FC = () => {
                                                         <span className={`ml-2 text-lg font-bold animate-pulse ${
                                                             kpiChanges.asp > 0 ? 'text-green-400' : 'text-red-400'
                                                         }`}>
-                                                            {kpiChanges.asp > 0 ? '+' : ''}${Math.abs(kpiChanges.asp).toLocaleString()}
+                                                            {kpiChanges.asp > 0 ? '+' : '-'}${Math.abs(kpiChanges.asp).toLocaleString()}
                                                         </span>
                                                     )}
                                                 </div>
@@ -475,7 +478,14 @@ const TeamApp: React.FC = () => {
                             <div className="text-center max-w-md">
                                 {currentActiveSlide ? (
                                     <>
-                                        <div className="text-6xl mb-6">📊</div>
+                                        <div className="mb-6">
+                                            <img
+                                                src="/images/ready-or-not-logo.png"
+                                                alt="Ready or Not"
+                                                className="w-24 h-auto mx-auto drop-shadow-lg"
+                                                style={{ filter: 'brightness(1.1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5))' }}
+                                            />
+                                        </div>
                                         <h2 className="text-2xl font-bold mb-4 text-white">Following Along</h2>
                                         <p className="text-gray-400 mb-6">
                                             {currentActiveSlide.type === 'consequence_reveal' ? 'Check your KPIs on the left.' :
@@ -486,7 +496,14 @@ const TeamApp: React.FC = () => {
                                     </>
                                 ) : (
                                     <>
-                                        <div className="text-6xl mb-6">🚀</div>
+                                        <div className="mb-6">
+                                            <img
+                                                src="/images/ready-or-not-logo.png"
+                                                alt="Ready or Not"
+                                                className="w-24 h-auto mx-auto drop-shadow-lg"
+                                                style={{ filter: 'brightness(1.1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5))' }}
+                                            />
+                                        </div>
                                         <h2 className="text-2xl font-bold mb-4 text-white">Ready to Start</h2>
                                         <p className="text-gray-400 mb-6">
                                             Waiting for the facilitator to begin the simulation...

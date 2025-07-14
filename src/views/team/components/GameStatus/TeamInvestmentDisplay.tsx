@@ -7,6 +7,7 @@ import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {db} from '@shared/services/supabase';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
 import {formatCurrency} from '@shared/utils/formatUtils';
+import {InvestmentDisplayUtils} from "@shared/utils/InvestmentDisplayUtils";
 
 interface InvestmentDisplayProps {
     sessionId: string;
@@ -88,7 +89,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
     // ✅ Process and combine investment data WITH CONTINUATION PRICING
     useEffect(() => {
         const processInvestments = async () => {
-            console.log('🔍 processInvestments called:', { regularDecisions, immediateDecisions });
+            console.log('🔍 processInvestments called:', {regularDecisions, immediateDecisions});
             if (!gameStructure || (!regularDecisions && !immediateDecisions)) {
                 console.log('🔍 Early return - no data');
                 setInvestments([]);
@@ -146,7 +147,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
 
                         processedInvestments.push({
                             id: optionId,
-                            name: option.name.split('.')[1]?.trim() || option.name.trim(),
+                            name: `${InvestmentDisplayUtils.letterToNumber(optionId)}. ${option.name.split('.')[1]?.trim() || option.name.trim()}`,
                             originalCost,
                             actualCost,
                             isImmediate: false,
@@ -170,7 +171,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
 
                         processedInvestments.push({
                             id: optionId,
-                            name: option.name.split('.')[1]?.trim() || option.name.trim(),
+                            name: `${InvestmentDisplayUtils.letterToNumber(optionId)}. ${option.name.split('.')[1]?.trim() || option.name.trim()}`,
                             originalCost,
                             actualCost,
                             isImmediate: true,
@@ -262,8 +263,23 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                         <div className="text-xs text-slate-400">
                             {formatCurrency(totalSpent)} spent
                         </div>
+
+                        {!isExpanded && (
+                            <div className="flex gap-1 ml-2 flex-wrap">
+                                {investments.map((investment, _index) => (
+                                    <div key={investment.id}
+                                         className="w-6 h-6 bg-slate-600 rounded-full flex items-center justify-center">
+                                        <span className="text-xs font-bold text-slate-300">
+                                            {InvestmentDisplayUtils.letterToNumber(investment.id)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                     </div>
-                    {isExpanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+                    {isExpanded ? <ChevronDown size={16} className="text-white"/> :
+                        <ChevronRight size={16} className="text-white"/>}
                 </div>
             </div>
 
