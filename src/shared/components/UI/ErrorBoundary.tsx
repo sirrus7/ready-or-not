@@ -28,6 +28,7 @@ class ErrorBoundary extends Component<Props, State> {
     }
 
     render() {
+        console.log('🔍 [ERRORBOUNDARY] Component re-rendering');
         if (this.state.hasError) {
             if (this.props.fallback) {
                 return this.props.fallback;
@@ -62,6 +63,14 @@ class ErrorBoundary extends Component<Props, State> {
         }
 
         return this.props.children;
+    }
+
+    componentDidMount() {
+        console.log('🏗️ [ERRORBOUNDARY] COMPONENT MOUNTED');
+    }
+
+    componentWillUnmount() {
+        console.log('💀 [ERRORBOUNDARY] COMPONENT UNMOUNTED');
     }
 }
 

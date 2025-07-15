@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useCallback, useState } from 'react';
-import { generateTeamCardsPDF } from '../pdf';
-import type { TeamConfig, TeamCardAssets, PDFConfig } from '../pdf';
+import React, {createContext, useContext, useCallback, useState, useEffect, useMemo} from 'react';
+import {generateTeamCardsPDF} from '../pdf';
+import type {TeamConfig, TeamCardAssets, PDFConfig} from '../pdf';
 
 // ============================================
 // PDF Type Registry & Type Mappings
@@ -60,7 +60,15 @@ const PDFGenerationContext = createContext<PDFGenerationContextValue | null>(nul
 // PDF Provider
 // ============================================
 
-export const PDFGenerationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const PDFGenerationProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+    // Add to PDFGenerationProvider
+    useEffect(() => {
+        console.log('🏗️ [PDFPROVIDER] COMPONENT MOUNTED');
+        return () => console.log('💀 [PDFPROVIDER] COMPONENT UNMOUNTED');
+    }, []);
+
+    console.log('🔍 [PDFPROVIDER] Component re-rendering');
+
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +78,7 @@ export const PDFGenerationProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // PDF generators registry
     const generators: PDFGeneratorMap = {
-        teamCards: async ({ teams, assets = {}, config, debug }) => {
+        teamCards: async ({teams, assets = {}, config, debug}) => {
             await generateTeamCardsPDF(teams, assets, config, debug);
         },
         // Future generators:
@@ -100,12 +108,12 @@ export const PDFGenerationProvider: React.FC<{ children: React.ReactNode }> = ({
         }
     }, []);
 
-    const value: PDFGenerationContextValue = {
+    const value: PDFGenerationContextValue = useMemo<PDFGenerationContextValue>(() => ({
         generatePDF,
         isGenerating,
         error,
         clearError
-    };
+    }), [generatePDF, isGenerating, error, clearError]);
 
     return (
         <PDFGenerationContext.Provider value={value}>
@@ -124,7 +132,7 @@ export function usePDFGeneration<T extends PDFType>(type: T, debug: boolean): PD
         throw new Error('usePDFGeneration must be used within PDFGenerationProvider');
     }
 
-    const { generatePDF: baseGeneratePDF, isGenerating, error, clearError } = context;
+    const {generatePDF: baseGeneratePDF, isGenerating, error, clearError} = context;
 
     const generatePDF = useCallback(
         (data: PDFTypeMap[T]) => baseGeneratePDF(type, data, debug),
@@ -143,4 +151,4 @@ export function usePDFGeneration<T extends PDFType>(type: T, debug: boolean): PD
 // Type Exports for Consumers
 // ============================================
 
-export type { PDFType, PDFTypeMap };
+export type {PDFType, PDFTypeMap};

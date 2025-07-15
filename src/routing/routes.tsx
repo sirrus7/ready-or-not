@@ -1,5 +1,5 @@
 // src/routing/routes.tsx - Component exports and route constants
-import React, {lazy, Suspense} from 'react';
+import React, {lazy, Suspense, useEffect} from 'react';
 import {Navigate, useParams} from 'react-router-dom';
 import {AuthProvider} from '@app/providers/AuthProvider';
 import {TeamGameProvider} from '@app/providers/TeamGameProvider';
@@ -57,9 +57,18 @@ export const PresentationLoadingFallback = () => <RouteLoadingFallback message="
 // ROUTE WRAPPER COMPONENTS
 // ============================================================================
 
-export const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = ({children}) => (
-    <AuthGuard>{children}</AuthGuard>
-);
+export const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = ({children}) => {
+    console.log('🔍 [AUTHPAGE] Component re-rendering');
+
+    useEffect(() => {
+        console.log('🏗️ [AUTHPAGE] COMPONENT MOUNTED');
+        return () => {
+            console.log('💀 [AUTHPAGE] COMPONENT UNMOUNTED');
+        };
+    }, []);
+
+    return <AuthGuard>{children}</AuthGuard>;
+};
 
 export const DisplayWrapper: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();

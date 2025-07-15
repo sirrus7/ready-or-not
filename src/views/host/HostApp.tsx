@@ -1,5 +1,5 @@
 // src/views/host/HostApp.tsx - REFACTOR: Final, stable layout fix
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
 import {AlertCircle, ChevronLeft, ChevronRight} from 'lucide-react';
@@ -9,6 +9,7 @@ import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import {SimpleRealtimeManager} from "@core/sync";
 import {ChallengeOption, GameStructure, InvestmentOption, Slide} from "@shared/types";
 import {shouldAutoAdvance} from '@shared/utils/versionUtils';
+import type {SlideRendererProps} from '@shared/components/Video/SlideRenderer';
 
 const broadcastInteractiveSlideData = (
     realtimeManager: SimpleRealtimeManager,
@@ -79,8 +80,57 @@ const HostApp: React.FC = () => {
     } = useGameContext();
 
     const {currentSessionId, gameStructure, current_slide_index} = state;
-
     const [previousSlideData, setPreviousSlideData] = useState<Slide | null>(null);
+
+    const handleVideoEnd = useCallback(() => {
+        console.log('[HostApp] Video ended naturally, currentSlideData:', currentSlideData);
+        if (!currentSlideData) return;
+
+        console.log('[HostApp] Video end logic - interactive_data_key:', currentSlideData.interactive_data_key, 'allTeamsSubmitted:', allTeamsSubmittedCurrentInteractivePhase);
+        console.log('[HostApp] Video end logic - host_alert:', currentSlideData.host_alert, 'timer_duration:', currentSlideData.timer_duration_seconds);
+        console.log('[HostApp] Video end logic - auto_advance_after_video:', currentSlideData.auto_advance_after_video);
+
+        // For interactive slides, check if we should wait for submissions
+        if (currentSlideData.interactive_data_key && !allTeamsSubmittedCurrentInteractivePhase) {
+            console.log('[HostApp] Showing submission wait alert');
+            setCurrentHostAlertState({
+                title: "Timer Complete",
+                message: "The timer has ended, but not all teams have submitted. You may wait or proceed to the next slide."
+            });
+        } else if (currentSlideData.host_alert || currentSlideData.timer_duration_seconds) {
+            console.log('[HostApp] Showing host alert after video completion');
+            setCurrentHostAlertState(currentSlideData.host_alert || {
+                title: "Timer Complete",
+                message: "Click OK to continue to the next slide."
+            });
+        } else if (shouldAutoAdvance(gameVersion, currentSlideData.auto_advance_after_video)) {
+            console.log('[HostApp] Auto-advancing to next slide');
+            nextSlide('video');
+        }
+        // If auto_advance_after_video is false, do nothing (wait for manual advance)
+    }, [currentSlideData, allTeamsSubmittedCurrentInteractivePhase, setCurrentHostAlertState]);
+
+    const memoizedSlideRendererProps = useMemo((): SlideRendererProps => {
+        console.log('🔍 [DEBUG] useMemo RECALCULATING SlideRenderer props');
+        return {
+            slide: currentSlideData,
+            sessionId: currentSessionId,
+            isHost: true,
+            onVideoEnd: handleVideoEnd,
+            teams: state.teams,
+            teamRoundData: state.teamRoundData,
+            teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
+                Object.values(teamDecisionsByPhase)
+            )
+        };
+    }, [
+        currentSlideData,
+        currentSessionId,
+        handleVideoEnd,
+        state.teams,
+        state.teamRoundData,
+        state.teamDecisions
+    ]);
 
     useEffect(() => {
         document.title = "Ready or Not - Host";
@@ -176,42 +226,14 @@ const HostApp: React.FC = () => {
         };
     }, [nextSlide, previousSlide, isFirstSlideOverall, isLastSlideOverall]);
 
-    const handleVideoEnd = () => {
-        console.log('[HostApp] Video ended naturally, currentSlideData:', currentSlideData);
-        if (!currentSlideData) return;
-        
-        console.log('[HostApp] Video end logic - interactive_data_key:', currentSlideData.interactive_data_key, 'allTeamsSubmitted:', allTeamsSubmittedCurrentInteractivePhase);
-        console.log('[HostApp] Video end logic - host_alert:', currentSlideData.host_alert, 'timer_duration:', currentSlideData.timer_duration_seconds);
-        console.log('[HostApp] Video end logic - auto_advance_after_video:', currentSlideData.auto_advance_after_video);
-        
-        // For interactive slides, check if we should wait for submissions
-        if (currentSlideData.interactive_data_key && !allTeamsSubmittedCurrentInteractivePhase) {
-            console.log('[HostApp] Showing submission wait alert');
-            setCurrentHostAlertState({
-                title: "Timer Complete",
-                message: "The timer has ended, but not all teams have submitted. You may wait or proceed to the next slide."
-            });
-        } else if (currentSlideData.host_alert || currentSlideData.timer_duration_seconds) {
-            console.log('[HostApp] Showing host alert after video completion');
-            setCurrentHostAlertState(currentSlideData.host_alert || {
-                title: "Timer Complete", 
-                message: "Click OK to continue to the next slide."
-            });
-        } else if (shouldAutoAdvance(gameVersion, currentSlideData.auto_advance_after_video)) {
-            console.log('[HostApp] Auto-advancing to next slide');
-            nextSlide('video');
-        }
-        // If auto_advance_after_video is false, do nothing (wait for manual advance)
-    };
-
     // TODO: Remove this for production
     // Updated TestingJumpButton component with all colors
     const TestingJumpButton: React.FC<{
         slideId: number;
         label: string;
         color: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'gray';
-    }> = ({ slideId, label, color }) => {
-        const { selectSlideByIndex, state } = useGameContext();
+    }> = ({slideId, label, color}) => {
+        const {selectSlideByIndex, state} = useGameContext();
         const [isJumping, setIsJumping] = useState(false);
 
         const colorClasses = {
@@ -261,79 +283,125 @@ const HostApp: React.FC = () => {
         return <div className="min-h-screen ..."><AlertCircle/>Session Not Fully Loaded</div>;
     }
 
+    console.log('🔍 [DEBUG] HostApp RE-RENDERING SlideRenderer:', {
+        slideId: currentSlideData?.id,
+        timestamp: Date.now(),
+
+        // Session & Structure
+        currentSessionId,
+        current_slide_index,
+        gameStructure: !!gameStructure,
+
+        // Teams Data (likely culprits)
+        teamsLength: state.teams?.length,
+        teamDecisionsKeys: Object.keys(state.teamDecisions || {}),
+        teamRoundDataKeys: Object.keys(state.teamRoundData || {}),
+        permanentAdjustmentsLength: permanentAdjustments?.length,
+
+        // Loading States
+        isLoading: state.isLoading,
+
+        // Interactive State
+        allTeamsSubmitted: allTeamsSubmittedCurrentInteractivePhase,
+
+        // Alerts & Errors
+        hasCurrentHostAlert: !!state.currentHostAlert,
+        hasError: !!state.error,
+
+        // Local State
+        hasPreviousSlideData: !!previousSlideData,
+    });
+
     return (
         <div
             className="h-screen w-screen bg-gradient-to-br from-gray-200 to-gray-400 p-4 flex flex-col overflow-hidden">
 
-                {/* Development Testing Tools - Complete Version */}
-                {import.meta.env.DEV && (
-                    <header
-                        className="flex-shrink-0 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <div className="flex flex-col gap-3">
-                                <div className="text-sm font-medium text-yellow-800 flex items-center gap-2">
-                                    <span>🧪</span> Testing: Team Decision Points
-                                </div>
+            {/* Development Testing Tools - Complete Version */}
+            {import.meta.env.DEV && (
+                <header
+                    className="flex-shrink-0 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex flex-col gap-3">
+                            <div className="text-sm font-medium text-yellow-800 flex items-center gap-2">
+                                <span>🧪</span> Testing: Team Decision Points
+                            </div>
 
-                                {/* Round 1 */}
-                                <div className="flex flex-col gap-2">
-                                    <div className="text-xs font-medium text-gray-700">Round 1</div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <TestingJumpButton slideId={7} label="💰 RD-1 Invest: A-F Options ($400K)" color="blue" />
-                                        <TestingJumpButton slideId={17} label="⚠️ CH1 Equipment: CNC/Replace/Outsource/Nothing" color="red" />
-                                        <TestingJumpButton slideId={32} label="⚠️ CH2 Tax: Prices/Marketing/Cutting/Nothing" color="red" />
-                                        <TestingJumpButton slideId={47} label="⚠️ CH3 Recession: Layoffs/Furlough/Cut OT/Nothing" color="red" />
-                                    </div>
-                                </div>
-
-                                {/* Round 2 */}
-                                <div className="flex flex-col gap-2">
-                                    <div className="text-xs font-medium text-gray-700">Round 2</div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <TestingJumpButton slideId={70} label="💰 RD-2 Invest: A-L Options ($500K)" color="blue" />
-                                        <TestingJumpButton slideId={78} label="⚠️ CH4 Supply: Costly/Fast/Local" color="red" />
-                                        <TestingJumpButton slideId={91} label="⚠️ CH5 Capacity: Staff/Temps/Prices/Nothing" color="red" />
-                                        <TestingJumpButton slideId={105} label="⚠️ CH6 Quality: Expert/PR/Both/Nothing" color="red" />
-                                        <TestingJumpButton slideId={118} label="⚠️ CH7 Compete: Price/Market/Innovate/Nothing" color="red" />
-                                    </div>
-                                </div>
-
-                                {/* Round 3 */}
-                                <div className="flex flex-col gap-2">
-                                    <div className="text-xs font-medium text-gray-700">Round 3</div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <TestingJumpButton slideId={142} label="🔄 RD-3 KPI Reset" color="gray" />
-                                        <TestingJumpButton slideId={143} label="💰 RD-3 Invest: A-K Options ($600K)" color="blue" />
-                                        <TestingJumpButton slideId={144} label="🎯 Double Down: Yes/No Decision" color="purple" />
-                                        <TestingJumpButton slideId={151} label="⚠️ CH8 Cyber: Isolate/Pay/Restore" color="red" />
-                                        <TestingJumpButton slideId={164} label="⚠️ CH9 ERP: Consultant/Sheets/Immunity" color="red" />
-                                        <TestingJumpButton slideId={186} label="🎲 Double Down Roll: Expanded 2nd Shift" color="orange" />
-                                    </div>
-                                </div>
-
-                                {/* Quick Navigation */}
-                                <div className="flex flex-col gap-2">
-                                    <div className="text-xs font-medium text-gray-700">Quick Navigation</div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <TestingJumpButton slideId={40} label="📅 Year 2 Start" color="orange" />
-                                        <TestingJumpButton slideId={72} label="📅 Year 3 Start" color="orange" />
-                                        <TestingJumpButton slideId={145} label="📅 Year 5 Start" color="orange" />
-                                    </div>
+                            {/* Round 1 */}
+                            <div className="flex flex-col gap-2">
+                                <div className="text-xs font-medium text-gray-700">Round 1</div>
+                                <div className="flex flex-wrap gap-2">
+                                    <TestingJumpButton slideId={7} label="💰 RD-1 Invest: A-F Options ($400K)"
+                                                       color="blue"/>
+                                    <TestingJumpButton slideId={17}
+                                                       label="⚠️ CH1 Equipment: CNC/Replace/Outsource/Nothing"
+                                                       color="red"/>
+                                    <TestingJumpButton slideId={32} label="⚠️ CH2 Tax: Prices/Marketing/Cutting/Nothing"
+                                                       color="red"/>
+                                    <TestingJumpButton slideId={47}
+                                                       label="⚠️ CH3 Recession: Layoffs/Furlough/Cut OT/Nothing"
+                                                       color="red"/>
                                 </div>
                             </div>
 
-                            {/* Legend */}
-                            <div className="mt-2 pt-2 border-t border-yellow-300">
-                                <div className="text-xs text-gray-600 flex flex-wrap gap-4">
-                                    <span>💰 Investment Choices</span>
-                                    <span>⚠️ Challenge Responses</span>
-                                    <span>🎯 Special Decisions</span>
-                                    <span>📅 Round Transitions</span>
+                            {/* Round 2 */}
+                            <div className="flex flex-col gap-2">
+                                <div className="text-xs font-medium text-gray-700">Round 2</div>
+                                <div className="flex flex-wrap gap-2">
+                                    <TestingJumpButton slideId={70} label="💰 RD-2 Invest: A-L Options ($500K)"
+                                                       color="blue"/>
+                                    <TestingJumpButton slideId={78} label="⚠️ CH4 Supply: Costly/Fast/Local"
+                                                       color="red"/>
+                                    <TestingJumpButton slideId={91} label="⚠️ CH5 Capacity: Staff/Temps/Prices/Nothing"
+                                                       color="red"/>
+                                    <TestingJumpButton slideId={105} label="⚠️ CH6 Quality: Expert/PR/Both/Nothing"
+                                                       color="red"/>
+                                    <TestingJumpButton slideId={118}
+                                                       label="⚠️ CH7 Compete: Price/Market/Innovate/Nothing"
+                                                       color="red"/>
+                                </div>
+                            </div>
+
+                            {/* Round 3 */}
+                            <div className="flex flex-col gap-2">
+                                <div className="text-xs font-medium text-gray-700">Round 3</div>
+                                <div className="flex flex-wrap gap-2">
+                                    <TestingJumpButton slideId={142} label="🔄 RD-3 KPI Reset" color="gray"/>
+                                    <TestingJumpButton slideId={143} label="💰 RD-3 Invest: A-K Options ($600K)"
+                                                       color="blue"/>
+                                    <TestingJumpButton slideId={144} label="🎯 Double Down: Yes/No Decision"
+                                                       color="purple"/>
+                                    <TestingJumpButton slideId={151} label="⚠️ CH8 Cyber: Isolate/Pay/Restore"
+                                                       color="red"/>
+                                    <TestingJumpButton slideId={164} label="⚠️ CH9 ERP: Consultant/Sheets/Immunity"
+                                                       color="red"/>
+                                    <TestingJumpButton slideId={186} label="🎲 Double Down Roll: Expanded 2nd Shift"
+                                                       color="orange"/>
+                                </div>
+                            </div>
+
+                            {/* Quick Navigation */}
+                            <div className="flex flex-col gap-2">
+                                <div className="text-xs font-medium text-gray-700">Quick Navigation</div>
+                                <div className="flex flex-wrap gap-2">
+                                    <TestingJumpButton slideId={40} label="📅 Year 2 Start" color="orange"/>
+                                    <TestingJumpButton slideId={72} label="📅 Year 3 Start" color="orange"/>
+                                    <TestingJumpButton slideId={145} label="📅 Year 5 Start" color="orange"/>
                                 </div>
                             </div>
                         </div>
-                    </header>
-                )}
+
+                        {/* Legend */}
+                        <div className="mt-2 pt-2 border-t border-yellow-300">
+                            <div className="text-xs text-gray-600 flex flex-wrap gap-4">
+                                <span>💰 Investment Choices</span>
+                                <span>⚠️ Challenge Responses</span>
+                                <span>🎯 Special Decisions</span>
+                                <span>📅 Round Transitions</span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            )}
 
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
                 <div className="lg:col-span-4 xl:col-span-3 min-h-0">
@@ -344,8 +412,7 @@ const HostApp: React.FC = () => {
                     <div className="flex-grow relative w-full bg-black rounded-t-lg overflow-hidden">
                         <div className="absolute inset-0 flex items-center justify-center">
                             <div className="w-full h-full">
-                                <SlideRenderer slide={currentSlideData} sessionId={currentSessionId} isHost={true}
-                                               onVideoEnd={handleVideoEnd}/>
+                                <SlideRenderer {...memoizedSlideRendererProps} />
                             </div>
                         </div>
                         {currentSlideData && (

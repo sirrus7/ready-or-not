@@ -1,5 +1,5 @@
 // src/context/VideoSettingsContext.tsx
-import React, {createContext, useEffect, useState, useCallback} from 'react';
+import React, {createContext, useEffect, useState, useCallback, useMemo} from 'react';
 
 export interface VideoSettings {
     hostVideoEnabled: boolean;
@@ -28,11 +28,23 @@ interface VideoSettingsProviderProps {
     sessionId?: string;
 }
 
-export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
-                                                                                children,
-                                                                                sessionId
-                                                                            }) => {
+export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = React.memo(({
+                                                                                           children,
+                                                                                           sessionId
+                                                                                       }) => {
+    console.log('🔍 [VIDEOSETTINGS] Component re-rendering');
+    console.log('🔍 [VIDEOSETTINGS] Props:', {sessionId, children_type: typeof children});
+
+    // In VideoSettingsProvider.tsx, add this useEffect:
+    useEffect(() => {
+        console.log('🏗️ [VIDEOSETTINGS] COMPONENT MOUNTED');
+        return () => {
+            console.log('💀 [VIDEOSETTINGS] COMPONENT UNMOUNTED');
+        };
+    }, []);
+
     const [settings, setSettings] = useState<VideoSettings>(defaultSettings);
+    console.log('🔍 [VIDEOSETTINGS] Current settings:', settings);
 
     // Load settings from localStorage on mount
     useEffect(() => {
@@ -42,7 +54,21 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
         if (stored) {
             try {
                 const parsedSettings = JSON.parse(stored);
-                setSettings(prev => ({...prev, ...parsedSettings}));
+                console.log('🔍 [VIDEOSETTINGS] Loaded settings:', parsedSettings);
+
+                // 🎯 FIX: Only update if settings are actually different
+                setSettings(prev => {
+                    const newSettings = {...prev, ...parsedSettings};
+
+                    // Compare the objects - only update if different
+                    if (JSON.stringify(prev) === JSON.stringify(newSettings)) {
+                        console.log('🔍 [VIDEOSETTINGS] Settings unchanged, skipping update');
+                        return prev; // Return same reference to prevent re-render
+                    }
+
+                    console.log('🔍 [VIDEOSETTINGS] Settings changed, updating');
+                    return newSettings;
+                });
             } catch (error) {
                 console.warn('Failed to parse stored video settings:', error);
             }
@@ -51,8 +77,16 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
 
     // Save settings to localStorage when they change
     useEffect(() => {
+        console.log('🔍 [VIDEOSETTINGS] Saving to localStorage:', settings);
         const storageKey = sessionId ? `videoSettings_${sessionId}` : 'videoSettings_global';
-        localStorage.setItem(storageKey, JSON.stringify(settings));
+
+        // Only save if settings have actually changed from defaults or stored value
+        const currentStored = localStorage.getItem(storageKey);
+        const settingsToStore = JSON.stringify(settings);
+
+        if (currentStored !== settingsToStore) {
+            localStorage.setItem(storageKey, settingsToStore);
+        }
     }, [settings, sessionId]);
 
     const updateSettings = useCallback((updates: Partial<VideoSettings>) => {
@@ -71,15 +105,15 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
         }));
     }, []);
 
-    const contextValue: VideoSettingsContextType = {
+    const contextValue: VideoSettingsContextType = useMemo(() => ({
         settings,
         updateSettings,
         toggleHostVideo,
-    };
+    }), [settings, updateSettings, toggleHostVideo]);
 
     return (
         <VideoSettingsContext.Provider value={contextValue}>
             {children}
         </VideoSettingsContext.Provider>
     );
-};
+});

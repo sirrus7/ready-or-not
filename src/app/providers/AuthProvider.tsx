@@ -1,5 +1,5 @@
 // src/app/providers/AuthProvider.tsx
-import React, {createContext, useContext, useEffect, useState} from 'react';
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {auth, User} from '@shared/services/supabase';
 
 interface AuthContextType {
@@ -24,9 +24,17 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+    console.log('🔍 [AUTHPROVIDER] Component re-rendering');
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        console.log('🏗️ [AUTHPROVIDER] COMPONENT MOUNTED');
+        return () => {
+            console.log('💀 [AUTHPROVIDER] COMPONENT UNMOUNTED');
+        };
+    }, []);
 
     useEffect(() => {
         const initializeAuth = async () => {
@@ -71,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         };
     }, []);
 
-    const signIn = async (email: string, password: string) => {
+    const signIn = useCallback(async (email: string, password: string) => {
         try {
             setError(null);
             setLoading(true);
@@ -85,9 +93,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const signUp = async (email: string, password: string) => {
+    const signUp = useCallback(async (email: string, password: string) => {
         try {
             setError(null);
             setLoading(true);
@@ -101,9 +109,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const signOut = async () => {
+    const signOut = useCallback(async () => {
         try {
             setError(null);
             setLoading(true);
@@ -117,13 +125,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const clearError = () => {
+    const clearError = useCallback(() => {
         setError(null);
-    };
+    }, []);
 
-    const value: AuthContextType = {
+    const value: AuthContextType = useMemo(() => ({
         user,
         loading,
         error,
@@ -131,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         signUp,
         signOut,
         clearError
-    };
+    }), [user, loading, error, signIn, signUp, signOut, clearError]);
 
     return (
         <AuthContext.Provider value={value}>

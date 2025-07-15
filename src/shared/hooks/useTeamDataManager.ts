@@ -2,9 +2,9 @@
 // Handles both KPIs AND permanent adjustments in one place
 // This extends the proven KPI update system to also handle impact cards
 
-import {useState, useEffect, useCallback, Dispatch, SetStateAction} from 'react';
+import {Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState} from 'react';
 import {db, formatSupabaseError, useRealtimeSubscription} from '@shared/services/supabase';
-import {Team, TeamDecision, TeamRoundData, PermanentKpiAdjustment} from '@shared/types';
+import {PermanentKpiAdjustment, Team, TeamDecision, TeamRoundData} from '@shared/types';
 
 interface TeamDataManagerOutput {
     teams: Team[];
@@ -24,19 +24,91 @@ interface TeamDataManagerOutput {
     setPermanentAdjustmentsDirectly: Dispatch<SetStateAction<PermanentKpiAdjustment[]>>;
 }
 
+// ADD THIS: Simple deep equality check for React state
+const deepEqual = (a: any, b: any): boolean => {
+    if (a === b) return true;
+    if (a == null || b == null) return false;
+    if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (!deepEqual(a[i], b[i])) return false;
+        }
+        return true;
+    }
+    if (typeof a === 'object' && typeof b === 'object') {
+        const keysA = Object.keys(a);
+        const keysB = Object.keys(b);
+        if (keysA.length !== keysB.length) return false;
+        for (const key of keysA) {
+            if (!keysB.includes(key) || !deepEqual(a[key], b[key])) return false;
+        }
+        return true;
+    }
+    return false;
+};
+
 export const useTeamDataManager = (initialSessionId: string | null): TeamDataManagerOutput => {
-    const [teams, setTeams] = useState<Team[]>([]);
-    const [teamDecisions, setTeamDecisions] = useState<Record<string, Record<string, TeamDecision>>>({});
-    const [teamRoundData, setTeamRoundData] = useState<Record<string, Record<number, TeamRoundData>>>({});
+    const [teams, setTeamsState] = useState<Team[]>([]);
+    const [teamDecisions, setTeamDecisionsState] = useState<Record<string, Record<string, TeamDecision>>>({});
+    const [teamRoundData, setTeamRoundDataState] = useState<Record<string, Record<number, TeamRoundData>>>({});
 
     // ADDED: Permanent adjustments (impact cards) to centralized system
-    const [permanentAdjustments, setPermanentAdjustments] = useState<PermanentKpiAdjustment[]>([]);
+    const [permanentAdjustments, setPermanentAdjustmentsState] = useState<PermanentKpiAdjustment[]>([]);
     const [isLoadingAdjustments, setIsLoadingAdjustments] = useState<boolean>(false);
 
     const [isLoadingTeams, setIsLoadingTeams] = useState<boolean>(false);
     const [isLoadingDecisions, setIsLoadingDecisions] = useState<boolean>(false);
     const [isLoadingRoundData, setIsLoadingRoundData] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+
+    // FIXED: Smart setters that prevent unnecessary re-renders
+    const setTeams = useCallback((newTeams: Team[] | ((prev: Team[]) => Team[])) => {
+        setTeamsState(prev => {
+            const nextTeams = typeof newTeams === 'function' ? newTeams(prev) : newTeams;
+            if (deepEqual(prev, nextTeams)) {
+                console.log('🔍 [TeamDataManager] Teams unchanged, skipping update');
+                return prev;
+            }
+            console.log('🔍 [TeamDataManager] Teams changed, updating');
+            return nextTeams;
+        });
+    }, []);
+
+    const setTeamDecisions = useCallback((newDecisions: Record<string, Record<string, TeamDecision>> | ((prev: Record<string, Record<string, TeamDecision>>) => Record<string, Record<string, TeamDecision>>)) => {
+        setTeamDecisionsState(prev => {
+            const nextDecisions = typeof newDecisions === 'function' ? newDecisions(prev) : newDecisions;
+            if (deepEqual(prev, nextDecisions)) {
+                console.log('🔍 [TeamDataManager] Decisions unchanged, skipping update');
+                return prev;
+            }
+            console.log('🔍 [TeamDataManager] Decisions changed, updating');
+            return nextDecisions;
+        });
+    }, []);
+
+    const setTeamRoundData = useCallback((newRoundData: Record<string, Record<number, TeamRoundData>> | ((prev: Record<string, Record<number, TeamRoundData>>) => Record<string, Record<number, TeamRoundData>>)) => {
+        setTeamRoundDataState(prev => {
+            const nextRoundData = typeof newRoundData === 'function' ? newRoundData(prev) : newRoundData;
+            if (deepEqual(prev, nextRoundData)) {
+                console.log('🔍 [TeamDataManager] RoundData unchanged, skipping update');
+                return prev;
+            }
+            console.log('🔍 [TeamDataManager] RoundData changed, updating');
+            return nextRoundData;
+        });
+    }, []);
+
+    const setPermanentAdjustments = useCallback((newAdjustments: PermanentKpiAdjustment[] | ((prev: PermanentKpiAdjustment[]) => PermanentKpiAdjustment[])) => {
+        setPermanentAdjustmentsState(prev => {
+            const nextAdjustments = typeof newAdjustments === 'function' ? newAdjustments(prev) : newAdjustments;
+            if (deepEqual(prev, nextAdjustments)) {
+                console.log('🔍 [TeamDataManager] Adjustments unchanged, skipping update');
+                return prev;
+            }
+            console.log('🔍 [TeamDataManager] Adjustments changed, updating');
+            return nextAdjustments;
+        });
+    }, []);
 
     const fetchTeamsForSession = useCallback(async (sessionId: string) => {
         if (!sessionId || sessionId === 'new') {
@@ -219,21 +291,38 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         !!initialSessionId && initialSessionId !== 'new'
     );
 
-    return {
+    // At the end of useTeamDataManager, memoize the returned values with strong typing
+    return useMemo((): TeamDataManagerOutput => ({
         teams,
         teamDecisions,
         teamRoundData,
-        permanentAdjustments, // ADDED: Now available globally
+        permanentAdjustments,
         isLoadingTeams,
         isLoadingDecisions,
         isLoadingRoundData,
-        isLoadingAdjustments, // ADDED: Loading state for adjustments
+        isLoadingAdjustments,
         error,
         fetchTeamsForSession,
         fetchTeamDecisionsForSession,
-        fetchTeamRoundDataForSession, // Now updates both KPIs and adjustments
+        fetchTeamRoundDataForSession,
         resetTeamDecisionInDb,
         setTeamRoundDataDirectly: setTeamRoundData,
         setPermanentAdjustmentsDirectly: setPermanentAdjustments
-    };
+    }), [
+        teams,
+        teamDecisions,
+        teamRoundData,
+        permanentAdjustments,
+        isLoadingTeams,
+        isLoadingDecisions,
+        isLoadingRoundData,
+        isLoadingAdjustments,
+        error,
+        fetchTeamsForSession,
+        fetchTeamDecisionsForSession,
+        fetchTeamRoundDataForSession,
+        resetTeamDecisionInDb,
+        setTeamRoundData,
+        setPermanentAdjustments
+    ]);
 };

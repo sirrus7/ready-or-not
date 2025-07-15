@@ -146,6 +146,12 @@ const PresentationApp: React.FC = () => {
         }
     };
 
+    console.log('🔍 [DEBUG] PresentationApp RE-RENDERING SlideRenderer:', {
+        slideId: currentSlide?.id,
+        timestamp: Date.now(),
+        // Add any other state variables that might be changing
+    });
+
     return (
         <div className="h-screen w-screen overflow-hidden bg-black relative">
             <SlideRenderer

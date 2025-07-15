@@ -295,16 +295,25 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         }
     );
 
-    return {
-        processInteractiveSlide,        // ✅ Simplified inline implementation
-        processConsequenceSlide,        // ✅ Uses UnifiedEffectsProcessor (real logic)
-        processPayoffSlide,             // ✅ NEW: Slide-specific payoff processing
+    return useMemo(() => ({
+        processInteractiveSlide,
+        processConsequenceSlide,
+        processPayoffSlide,
         processKpiResetSlide,
         calculateAndFinalizeRoundKPIs: calculateKPIsExecute,
         resetGameProgress: resetGameProgressExecute,
         isLoadingProcessingDecisions: false,
-        isLoadingProcessingPayoffs: false, // Keep for backward compatibility
+        isLoadingProcessingPayoffs: false,
         isLoadingCalculatingKPIs: isCalculatingKPIs,
         isLoadingResettingGame: isResettingGame,
-    };
+    }), [
+        processInteractiveSlide,
+        processConsequenceSlide,
+        processPayoffSlide,
+        processKpiResetSlide,
+        calculateKPIsExecute,
+        resetGameProgressExecute,
+        isCalculatingKPIs,
+        isResettingGame,
+    ]);
 };
