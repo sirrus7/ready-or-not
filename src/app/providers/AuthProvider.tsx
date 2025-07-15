@@ -146,9 +146,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(
         setError(null);
     }, []);
 
-    // Optimized context value - remove function deps since they're stable
+    // Optimized context value - functions are stable via useCallback
     const value: AuthContextType = useMemo(() => {
-        console.log('🔍 [AUTHPROVIDER] Context value being recreated');
         return {
             user,
             loading,
@@ -158,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(
             signOut,
             clearError
         };
-    }, [user, loading, error]); // Only state dependencies, functions are stable
+    }, [user, loading, error, signIn, signUp, signOut, clearError]); // Include all values
 
     console.log('🔍 [AUTHPROVIDER] About to render children, current user:', user?.id || 'none');
 

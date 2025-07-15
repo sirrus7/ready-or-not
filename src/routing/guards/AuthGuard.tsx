@@ -1,5 +1,5 @@
 // src/components/AuthGuard.tsx
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import {Navigate, useLocation} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider.tsx';
 
@@ -19,17 +19,8 @@ const AuthGuard: React.FC<AuthGuardProps> = React.memo(({children}) => {
         };
     }, []);
 
-    // CRITICAL: Only show loading on the VERY FIRST load, never transition back
-    const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-
-    useEffect(() => {
-        if (!loading && !hasLoadedOnce) {
-            setHasLoadedOnce(true);
-        }
-    }, [loading, hasLoadedOnce]);
-
-    // If we've never finished loading, show loading screen
-    if (!hasLoadedOnce && loading) {
+    // SIMPLIFIED: No hasLoadedOnce state that could cause remounts
+    if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-100">
                 <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-game-orange-500"></div>
@@ -38,17 +29,12 @@ const AuthGuard: React.FC<AuthGuardProps> = React.memo(({children}) => {
         );
     }
 
-    // Once loaded, if no user, redirect (but keep same structure)
     if (!user) {
         return <Navigate to="/login" state={{from: location}} replace/>;
     }
 
-    // Always render children in consistent wrapper
-    return (
-        <div key="auth-wrapper">
-            {children}
-        </div>
-    );
+    // Remove the key prop that might be causing issues
+    return <>{children}</>;
 });
 
 export default AuthGuard;

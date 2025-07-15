@@ -56,7 +56,7 @@ export const PresentationLoadingFallback = () => <RouteLoadingFallback message="
 // ROUTE WRAPPER COMPONENTS
 // ============================================================================
 
-export const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = ({children}) => {
+export const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = React.memo(({children}) => {
     console.log('🔍 [AUTHPAGE] Component re-rendering');
 
     useEffect(() => {
@@ -67,7 +67,9 @@ export const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = ({chil
     }, []);
 
     return <AuthGuard>{children}</AuthGuard>;
-};
+});
+
+AuthenticatedPage.displayName = 'AuthenticatedPage';
 
 export const DisplayWrapper: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
