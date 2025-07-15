@@ -6,9 +6,10 @@ import {useGameContext} from '@app/providers/GameProvider';
 import DecisionHistoryButton from './DecisionHistoryButton';
 import {Slide} from '@shared/types';
 import {ChevronDown, ChevronUp, Repeat, DollarSign, Swords} from 'lucide-react';
+import TeamMonitor from "@views/host/components/TeamMonitor";
 
 interface DecisionHistoryProps {
-    onReviewDecision: (decisionKey: string) => void;
+    currentInteractiveSlide?: any;
 }
 
 // Helper function moved outside the component body
@@ -18,14 +19,36 @@ const getRoundLabel = (key: string) => {
     return `RD-${num}`;
 };
 
-const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => {
+const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlide}) => {
     const {state} = useGameContext();
     const {gameStructure, current_slide_index, teams, teamDecisions} = state;
 
     const [expandedRounds, setExpandedRounds] = useState<Record<string, boolean>>({});
+    const [expandedDecisions, setExpandedDecisions] = useState<Record<string, boolean>>({});
 
     const currentSlide = gameStructure?.slides[current_slide_index ?? -1];
     const currentRoundKey = currentSlide ? `round_${currentSlide.round_number}` : null;
+
+    // Auto-expand current interactive decision and its round
+    useEffect(() => {
+        if (currentInteractiveSlide && currentInteractiveSlide.interactive_data_key) {
+            // Expand the decision
+            setExpandedDecisions(prev => {
+                const newState = {
+                    ...prev,
+                    [currentInteractiveSlide.interactive_data_key]: true
+                };
+                return newState;
+            });
+
+            // Also expand the round that contains this decision
+            const roundKey = `round_${currentInteractiveSlide.round_number}`;
+            setExpandedRounds(prev => ({
+                ...prev,
+                [roundKey]: true
+            }));
+        }
+    }, [currentInteractiveSlide]);
 
     const groupedSlides = useMemo(() => {
         if (!gameStructure) return {};
@@ -77,11 +100,12 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
         setExpandedRounds(prev => ({...prev, [roundKey]: !prev[roundKey]}));
     };
 
+    const toggleDecisionExpansion = (decisionKey: string) => {
+        setExpandedDecisions(prev => ({...prev, [decisionKey]: !prev[decisionKey]}));
+    };
+
     return (
         <div>
-            <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-lg font-semibold text-gray-700">Decision History</h2>
-            </div>
             <div className="space-y-2">
                 {Object.keys(groupedSlides).map(roundKey => {
                     const slidesInRound = groupedSlides[roundKey];
@@ -95,20 +119,20 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
                             >
                                 <div className="flex items-center justify-between">
                                     <span>{getRoundLabel(roundKey)}</span>
-                                    {isExpanded ? <ChevronUp size={18} className="text-gray-500"/> : <ChevronDown size={18} className="text-gray-500"/>}
+                                    {isExpanded ? <ChevronUp size={18} className="text-gray-500"/> :
+                                        <ChevronDown size={18} className="text-gray-500"/>}
                                 </div>
                             </button>
 
                             {isExpanded && (
                                 <div className="p-2 border-t border-gray-200 space-y-2">
-                                    {slidesInRound.map((slide) => {
+                                    {slidesInRound.map((slide: Slide) => {
                                         const isCurrentSlide = slide.id === currentSlide?.id;
                                         const slideIndexInMainList = gameStructure.slides.findIndex(s => s.id === slide.id);
 
                                         // FIXED: Proper completion logic based on team submissions
                                         const decisionKey = slide.interactive_data_key;
                                         const hasSubmissions = decisionKey ? hasTeamSubmissions(decisionKey) : false;
-                                        const allSubmitted = decisionKey ? allTeamsSubmitted(decisionKey) : false;
 
                                         // A slide is completed if:
                                         // 1. Host has moved past it (original logic), OR
@@ -121,32 +145,33 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({onReviewDecision}) => 
                                         if (slide.type === 'interactive_double_down_select') icon = Repeat;
 
                                         // Enhanced label to show submission status
-                                        let enhancedLabel = slide.title || `Decision Point`;
-                                        if (hasSubmissions && !isCurrentSlide) {
-                                            const submittedCount = teams.filter(team =>
-                                                teamDecisions[team.id]?.[decisionKey || '']?.submitted_at
-                                            ).length;
-
-                                            if (allSubmitted) {
-                                                enhancedLabel += ` ✓ Complete`;
-                                            } else {
-                                                enhancedLabel += ` (${submittedCount}/${teams.length} submitted)`;
-                                            }
-                                        }
+                                        // Keep the base label clean since we have visual indicators
+                                        const enhancedLabel = slide.title || `Decision Point`;
+                                        const isDecisionExpanded = expandedDecisions[slide.interactive_data_key || ''] ?? false;
 
                                         return (
-                                            <DecisionHistoryButton
-                                                key={slide.interactive_data_key || slide.id}
-                                                label={enhancedLabel}
-                                                isCurrent={isCurrentSlide}
-                                                isCompleted={isCompleted} // FIXED: Now properly reflects team submissions
-                                                icon={icon}
-                                                onClick={() => {
-                                                    if (slide.interactive_data_key) {
-                                                        onReviewDecision(slide.interactive_data_key);
-                                                    }
-                                                }}
-                                            />
+                                            <div key={slide.interactive_data_key || slide.id} className="mb-3">
+                                                <DecisionHistoryButton
+                                                    label={enhancedLabel}
+                                                    isCurrent={isCurrentSlide}
+                                                    isCompleted={isCompleted}
+                                                    icon={icon}
+                                                    isExpanded={isDecisionExpanded}
+                                                    onClick={() => {
+                                                        if (slide.interactive_data_key) {
+                                                            toggleDecisionExpansion(slide.interactive_data_key);
+                                                        }
+                                                    }}
+                                                />
+                                                {isDecisionExpanded && slide.interactive_data_key && (
+                                                    <div className="bg-white rounded-b-lg border border-gray-200 border-t-0 shadow-sm">
+                                                        <TeamMonitor
+                                                            key={slide.interactive_data_key}
+                                                            slide={slide}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
                                         );
                                     })}
                                 </div>
