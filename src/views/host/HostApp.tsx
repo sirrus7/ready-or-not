@@ -373,9 +373,6 @@ const HostApp: React.FC = () => {
                                     {currentSlideData ? `Slide ${currentSlideData.id}: ${currentSlideData.title}` : 'No Slide Selected'}
                                 </div>
                                 <div className="text-sm md:text-sm text-gray-600 mt-1">
-                                    {currentSlideData && current_slide_index !== null && (
-                                        <span className="font-medium">({current_slide_index + 1} of {gameStructure.slides.length})</span>
-                                    )}
                                     {currentSlideData?.interactive_data_key && (
                                         <span className="ml-2 text-green-600 font-medium">• Interactive</span>
                                     )}
