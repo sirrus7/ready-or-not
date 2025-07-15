@@ -1,13 +1,13 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
-import {TeamDecision} from '@shared/types';
+import {Slide, TeamDecision} from '@shared/types';
 import {AlertTriangle, CheckCircle2, Clock, Info,} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {db, supabase} from '@shared/services/supabase';
 import Modal from '@shared/components/UI/Modal';
 import SelectionDisplay, {SelectionData} from './SelectionDisplay';
 import {ContinuationPricingEngine} from '@core/game/ContinuationPricingEngine';
-import { MultiSelectChallengeTracker } from '@core/game/MultiSelectChallengeTracker';
+import {MultiSelectChallengeTracker} from '@core/game/MultiSelectChallengeTracker';
 
 interface ImmediatePurchaseData {
     id: string;
@@ -16,9 +16,14 @@ interface ImmediatePurchaseData {
     submitted_at: string;
     report_given: boolean;
     selected_investment_options: string[];
+    phase_id: string;
 }
 
-const TeamMonitor: React.FC = () => {
+interface TeamMonitorProps {
+    slide?: Slide; // The slide to display data for
+}
+
+const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
     const {state, currentSlideData, resetTeamDecision, setAllTeamsSubmittedCurrentInteractivePhase} = useGameContext();
     const {teams, teamDecisions, gameStructure, currentSessionId} = state;
 
@@ -27,8 +32,13 @@ const TeamMonitor: React.FC = () => {
     const [teamToReset, setTeamToReset] = useState<{ id: string, name: string } | null>(null);
     const [continuationPricingCache, setContinuationPricingCache] = useState<Record<string, any>>({});
 
-    const decisionKey = currentSlideData?.interactive_data_key;
-    const isInvestmentPeriod = currentSlideData?.type === 'interactive_invest';
+    // Use passed slide or fall back to current slide data
+    const slideDataToUse: Slide | null = slide || currentSlideData;
+    const decisionKey: string | undefined = slideDataToUse?.interactive_data_key;
+    const isInvestmentPeriod: boolean = slideDataToUse?.type === 'interactive_invest';
+
+    // Check if this is the current active decision (for Reset button)
+    const isCurrentDecision: boolean = decisionKey === currentSlideData?.interactive_data_key;
 
     // Fetch immediate purchase data with real-time subscription
     const {
@@ -41,13 +51,14 @@ const TeamMonitor: React.FC = () => {
             // ✅ UPDATED - Use service layer
             const data = await db.decisions.getAllImmediatePurchases(currentSessionId);
 
-            return data.map(item => ({
+            return (data || []).map(item => ({
                 id: item.id,
                 team_id: item.team_id,
                 cost: item.total_spent_budget || 0,
                 submitted_at: item.submitted_at,
                 report_given: item.report_given || false,
-                selected_investment_options: item.selected_investment_options || []
+                selected_investment_options: item.selected_investment_options || [],
+                phase_id: item.phase_id || ''
             } as ImmediatePurchaseData));
         },
         [currentSessionId, isInvestmentPeriod],
@@ -80,7 +91,8 @@ const TeamMonitor: React.FC = () => {
                     }
                 }
             )
-            .subscribe((_u: any) => {});
+            .subscribe((_u: any) => {
+            });
 
         return () => {
             channel.unsubscribe();
@@ -141,21 +153,24 @@ const TeamMonitor: React.FC = () => {
 
     // Structured selection data function with FIXED immediate purchases handling and DEBUG LOGS
     const getSelectionData = (decision?: TeamDecision, teamId?: string): SelectionData => {
-        if (!currentSlideData || !gameStructure || !decisionKey) {
+        if (!slideDataToUse || !gameStructure || !decisionKey) {
             return {
                 type: 'none',
                 hasSubmission: false
             };
         }
 
-        switch (currentSlideData.type) {
+        switch (slideDataToUse.type) {
             case 'interactive_invest': {
                 const selectedIds = decision?.selected_investment_options || [];
                 const investmentOptions = gameStructure.all_investment_options[decisionKey] || [];
 
                 // Get immediate purchases for this team
+                // Get immediate purchases for this team and this specific decision
                 const teamImmediatePurchases = safeImmediatePurchases.filter(purchase =>
-                    purchase.team_id === teamId
+                    purchase.team_id === teamId &&
+                    // Only include immediate purchases that belong to this decision
+                    purchase.phase_id === `${decisionKey}_immediate`
                 );
 
                 const immediateLetters: string[] = [];
@@ -188,21 +203,27 @@ const TeamMonitor: React.FC = () => {
                 const sortedSelectedIds = [...allSelectedIds].sort();
                 const investments = sortedSelectedIds
                     .filter(id => {
-                        // ✅ NEW: Filter out unavailable investments
-                        if (!teamContinuationPricing) return true; // Show all if no pricing data
-                        const pricing = teamContinuationPricing.investmentPricing?.find((p: any) => p.investmentId === id);
-                        return pricing?.availability !== 'not_available';
+                        // Only filter out unavailable investments for current decisions
+                        // For historical data, show what was actually purchased
+                        if (isCurrentDecision) {
+                            if (!teamContinuationPricing) return true; // Show all if no pricing data
+                            const pricing = teamContinuationPricing.investmentPricing?.find((p: any) => p.investmentId === id);
+                            return pricing?.availability !== 'not_available';
+                        }
+                        return true; // Show all investments for historical data
                     })
                     .map(id => {
                         const opt = investmentOptions.find(o => o.id === id);
                         const optionName = opt ? opt.name.split('.')[0].trim() : 'Unknown';
                         const originalCost = opt?.cost || 0;
-                        const actualCost = getActualCost(id, originalCost); // ✅ Use continuation pricing
+
+                        // Only apply continuation pricing to current decisions
+                        const actualCost = isCurrentDecision ? getActualCost(id, originalCost) : originalCost;
 
                         return {
                             id,
                             name: optionName,
-                            cost: actualCost, // ✅ Use actual cost (with continuation discount)
+                            cost: actualCost,
                             isImmediate: immediateLetters.includes(id)
                         };
                     });
@@ -265,7 +286,7 @@ const TeamMonitor: React.FC = () => {
         setIsResetModalOpen(true);
     };
 
-    if (!currentSlideData?.interactive_data_key) {
+    if (!slideDataToUse?.interactive_data_key) {
         return (
             <div className="p-4 text-center text-gray-500">
                 <Info size={24} className="mx-auto mb-2 opacity-50"/>
@@ -277,28 +298,30 @@ const TeamMonitor: React.FC = () => {
     return (
         <>
             <div className="p-4">
-                {/* Submission Progress */}
-                <div className="mb-4 p-3 bg-game-orange-50 border border-game-orange-200 rounded-lg">
-                    <h3 className="font-semibold text-game-orange-800 mb-2">Submission Progress</h3>
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-game-orange-700">
-                            {submissionStats.submitted} of {submissionStats.total} teams submitted
-                        </span>
-                        <div className="flex items-center">
-                            {submissionStats.allSubmitted ? (
-                                <CheckCircle2 className="text-green-600" size={20}/>
-                            ) : (
-                                <Clock className="text-orange-500" size={20}/>
-                            )}
+                {/* Submission Progress - only show for current decision */}
+                {isCurrentDecision && (
+                    <div className="mb-4 p-3 bg-game-orange-50 border border-game-orange-200 rounded-lg">
+                        <h3 className="font-semibold text-game-orange-800 mb-2">Submission Progress</h3>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-game-orange-700">
+                                {submissionStats.submitted} of {submissionStats.total} teams submitted
+                            </span>
+                            <div className="flex items-center">
+                                {submissionStats.allSubmitted ? (
+                                    <CheckCircle2 className="text-green-600" size={20}/>
+                                ) : (
+                                    <Clock className="text-orange-500" size={20}/>
+                                )}
+                            </div>
+                        </div>
+                        <div className="w-full bg-game-orange-200 rounded-full h-2 mt-2">
+                            <div
+                                className="bg-game-orange-600 h-2 rounded-full transition-all duration-300"
+                                style={{width: `${teams.length > 0 ? (submissionStats.submitted / teams.length) * 100 : 0}%`}}
+                            />
                         </div>
                     </div>
-                    <div className="w-full bg-game-orange-200 rounded-full h-2 mt-2">
-                        <div
-                            className="bg-game-orange-600 h-2 rounded-full transition-all duration-300"
-                            style={{width: `${teams.length > 0 ? (submissionStats.submitted / teams.length) * 100 : 0}%`}}
-                        />
-                    </div>
-                </div>
+                )}
 
                 {/* Team Status List - Professional, clean design */}
                 <div className="space-y-3">
@@ -312,39 +335,73 @@ const TeamMonitor: React.FC = () => {
                         return (
                             <div
                                 key={team.id}
-                                className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow"
+                                className={`bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow ${
+                                    selectionData.type === 'choice' ? 'p-3' : 'p-4'
+                                }`}
                             >
-                                {/* Team Header */}
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center space-x-3">
-                                        <div className={`w-2 h-2 rounded-full ${
-                                            hasSubmitted ? 'bg-green-500' : 'bg-gray-300'
-                                        }`}/>
-                                        <div>
-                                            <h4 className="font-medium text-gray-900">{team.name}</h4>
-                                            <div className="text-xs text-gray-500">
-                                                {hasSubmitted
-                                                    ? `Submitted ${new Date(decision!.submitted_at!).toLocaleTimeString()}`
-                                                    : 'Awaiting submission'
-                                                }
-                                            </div>
+                                {/* Selection Display - compact for choices */}
+                                {selectionData.type === 'choice' ? (
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${
+                                                hasSubmitted ? 'bg-green-500' : 'bg-gray-300'
+                                            }`}/>
+                                            <span className="text-sm font-medium text-gray-700">{team.name}</span>
+                                            {hasSubmitted && (
+                                                <span className="text-xs text-gray-500">
+                                                    {new Date(decision!.submitted_at!).toLocaleTimeString([], {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </span>
+                                            )}
+                                            <span className="text-gray-400">•</span>
+                                            <span className="text-gray-700">{selectionData.choiceText}</span>
                                         </div>
+
+                                        {hasSubmitted && isCurrentDecision && (
+                                            <button
+                                                onClick={() => openResetModal(team.id, team.name)}
+                                                className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 hover:border-red-300 transition-colors"
+                                            >
+                                                Reset
+                                            </button>
+                                        )}
                                     </div>
+                                ) : (
+                                    <>
+                                        {/* Compact Team Header */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${
+                                                    hasSubmitted ? 'bg-green-500' : 'bg-gray-300'
+                                                }`}/>
+                                                <span className="text-sm font-medium text-gray-700">{team.name}</span>
+                                                {hasSubmitted && (
+                                                    <span className="text-xs text-gray-500">
+                                                        {new Date(decision!.submitted_at!).toLocaleTimeString([], {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </span>
+                                                )}
+                                            </div>
 
-                                    {hasSubmitted && (
-                                        <button
-                                            onClick={() => openResetModal(team.id, team.name)}
-                                            className="px-3 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:border-red-300 transition-colors"
-                                        >
-                                            Reset
-                                        </button>
-                                    )}
-                                </div>
+                                            {hasSubmitted && isCurrentDecision && (
+                                                <button
+                                                    onClick={() => openResetModal(team.id, team.name)}
+                                                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 hover:border-red-300 transition-colors"
+                                                >
+                                                    Reset
+                                                </button>
+                                            )}
+                                        </div>
 
-                                {/* Selection Display */}
-                                <div className="mb-3">
-                                    <SelectionDisplay selectionData={selectionData}/>
-                                </div>
+                                        <div className="mb-3">
+                                            <SelectionDisplay selectionData={selectionData}/>
+                                        </div>
+                                    </>
+                                )}
 
                                 {/* Business Report Alert */}
                                 {needsBusinessReport && (
