@@ -96,12 +96,8 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         setIsLoadingAdjustments(true);
         setError(null);
         try {
-            // UNIFIED: Fetch both KPIs and adjustments in parallel
-            // This ensures both update together reliably
-            const [kpiData, adjustmentData] = await Promise.all([
-                db.kpis.getBySession(sessionId),
-                db.adjustments.getBySession(sessionId)
-            ]);
+            const kpiData = await db.kpis.getBySession(sessionId);
+            const adjustmentData = await db.adjustments.getBySession(sessionId);
 
             // Update KPIs (existing logic)
             const structuredRoundData: Record<string, Record<number, TeamRoundData>> = {};

@@ -159,7 +159,7 @@ export const decisionService = {
         return withRetry(async () => {
             const {data, error} = await supabase
                 .from(TEAM_DECISIONS_TABLE)
-                .upsert(decisionData, {onConflict: 'id'})
+                .upsert(decisionData, {onConflict: 'session_id,team_id,phase_id'})
                 .select()
                 .single();
             if (error) {
