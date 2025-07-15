@@ -9,12 +9,12 @@ interface GameDetailsFormProps {
     onTeamsChange: (teamsStr: string) => void;
 }
 
-const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
-                                                             gameData,
-                                                             onFieldChange,
-                                                             onPlayersChange,
-                                                             onTeamsChange
-                                                         }) => {
+const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
+                                                                        gameData,
+                                                                        onFieldChange,
+                                                                        onPlayersChange,
+                                                                        onTeamsChange
+                                                                    }) => {
     const gradeLevels = [
         "Freshman", "Sophomore", "Junior", "Senior",
         "College Freshman", "College Sophomore", "College Junior", "College Senior",
@@ -201,6 +201,6 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = ({
             </div>
         </div>
     );
-};
+});
 
 export default GameDetailsForm;

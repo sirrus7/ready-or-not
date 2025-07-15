@@ -3,7 +3,7 @@ import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
 import {GameSessionManager} from '@core/game/GameSessionManager';
-import {NewGameData} from '@shared/types';
+import {NewGameData, TeamConfig} from '@shared/types';
 import {
     FinalizeStep,
     GameDetailsStep,
@@ -31,6 +31,12 @@ const WIZARD_STEPS = [
     {id: 4, title: 'Print Handouts', component: PrintHandoutsStep, icon: Printer},
     {id: 5, title: 'Finalize & Start', component: FinalizeStep, icon: Rocket},
 ] as const;
+
+type NewGameDataValue =
+    | string
+    | number
+    | ('2.0_dd' | '1.5_dd')
+    | TeamConfig[];
 
 const CreateGamePage: React.FC = () => {
     console.log('🎮 [CREATEGAMEPAGE] Component mounting/rendering');
@@ -154,23 +160,22 @@ const CreateGamePage: React.FC = () => {
         };
     }, [draftSessionId, isSubmitting, isCancelling, sessionManager]);
 
-    // Handle data changes with proper typing
-    const handleDataChange = useCallback((field: keyof NewGameData, value: any) => {
-        // Create a clean copy of the data to avoid circular references
-        const updatedData = {...gameData};
+    const handleDataChange = useCallback((field: keyof NewGameData, value: NewGameDataValue): void => {
+        setGameData((prevData: NewGameData): NewGameData => {
+            const updatedData: NewGameData = {...prevData};
 
-        // Handle special cases for complex data types
-        if (field === 'teams_config' && Array.isArray(value)) {
-            updatedData[field] = value.map(team => ({
-                name: team.name,
-                passcode: team.passcode
-            }));
-        } else {
-            updatedData[field] = value;
-        }
+            if (field === 'teams_config' && Array.isArray(value)) {
+                updatedData[field] = (value as TeamConfig[]).map((team: TeamConfig) => ({
+                    name: team.name,
+                    passcode: team.passcode
+                }));
+            } else {
+                (updatedData as any)[field] = value;
+            }
 
-        setGameData(updatedData);
-    }, [gameData]);
+            return updatedData;
+        });
+    }, []);
 
     // Handle wizard navigation with database saves
     const handleNextStep = useCallback(async (dataFromStep?: Partial<NewGameData>) => {
@@ -392,7 +397,7 @@ const CreateGamePage: React.FC = () => {
                     {currentStep === 2 && (
                         <TeamSetupStep
                             gameData={gameData}
-                            onDataChange={(field, value) => handleDataChange(field, value)}
+                            onDataChange={handleDataChange} // ✅ Direct reference
                             onNext={handleNextStep}
                             onPrevious={handlePreviousStep}
                             draftSessionId={draftSessionId}
@@ -429,4 +434,4 @@ const CreateGamePage: React.FC = () => {
     );
 };
 
-export default CreateGamePage;
+export default React.memo(CreateGamePage);
