@@ -10,6 +10,7 @@ import {
     waitForVideoReady,
     waitForVideoFullyLoaded
 } from './commonVideoUtils';
+import { presentationVideoLogger } from './videoLogger';
 
 // Command handling
 export const applyVideoCommand = async (
@@ -140,7 +141,9 @@ const handleResetCommand = (video: HTMLVideoElement): void => {
 // Video event logging
 export const createVideoEventLogger = (prefix: string) => {
     return (eventType: string, video: HTMLVideoElement) => {
-        console.log(`[${prefix}] 🎥 VIDEO EVENT: ${eventType}`, {
+        presentationVideoLogger.log(`VIDEO EVENT: ${eventType}`, {
+            emoji: '🎥',
+            data: {
             currentTime: video.currentTime,
             duration: video.duration,
             paused: video.paused,
@@ -157,13 +160,14 @@ export const createVideoEventLogger = (prefix: string) => {
             error: video.error 
                 ? `${video.error.code}: ${video.error.message}` 
                 : null
+            }
         });
     };
 };
 
 // Force play utility for presentation
 export const forcePlayFromBeginning = async (video: HTMLVideoElement): Promise<void> => {
-    console.log('[Presentation] Force play - attempting to play from beginning...');
+    presentationVideoLogger.log('Force play - attempting to play from beginning...');
     
     try {
         // Ensure we start from the very beginning
@@ -180,9 +184,9 @@ export const forcePlayFromBeginning = async (video: HTMLVideoElement): Promise<v
         }
         
         await video.play();
-        console.log('[Presentation] Force play - SUCCESS!');
+        presentationVideoLogger.log('Force play - SUCCESS!');
     } catch (error) {
-        console.error('[Presentation] Force play - FAILED:', error);
+        presentationVideoLogger.error('Force play - FAILED', { data: error });
         throw error;
     }
 };

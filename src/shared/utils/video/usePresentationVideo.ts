@@ -3,6 +3,7 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { createVideoProps } from '@shared/utils/video/videoProps';
 import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
 import { HostCommand } from '@core/sync/types';
+import { presentationVideoLogger } from './videoLogger';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -63,35 +64,35 @@ export const usePresentationVideo = ({
     // Setup video element
     useEffect(() => {
         const video = videoRef.current;
-        console.log('[Presentation] Video setup effect:', { hasVideo: !!video, isEnabled, sourceUrl });
+        presentationVideoLogger.log('Video setup effect', { data: { hasVideo: !!video, isEnabled, sourceUrl } });
         if (!video || !isEnabled || !sourceUrl) return;
         
         // Load new source
         if (video.src !== sourceUrl) {
-            console.log('[Presentation] Loading new video source:', sourceUrl);
+            presentationVideoLogger.log('Loading new video source', { data: { sourceUrl } });
             video.src = sourceUrl;
             video.load();
             // Apply current volume settings to the new video
             video.volume = state.volume;
             video.muted = state.isMuted;
-            console.log('[Presentation] Applied volume settings to new video:', { volume: state.volume, muted: state.isMuted });
+            presentationVideoLogger.log('Applied volume settings to new video', { data: { volume: state.volume, muted: state.isMuted } });
             setState(prev => ({ ...prev, isReady: false }));
             sendVideoReady(false);
         } else {
-            console.log('[Presentation] Video source unchanged, skipping load');
+            presentationVideoLogger.log('Video source unchanged, skipping load');
         }
         
         // Event handlers
         const handleCanPlay = () => {
-            console.log('[Presentation] Video can play, sending ready status');
+            presentationVideoLogger.log('Video can play, sending ready status');
             setState(prev => ({ ...prev, isReady: true }));
             sendVideoReady(true);
         };
         
         const handleError = (e: Event) => {
-            console.error('[Presentation] Video error:', e);
+            presentationVideoLogger.error('Video error', { data: e });
             if (video.error) {
-                console.error('[Presentation] Video error details:', video.error);
+                presentationVideoLogger.error('Video error details', { data: video.error });
             }
         };
         
@@ -100,7 +101,7 @@ export const usePresentationVideo = ({
         
         // Check if already ready
         if (video.readyState >= 3) {
-            console.log('[Presentation] Video already ready (readyState:', video.readyState, ')');
+            presentationVideoLogger.log(`Video already ready (readyState: ${video.readyState})`);
             setState(prev => ({ ...prev, isReady: true }));
             sendVideoReady(true);
         }
@@ -116,14 +117,14 @@ export const usePresentationVideo = ({
     useEffect(() => {
         const unsubscribe = onCommand(async (command: HostCommand) => {
             const video = videoRef.current;
-            console.log('[Presentation] Received command:', command.action, { hasVideo: !!video, isReady: state.isReady });
+            presentationVideoLogger.log(`Received command: ${command.action}`, { data: { hasVideo: !!video, isReady: state.isReady } });
             if (!video) return;
             
             // Volume commands should work even if video isn't ready yet
             if (command.action === 'volume') {
-                console.log('[Presentation] Processing volume command regardless of ready state');
+                presentationVideoLogger.log('Processing volume command regardless of ready state');
             } else if (!state.isReady) {
-                console.log('[Presentation] Skipping non-volume command - video not ready');
+                presentationVideoLogger.log('Skipping non-volume command - video not ready');
                 return;
             }
             
@@ -168,7 +169,7 @@ export const usePresentationVideo = ({
                     break;
                     
                 case 'volume':
-                    console.log('[Presentation] Applying volume command:', command.data);
+                    presentationVideoLogger.log('Applying volume command', { data: command.data });
                     const volumeData = command.data as { volume?: number; muted?: boolean };
                     if (volumeData?.volume !== undefined) {
                         video.volume = volumeData.volume;
@@ -178,15 +179,17 @@ export const usePresentationVideo = ({
                     if (volumeData?.muted !== undefined) {
                         video.muted = volumeData.muted;
                         setState(prev => ({ ...prev, isMuted: volumeData.muted! }));
-                        console.log('[Presentation] Set muted to:', volumeData.muted, 'actual:', video.muted);
+                        presentationVideoLogger.log(`Set muted to: ${volumeData.muted}, actual: ${video.muted}`);
                     }
-                    console.log('[Presentation] Video state after volume command:', {
-                        paused: video.paused,
-                        currentTime: video.currentTime,
-                        duration: video.duration,
-                        volume: video.volume,
-                        muted: video.muted,
-                        readyState: video.readyState
+                    presentationVideoLogger.log('Video state after volume command', {
+                        data: {
+                            paused: video.paused,
+                            currentTime: video.currentTime,
+                            duration: video.duration,
+                            volume: video.volume,
+                            muted: video.muted,
+                            readyState: video.readyState
+                        }
                     });
                     break;
             }

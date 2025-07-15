@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 import { useSimpleVideoSync } from './useSimpleVideoSync';
+import { hostVideoLogger } from './videoLogger';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -48,14 +49,26 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled, autoPlay = false
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
     
-    // Auto-play when video is ready (only once per source)
+    // Auto-play when video is ready
     useEffect(() => {
         if (autoPlay && state.hostReady && sourceUrl && autoPlayedRef.current !== sourceUrl) {
-            console.log('[HostVideo] Auto-playing video');
+            // Wait for both videos to be ready if presentation is connected
+            if (state.presentationConnected && !state.presentationReady) {
+                hostVideoLogger.log('Waiting for presentation to be ready before auto-play');
+                return;
+            }
+            
+            hostVideoLogger.log('Auto-playing video', {
+                data: {
+                    hostReady: state.hostReady,
+                    presentationReady: state.presentationReady,
+                    presentationConnected: state.presentationConnected
+                }
+            });
             autoPlayedRef.current = sourceUrl;
             controls.play();
         }
-    }, [autoPlay, state.hostReady, sourceUrl, controls]);
+    }, [autoPlay, state.hostReady, state.presentationReady, state.presentationConnected, sourceUrl, controls]);
     
     // Wrapped control functions that handle the time parameter
     const play = useCallback(async (time?: number) => {

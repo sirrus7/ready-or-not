@@ -2,32 +2,10 @@ import { renderHook, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 
-// Create inline mocks
-const mockSendCommand = vi.fn();
-const mockSetPresentationReady = vi.fn();
-let connectionCallback: ((connected: boolean) => void) | null = null;
-let videoReadyCallback: ((ready: boolean) => void) | null = null;
+// Mock the video sync manager BEFORE importing the hook that uses it
+vi.mock('@shared/hooks/useVideoSyncManager');
 
-// Mock the hook inline
-vi.mock('@shared/hooks/useVideoSyncManager', () => ({
-    useVideoSyncManager: vi.fn(() => ({
-        sendCommand: mockSendCommand,
-        isConnected: false,
-        onConnectionChange: vi.fn((cb) => {
-            connectionCallback = cb;
-            return () => { connectionCallback = null; };
-        }),
-        onVideoReady: vi.fn((cb) => {
-            videoReadyCallback = cb;
-            return () => { videoReadyCallback = null; };
-        }),
-        setPresentationReady: mockSetPresentationReady,
-        sendVideoReady: vi.fn(),
-        onCommand: vi.fn()
-    }))
-}));
-
-// Mock logger
+// Mock the logger
 vi.mock('../videoLogger', () => ({
     videoSyncLogger: {
         log: vi.fn(),
@@ -38,18 +16,24 @@ vi.mock('../videoLogger', () => ({
 
 // Import after mocking
 import { useSimpleVideoSync } from '../useSimpleVideoSync';
+import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
 
-describe('useSimpleVideoSync', () => {
+// Get the mocked version
+const mockedUseVideoSyncManager = vi.mocked(useVideoSyncManager);
+
+describe('useSimpleVideoSync - Fixed Tests', () => {
     let mockVideoElement: any;
-    let mockVideoRef: any;
+    let mockSendCommand: any;
+    let mockSetPresentationReady: any;
 
     beforeEach(() => {
-        // Reset all mocks
         vi.clearAllMocks();
-        connectionCallback = null;
-        videoReadyCallback = null;
         
-        // Create fresh mock video element
+        // Create mock functions
+        mockSendCommand = vi.fn();
+        mockSetPresentationReady = vi.fn();
+        
+        // Create mock video element
         mockVideoElement = {
             play: vi.fn().mockResolvedValue(undefined),
             pause: vi.fn(),
@@ -61,22 +45,38 @@ describe('useSimpleVideoSync', () => {
             paused: true,
             volume: 1,
             muted: false,
-            src: '',
+            src: 'test.mp4',
             load: vi.fn()
         };
 
-        // Create a stable ref object
-        mockVideoRef = { current: mockVideoElement };
+        // Mock React.useRef
+        vi.spyOn(React, 'useRef').mockReturnValue({ current: mockVideoElement });
 
-        // Mock React.useRef to return the same ref object
-        vi.spyOn(React, 'useRef').mockReturnValue(mockVideoRef);
+        // Setup the mock implementation
+        mockedUseVideoSyncManager.mockReturnValue({
+            sendCommand: mockSendCommand,
+            isConnected: false,
+            onConnectionChange: vi.fn((callback) => {
+                (global as any).__videoSyncConnectionCallback = callback;
+                return () => { (global as any).__videoSyncConnectionCallback = null; };
+            }),
+            onVideoReady: vi.fn((callback) => {
+                (global as any).__videoSyncVideoReadyCallback = callback;
+                return () => { (global as any).__videoSyncVideoReadyCallback = null; };
+            }),
+            setPresentationReady: mockSetPresentationReady,
+            sendVideoReady: vi.fn(),
+            onCommand: vi.fn()
+        });
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
+        (global as any).__videoSyncConnectionCallback = null;
+        (global as any).__videoSyncVideoReadyCallback = null;
     });
 
-    describe('volume control', () => {
+    describe('Volume Control', () => {
         it('should apply volume changes to host video when presentation is not connected', () => {
             const { result } = renderHook(() => useSimpleVideoSync({
                 sessionId: 'test-session',
@@ -84,15 +84,17 @@ describe('useSimpleVideoSync', () => {
                 isEnabled: true
             }));
 
+            // Initial volume should be 1
+            expect(result.current.state.volume).toBe(1);
+
             // Set volume
             act(() => {
                 result.current.controls.setVolume(0.5);
             });
 
-            // State should update immediately
+            // Verify host video volume was updated
+            expect(mockVideoElement.volume).toBe(0.5);
             expect(result.current.state.volume).toBe(0.5);
-            // Note: The actual video element volume is set via useEffect,
-            // which our test environment doesn't trigger properly
         });
 
         it('should send volume command to presentation when connected', () => {
@@ -102,11 +104,10 @@ describe('useSimpleVideoSync', () => {
                 isEnabled: true
             }));
 
-            // Simulate presentation connected
+            // Simulate presentation connected 
             act(() => {
-                if (connectionCallback) {
-                    connectionCallback(true);
-                }
+                const callback = (global as any).__videoSyncConnectionCallback;
+                if (callback) callback(true);
             });
 
             // Clear previous calls
@@ -152,9 +153,8 @@ describe('useSimpleVideoSync', () => {
 
             // Simulate presentation connected
             act(() => {
-                if (connectionCallback) {
-                    connectionCallback(true);
-                }
+                const callback = (global as any).__videoSyncConnectionCallback;
+                if (callback) callback(true);
             });
 
             // Should now target presentation
@@ -162,28 +162,24 @@ describe('useSimpleVideoSync', () => {
         });
     });
 
-    describe('connection behavior', () => {
-        it('should pause video when presentation connects', async () => {
+    describe('Connection behavior', () => {
+        it('should pause video when presentation connects', () => {
             const { result } = renderHook(() => useSimpleVideoSync({
                 sessionId: 'test-session',
                 sourceUrl: 'test-video.mp4',
                 isEnabled: true
             }));
 
-            // Start playing the video
+            // Start with video playing
             mockVideoElement.paused = false;
-            await act(async () => {
-                await result.current.controls.play();
-            });
 
-            // Clear any previous calls
+            // Clear any initial calls
             mockVideoElement.pause.mockClear();
 
             // Simulate presentation connecting
             act(() => {
-                if ((global as any).__connectionCallback) {
-                    (global as any).__connectionCallback(true);
-                }
+                const callback = (global as any).__videoSyncConnectionCallback;
+                if (callback) callback(true);
             });
 
             // Verify video was paused
@@ -200,25 +196,20 @@ describe('useSimpleVideoSync', () => {
 
             // First connect presentation
             act(() => {
-                if ((global as any).__connectionCallback) {
-                    (global as any).__connectionCallback(true);
-                }
+                const callback = (global as any).__videoSyncConnectionCallback;
+                if (callback) callback(true);
             });
 
             // Start playing the video
             mockVideoElement.paused = false;
-            await act(async () => {
-                await result.current.controls.play();
-            });
 
             // Clear any previous calls
             mockVideoElement.pause.mockClear();
 
             // Simulate presentation disconnecting
             act(() => {
-                if ((global as any).__connectionCallback) {
-                    (global as any).__connectionCallback(false);
-                }
+                const callback = (global as any).__videoSyncConnectionCallback;
+                if (callback) callback(false);
             });
 
             // Verify video was paused
@@ -227,14 +218,17 @@ describe('useSimpleVideoSync', () => {
             expect(result.current.state.presentationReady).toBe(false);
         });
 
-        it('should maintain playback state through connection changes', () => {
+        it('should maintain playback state through connection changes', async () => {
             const { result } = renderHook(() => useSimpleVideoSync({
                 sessionId: 'test-session',
                 sourceUrl: 'test-video.mp4',
                 isEnabled: true
             }));
 
-            // Simulate play event
+            // Start playing
+            mockVideoElement.paused = false;
+            
+            // Trigger play event
             act(() => {
                 const playHandler = mockVideoElement.addEventListener.mock.calls
                     .find(call => call[0] === 'play')?.[1];
@@ -245,9 +239,8 @@ describe('useSimpleVideoSync', () => {
 
             // Connect presentation
             act(() => {
-                if (connectionCallback) {
-                    connectionCallback(true);
-                }
+                const callback = (global as any).__videoSyncConnectionCallback;
+                if (callback) callback(true);
             });
 
             // State should still be playing
@@ -255,9 +248,8 @@ describe('useSimpleVideoSync', () => {
 
             // Disconnect presentation
             act(() => {
-                if (connectionCallback) {
-                    connectionCallback(false);
-                }
+                const callback = (global as any).__videoSyncConnectionCallback;
+                if (callback) callback(false);
             });
 
             // State should still be playing
@@ -282,21 +274,18 @@ describe('useSimpleVideoSync', () => {
             act(() => {
                 result.current.controls.setVolume(0.6);
             });
-            // State should update
-            expect(result.current.state.volume).toBe(0.6);
-
-            // Mock video element for source change
-            mockVideoElement.src = '';
+            expect(mockVideoElement.volume).toBe(0.6);
 
             // Change video source (simulating slide transition)
+            mockVideoElement.src = '';
             rerender({ sourceUrl: 'video2.mp4' });
 
             // Wait for effect to run
             act(() => {});
 
-            // Verify load was called and volume state persists
+            // Verify volume was applied to the new video
             expect(mockVideoElement.load).toHaveBeenCalled();
-            expect(result.current.state.volume).toBe(0.6);
+            expect(mockVideoElement.volume).toBe(0.6);
         });
 
         it('should persist mute state when video source changes', () => {
@@ -317,17 +306,15 @@ describe('useSimpleVideoSync', () => {
             });
             expect(result.current.state.isMuted).toBe(true);
 
-            // Mock video element for source change
-            mockVideoElement.src = '';
-
             // Change video source
+            mockVideoElement.src = '';
             rerender({ sourceUrl: 'video2.mp4' });
 
             // Wait for effect to run
             act(() => {});
 
-            // Verify mute state persists
-            expect(result.current.state.isMuted).toBe(true);
+            // Verify mute state was applied to the new video
+            expect(mockVideoElement.muted).toBe(true);
         });
 
         it('should keep host muted during transitions when presentation is connected', () => {
@@ -344,9 +331,8 @@ describe('useSimpleVideoSync', () => {
 
             // Simulate presentation connected
             act(() => {
-                if (connectionCallback) {
-                    connectionCallback(true);
-                }
+                const callback = (global as any).__videoSyncConnectionCallback;
+                if (callback) callback(true);
             });
 
             // Set volume
@@ -354,18 +340,16 @@ describe('useSimpleVideoSync', () => {
                 result.current.controls.setVolume(0.7);
             });
 
-            // Mock video element for source change
-            mockVideoElement.src = '';
-
             // Change video source
+            mockVideoElement.src = '';
             rerender({ sourceUrl: 'video2.mp4' });
 
             // Wait for effect to run
             act(() => {});
 
-            // Verify volume state is preserved
-            expect(result.current.state.volume).toBe(0.7);
-            // Host muting is handled by effect based on presentationConnected
+            // Verify host remains muted but volume is preserved
+            expect(mockVideoElement.muted).toBe(true);
+            expect(mockVideoElement.volume).toBe(0.7);
         });
 
         it('should handle rapid slide transitions without losing volume', () => {
@@ -391,7 +375,7 @@ describe('useSimpleVideoSync', () => {
                 mockVideoElement.src = '';
                 rerender({ sourceUrl: video });
                 act(() => {}); // Let effects run
-                expect(result.current.state.volume).toBe(0.4);
+                expect(mockVideoElement.volume).toBe(0.4);
             });
 
             // Verify load was called for each transition
@@ -413,15 +397,12 @@ describe('useSimpleVideoSync', () => {
             // Set volume and connect presentation
             act(() => {
                 result.current.controls.setVolume(0.8);
-                if (connectionCallback) {
-                    connectionCallback(true);
-                }
+                const callback = (global as any).__videoSyncConnectionCallback;
+                if (callback) callback(true);
             });
 
-            // Mock video element for source change
-            mockVideoElement.src = '';
-
             // Change video source
+            mockVideoElement.src = '';
             rerender({ sourceUrl: 'video2.mp4' });
 
             // Wait for effect to run
@@ -430,11 +411,10 @@ describe('useSimpleVideoSync', () => {
             // Clear previous calls
             mockSendCommand.mockClear();
 
-            // Mark presentation ready
+            // Mark presentation as ready
             act(() => {
-                if (videoReadyCallback) {
-                    videoReadyCallback(true);
-                }
+                const callback = (global as any).__videoSyncVideoReadyCallback;
+                if (callback) callback(true);
             });
 
             // Play after transition

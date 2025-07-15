@@ -1,6 +1,7 @@
 // Simple video sync hook - single source of truth for video state
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
+import { videoSyncLogger } from './videoLogger';
 
 interface VideoSyncState {
     // Playback state
@@ -68,12 +69,25 @@ export const useSimpleVideoSync = ({ sessionId, sourceUrl, isEnabled }: UseSimpl
     // Monitor connection status
     useEffect(() => {
         const unsubscribe = onConnectionChange((connected) => {
-            console.log('[VideoSync] Connection status changed:', connected);
+            videoSyncLogger.log('Connection status changed', { data: { connected } });
             updateState({ presentationConnected: connected });
             
-            // Reset presentation ready state when disconnected
+            const video = videoRef.current;
+            if (!video) return;
+            
             if (!connected) {
+                // Reset presentation ready state and pause when disconnected
                 updateState({ presentationReady: false });
+                if (!video.paused) {
+                    videoSyncLogger.log('Pausing video - presentation disconnected');
+                    video.pause();
+                }
+            } else {
+                // When presentation connects, ALWAYS pause the video
+                if (!video.paused) {
+                    videoSyncLogger.log('Pausing video - presentation window opened');
+                    video.pause();
+                }
             }
         });
         return unsubscribe;
@@ -82,7 +96,7 @@ export const useSimpleVideoSync = ({ sessionId, sourceUrl, isEnabled }: UseSimpl
     // Monitor presentation ready state
     useEffect(() => {
         const unsubscribe = onVideoReady((ready) => {
-            console.log('[VideoSync] Presentation ready status:', ready);
+            videoSyncLogger.log('Presentation ready status', { data: { ready } });
             updateState({ presentationReady: ready });
         });
         return unsubscribe;
@@ -146,12 +160,12 @@ export const useSimpleVideoSync = ({ sessionId, sourceUrl, isEnabled }: UseSimpl
         // Host is ALWAYS muted when presentation is connected
         if (state.presentationConnected) {
             video.muted = true;
-            console.log('[VideoSync] Host muted (presentation connected)');
+            videoSyncLogger.log('Host muted (presentation connected)');
         } else {
             // When not connected, apply the mute state to host
             video.muted = state.isMuted;
             video.volume = state.volume;
-            console.log('[VideoSync] Host audio settings:', { muted: state.isMuted, volume: state.volume });
+            videoSyncLogger.log('Host audio settings', { data: { muted: state.isMuted, volume: state.volume } });
         }
     }, [state.presentationConnected, state.volume, state.isMuted]);
     
@@ -160,21 +174,32 @@ export const useSimpleVideoSync = ({ sessionId, sourceUrl, isEnabled }: UseSimpl
         const video = videoRef.current;
         if (!video) return;
         
-        // For now, just wait for host video to be ready
-        // The presentation will catch up when it's ready
+        // Always wait for host video to be ready
         if (!state.hostReady) {
-            console.log('[VideoSync] Cannot play - host video not ready');
+            videoSyncLogger.warn('Cannot play - host video not ready');
             return;
         }
         
-        // Log if presentation is connected but not ready
+        // If presentation is connected, wait for both videos to be ready
         if (state.presentationConnected && !state.presentationReady) {
-            console.log('[VideoSync] Warning: Playing without presentation ready', {
+            videoSyncLogger.warn('Cannot play - waiting for presentation video to be ready', {
+                data: {
+                    hostReady: state.hostReady,
+                    presentationReady: state.presentationReady,
+                    presentationConnected: state.presentationConnected
+                }
+            });
+            return;
+        }
+        
+        // Both videos are ready (or only host if no presentation)
+        videoSyncLogger.log('Playing video', {
+            data: {
                 hostReady: state.hostReady,
                 presentationReady: state.presentationReady,
                 presentationConnected: state.presentationConnected
-            });
-        }
+            }
+        });
         
         // Play host video
         await video.play();

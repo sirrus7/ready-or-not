@@ -2,6 +2,17 @@ import { renderHook, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { usePresentationVideo } from '../usePresentationVideo';
 
+// Mock the logger
+vi.mock('../videoLogger', () => ({
+    presentationVideoLogger: {
+        log: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        info: vi.fn(),
+        debug: vi.fn()
+    }
+}));
+
 // Mock the broadcast channel
 const mockPostMessage = vi.fn();
 const mockClose = vi.fn();
@@ -45,8 +56,9 @@ describe('usePresentationVideo', () => {
             }
         });
 
-        // Mock ref
-        vi.spyOn(require('react'), 'useRef').mockReturnValue({
+        // Mock ref using React import
+        const React = require('react');
+        vi.spyOn(React, 'useRef').mockReturnValue({
             current: mockVideoElement as HTMLVideoElement
         });
 

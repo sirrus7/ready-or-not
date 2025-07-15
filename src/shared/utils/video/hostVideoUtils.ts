@@ -4,6 +4,7 @@
 import { SyncAction } from '@shared/types';
 import { isVideoReady, SYNC_INTERVAL_MS } from './commonVideoUtils';
 import { HostCommand } from '@core/sync';
+import { hostLogger } from './videoLogger';
 
 // Constants
 export const HOST_MUTE_CHECK_INTERVAL = 100; // ms
@@ -11,11 +12,13 @@ export const HOST_MUTE_CHECK_INTERVAL = 100; // ms
 // Logging utilities
 export const logHostVideoState = (context: string, video: HTMLVideoElement | null, extra?: Record<string, any>) => {
     if (!video) {
-        console.log(`[Host] 🎥 ${context} - No video element`, extra);
+        hostLogger.log(`${context} - No video element`, { emoji: '🎥', data: extra });
         return;
     }
     
-    console.log(`[Host] 🎥 ${context}`, {
+    hostLogger.log(context, {
+        emoji: '🎥',
+        data: {
         // Basic state
         currentTime: video.currentTime.toFixed(2),
         duration: video.duration.toFixed(2),
@@ -46,6 +49,7 @@ export const logHostVideoState = (context: string, video: HTMLVideoElement | nul
         
         // Extra context
         ...extra
+        }
     });
 };
 
@@ -56,11 +60,11 @@ export const createSyncInterval = (
     sendCommand: (action: SyncAction, data?: HostCommand['data']) => void
 ): NodeJS.Timeout | null => {
     if (!isConnected) {
-        console.log('[Host] 🔄 Sync interval NOT created - not connected');
+        hostLogger.log('Sync interval NOT created - not connected', { emoji: '🔄' });
         return null;
     }
 
-    console.log('[Host] 🔄 Creating sync interval');
+    hostLogger.log('Creating sync interval', { emoji: '🔄' });
     let syncCount = 0;
     
     return setInterval(() => {
@@ -74,7 +78,7 @@ export const createSyncInterval = (
             
             // Log every 10th sync to reduce noise, or first 3 syncs
             if (syncCount <= 3 || syncCount % 10 === 0) {
-                console.log(`[Host] 📡 Sync #${syncCount}`, syncData);
+                hostLogger.log(`Sync #${syncCount}`, { emoji: '📡', data: syncData });
             }
             
             sendCommand('sync', syncData);
@@ -90,11 +94,14 @@ export const isNewVideoSource = (
 ): boolean => {
     const isNew = currentSrc !== newSrc && previousSrc !== newSrc;
     
-    console.log('[Host] 🔍 Source change detection:', {
-        currentSrc: currentSrc?.substring(currentSrc.lastIndexOf('/') + 1) || 'none',
-        newSrc: newSrc?.substring(newSrc.lastIndexOf('/') + 1) || 'none', 
-        previousSrc: previousSrc?.substring(previousSrc.lastIndexOf('/') + 1) || 'none',
-        isNewVideo: isNew
+    hostLogger.log('Source change detection', {
+        emoji: '🔍',
+        data: {
+            currentSrc: currentSrc?.substring(currentSrc.lastIndexOf('/') + 1) || 'none',
+            newSrc: newSrc?.substring(newSrc.lastIndexOf('/') + 1) || 'none', 
+            previousSrc: previousSrc?.substring(previousSrc.lastIndexOf('/') + 1) || 'none',
+            isNewVideo: isNew
+        }
     });
     
     return isNew;
@@ -108,27 +115,30 @@ export const handleHostConnection = (
     presentationMuted: boolean,
     sendCommand: (action: string, data?: Record<string, any>) => void
 ): (() => void) | null => {
-    console.log('[Host] 🔌 Connection handler called:', { isConnected });
+    hostLogger.log('Connection handler called', { emoji: '🔌', data: { isConnected } });
     
     if (!isConnected) {
-        console.log('[Host] 🔇 Unmuting host - presentation disconnected');
+        hostLogger.log('Unmuting host - presentation disconnected', { emoji: '🔇' });
         video.muted = false;
         logHostVideoState('After unmuting', video);
         return null;
     }
 
     // Mute host when presentation connects
-    console.log('[Host] 🔇 Muting host - presentation connected');
+    hostLogger.log('Muting host - presentation connected', { emoji: '🔇' });
     video.muted = true;
     logHostVideoState('After muting', video);
 
     // Send current state to presentation
     const wasPlaying = !video.paused;
-    console.log('[Host] 📤 Sending initial state to presentation:', {
-        wasPlaying,
-        isReady: isVideoReady(video),
-        presentationVolume,
-        presentationMuted
+    hostLogger.log('Sending initial state to presentation', {
+        emoji: '📤',
+        data: {
+            wasPlaying,
+            isReady: isVideoReady(video),
+            presentationVolume,
+            presentationMuted
+        }
     });
     
     if (wasPlaying && isVideoReady(video)) {
@@ -138,14 +148,14 @@ export const handleHostConnection = (
             volume: presentationVolume,
             muted: presentationMuted,
         };
-        console.log('[Host] ▶️ Sending play command:', playData);
+        hostLogger.log('Sending play command', { emoji: '▶️', data: playData });
         sendCommand('play', playData);
     } else {
         const pauseData = {
             time: video.currentTime,
             playbackRate: video.playbackRate,
         };
-        console.log('[Host] ⏸️ Sending pause command:', pauseData);
+        hostLogger.log('Sending pause command', { emoji: '⏸️', data: pauseData });
         sendCommand('pause', pauseData);
     }
 
@@ -154,23 +164,23 @@ export const handleHostConnection = (
         volume: presentationVolume,
         muted: presentationMuted,
     };
-    console.log('[Host] 🔊 Sending volume state:', volumeData);
+    hostLogger.log('Sending volume state', { emoji: '🔊', data: volumeData });
     sendCommand('volume', volumeData);
 
     // Return cleanup function for mute enforcement
-    console.log('[Host] 🛡️ Starting mute enforcement interval');
+    hostLogger.log('Starting mute enforcement interval', { emoji: '🛡️' });
     let muteCheckCount = 0;
     
     const interval = setInterval(() => {
         if (!video.muted) {
             muteCheckCount++;
-            console.warn(`[Host] ⚠️ Host unmuted while connected! Re-muting (occurrence #${muteCheckCount})`);
+            hostLogger.warn(`Host unmuted while connected! Re-muting (occurrence #${muteCheckCount})`, { emoji: '⚠️' });
             video.muted = true;
         }
     }, HOST_MUTE_CHECK_INTERVAL);
 
     return () => {
-        console.log('[Host] 🛑 Stopping mute enforcement interval');
+        hostLogger.log('Stopping mute enforcement interval', { emoji: '🛑' });
         clearInterval(interval);
     };
 };
@@ -182,18 +192,18 @@ export const executePlay = async (
     isConnected: boolean,
     sendCommand: (action: string, data?: Record<string, any>) => void
 ): Promise<void> => {
-    console.log('[Host] ▶️ Executing play command:', { time, isConnected });
+    hostLogger.log('Executing play command', { emoji: '▶️', data: { time, isConnected } });
     logHostVideoState('Before play', video);
     
     try {
         if (time !== undefined) {
-            console.log(`[Host] ⏩ Seeking to time: ${time}`);
+            hostLogger.log(`Seeking to time: ${time}`, { emoji: '⏩' });
             video.currentTime = time;
         }
 
         // Update local video
         await video.play();
-        console.log('[Host] ✅ Play successful');
+        hostLogger.log('Play successful', { emoji: '✅' });
         logHostVideoState('After play', video);
 
         // Send command if connected
@@ -202,11 +212,11 @@ export const executePlay = async (
                 time: video.currentTime,
                 playbackRate: video.playbackRate,
             };
-            console.log('[Host] 📤 Sending play command to presentation:', playData);
+            hostLogger.log('Sending play command to presentation', { emoji: '📤', data: playData });
             sendCommand('play', playData);
         }
     } catch (error) {
-        console.error('[Host] ❌ Play failed:', error);
+        hostLogger.error('Play failed', { emoji: '❌', data: error });
         logHostVideoState('After play error', video);
         throw error;
     }
@@ -219,13 +229,13 @@ export const executePause = (
     isConnected: boolean,
     sendCommand: (action: string, data?: Record<string, any>) => void
 ): void => {
-    console.log('[Host] ⏸️ Executing pause command:', { time, isConnected });
+    hostLogger.log('Executing pause command', { emoji: '⏸️', data: { time, isConnected } });
     logHostVideoState('Before pause', video);
     
     // Update local video
     video.pause();
     if (time !== undefined) {
-        console.log(`[Host] ⏩ Seeking to time: ${time}`);
+        hostLogger.log(`Seeking to time: ${time}`, { emoji: '⏩' });
         video.currentTime = time;
     }
     
@@ -236,7 +246,7 @@ export const executePause = (
         const pauseData = {
             time: video.currentTime,
         };
-        console.log('[Host] 📤 Sending pause command to presentation:', pauseData);
+        hostLogger.log('Sending pause command to presentation', { emoji: '📤', data: pauseData });
         sendCommand('pause', pauseData);
     }
 };
@@ -248,7 +258,7 @@ export const executeSeek = (
     isConnected: boolean,
     sendCommand: (action: string, data?: Record<string, any>) => void
 ): void => {
-    console.log('[Host] ⏩ Executing seek command:', { time, isConnected });
+    hostLogger.log('Executing seek command', { emoji: '⏩', data: { time, isConnected } });
     logHostVideoState('Before seek', video);
     
     // Update local video
@@ -258,7 +268,7 @@ export const executeSeek = (
 
     // Send command if connected
     if (isConnected) {
-        console.log('[Host] 📤 Sending seek command to presentation:', { time });
+        hostLogger.log('Sending seek command to presentation', { emoji: '📤', data: { time } });
         sendCommand('seek', { time });
     }
 };
@@ -271,12 +281,15 @@ export const executeVolumeChange = (
     isConnected: boolean,
     sendCommand: (action: string, data?: Record<string, any>) => void
 ): void => {
-    console.log('[Host] 🔊 Executing volume change:', { 
-        volume, 
-        presentationMuted, 
-        isConnected,
-        hostCurrentVolume: video.volume,
-        hostCurrentMuted: video.muted
+    hostLogger.log('Executing volume change', {
+        emoji: '🔊',
+        data: { 
+            volume, 
+            presentationMuted, 
+            isConnected,
+            hostCurrentVolume: video.volume,
+            hostCurrentMuted: video.muted
+        }
     });
     
     if (isConnected) {
@@ -285,11 +298,11 @@ export const executeVolumeChange = (
             volume,
             muted: presentationMuted,
         };
-        console.log('[Host] 📤 Sending volume command to presentation:', volumeData);
+        hostLogger.log('Sending volume command to presentation', { emoji: '📤', data: volumeData });
         sendCommand('volume', volumeData);
     } else {
         // Change host volume when not connected
-        console.log('[Host] 🔊 Setting host volume:', volume);
+        hostLogger.log(`Setting host volume: ${volume}`, { emoji: '🔊' });
         video.volume = volume;
         logHostVideoState('After volume change', video);
     }
@@ -303,10 +316,13 @@ export const executeMuteToggle = (
     isConnected: boolean,
     sendCommand: (action: string, data?: Record<string, any>) => void
 ): boolean => {
-    console.log('[Host] 🔇 Executing mute toggle:', { 
-        presentationMuted, 
-        isConnected,
-        hostCurrentMuted: video.muted
+    hostLogger.log('Executing mute toggle', {
+        emoji: '🔇',
+        data: { 
+            presentationMuted, 
+            isConnected,
+            hostCurrentMuted: video.muted
+        }
     });
     
     if (isConnected) {
@@ -316,13 +332,13 @@ export const executeMuteToggle = (
             volume: presentationVolume,
             muted: newMuted,
         };
-        console.log('[Host] 📤 Sending mute toggle to presentation:', volumeData);
+        hostLogger.log('Sending mute toggle to presentation', { emoji: '📤', data: volumeData });
         sendCommand('volume', volumeData);
         return newMuted;
     } else {
         // Toggle host mute when not connected
         const newMuted = !video.muted;
-        console.log('[Host] 🔇 Toggling host mute:', newMuted);
+        hostLogger.log(`Toggling host mute: ${newMuted}`, { emoji: '🔇' });
         video.muted = newMuted;
         logHostVideoState('After mute toggle', video);
         return newMuted;
