@@ -1,7 +1,7 @@
 // src/app/providers/TeamGameProvider.tsx
 // Lightweight GameProvider for team routes (no auth required)
 
-import React, {createContext, useCallback, useContext} from 'react';
+import React, {createContext, useCallback, useContext, useMemo} from 'react';
 import {useParams} from 'react-router-dom';
 import {useTeamDataManager} from '@shared/hooks/useTeamDataManager';
 import {PermanentKpiAdjustment} from '@shared/types';
@@ -36,13 +36,12 @@ export const TeamGameProvider: React.FC<{ children: React.ReactNode }> = ({child
         teamDataManager.setPermanentAdjustmentsDirectly(adjustments);
     }, [teamDataManager]);
 
-    const contextValue: TeamGameContextType = {
+    const contextValue: TeamGameContextType = useMemo(() => ({
         sessionId: sessionId || null,
         permanentAdjustments,
         isLoadingAdjustments,
         updatePermanentAdjustments
-    };
-
+    }), [sessionId, permanentAdjustments, isLoadingAdjustments, updatePermanentAdjustments]);
     return (
         <TeamGameContext.Provider value={contextValue}>
             {children}

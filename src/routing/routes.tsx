@@ -1,7 +1,6 @@
 // src/routing/routes.tsx - Component exports and route constants
 import React, {lazy, Suspense, useEffect} from 'react';
 import {Navigate, useParams} from 'react-router-dom';
-import {AuthProvider} from '@app/providers/AuthProvider';
 import {TeamGameProvider} from '@app/providers/TeamGameProvider';
 import {VideoSettingsProvider} from '@shared/providers/VideoSettingsProvider';
 import AuthGuard from '@routing/guards/AuthGuard';
@@ -77,15 +76,14 @@ export const DisplayWrapper: React.FC = () => {
         return <Navigate to="/login" replace/>;
     }
 
+    // ✅ Remove AuthProvider wrapper - inherit from Router
     return (
-        <AuthProvider>
-            <VideoSettingsProvider>
-                <TeamGameProvider>
-                    <Suspense fallback={<PresentationLoadingFallback/>}>
-                        <PresentationApp/>
-                    </Suspense>
-                </TeamGameProvider>
-            </VideoSettingsProvider>
-        </AuthProvider>
+        <VideoSettingsProvider>
+            <TeamGameProvider>
+                <Suspense fallback={<PresentationLoadingFallback/>}>
+                    <PresentationApp/>
+                </Suspense>
+            </TeamGameProvider>
+        </VideoSettingsProvider>
     );
 };
