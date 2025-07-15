@@ -87,10 +87,8 @@ const SelectionDisplay: React.FC<SelectionDisplayProps> = ({selectionData}) => {
 
         case 'choice':
             return (
-                <div className="flex items-center text-sm">
-                    <span className="text-gray-700">
-                        {choiceText || 'Choice submitted'}
-                    </span>
+                <div className="text-gray-700 text-sm font-medium">
+                    {choiceText}
                 </div>
             );
 

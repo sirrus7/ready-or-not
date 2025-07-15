@@ -8,6 +8,7 @@ interface DecisionHistoryButtonProps {
     isCompleted: boolean;
     icon: React.ElementType<LucideProps>;
     onClick: () => void;
+    isExpanded?: boolean;
 }
 
 const DecisionHistoryButton: React.FC<DecisionHistoryButtonProps> = ({
@@ -15,16 +16,25 @@ const DecisionHistoryButton: React.FC<DecisionHistoryButtonProps> = ({
                                                                          isCurrent,
                                                                          isCompleted,
                                                                          icon: Icon,
-                                                                         onClick
+                                                                         onClick,
+                                                                         isExpanded = false
                                                                      }) => {
-    let baseClasses = "w-full flex items-center p-3 rounded-lg transition-all duration-200 text-left text-sm shadow-sm";
+    let baseClasses = `w-full flex items-center p-3 transition-all duration-200 text-left text-sm shadow-sm ${
+        isExpanded ? 'rounded-t-lg' : 'rounded-lg'
+    }`;
     let textClasses = "font-medium";
     let iconClasses = "mr-3 flex-shrink-0";
 
-    if (isCurrent) {
-        baseClasses += " bg-game-orange-600 text-white shadow-lg scale-105 border-2 border-game-orange-400";
+    if (isCurrent && isExpanded) {
+        // Current + expanded: White background with orange accent
+        baseClasses += " bg-white text-gray-800 shadow-sm border-2 border-game-orange-500";
         textClasses += " font-semibold";
-        iconClasses += " text-white";
+        iconClasses += " text-game-orange-600";
+    } else if (isCurrent) {
+        // Current but not expanded: White background with orange accent
+        baseClasses += " bg-white text-gray-800 shadow-md border-2 border-game-orange-500";
+        textClasses += " font-semibold";
+        iconClasses += " text-game-orange-600";
     } else if (isCompleted) {
         // REFACTOR: Make completed buttons clickable and give them a distinct, but active, style.
         baseClasses += " bg-white text-gray-700 cursor-pointer hover:bg-gray-100 border border-gray-300";
