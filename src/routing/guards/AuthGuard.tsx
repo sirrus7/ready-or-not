@@ -7,8 +7,7 @@ interface AuthGuardProps {
     children: React.ReactNode;
 }
 
-// In AuthGuard.tsx, replace the entire component:
-const AuthGuard: React.FC<AuthGuardProps> = ({children}) => {
+const AuthGuard: React.FC<AuthGuardProps> = React.memo(({children}) => {
     console.log('🔍 [AUTHGUARD] Component re-rendering');
     const {user, loading} = useAuth();
     const location = useLocation();
@@ -50,6 +49,6 @@ const AuthGuard: React.FC<AuthGuardProps> = ({children}) => {
             {children}
         </div>
     );
-};
+});
 
 export default AuthGuard;

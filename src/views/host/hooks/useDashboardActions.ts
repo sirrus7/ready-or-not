@@ -90,7 +90,7 @@ export const useDashboardActions = (
             alert(`Navigating to report for completed game: ${sessionId} (Not yet implemented)`);
         } else {
             // Active games go to game
-            navigate(`/game/${sessionId}`);
+            navigate(`/host/${sessionId}`);
         }
     }, [navigate]);
 

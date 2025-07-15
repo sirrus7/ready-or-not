@@ -33,6 +33,9 @@ const WIZARD_STEPS = [
 ] as const;
 
 const CreateGamePage: React.FC = () => {
+    console.log('🎮 [CREATEGAMEPAGE] Component mounting/rendering');
+    console.log('🎮 [CREATEGAMEPAGE] Current URL:', window.location.pathname);
+
     const [currentStep, setCurrentStep] = useState(1);
     const [gameData, setGameData] = useState<NewGameData>(initialNewGameData);
     const [draftSessionId, setDraftSessionId] = useState<string | null>(null);
@@ -50,6 +53,13 @@ const CreateGamePage: React.FC = () => {
     const sessionInitialized = useRef(false);
     const isNavigatingAway = useRef(false);
     const sessionManager = GameSessionManager.getInstance();
+
+    useEffect(() => {
+        console.log('🎮 [CREATEGAMEPAGE] Component mounted');
+        return () => {
+            console.log('🎮 [CREATEGAMEPAGE] Component unmounting');
+        };
+    }, []);
 
     useEffect(() => {
         document.title = "Ready or Not - Create Game";
@@ -216,7 +226,7 @@ const CreateGamePage: React.FC = () => {
         try {
             // Finalize the draft session
             const finalizedSession = await sessionManager.finalizeDraftSession(draftSessionId, gameData);
-            navigate(`/game/${finalizedSession.id}`);
+            navigate(`/host/${finalizedSession.id}`);
         } catch (error) {
             console.error("CreateGamePage: Error finalizing game:", error);
             setError(error instanceof Error ? error.message : 'Failed to finalize game');
