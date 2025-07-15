@@ -97,7 +97,7 @@ export class GameSessionManager {
                     );
 
                     // Create temporary object with id for financial metrics calculation
-                    const kpiWithId = { ...baselineKpis, id: 'temp' } as TeamRoundData;
+                    const kpiWithId = {...baselineKpis, id: 'temp'} as TeamRoundData;
                     const financialMetrics = ScoringEngine.calculateFinancialMetrics(kpiWithId);
 
                     // Insert initial KPI data into database
@@ -239,12 +239,17 @@ export class GameSessionManager {
 
     async deleteSession(sessionId: string): Promise<void> {
         try {
-            // NEW: Broadcast session deletion
-            try {
-                const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'host');
-                realtimeManager.sendGameEnded();
-            } catch (broadcastError) {
-                console.warn('[GameSessionManager] Failed to broadcast session deletion:', broadcastError);
+            // Load session to check its status before deletion
+            const session = await this.loadSession(sessionId);
+
+            // Only broadcast game ended for active/completed sessions, not drafts
+            if (session.status !== 'draft') {
+                try {
+                    const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'host');
+                    realtimeManager.sendGameEnded();
+                } catch (broadcastError) {
+                    console.warn('[GameSessionManager] Failed to broadcast session deletion:', broadcastError);
+                }
             }
 
             await db.sessions.delete(sessionId);

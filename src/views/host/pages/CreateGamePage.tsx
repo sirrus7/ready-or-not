@@ -1,9 +1,9 @@
 // src/views/host/pages/CreateGamePage.tsx - Fixed to prevent multiple draft session creation
-import React, {useState, useEffect, useCallback, useRef} from 'react';
+import React, {useState, useEffect, useCallback, useRef, useMemo} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
 import {GameSessionManager} from '@core/game/GameSessionManager';
-import {NewGameData, TeamConfig} from '@shared/types';
+import {GameSession, NewGameData, TeamConfig} from '@shared/types';
 import {
     FinalizeStep,
     GameDetailsStep,
@@ -58,7 +58,7 @@ const CreateGamePage: React.FC = () => {
     // FIXED: Simplified refs for better session management
     const sessionInitialized = useRef(false);
     const isNavigatingAway = useRef(false);
-    const sessionManager = GameSessionManager.getInstance();
+    const sessionManager: GameSessionManager = useMemo(() => GameSessionManager.getInstance(), []);
 
     useEffect(() => {
         console.log('🎮 [CREATEGAMEPAGE] Component mounted');
@@ -136,18 +136,22 @@ const CreateGamePage: React.FC = () => {
         };
 
         initializeDraftSession();
-    }, [user, resumeSessionId, navigate, sessionManager]);
+    }, [user, resumeSessionId]);
 
     // FIXED: Simplified cleanup effect
     useEffect(() => {
-        const cleanup = async () => {
+        const cleanup = async (): Promise<void> => {
             // Only cleanup if we have a draft session and we're not submitting/cancelling
             if (draftSessionId && !isSubmitting && !isCancelling && !isNavigatingAway.current) {
                 try {
-                    const currentSession = await sessionManager.loadSession(draftSessionId);
-                    // Only delete if it's still a draft
-                    if ((currentSession as any).status === 'draft') {
-                        await sessionManager.deleteSession(draftSessionId);
+                    // Check if session exists first to avoid 404 errors
+                    const sessionExists: boolean = await sessionManager.validateSession(draftSessionId);
+                    if (sessionExists) {
+                        const currentSession: GameSession = await sessionManager.loadSession(draftSessionId);
+                        // Only delete if it's still a draft
+                        if (currentSession.status === 'draft') {
+                            await sessionManager.deleteSession(draftSessionId);
+                        }
                     }
                 } catch (error) {
                     console.warn('Failed to cleanup draft session on unmount:', error);
@@ -155,7 +159,7 @@ const CreateGamePage: React.FC = () => {
             }
         };
 
-        return () => {
+        return (): void => {
             cleanup();
         };
     }, [draftSessionId, isSubmitting, isCancelling, sessionManager]);
@@ -249,7 +253,11 @@ const CreateGamePage: React.FC = () => {
 
         try {
             if (draftSessionId && sessionInitialized.current) {
-                await sessionManager.deleteSession(draftSessionId);
+                // Check if session exists first to avoid 404 errors
+                const sessionExists: boolean = await sessionManager.validateSession(draftSessionId);
+                if (sessionExists) {
+                    await sessionManager.deleteSession(draftSessionId);
+                }
             }
 
             // Navigate to dashboard
