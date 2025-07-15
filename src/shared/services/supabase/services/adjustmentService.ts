@@ -35,29 +35,22 @@ export const adjustmentService = {
         }, 2, 1000, 'Create KPI adjustments');
     },
 
-    async upsert(adjustments: Omit<PermanentKpiAdjustment, 'id' | 'created_at'>[]): Promise<PermanentKpiAdjustment | null> {
+    async upsert(adjustments: Omit<PermanentKpiAdjustment, 'id' | 'created_at'>[]): Promise<null> {
         return withRetry(async () => {
             if (adjustments.length === 0) return null;
 
-            const {data, error} = await supabase
+            const {error} = await supabase
                 .from(PERMANENT_KPI_ADJUSTMENTS_TABLE)
                 .upsert(adjustments, {
-                    // PRODUCTION: Use the new unique constraint
                     onConflict: 'session_id,team_id,applies_to_round_start,kpi_key,challenge_id,option_id',
                     ignoreDuplicates: true
-                })
-                .single();
+                });
 
             if (error) {
-                // Ignore "no rows returned" error for pure ignore-duplicate upserts
-                if (error.code === 'PGRST116') {
-                    console.log('[adjustmentService.upsert] Upsert completed, no new rows were inserted (duplicates ignored).');
-                    return null;
-                }
                 console.error(`[adjustmentService.upsert(adjustments:${adjustments.length} items)] failed with error: ${error}`)
                 throw error;
             }
-            return data as PermanentKpiAdjustment | null;
+            return null;
         }, 2, 1000, `Upsert KPI adjustments`);
     },
 
