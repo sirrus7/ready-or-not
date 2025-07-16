@@ -34,24 +34,40 @@ export class DoubleDownEffectsProcessor {
 
     /**
      * Generate fixed-range effects based on client requirements
-     * Capacity: up or down by 250
-     * Orders: up or down by 250
-     * ASP: up or down by 10
-     * Cost: up or down by 25k
+     * Capacity: up or down by 250 (rounded UP to nearest 250)
+     * Orders: up or down by 250 (rounded UP to nearest 250)
+     * ASP: up or down by 10 (rounded UP to nearest 10)
+     * Cost: up or down by 25k (rounded UP to nearest 25k)
      */
     private static generateFixedRangeEffects(boostPercentage: number): FixedDoubleDownRanges {
         if (boostPercentage === 0) {
             return {capacity: 0, orders: 0, asp: 0, cost: 0};
         }
 
-        const direction: 1|-1 = Math.random() > 0.5 ? 1 : -1;
+        const direction: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
         const scaleFactor: number = boostPercentage / 100;
 
+        // Calculate base values (before rounding)
+        const capacityBase: number = 250 * scaleFactor * direction;
+        const ordersBase: number = 250 * scaleFactor * direction;
+        const aspBase: number = 10 * scaleFactor * direction;
+        const costBase: number = 25000 * scaleFactor * direction;
+
+        // Round UP to nearest board state increment
+        const roundUpToNearest = (value: number, increment: number): number => {
+            if (value === 0) return 0;
+            if (value > 0) {
+                return Math.ceil(value / increment) * increment;
+            } else {
+                return -Math.ceil(Math.abs(value) / increment) * increment;
+            }
+        };
+
         return {
-            capacity: Math.round(250 * scaleFactor * direction),
-            orders: Math.round(250 * scaleFactor * direction),
-            asp: Math.round(10 * scaleFactor * direction),
-            cost: Math.round(25000 * scaleFactor * direction)
+            capacity: roundUpToNearest(capacityBase, 250),
+            orders: roundUpToNearest(ordersBase, 250),
+            asp: roundUpToNearest(aspBase, 10),
+            cost: roundUpToNearest(costBase, 25000)
         };
     }
 
