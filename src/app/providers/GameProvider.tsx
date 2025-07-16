@@ -146,8 +146,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     }, [session?.id, teamDataManager]);
 
 
-
-
     const prevValues = useRef({
         currentSessionId: null as string | null,
         sessionIsPlaying: null as boolean | null,
@@ -173,8 +171,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
 
         prevValues.current = current;
     });
-
-
 
 
     const gameControllerRef = useRef(gameController);
@@ -208,9 +204,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
             currentHostAlert: gameController.currentHostAlert,
         };
     }, [
-        // FIXED: Use primitive values with different variable names
         currentSessionId,
-        sessionIsPlaying
+        sessionIsPlaying,
+        gameController.currentSlideIndex,  // ← Add this missing dependency!
+        gameController.hostNotes,          // ← Add this too since it's used
+        gameController.currentHostAlert,   // ← And this
+        teamDataManager.teams,
+        teamDataManager.teamDecisions,
+        teamDataManager.teamRoundData,
+        teamDataManager.isLoadingTeams,
+        teamDataManager.isLoadingDecisions,
+        teamDataManager.isLoadingRoundData,
+        teamDataManager.isLoadingAdjustments,
+        teamDataManager.error,
+        gameStructure,
     ]);
 
     const contextValue: GameContextType = useMemo(() => {
