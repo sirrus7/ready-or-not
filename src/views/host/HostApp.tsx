@@ -76,7 +76,6 @@ const HostApp: React.FC = () => {
         nextSlide,
         setCurrentHostAlertState,
         allTeamsSubmittedCurrentInteractivePhase,
-        permanentAdjustments,
     } = useGameContext();
 
     const {currentSessionId, gameStructure, current_slide_index} = state;
@@ -151,7 +150,7 @@ const HostApp: React.FC = () => {
         if (!currentSlideData) return;
 
         // ✅ EXISTING: Broadcast to presentation display (unchanged)
-        const broadcastManager = SimpleBroadcastManager.getInstance(currentSessionId, 'host');
+        const broadcastManager: SimpleBroadcastManager = SimpleBroadcastManager.getInstance(currentSessionId, 'host');
         broadcastManager.sendSlideUpdate(currentSlideData, {
             teams: state.teams,
             teamRoundData: state.teamRoundData,
@@ -168,8 +167,8 @@ const HostApp: React.FC = () => {
         }
     }, [currentSessionId, currentSlideData, gameStructure]);
 
-    const isFirstSlideOverall = current_slide_index === 0;
-    const isLastSlideOverall = current_slide_index === (gameStructure.slides.length - 1);
+    const isFirstSlideOverall: boolean = current_slide_index === 0;
+    const isLastSlideOverall: boolean = ((gameStructure && current_slide_index === (gameStructure.slides.length - 1)) || false);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {

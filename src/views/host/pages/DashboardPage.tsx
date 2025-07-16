@@ -47,7 +47,7 @@ const DashboardPage: React.FC = () => {
         handleLogout,
         dismissNotification,
         closeDeleteModal
-    } = useDashboardActions(games, refetchGames);
+    } = useDashboardActions(refetchGames);
 
     // FIXED: Auto-refresh when returning from cancelled draft creation
     useEffect(() => {

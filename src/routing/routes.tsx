@@ -1,5 +1,5 @@
 // src/routing/routes.tsx - Component exports and route constants
-import React, {lazy, Suspense, useEffect} from 'react';
+import React, {lazy, Suspense} from 'react';
 import {Navigate, useParams} from 'react-router-dom';
 import {TeamGameProvider} from '@app/providers/TeamGameProvider';
 import {VideoSettingsProvider} from '@shared/providers/VideoSettingsProvider';

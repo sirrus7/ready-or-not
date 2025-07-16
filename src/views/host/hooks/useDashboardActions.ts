@@ -20,7 +20,7 @@ interface CategorizedGames {
 interface UseDashboardActionsReturn {
     notification: NotificationState | null;
     isDeleteModalOpen: boolean;
-    gameToDelete: { id: string; name: string; type: 'draft' | 'active' | 'completed'} | null;
+    gameToDelete: { id: string; name: string; type: 'draft' | 'active' | 'completed' } | null;
     isDeleting: boolean;
     deleteError: string | null;
     handleGameSelect: (sessionId: string, gameType: 'draft' | 'active' | 'completed') => void;
@@ -32,14 +32,10 @@ interface UseDashboardActionsReturn {
     closeDeleteModal: () => void;
 }
 
-export const useDashboardActions = (
-    games: CategorizedGames,
-    refetchGames: () => Promise<CategorizedGames | null>
-): UseDashboardActionsReturn => {
+export const useDashboardActions = (refetchGames: () => Promise<CategorizedGames | null>): UseDashboardActionsReturn => {
     const {signOut} = useAuth();
     const navigate = useNavigate();
     const {deleteSession} = useGameSessionManagement();
-
     const [notification, setNotification] = useState<NotificationState | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [gameToDelete, setGameToDelete] = useState<{
@@ -58,10 +54,9 @@ export const useDashboardActions = (
             return deleteSession(gameId);
         },
         {
-            onSuccess: (_, gameId) => {
-                const allGames = [...games.draft, ...games.active, ...games.completed];
-                const deletedGame = allGames.find(g => g.id === gameId);
-                const gameType = gameToDelete?.type === 'draft' ? 'draft' : 'active';
+            onSuccess: (_result) => {
+                const deletedGame = gameToDelete;
+                const gameType = deletedGame?.type === 'draft' ? 'draft' : 'active';
 
                 setNotification({
                     type: 'success',
