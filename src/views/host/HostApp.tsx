@@ -345,7 +345,7 @@ const HostApp: React.FC = () => {
                         <div className="absolute inset-0 flex items-center justify-center">
                             <div className="w-full h-full">
                                 <SlideRenderer slide={currentSlideData} sessionId={currentSessionId} isHost={true}
-                                               onVideoEnd={handleVideoEnd}/>
+                                               onVideoEnd={handleVideoEnd} gameVersion={gameVersion}/>
                             </div>
                         </div>
                         {currentSlideData && (

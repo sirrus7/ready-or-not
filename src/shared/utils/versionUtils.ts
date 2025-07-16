@@ -21,3 +21,19 @@ export function shouldAutoAdvance(gameVersion: string, slideAutoAdvance?: boolea
     // For all other versions, use the slide's auto-advance setting
     return slideAutoAdvance;
 }
+
+/**
+ * Determines if videos should autoplay based on game version
+ * 
+ * @param gameVersion - The game version (e.g., "1.5", "2.0")
+ * @returns true if videos should autoplay when ready, false otherwise
+ */
+export function shouldAutoplayVideos(gameVersion: string): boolean {
+    // For version 1.5, disable autoplay
+    if (gameVersion === '1.5') {
+        return false;
+    }
+    
+    // For all other versions, enable autoplay
+    return true;
+}

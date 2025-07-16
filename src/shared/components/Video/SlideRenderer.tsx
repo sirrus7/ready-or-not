@@ -11,6 +11,7 @@ import {useSignedMediaUrl} from '@shared/hooks/useSignedMediaUrl';
 import DoubleDownDiceDisplay from '@shared/components/DoubleDownDice/DoubleDownDiceDisplay';
 import {getInvestmentBySlideId} from '@core/content/DoubleDownMapping';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
+import {shouldAutoplayVideos} from '@shared/utils/versionUtils';
 
 interface SlideRendererProps {
     slide: Slide | null;
@@ -20,6 +21,8 @@ interface SlideRendererProps {
     teams?: Team[];
     teamRoundData?: Record<string, Record<number, TeamRoundData>>;
     teamDecisions?: TeamDecision[];
+    gameVersion?: string;
+    videoControlsRef?: React.MutableRefObject<{ pause: () => Promise<void> } | null>;
 }
 
 const SlideContent: React.FC<{
@@ -114,9 +117,12 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          onVideoEnd,
                                                          teams,
                                                          teamRoundData,
-                                                         teamDecisions
+                                                         teamDecisions,
+                                                         gameVersion = '2.0',
+                                                         videoControlsRef
                                                      }) => {
     const [videoError, setVideoError] = useState(false);
+    const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
 
     // Use the hook to get the signed URL for the current slide's media
     const {url: sourceUrl, isLoading: isUrlLoading, error: urlError} = useSignedMediaUrl(slide?.source_path);
@@ -139,9 +145,80 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     // Use the same logic as before to select active video
     const activeVideo = isHost ? hostVideo : presentationVideo;
 
+    // Expose host video pause function via ref
+    useEffect(() => {
+        if (videoControlsRef && isHost && hostVideo) {
+            videoControlsRef.current = {
+                pause: hostVideo.pause
+            };
+        }
+    }, [videoControlsRef, isHost, hostVideo]);
+
+    // Reset states when slide changes
     useEffect(() => {
         setVideoError(false);
+        setHasAutoPlayed(false);
     }, [slide?.id]);
+
+    // Autoplay logic for host when both videos are ready
+    useEffect(() => {
+        if (!isHost || !hostVideo || !isVideoSlide || !sourceUrl) {
+            return;
+        }
+        
+        // Check if autoplay is enabled based on game version
+        const shouldAutoplay = shouldAutoplayVideos(gameVersion);
+        if (!shouldAutoplay) {
+            console.log('[SlideRenderer] Autoplay disabled by game version', { gameVersion });
+            return;
+        }
+        
+        // For autoplay, we need to check if videos are ready
+        const isHostReady = hostVideo.isVideoReady;
+        const isPresentationReady = hostVideo.isPresentationReady;
+        const isConnectedToPresentation = hostVideo.isConnectedToPresentation;
+        
+        // If presentation is connected, both videos must be ready
+        // If presentation is not connected, only host needs to be ready
+        const isReadyToPlay = isConnectedToPresentation 
+            ? (isHostReady && isPresentationReady)
+            : isHostReady;
+        
+        // Only log when state changes to ready
+        if (isReadyToPlay && !hasAutoPlayed) {
+            console.log('[SlideRenderer] Ready to autoplay', {
+                slideId: slide?.id,
+                isHostReady,
+                isPresentationReady,
+                isConnectedToPresentation
+            });
+        }
+        
+        if (isReadyToPlay && !hasAutoPlayed) {
+            console.log('[SlideRenderer] Triggering autoplay');
+            setHasAutoPlayed(true);
+            
+            hostVideo.play().then(() => {
+                console.log('[SlideRenderer] Autoplay successful');
+            }).catch(err => {
+                console.error('[SlideRenderer] Autoplay failed:', err);
+                // Don't reset hasAutoPlayed - we tried once, that's enough
+                // This prevents infinite retry loops when browser blocks autoplay
+            });
+        }
+    }, [
+        isHost, 
+        hostVideo, 
+        isVideoSlide, 
+        hasAutoPlayed, 
+        gameVersion, 
+        slide?.id, 
+        sourceUrl,
+        // Add the actual state values as dependencies to trigger when they change
+        hostVideo?.isVideoReady,
+        hostVideo?.isPresentationReady,
+        hostVideo?.isConnectedToPresentation
+    ]);
 
     if (!slide) {
         return (

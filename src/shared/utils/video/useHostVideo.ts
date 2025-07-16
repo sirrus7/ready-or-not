@@ -1,8 +1,7 @@
-// Simplified host video hook
-import { useCallback, useEffect, useRef } from 'react';
+// Host video hook wrapper
+import { useCallback } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
-import { useSimpleVideoSync } from './useSimpleVideoSync';
-import { hostVideoLogger } from './videoLogger';
+import { useHostVideoSync } from './useHostVideoSync';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -24,6 +23,8 @@ interface UseHostVideoReturn {
     isConnectedToPresentation: boolean;
     presentationMuted: boolean;
     presentationVolume: number;
+    isVideoReady: boolean;
+    isPresentationReady: boolean;
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
 }
 
@@ -34,11 +35,10 @@ interface UseHostVideoProps {
 }
 
 export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoProps): UseHostVideoReturn => {
-    // Use the simplified sync hook
-    const { videoRef, state, controls, audioTarget } = useSimpleVideoSync({
-        sessionId,
-        sourceUrl,
-        isEnabled
+    // Use the new host video sync hook
+    const { videoRef, state, play: playVideo, pause: pauseVideo, seek, setVolume, toggleMute } = useHostVideoSync({
+        sessionId: isEnabled ? sessionId : null,
+        sourceUrl: isEnabled ? sourceUrl : null
     });
     
     // Use Chrome/Supabase optimizations
@@ -47,38 +47,40 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     // Wrapped control functions that handle the time parameter
     const play = useCallback(async (time?: number) => {
         if (time !== undefined) {
-            await controls.seek(time);
+            await seek(time);
         }
-        await controls.play();
-    }, [controls]);
+        await playVideo();
+    }, [playVideo, seek]);
     
     const pause = useCallback(async (time?: number) => {
         if (time !== undefined) {
-            await controls.seek(time);
+            await seek(time);
         }
-        await controls.pause();
-    }, [controls]);
+        await pauseVideo();
+    }, [pauseVideo, seek]);
     
     // Create video props
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
         return createVideoProps({
             videoRef,
-            muted: audioTarget === 'presentation', // Host muted when presentation is active
+            muted: state.presentationConnected, // Host muted when presentation is active
             onVideoEnd,
             onError
         });
-    }, [videoRef, audioTarget]);
+    }, [videoRef, state.presentationConnected]);
     
     return {
         videoRef,
         play,
         pause,
-        seek: controls.seek,
-        setVolume: controls.setVolume,
-        toggleMute: controls.toggleMute,
+        seek,
+        setVolume,
+        toggleMute,
         isConnectedToPresentation: state.presentationConnected,
         presentationMuted: state.isMuted,
         presentationVolume: state.volume,
+        isVideoReady: state.hostReady,
+        isPresentationReady: state.presentationReady,
         getVideoProps
     };
 };
