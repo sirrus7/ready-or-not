@@ -22,7 +22,7 @@ interface SlideRendererProps {
     teamRoundData?: Record<string, Record<number, TeamRoundData>>;
     teamDecisions?: TeamDecision[];
     gameVersion?: string;
-    videoControlsRef?: React.MutableRefObject<{ pause: () => Promise<void> } | null>;
+    onVideoPauseAvailable?: (pauseFn: () => void) => void;
 }
 
 const SlideContent: React.FC<{
@@ -119,7 +119,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          teamRoundData,
                                                          teamDecisions,
                                                          gameVersion = '2.0',
-                                                         videoControlsRef
+                                                         onVideoPauseAvailable
                                                      }) => {
     const [videoError, setVideoError] = useState(false);
     const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
@@ -145,14 +145,12 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     // Use the same logic as before to select active video
     const activeVideo = isHost ? hostVideo : presentationVideo;
 
-    // Expose host video pause function via ref
+    // Provide pause function to parent when available
     useEffect(() => {
-        if (videoControlsRef && isHost && hostVideo) {
-            videoControlsRef.current = {
-                pause: hostVideo.pause
-            };
+        if (onVideoPauseAvailable && isHost && hostVideo) {
+            onVideoPauseAvailable(() => hostVideo.pause());
         }
-    }, [videoControlsRef, isHost, hostVideo]);
+    }, [onVideoPauseAvailable, isHost, hostVideo]);
 
     // Reset states when slide changes
     useEffect(() => {

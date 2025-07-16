@@ -1,215 +1,91 @@
-// Presentation-specific video sync hook - receives commands and plays video
-import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
+// usePresentationVideoSync.ts - Handles presentation-side video sync
+import { useEffect, useMemo } from 'react';
 import { SimpleBroadcastManager } from '@core/sync/SimpleBroadcastManager';
-import { HostCommand } from '@core/sync/types';
 import { videoSyncLogger } from './videoLogger';
-
-interface PresentationVideoState {
-    isPlaying: boolean;
-    currentTime: number;
-    duration: number;
-    volume: number;
-    isMuted: boolean;
-    isReady: boolean;
-    isConnected: boolean;
-}
+import { UsePresentationVideoPlaybackReturn } from './usePresentationVideoPlayback';
 
 interface UsePresentationVideoSyncProps {
     sessionId: string | null;
-    sourceUrl: string | null;
+    playback: UsePresentationVideoPlaybackReturn;
 }
 
 interface UsePresentationVideoSyncReturn {
-    videoRef: React.RefObject<HTMLVideoElement>;
-    state: PresentationVideoState;
+    // Presentation sync is mostly passive, receiving commands
 }
 
-export const usePresentationVideoSync = ({ sessionId, sourceUrl }: UsePresentationVideoSyncProps): UsePresentationVideoSyncReturn => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    
-    const [state, setState] = useState<PresentationVideoState>({
-        isPlaying: false,
-        currentTime: 0,
-        duration: 0,
-        volume: 1,
-        isMuted: false,
-        isReady: false,
-        isConnected: false
-    });
-    
+export const usePresentationVideoSync = ({ 
+    sessionId, 
+    playback 
+}: UsePresentationVideoSyncProps): UsePresentationVideoSyncReturn => {
     // Broadcast manager for presentation
     const broadcastManager = useMemo(() => {
         if (!sessionId) return null;
         return SimpleBroadcastManager.getInstance(sessionId, 'presentation');
     }, [sessionId]);
     
-    // Monitor connection status
+    // Report video ready status to host
     useEffect(() => {
         if (!broadcastManager) return;
         
-        let connectionTimeout: NodeJS.Timeout;
-        let connected = false;
+        // Report ready status when it changes
+        broadcastManager.reportVideoReady(playback.state.isReady);
         
-        const resetTimeout = () => {
-            clearTimeout(connectionTimeout);
-            connectionTimeout = setTimeout(() => {
-                if (connected) {
-                    connected = false;
-                    setState(prev => ({ ...prev, isConnected: false }));
-                }
-            }, 3000);
-            
-            if (!connected) {
-                connected = true;
-                setState(prev => ({ ...prev, isConnected: true }));
-            }
-        };
-        
-        // Any command indicates we're connected
-        const unsubscribe = broadcastManager.onHostCommand(() => {
-            resetTimeout();
-        });
-        
-        resetTimeout();
-        
-        // Send periodic status updates
-        const interval = setInterval(() => {
-            if (broadcastManager) {
-                const video = videoRef.current;
-                const videoLoaded = video ? video.readyState >= 3 : false;
-                broadcastManager.sendPresentationStatus(videoLoaded);
-            }
-        }, 1000);
-        
-        return () => {
-            clearTimeout(connectionTimeout);
-            clearInterval(interval);
-            unsubscribe();
-        };
-    }, [broadcastManager]);
-    
-    // Setup video element
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video || !sourceUrl) return;
-        
-        if (video.src !== sourceUrl) {
-            videoSyncLogger.log('Loading new video source', { data: { sourceUrl } });
-            
-            video.src = sourceUrl;
-            video.load();
-            video.volume = state.volume;
-            video.muted = state.isMuted;
-            
-            setState(prev => ({ 
-                ...prev,
-                isReady: false,
-                currentTime: 0,
-                duration: 0,
-                isPlaying: false
-            }));
-            
-            videoSyncLogger.log('Applied volume settings to new video', { 
-                data: { volume: state.volume, muted: state.isMuted }
-            });
-        }
-        
-        // Event handlers
-        const handleCanPlay = () => {
-            setState(prev => ({ ...prev, isReady: true }));
-            videoSyncLogger.log('Video can play, sending ready status');
-        };
-        
-        const handleTimeUpdate = () => setState(prev => ({ 
-            ...prev,
-            currentTime: video.currentTime,
-            duration: video.duration || 0
-        }));
-        
-        const handlePlay = () => setState(prev => ({ ...prev, isPlaying: true }));
-        const handlePause = () => setState(prev => ({ ...prev, isPlaying: false }));
-        
-        video.addEventListener('canplay', handleCanPlay);
-        video.addEventListener('timeupdate', handleTimeUpdate);
-        video.addEventListener('play', handlePlay);
-        video.addEventListener('pause', handlePause);
-        
-        return () => {
-            video.removeEventListener('canplay', handleCanPlay);
-            video.removeEventListener('timeupdate', handleTimeUpdate);
-            video.removeEventListener('play', handlePlay);
-            video.removeEventListener('pause', handlePause);
-        };
-    }, [sourceUrl, state.volume, state.isMuted]);
+    }, [broadcastManager, playback.state.isReady]);
     
     // Listen for commands from host
     useEffect(() => {
         if (!broadcastManager) return;
         
-        const unsubscribe = broadcastManager.onHostCommand((command: HostCommand) => {
-            const video = videoRef.current;
-            if (!video) return;
+        const unsubscribe = broadcastManager.onVideoCommand(async (command, data) => {
+            videoSyncLogger.log('[Presentation] Received command', { command, data });
             
-            videoSyncLogger.log(`Received command: ${command.action}`, {
-                data: {
-                    hasVideo: !!video,
-                    isReady: video.readyState >= 3
-                }
-            });
-            
-            switch (command.action) {
+            switch (command) {
                 case 'play':
-                    if (command.data?.time !== undefined) {
-                        video.currentTime = command.data.time;
+                    await playback.play(data?.time);
+                    if (data?.volume !== undefined || data?.muted !== undefined) {
+                        playback.setVolume(data.volume ?? 1, data.muted ?? false);
                     }
-                    video.play().catch(err => {
-                        videoSyncLogger.error('Play failed', { data: { error: err } });
-                    });
                     break;
                     
                 case 'pause':
-                    video.pause();
-                    if (command.data?.time !== undefined) {
-                        video.currentTime = command.data.time;
+                    await playback.pause();
+                    if (data?.time !== undefined) {
+                        await playback.seek(data.time);
                     }
                     break;
                     
                 case 'seek':
-                    if (command.data?.time !== undefined) {
-                        video.currentTime = command.data.time;
-                    }
-                    break;
-                    
-                case 'sync':
-                    if (command.data?.time !== undefined) {
-                        const timeDiff = Math.abs(video.currentTime - command.data.time);
-                        if (timeDiff > 0.5) {
-                            video.currentTime = command.data.time;
-                        }
-                    }
+                    await playback.seek(data?.time ?? 0);
                     break;
                     
                 case 'volume':
-                    if (command.data?.volume !== undefined) {
-                        video.volume = command.data.volume;
-                        setState(prev => ({ ...prev, volume: command.data.volume }));
-                    }
-                    if (command.data?.muted !== undefined) {
-                        video.muted = command.data.muted;
-                        setState(prev => ({ ...prev, isMuted: command.data.muted }));
+                    playback.setVolume(data?.volume ?? 1, data?.muted);
+                    break;
+                    
+                case 'sync':
+                    // Sync current time if we're too far off
+                    const video = playback.videoRef.current;
+                    if (video && data?.time !== undefined) {
+                        const drift = Math.abs(video.currentTime - data.time);
+                        if (drift > 0.5) { // More than 0.5 seconds drift
+                            videoSyncLogger.log('[Presentation] Syncing time', { 
+                                data: { 
+                                    hostTime: data.time, 
+                                    ourTime: video.currentTime, 
+                                    drift 
+                                } 
+                            });
+                            await playback.seek(data.time);
+                        }
                     }
                     break;
             }
-            
-            // Acknowledge command
-            broadcastManager.sendAck(command.id);
         });
         
         return unsubscribe;
-    }, [broadcastManager]);
+    }, [broadcastManager, playback]);
     
     return {
-        videoRef,
-        state
+        // Presentation sync is mostly passive
     };
 };

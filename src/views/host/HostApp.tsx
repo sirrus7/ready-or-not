@@ -1,11 +1,11 @@
 // src/views/host/HostApp.tsx - REFACTOR: Final, stable layout fix
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useRef, useCallback} from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
 import {AlertCircle, ChevronLeft, ChevronRight} from 'lucide-react';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
-import PresentationButton from '@views/host/components/GameControls/PresentationButton';
-import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
+import PresentationButton, {PresentationConnectionStatus} from '@views/host/components/GameControls/PresentationButton';
+import {SimpleBroadcastManager, ConnectionStatus} from '@core/sync/SimpleBroadcastManager';
 import {SimpleRealtimeManager} from "@core/sync";
 import {ChallengeOption, GameStructure, InvestmentOption, Slide} from "@shared/types";
 import {shouldAutoAdvance} from '@shared/utils/versionUtils';
@@ -81,10 +81,58 @@ const HostApp: React.FC = () => {
     const {currentSessionId, gameStructure, current_slide_index} = state;
 
     const [previousSlideData, setPreviousSlideData] = useState<Slide | null>(null);
+    const [presentationStatus, setPresentationStatus] = useState<PresentationConnectionStatus>('disconnected');
+    const presentationTabRef = useRef<Window | null>(null);
+    
+    // Store a reference to pause video function when SlideRenderer provides it
+    const pauseVideoCallback = useRef<(() => void) | null>(null);
 
     useEffect(() => {
         document.title = "Ready or Not - Host";
     }, []);
+
+    // Monitor presentation connection status
+    useEffect(() => {
+        if (!currentSessionId || currentSessionId === 'new') return;
+        
+        const broadcastManager = SimpleBroadcastManager.getInstance(currentSessionId, 'host');
+        
+        return broadcastManager.onPresentationStatus((status: ConnectionStatus) => {
+            setPresentationStatus(status as PresentationConnectionStatus);
+        });
+    }, [currentSessionId]);
+
+    // Handle presentation button click
+    const handleOpenPresentation = useCallback(() => {
+        if (!currentSessionId) {
+            alert("No active session. Please create or select a game first.");
+            return;
+        }
+
+        // Pause video if playing
+        if (pauseVideoCallback.current) {
+            pauseVideoCallback.current();
+        }
+
+        const url = `/display/${currentSessionId}`;
+        const newTab = window.open(url, '_blank');
+
+        if (newTab) {
+            presentationTabRef.current = newTab;
+            setPresentationStatus('connecting');
+            
+            // Monitor tab closure
+            const checkInterval = setInterval(() => {
+                if (presentationTabRef.current?.closed) {
+                    setPresentationStatus('disconnected');
+                    presentationTabRef.current = null;
+                    clearInterval(checkInterval);
+                }
+            }, 500);
+        } else {
+            alert("Failed to open presentation display. Please ensure pop-ups are allowed for this site.");
+        }
+    }, [currentSessionId]);
 
     useEffect(() => {
         if (!currentSessionId || currentSessionId === 'new') return;
@@ -344,13 +392,24 @@ const HostApp: React.FC = () => {
                     <div className="flex-grow relative w-full bg-black rounded-t-lg overflow-hidden">
                         <div className="absolute inset-0 flex items-center justify-center">
                             <div className="w-full h-full">
-                                <SlideRenderer slide={currentSlideData} sessionId={currentSessionId} isHost={true}
-                                               onVideoEnd={handleVideoEnd} gameVersion={gameVersion}/>
+                                <SlideRenderer 
+                                    slide={currentSlideData} 
+                                    sessionId={currentSessionId} 
+                                    isHost={true}
+                                    onVideoEnd={handleVideoEnd} 
+                                    gameVersion={gameVersion}
+                                    onVideoPauseAvailable={(pauseFn) => {
+                                        pauseVideoCallback.current = pauseFn;
+                                    }}
+                                />
                             </div>
                         </div>
                         {currentSlideData && (
                             <div className="absolute top-3 right-3 z-50 w-48">
-                                <PresentationButton/>
+                                <PresentationButton
+                                    connectionStatus={presentationStatus}
+                                    onOpenPresentation={handleOpenPresentation}
+                                />
                             </div>
                         )}
                     </div>

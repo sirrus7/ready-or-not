@@ -1,48 +1,38 @@
-// Host-specific video sync hook - manages host video and coordinates with presentation
-import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
+// useHostVideoSync.ts - Handles synchronization between host and presentation videos
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { SimpleBroadcastManager } from '@core/sync/SimpleBroadcastManager';
 import { videoSyncLogger } from './videoLogger';
+import { UseHostVideoPlaybackReturn } from './useHostVideoPlayback';
 
-interface HostVideoState {
-    isPlaying: boolean;
-    currentTime: number;
-    duration: number;
-    volume: number;
-    isMuted: boolean;
-    hostReady: boolean;
-    presentationReady: boolean;
+interface VideoSyncState {
     presentationConnected: boolean;
-    presentationShouldBeConnected: boolean;
+    presentationReady: boolean;
 }
 
 interface UseHostVideoSyncProps {
     sessionId: string | null;
-    sourceUrl: string | null;
+    playback: UseHostVideoPlaybackReturn;
+    onPresentationConnect?: () => void;
+    onPresentationDisconnect?: () => void;
+    pauseOnPresentationConnect?: boolean;
 }
 
 interface UseHostVideoSyncReturn {
-    videoRef: React.RefObject<HTMLVideoElement>;
-    state: HostVideoState;
-    play: () => Promise<void>;
-    pause: () => Promise<void>;
-    seek: (time: number) => Promise<void>;
-    setVolume: (volume: number) => void;
-    toggleMute: () => void;
+    state: VideoSyncState;
+    canPlay: boolean; // Whether both videos are ready to play
+    sendCommand: (action: string, data?: any) => void;
 }
 
-export const useHostVideoSync = ({ sessionId, sourceUrl }: UseHostVideoSyncProps): UseHostVideoSyncReturn => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    
-    const [state, setState] = useState<HostVideoState>({
-        isPlaying: false,
-        currentTime: 0,
-        duration: 0,
-        volume: 1,
-        isMuted: false,
-        hostReady: false,
-        presentationReady: false,
+export const useHostVideoSync = ({ 
+    sessionId, 
+    playback,
+    onPresentationConnect,
+    onPresentationDisconnect,
+    pauseOnPresentationConnect = true
+}: UseHostVideoSyncProps): UseHostVideoSyncReturn => {
+    const [state, setState] = useState<VideoSyncState>({
         presentationConnected: false,
-        presentationShouldBeConnected: false
+        presentationReady: false
     });
     
     // Broadcast manager for host
@@ -67,34 +57,17 @@ export const useHostVideoSync = ({ sessionId, sourceUrl }: UseHostVideoSyncProps
         
         const unsubStatus = broadcastManager.onPresentationStatus((status) => {
             const connected = status === 'connected';
-            videoSyncLogger.log('Presentation status changed', { 
-                data: { 
-                    status, 
-                    connected,
-                    timestamp: new Date().toISOString()
-                } 
-            });
+            videoSyncLogger.log('Presentation status changed', { data: { status, connected } });
             
             if (!connected) {
                 if (!disconnectTimeout) {
                     disconnectTimeout = setTimeout(() => {
-                        setState(prev => {
-                            // Only pause if presentation SHOULD be connected but isn't
-                            if (prev.presentationShouldBeConnected) {
-                                const video = videoRef.current;
-                                if (video && !video.paused) {
-                                    videoSyncLogger.log('Pausing video - presentation disconnected after timeout', { 
-                                        data: { 
-                                            currentTime: video.currentTime,
-                                            timestamp: new Date().toISOString(),
-                                            shouldBeConnected: true
-                                        } 
-                                    });
-                                    video.pause();
-                                }
-                            }
-                            return { ...prev, presentationConnected: false, presentationReady: false };
-                        });
+                        setState(prev => ({ 
+                            ...prev, 
+                            presentationConnected: false, 
+                            presentationReady: false 
+                        }));
+                        onPresentationDisconnect?.();
                     }, 1000);
                 }
             } else {
@@ -102,23 +75,14 @@ export const useHostVideoSync = ({ sessionId, sourceUrl }: UseHostVideoSyncProps
                     clearTimeout(disconnectTimeout);
                     disconnectTimeout = null;
                 }
-                setState(prev => ({ 
-                    ...prev, 
-                    presentationConnected: true,
-                    presentationShouldBeConnected: true  // Mark that presentation should stay connected
-                }));
+                setState(prev => ({ ...prev, presentationConnected: true }));
                 
-                // Pause when presentation first connects (to sync both videos)
-                const video = videoRef.current;
-                if (video && !video.paused) {
-                    videoSyncLogger.log('Pausing video - presentation connected', { 
-                        data: { 
-                            currentTime: video.currentTime,
-                            timestamp: new Date().toISOString()
-                        } 
-                    });
-                    video.pause();
+                // Pause video if requested
+                if (pauseOnPresentationConnect && playback.state.isPlaying) {
+                    playback.pause();
                 }
+                
+                onPresentationConnect?.();
             }
         });
         
@@ -132,200 +96,72 @@ export const useHostVideoSync = ({ sessionId, sourceUrl }: UseHostVideoSyncProps
             unsubReady();
             if (disconnectTimeout) clearTimeout(disconnectTimeout);
         };
-    }, [broadcastManager]);
+    }, [broadcastManager, onPresentationConnect, onPresentationDisconnect]);
     
-    // Setup video element
+    // Sync video commands with presentation
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video || !sourceUrl) return;
+        if (!state.presentationConnected) return;
         
-        if (video.src !== sourceUrl) {
-            videoSyncLogger.log('Loading new source', { data: { sourceUrl } });
-            
-            // Pause current playback
-            if (!video.paused) {
-                video.pause();
-                if (state.presentationConnected) {
-                    sendCommand('pause', { time: 0 });
-                }
-            }
-            
-            video.src = sourceUrl;
-            video.load();
-            
-            // Reset ready states
-            setState(prev => ({ 
-                ...prev,
-                hostReady: false, 
-                presentationReady: false,
-                currentTime: 0,
-                duration: 0,
-                isPlaying: false
-            }));
-        }
-        
-        // Event handlers
-        const handleCanPlay = () => setState(prev => ({ ...prev, hostReady: true }));
-        const handleTimeUpdate = () => setState(prev => ({ 
-            ...prev,
-            currentTime: video.currentTime,
-            duration: video.duration || 0
-        }));
+        // When host plays, tell presentation to play
         const handlePlay = () => {
-            videoSyncLogger.log('Video play event', { 
-                data: { 
-                    currentTime: video.currentTime,
-                    timestamp: new Date().toISOString(),
-                    readyState: video.readyState,
-                    paused: video.paused
-                } 
-            });
-            setState(prev => ({ ...prev, isPlaying: true }));
-        };
-        const handlePause = () => {
-            videoSyncLogger.log('Video pause event', { 
-                data: { 
-                    currentTime: video.currentTime,
-                    timestamp: new Date().toISOString(),
-                    readyState: video.readyState,
-                    stack: new Error().stack
-                } 
-            });
-            setState(prev => ({ ...prev, isPlaying: false }));
-        };
-        const handleEnded = () => {
-            videoSyncLogger.log('Video ended event', { 
-                data: { 
-                    currentTime: video.currentTime, 
-                    duration: video.duration,
-                    timestamp: new Date().toISOString()
-                } 
-            });
-        };
-        
-        video.addEventListener('canplay', handleCanPlay);
-        video.addEventListener('timeupdate', handleTimeUpdate);
-        video.addEventListener('play', handlePlay);
-        video.addEventListener('pause', handlePause);
-        video.addEventListener('ended', handleEnded);
-        
-        return () => {
-            video.removeEventListener('canplay', handleCanPlay);
-            video.removeEventListener('timeupdate', handleTimeUpdate);
-            video.removeEventListener('play', handlePlay);
-            video.removeEventListener('pause', handlePause);
-        };
-    }, [sourceUrl, state.presentationConnected, sendCommand]);
-    
-    // Apply audio routing - host muted when presentation connected
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-        
-        // Only mute host if presentation is actually connected (not just should be)
-        video.muted = state.presentationConnected;
-        if (!state.presentationConnected) {
-            video.volume = state.volume;
-        }
-    }, [state.presentationConnected, state.volume]);
-    
-    // Control functions
-    const play = useCallback(async () => {
-        const video = videoRef.current;
-        if (!video || !state.hostReady) return;
-        
-        // Only wait for presentation if it should be connected
-        if (state.presentationShouldBeConnected && state.presentationConnected && !state.presentationReady) {
-            videoSyncLogger.warn('Waiting for presentation to be ready');
-            return;
-        }
-        
-        videoSyncLogger.log('Calling video.play()', { 
-            data: { 
-                timestamp: new Date().toISOString(),
-                currentTime: video.currentTime,
-                paused: video.paused
-            } 
-        });
-        
-        await video.play();
-        
-        if (state.presentationConnected) {
             sendCommand('play', {
-                time: video.currentTime,
-                volume: state.volume,
-                muted: state.isMuted
+                time: playback.state.currentTime,
+                volume: playback.state.volume,
+                muted: playback.state.isMuted
             });
-        }
-    }, [state, sendCommand]);
-    
-    const pause = useCallback(async () => {
-        const video = videoRef.current;
-        if (!video) return;
+        };
         
-        video.pause();
+        // When host pauses, tell presentation to pause
+        const handlePause = () => {
+            sendCommand('pause', { time: playback.state.currentTime });
+        };
         
-        if (state.presentationConnected) {
-            sendCommand('pause', { time: video.currentTime });
-        }
-    }, [state.presentationConnected, sendCommand]);
-    
-    const seek = useCallback(async (time: number) => {
-        const video = videoRef.current;
-        if (!video) return;
+        // When host seeks, tell presentation to seek
+        const handleSeek = () => {
+            sendCommand('seek', { time: playback.state.currentTime });
+        };
         
-        video.currentTime = time;
-        
-        if (state.presentationConnected) {
-            sendCommand('seek', { time });
-        }
-    }, [state.presentationConnected, sendCommand]);
-    
-    const setVolume = useCallback((volume: number) => {
-        setState(prev => ({ ...prev, volume }));
-        
-        const video = videoRef.current;
-        if (video && !state.presentationConnected) {
-            video.volume = volume;
-        }
-        
-        if (state.presentationConnected) {
-            sendCommand('volume', { volume });
-        }
-    }, [state.presentationConnected, sendCommand]);
-    
-    const toggleMute = useCallback(() => {
-        setState(prev => ({ ...prev, isMuted: !prev.isMuted }));
-        
-        if (state.presentationConnected) {
+        // When host volume changes, tell presentation
+        const handleVolumeChange = () => {
             sendCommand('volume', { 
-                volume: state.volume, 
-                muted: !state.isMuted 
+                volume: playback.state.volume,
+                muted: playback.state.isMuted 
             });
+        };
+        
+        // React to playback state changes
+        if (playback.state.isPlaying) {
+            handlePlay();
         }
-    }, [state.presentationConnected, state.volume, state.isMuted, sendCommand]);
+        
+    }, [
+        state.presentationConnected, 
+        playback.state.isPlaying,
+        playback.state.currentTime,
+        playback.state.volume,
+        playback.state.isMuted,
+        sendCommand
+    ]);
     
-    // Sync loop
+    // Sync loop - keep videos in sync while playing
     useEffect(() => {
-        if (!state.isPlaying || !state.presentationConnected) return;
+        if (!playback.state.isPlaying || !state.presentationConnected) return;
         
         const interval = setInterval(() => {
-            const video = videoRef.current;
-            if (video && !video.paused) {
-                sendCommand('sync', { time: video.currentTime });
-            }
+            sendCommand('sync', { time: playback.state.currentTime });
         }, 1000);
         
         return () => clearInterval(interval);
-    }, [state.isPlaying, state.presentationConnected, sendCommand]);
+    }, [playback.state.isPlaying, playback.state.currentTime, state.presentationConnected, sendCommand]);
+    
+    // Calculate if we can play (both videos ready or just host if no presentation)
+    const canPlay = state.presentationConnected 
+        ? (playback.state.isReady && state.presentationReady)
+        : playback.state.isReady;
     
     return {
-        videoRef,
         state,
-        play,
-        pause,
-        seek,
-        setVolume,
-        toggleMute
+        canPlay,
+        sendCommand
     };
 };
