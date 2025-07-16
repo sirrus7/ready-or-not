@@ -1,6 +1,13 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+/**
+ * SSO Provider - React Context and Authentication Hooks
+ * Ready-or-Not SSO Authentication Context
+ *
+ * File: src/components/auth/SSOProvider.tsx
+ */
+
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { ssoService, SSOUser, ValidationResponse } from '../../services/sso-service';
-import { SessionStorageManager } from './SessionStorageManager';
+import { SessionStorageManager, getClientIP, getBrowserInfo } from './SessionStorageManager';
 
 // =====================================================
 // INTERFACES AND TYPES
@@ -56,6 +63,73 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [session, setSession] = useState<SSOSession | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const initializationStarted = useRef(false);
+    const sessionExtensionTimer = useRef<NodeJS.Timeout | null>(null);
+
+    // =====================================================
+    // INITIALIZATION EFFECT
+    // =====================================================
+
+    useEffect(() => {
+        if (!initializationStarted.current) {
+            initializationStarted.current = true;
+            initializeSSO();
+        }
+
+        return () => {
+            if (sessionExtensionTimer.current) {
+                clearInterval(sessionExtensionTimer.current);
+            }
+        };
+    }, []);
+
+    // =====================================================
+    // INITIALIZATION FUNCTION
+    // =====================================================
+
+    const initializeSSO = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            // Ensure initialization is always async to maintain loading state
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            // First, check for URL token
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToken = urlParams.get('sso_token');
+
+            if (urlToken) {
+                const result = await login(urlToken);
+                if (result.valid) {
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // If no URL token, try to validate saved session
+            const savedSession = SessionStorageManager.loadSession();
+            if (savedSession) {
+                const validation = await ssoService.validateLocalSession(savedSession.session_id);
+                if (validation.valid && validation.user && validation.session) {
+                    setUser(validation.user);
+                    setSession(validation.session);
+                    setupSessionRefresh();
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // No valid session found
+            setUser(null);
+            setSession(null);
+            setIsLoading(false);
+        } catch (err) {
+            console.error('SSO initialization error:', err);
+            setError('Failed to initialize authentication');
+            setIsLoading(false);
+        }
+    }, []);
 
     // =====================================================
     // AUTH ACTIONS
@@ -89,53 +163,69 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Save session to localStorage
                 SessionStorageManager.saveSession(result.session.session_id, result.user);
 
+                // Set up session refresh
+                setupSessionRefresh();
+
                 // Clear URL token
                 if (window.history && window.location.search.includes('sso_token')) {
                     window.history.replaceState({}, '', window.location.pathname);
                 }
+
+                setIsLoading(false);
             } else {
-                setError(result.message || 'Authentication failed');
+                setError(result.message || 'Failed to authenticate');
+                setIsLoading(false);
             }
 
             return result;
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+            const errorMessage = err instanceof Error ? err.message : 'Network error';
             setError(errorMessage);
+            setIsLoading(false);
+
             return {
                 valid: false,
                 error: 'authentication_error',
                 message: errorMessage
             };
-        } finally {
-            setIsLoading(false);
         }
     }, []);
 
-    const logout = useCallback(async (): Promise<void> => {
+    const logout = useCallback(async () => {
         try {
+            setIsLoading(true);
+
+            // Clear session refresh timer
+            if (sessionExtensionTimer.current) {
+                clearInterval(sessionExtensionTimer.current);
+                sessionExtensionTimer.current = null;
+            }
+
+            // Clean up session on server
             if (session) {
                 await ssoService.cleanupSession(session.session_id, 'User logout');
             }
 
+            // Clear local storage
             SessionStorageManager.clearSession();
+
+            // Clear state
             setUser(null);
             setSession(null);
             setError(null);
+            setIsLoading(false);
         } catch (err) {
             console.error('Logout error:', err);
             setError('Failed to logout');
+            setIsLoading(false);
         }
     }, [session]);
 
-    const refreshSession = useCallback(async (): Promise<void> => {
+    const refreshSession = useCallback(async () => {
         try {
-            setIsLoading(true);
-            setError(null);
-
-            // First, try to validate any saved session
-            const saved = SessionStorageManager.loadSession();
-            if (saved) {
-                const validation = await ssoService.validateLocalSession(saved.session_id);
+            const savedSession = SessionStorageManager.loadSession();
+            if (savedSession) {
+                const validation = await ssoService.validateLocalSession(savedSession.session_id);
                 if (validation.valid && validation.user && validation.session) {
                     setUser(validation.user);
                     setSession(validation.session);
@@ -143,39 +233,31 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // If no saved session, try to authenticate from URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('sso_token');
-
-            if (token) {
-                await login(token);
-                return;
-            }
-
-            // No valid authentication found
-            setUser(null);
-            setSession(null);
+            // If validation fails, logout
+            await logout();
         } catch (err) {
             console.error('Session refresh error:', err);
-            setError('Failed to refresh session');
-        } finally {
-            setIsLoading(false);
+            await logout();
         }
-    }, [login]);
+    }, [logout]);
 
     const extendSession = useCallback(async (hours: number = 8): Promise<{ success: boolean; error?: string }> => {
         try {
-            if (!session) return { success: false, error: 'No session to extend' };
+            if (!session) {
+                return { success: false, error: 'No active session' };
+            }
 
             const result = await ssoService.extendLocalSession(session.session_id, hours);
-            if (result.valid && result.session) {
+
+            if (result.success && result.session) {
                 setSession(result.session);
                 return { success: true };
             }
-            return { success: false, error: 'Failed to extend session' };
+
+            return { success: false, error: result.error || 'Failed to extend session' };
         } catch (err) {
-            console.error('Session extension error:', err);
-            return { success: false, error: 'Session extension failed' };
+            const errorMessage = err instanceof Error ? err.message : 'Failed to extend session';
+            return { success: false, error: errorMessage };
         }
     }, [session]);
 
@@ -183,7 +265,7 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // PERMISSION HELPERS
     // =====================================================
 
-    const hasPermission = useCallback((requiredRole: 'super_admin' | 'org_admin' | 'host') => {
+    const hasPermission = useCallback((requiredRole: 'super_admin' | 'org_admin' | 'host'): boolean => {
         if (!user) return false;
 
         const roleHierarchy = ['host', 'org_admin', 'super_admin'];
@@ -193,10 +275,14 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return userRoleIndex >= requiredRoleIndex;
     }, [user]);
 
-    const hasGameAccess = useCallback((gameName: string) => {
-        if (!user) return false;
+    const hasGameAccess = useCallback((gameName: string): boolean => {
+        if (!user || !user.games) return false;
         return user.games.some(game => game.name === gameName);
     }, [user]);
+
+    // =====================================================
+    // SESSION MANAGEMENT
+    // =====================================================
 
     const getSessionInfo = useCallback(() => {
         return SessionStorageManager.getSessionInfo();
@@ -206,59 +292,39 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setError(null);
     }, []);
 
+    const setupSessionRefresh = useCallback(() => {
+        if (sessionExtensionTimer.current) {
+            clearInterval(sessionExtensionTimer.current);
+        }
+
+        // Set up automatic session extension every 30 minutes
+        sessionExtensionTimer.current = setInterval(() => {
+            extendSession(8);
+        }, 30 * 60 * 1000);
+    }, [extendSession]);
+
     // =====================================================
-    // INITIALIZATION
+    // COMPUTED VALUES
     // =====================================================
 
-    useEffect(() => {
-        // Only run refresh on mount, not on every render
-        refreshSession();
-    }, []); // Empty dependency array
-
-    // =====================================================
-    // AUTOMATIC SESSION EXTENSION
-    // =====================================================
-
-    useEffect(() => {
-        if (!session || !user) return;
-
-        const intervalId = setInterval(async () => {
-            const expiryTime = new Date(session.expires_at).getTime();
-            const currentTime = Date.now();
-            const timeUntilExpiry = expiryTime - currentTime;
-
-            // If session expires in less than 2 hours, extend it
-            if (timeUntilExpiry < 2 * 60 * 60 * 1000) {
-                await extendSession(8);
-            }
-        }, 30 * 60 * 1000); // Check every 30 minutes
-
-        return () => clearInterval(intervalId);
-    }, [session, user, extendSession]);
+    const isAuthenticated = user !== null && session !== null;
 
     // =====================================================
     // CONTEXT VALUE
     // =====================================================
 
     const contextValue: SSOContextType = {
-        // Auth State
         user,
         session,
-        isAuthenticated: !!user,
+        isAuthenticated,
         isLoading,
         error,
-
-        // Auth Actions
         login,
         logout,
         refreshSession,
         extendSession,
-
-        // Permission Helpers
         hasPermission,
         hasGameAccess,
-
-        // Session Management
         getSessionInfo,
         clearError
     };
@@ -271,7 +337,7 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 // =====================================================
-// CUSTOM HOOK
+// HOOK
 // =====================================================
 
 export const useSSO = (): SSOContextType => {
@@ -281,31 +347,3 @@ export const useSSO = (): SSOContextType => {
     }
     return context;
 };
-
-// =====================================================
-// UTILITY FUNCTIONS
-// =====================================================
-
-// Get client IP address (best effort)
-async function getClientIP(): Promise<string | null> {
-    try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip || null;
-    } catch (error) {
-        console.error('Failed to get client IP:', error);
-        return null;
-    }
-}
-
-// Get browser information
-function getBrowserInfo(): string {
-    const userAgent = navigator.userAgent;
-    if (userAgent.includes('Chrome')) return 'Chrome';
-    if (userAgent.includes('Firefox')) return 'Firefox';
-    if (userAgent.includes('Safari')) return 'Safari';
-    if (userAgent.includes('Edge')) return 'Edge';
-    return 'Unknown';
-}
-
-export default SSOProvider;
