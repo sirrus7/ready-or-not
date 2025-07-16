@@ -3,7 +3,7 @@ import React, {useState, useEffect, useCallback, useRef, useMemo} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
 import {GameSessionManager} from '@core/game/GameSessionManager';
-import {GameSession, NewGameData, TeamConfig} from '@shared/types';
+import {NewGameData, TeamConfig} from '@shared/types';
 import {
     FinalizeStep,
     GameDetailsStep,
