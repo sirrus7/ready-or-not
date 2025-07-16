@@ -1,11 +1,9 @@
-// src/routing/Router.tsx - Extracted routing logic from App.tsx
+// src/routing/Router.tsx - RESTORED your original routes, only removed conflicting /game route
 import React, {Suspense} from 'react';
 import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import {AuthProvider} from '@app/providers/AuthProvider';
 import {GameProvider} from '@app/providers/GameProvider';
 import {TeamGameProvider} from '@app/providers/TeamGameProvider';
-import {VideoSettingsProvider} from '@shared/providers/VideoSettingsProvider';
-import AuthGuard from '@routing/guards/AuthGuard';
 import {
     HostApp,
     DashboardPage,
@@ -21,121 +19,110 @@ import {
     DisplayWrapper
 } from '@routing/routes';
 
-const Router: React.FC = () => {
+const Router: React.FC = React.memo(() => {
     return (
         <BrowserRouter>
-            <Routes>
-                {/* ============================================================ */}
-                {/* PUBLIC ROUTES (No Authentication Required) */}
-                {/* ============================================================ */}
+            {/* ✅ SINGLE AuthProvider for entire application */}
+            <AuthProvider>
+                <Routes>
+                    {/* ============================================================ */}
+                    {/* PUBLIC ROUTES (No Authentication Required) */}
+                    {/* ============================================================ */}
 
-                {/* Team Join Routes - Public access with graceful auth handling */}
-                <Route path="/team/:sessionId" element={
-                    <AuthProvider>
-                        <VideoSettingsProvider>
+                    {/* Login Route */}
+                    <Route
+                        path="/login"
+                        element={
+                            <Suspense fallback={<RouteLoadingFallback message="Loading login..."/>}>
+                                <LoginPage/>
+                            </Suspense>
+                        }
+                    />
+
+                    {/* Team Join Routes - Public access */}
+                    <Route
+                        path="/team/:sessionId"
+                        element={
                             <TeamGameProvider>
                                 <Suspense fallback={<TeamLoadingFallback/>}>
                                     <TeamApp/>
                                 </Suspense>
                             </TeamGameProvider>
-                        </VideoSettingsProvider>
-                    </AuthProvider>
-                }/>
+                        }
+                    />
 
-                {/* Display/Presentation Routes - Graceful auth handling */}
-                <Route path="/display/:sessionId" element={<DisplayWrapper/>}/>
+                    {/* Display Routes - Public access */}
+                    <Route
+                        path="/display/:sessionId"
+                        element={<DisplayWrapper/>}
+                    />
 
-                {/* ============================================================ */}
-                {/* AUTHENTICATED ROUTES (Require Login) */}
-                {/* ============================================================ */}
+                    {/* ============================================================ */}
+                    {/* PROTECTED ROUTES (Authentication Required) */}
+                    {/* ============================================================ */}
 
-                {/* Login Page - Static import since it's small and needed quickly */}
-                <Route path="/login" element={
-                    <AuthProvider>
-                        <LoginPage/>
-                    </AuthProvider>
-                }/>
+                    {/* Dashboard - Protected */}
+                    <Route
+                        path="/dashboard"
+                        element={
+                            <AuthenticatedPage>
+                                <Suspense fallback={<DashboardLoadingFallback/>}>
+                                    <DashboardPage/>
+                                </Suspense>
+                            </AuthenticatedPage>
+                        }
+                    />
 
-                {/* Protected Routes with Full Authentication */}
-                <Route path="/*" element={
-                    <AuthProvider>
-                        <Routes>
-                            {/* Dashboard - Lazy loaded */}
-                            <Route path="/dashboard" element={
-                                <AuthenticatedPage>
-                                    <Suspense fallback={<DashboardLoadingFallback/>}>
-                                        <DashboardPage/>
+                    {/* Create Game - Protected */}
+                    <Route
+                        path="/create"
+                        element={
+                            <AuthenticatedPage>
+                                <Suspense fallback={<GameLoadingFallback/>}>
+                                    <CreateGamePage/>
+                                </Suspense>
+                            </AuthenticatedPage>
+                        }
+                    />
+
+                    {/* ✅ RESTORED: Your original Host Game route */}
+                    <Route
+                        path="/host/:sessionId/*"
+                        element={
+                            <AuthenticatedPage>
+                                <GameProvider>
+                                    <Suspense fallback={<GameLoadingFallback/>}>
+                                        <HostApp/>
                                     </Suspense>
-                                </AuthenticatedPage>
-                            }/>
+                                </GameProvider>
+                            </AuthenticatedPage>
+                        }
+                    />
 
-                            {/* Create Game Wizard - Lazy loaded */}
-                            <Route path="/create" element={
-                                <AuthenticatedPage>
-                                    <Suspense fallback={<RouteLoadingFallback message="Loading Game Creator..."/>}>
-                                        <CreateGamePage/>
+                    {/* ✅ RESTORED: Your original Game Results route */}
+                    <Route
+                        path="/results/:sessionId"
+                        element={
+                            <AuthenticatedPage>
+                                <GameProvider>
+                                    <Suspense fallback={<GameLoadingFallback/>}>
+                                        <GameResultsPage/>
                                     </Suspense>
-                                </AuthenticatedPage>
-                            }/>
+                                </GameProvider>
+                            </AuthenticatedPage>
+                        }
+                    />
 
-                            {/* Game Results Route */}
-                            <Route path="/game-results/:sessionId" element={
-                                <AuthenticatedPage>
-                                    <VideoSettingsProvider>
-                                        <GameProvider>
-                                            <Suspense fallback={<RouteLoadingFallback message="Loading Results..."/>}>
-                                                <GameResultsPage/>
-                                            </Suspense>
-                                        </GameProvider>
-                                    </VideoSettingsProvider>
-                                </AuthenticatedPage>
-                            }/>
+                    {/* Root redirect */}
+                    <Route path="/" element={<Navigate to="/dashboard" replace/>}/>
 
-                            {/* Game Management Route (existing game session) */}
-                            <Route path="/game/:sessionId" element={
-                                <AuthenticatedPage>
-                                    <VideoSettingsProvider>
-                                        <GameProvider>
-                                            <Suspense fallback={<GameLoadingFallback/>}>
-                                                <HostApp/>
-                                            </Suspense>
-                                        </GameProvider>
-                                    </VideoSettingsProvider>
-                                </AuthenticatedPage>
-                            }/>
-
-                            {/* New Game Route (creates draft session) */}
-                            <Route path="/game" element={
-                                <AuthenticatedPage>
-                                    <VideoSettingsProvider>
-                                        <GameProvider>
-                                            <Suspense fallback={<GameLoadingFallback/>}>
-                                                <HostApp/>
-                                            </Suspense>
-                                        </GameProvider>
-                                    </VideoSettingsProvider>
-                                </AuthenticatedPage>
-                            }/>
-
-                            {/* Default authenticated route */}
-                            <Route path="/" element={
-                                <AuthGuard>
-                                    <Navigate to="/dashboard" replace/>
-                                </AuthGuard>
-                            }/>
-
-                            {/* Fallback for any other authenticated paths */}
-                            <Route path="*" element={
-                                <AuthGuard>
-                                    <Navigate to="/dashboard" replace/>
-                                </AuthGuard>
-                            }/>
-                        </Routes>
-                    </AuthProvider>
-                }/>
-            </Routes>
+                    {/* 404 catch-all */}
+                    <Route path="*" element={<Navigate to="/dashboard" replace/>}/>
+                </Routes>
+            </AuthProvider>
         </BrowserRouter>
     );
-};
+});
 
+Router.displayName = 'Router';
 export default Router;

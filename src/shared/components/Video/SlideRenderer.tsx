@@ -12,7 +12,7 @@ import DoubleDownDiceDisplay from '@shared/components/DoubleDownDice/DoubleDownD
 import {getInvestmentBySlideId} from '@core/content/DoubleDownMapping';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
-interface SlideRendererProps {
+export interface SlideRendererProps {
     slide: Slide | null;
     sessionId?: string | null;
     isHost: boolean;

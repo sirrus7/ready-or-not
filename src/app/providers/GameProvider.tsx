@@ -1,7 +1,7 @@
 // src/app/providers/GameProvider.tsx
 // UPDATED: Now provides permanent adjustments globally from centralized system
 
-import React, {createContext, useContext, useCallback} from 'react';
+import React, {createContext, useContext, useCallback, useMemo, useRef} from 'react';
 import {useParams} from 'react-router-dom';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {useGameController} from '@core/game/useGameController';
@@ -61,14 +61,11 @@ export const useGameContext = (): GameContextType => {
     return context;
 };
 
-export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(({children}) => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const {user, loading: authLoading} = useAuth();
     const gameStructure: GameStructure = readyOrNotGame_2_0_DD;
-
     const {session, updateSessionInDb} = useSessionManager(sessionId, user, authLoading, gameStructure);
-
-    // Initialize team data management - NOW INCLUDES PERMANENT ADJUSTMENTS
     const teamDataManager = useTeamDataManager(session?.id || null);
     const {
         teams,
@@ -118,57 +115,93 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({children}
                 interactiveDataKey
             );
 
-            console.log(`[GameProvider] ✅ Reset decision for team ${teamId}: ${interactiveDataKey}`);
         } catch (error) {
             console.error('GameProvider: Error resetting team decision:', error);
             throw error;
         }
     }, [session?.id, teamDataManager]);
 
-    // Construct the app state - FIXED: gameController returns individual properties, not a state object
-    const appState: AppState = {
-        currentSessionId: session?.id || null,
+    const gameControllerRef = useRef(gameController);
+    const gameProcessingRef = useRef(gameProcessing);
+    const resetTeamDecisionRef = useRef(resetTeamDecision);
+
+    gameControllerRef.current = gameController;
+    gameProcessingRef.current = gameProcessing;
+    resetTeamDecisionRef.current = resetTeamDecision;
+
+    const currentSessionId = session?.id || null;
+    const sessionIsPlaying = session?.is_playing ?? false;
+
+    const appState: AppState = useMemo(() => {
+        return {
+            currentSessionId: currentSessionId,
+            gameStructure,
+            current_slide_index: gameController.currentSlideIndex,
+            hostNotes: {[gameController.currentSlideIndex || 0]: gameController.hostNotes},
+            isPlaying: sessionIsPlaying,
+            teams: teamDataManager.teams,
+            teamDecisions: teamDataManager.teamDecisions,
+            teamRoundData: teamDataManager.teamRoundData,
+            isPlayerWindowOpen: false,
+            isLoading: teamDataManager.isLoadingTeams ||
+                teamDataManager.isLoadingDecisions ||
+                teamDataManager.isLoadingRoundData ||
+                teamDataManager.isLoadingAdjustments,
+            error: teamDataManager.error,
+            currentHostAlert: gameController.currentHostAlert,
+        };
+    }, [
+        currentSessionId,
+        sessionIsPlaying,
+        gameController.currentSlideIndex,  // ← Add this missing dependency!
+        gameController.hostNotes,          // ← Add this too since it's used
+        gameController.currentHostAlert,   // ← And this
+        teamDataManager.teams,
+        teamDataManager.teamDecisions,
+        teamDataManager.teamRoundData,
+        teamDataManager.isLoadingTeams,
+        teamDataManager.isLoadingDecisions,
+        teamDataManager.isLoadingRoundData,
+        teamDataManager.isLoadingAdjustments,
+        teamDataManager.error,
         gameStructure,
-        current_slide_index: gameController.currentSlideIndex,
-        hostNotes: {[gameController.currentSlideIndex || 0]: gameController.hostNotes}, // Convert to Record format
-        isPlaying: session?.is_playing ?? false,
-        teams,
-        teamDecisions,
-        teamRoundData,
-        isPlayerWindowOpen: false,
-        isLoading: teamDataManager.isLoadingTeams ||
-            teamDataManager.isLoadingDecisions ||
-            teamDataManager.isLoadingRoundData ||
-            teamDataManager.isLoadingAdjustments, // ADDED: Include adjustment loading
-        error: teamDataManager.error,
-        currentHostAlert: gameController.currentHostAlert,
-    };
+    ]);
 
-    // Context value with all game functionality - FIXED: Use gameController properties directly
-    const contextValue: GameContextType = {
-        state: appState,
-        currentSlideData: gameController.currentSlideData,
-        gameVersion: session?.game_version || '2.0', // ADDED: Default to 2.0 if no version
-        nextSlide: gameController.nextSlide,
-        previousSlide: gameController.previousSlide,
-        selectSlideByIndex: gameController.selectSlideByIndex,
-        processPayoffSlide: gameProcessing.processPayoffSlide,
-        processConsequenceSlide: gameProcessing.processConsequenceSlide,
-        calculateAndFinalizeRoundKPIs: gameProcessing.calculateAndFinalizeRoundKPIs,
-        resetGameProgress: gameProcessing.resetGameProgress,
-        resetTeamDecision,
-        updateHostNotesForCurrentSlide: gameController.updateHostNotesForCurrentSlide,
-        setAllTeamsSubmittedCurrentInteractivePhase: gameController.setAllTeamsSubmittedCurrentInteractivePhase,
-        allTeamsSubmittedCurrentInteractivePhase: gameController.allTeamsSubmitted,
-        setCurrentHostAlertState: gameController.setCurrentHostAlertState,
-        clearHostAlert: gameController.clearHostAlert, // ADDED: Missing method
-        permanentAdjustments, // Now available globally
-        isLoadingAdjustments   // Loading state for adjustments
-    };
+    const contextValue: GameContextType = useMemo(() => {
+        return {
+            state: appState,
+            currentSlideData: gameControllerRef.current.currentSlideData,
+            gameVersion: session?.game_version || '2.0',
+            nextSlide: gameControllerRef.current.nextSlide,
+            previousSlide: gameControllerRef.current.previousSlide,
+            selectSlideByIndex: gameControllerRef.current.selectSlideByIndex,
+            processPayoffSlide: gameProcessingRef.current.processPayoffSlide,
+            processConsequenceSlide: gameProcessingRef.current.processConsequenceSlide,
+            calculateAndFinalizeRoundKPIs: gameProcessingRef.current.calculateAndFinalizeRoundKPIs,
+            resetGameProgress: gameProcessingRef.current.resetGameProgress,
+            resetTeamDecision: resetTeamDecisionRef.current,
+            updateHostNotesForCurrentSlide: gameControllerRef.current.updateHostNotesForCurrentSlide,
+            setAllTeamsSubmittedCurrentInteractivePhase: gameControllerRef.current.setAllTeamsSubmittedCurrentInteractivePhase,
+            allTeamsSubmittedCurrentInteractivePhase: gameControllerRef.current.allTeamsSubmitted,
+            setCurrentHostAlertState: gameControllerRef.current.setCurrentHostAlertState,
+            clearHostAlert: gameControllerRef.current.clearHostAlert,
+            permanentAdjustments,
+            isLoadingAdjustments
+        };
+    }, [
+        appState,
+        session?.game_version,
+        permanentAdjustments,
+        isLoadingAdjustments
+        // Removed all function dependencies since we're using refs
+    ]);
 
+    // Use the memoized contextValue instead of creating inline
     return (
         <GameContext.Provider value={contextValue}>
             {children}
         </GameContext.Provider>
     );
-};
+}, () => {
+    return true; // Always consider props equal = never re-render
+});

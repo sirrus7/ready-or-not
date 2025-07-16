@@ -275,7 +275,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                     db.decisions.deleteBySession(currentDbSession.id),
                     db.kpis.deleteBySession(currentDbSession.id),
                     db.adjustments.deleteBySession(currentDbSession.id),
-                    db.consequenceApplications.deleteBySession(currentDbSession.id),
                     db.payoffApplications.deleteBySession(currentDbSession.id), // NEW: Clean up payoff applications
                 ]);
 
@@ -295,16 +294,25 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         }
     );
 
-    return {
-        processInteractiveSlide,        // ✅ Simplified inline implementation
-        processConsequenceSlide,        // ✅ Uses UnifiedEffectsProcessor (real logic)
-        processPayoffSlide,             // ✅ NEW: Slide-specific payoff processing
+    return useMemo(() => ({
+        processInteractiveSlide,
+        processConsequenceSlide,
+        processPayoffSlide,
         processKpiResetSlide,
         calculateAndFinalizeRoundKPIs: calculateKPIsExecute,
         resetGameProgress: resetGameProgressExecute,
         isLoadingProcessingDecisions: false,
-        isLoadingProcessingPayoffs: false, // Keep for backward compatibility
+        isLoadingProcessingPayoffs: false,
         isLoadingCalculatingKPIs: isCalculatingKPIs,
         isLoadingResettingGame: isResettingGame,
-    };
+    }), [
+        processInteractiveSlide,
+        processConsequenceSlide,
+        processPayoffSlide,
+        processKpiResetSlide,
+        calculateKPIsExecute,
+        resetGameProgressExecute,
+        isCalculatingKPIs,
+        isResettingGame,
+    ]);
 };

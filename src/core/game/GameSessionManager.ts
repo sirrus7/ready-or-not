@@ -2,7 +2,6 @@
 import {GameSession, GameSessionInsert, GameStructure, NewGameData, TeamRoundData} from '@shared/types';
 import {db, formatSupabaseError} from '@shared/services/supabase';
 import {ScoringEngine} from './ScoringEngine';
-import {SimpleRealtimeManager} from "@core/sync";
 
 export class GameSessionManager {
     private static instance: GameSessionManager;
@@ -97,7 +96,7 @@ export class GameSessionManager {
                     );
 
                     // Create temporary object with id for financial metrics calculation
-                    const kpiWithId = { ...baselineKpis, id: 'temp' } as TeamRoundData;
+                    const kpiWithId = {...baselineKpis, id: 'temp'} as TeamRoundData;
                     const financialMetrics = ScoringEngine.calculateFinancialMetrics(kpiWithId);
 
                     // Insert initial KPI data into database
@@ -165,8 +164,6 @@ export class GameSessionManager {
         hostId: string,
         fullGameStructure: GameStructure
     ): Promise<GameSession> {
-        console.log("[GameSessionManager] Attempting to create new session...");
-
         const firstSlide = fullGameStructure.slides[0];
         if (!firstSlide) {
             throw new Error("Game structure is missing slides, cannot create session.");
@@ -239,17 +236,16 @@ export class GameSessionManager {
 
     async deleteSession(sessionId: string): Promise<void> {
         try {
-            // NEW: Broadcast session deletion
-            try {
-                const realtimeManager = SimpleRealtimeManager.getInstance(sessionId, 'host');
-                realtimeManager.sendGameEnded();
-            } catch (broadcastError) {
-                console.warn('[GameSessionManager] Failed to broadcast session deletion:', broadcastError);
-            }
-
+            // Skip loading session first - just try to delete directly
             await db.sessions.delete(sessionId);
         } catch (error) {
-            throw new Error(`Failed to delete session: ${formatSupabaseError(error)}`);
+            // Session might not exist - that's fine for deletion
+            const errorMessage = formatSupabaseError(error);
+            if (errorMessage.includes('No data found') || errorMessage.includes('not found')) {
+                // Session already deleted - this is fine
+                return;
+            }
+            throw new Error(`Failed to delete session: ${errorMessage}`);
         }
     }
 
@@ -267,8 +263,9 @@ export class GameSessionManager {
 
     async validateSession(sessionId: string): Promise<boolean> {
         try {
-            await this.loadSession(sessionId);
-            return true;
+            // Try a lightweight check instead of full load
+            const result = await db.sessions.getById(sessionId);
+            return !!result;
         } catch {
             return false;
         }

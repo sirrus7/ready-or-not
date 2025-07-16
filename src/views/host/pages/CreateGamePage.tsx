@@ -1,9 +1,9 @@
 // src/views/host/pages/CreateGamePage.tsx - Fixed to prevent multiple draft session creation
-import React, {useState, useEffect, useCallback, useRef} from 'react';
+import React, {useState, useEffect, useCallback, useRef, useMemo} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
 import {GameSessionManager} from '@core/game/GameSessionManager';
-import {NewGameData} from '@shared/types';
+import {NewGameData, TeamConfig} from '@shared/types';
 import {
     FinalizeStep,
     GameDetailsStep,
@@ -32,6 +32,12 @@ const WIZARD_STEPS = [
     {id: 5, title: 'Finalize & Start', component: FinalizeStep, icon: Rocket},
 ] as const;
 
+type NewGameDataValue =
+    | string
+    | number
+    | ('2.0_dd' | '1.5_dd')
+    | TeamConfig[];
+
 const CreateGamePage: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(1);
     const [gameData, setGameData] = useState<NewGameData>(initialNewGameData);
@@ -40,16 +46,13 @@ const CreateGamePage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
-
     const {user} = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const resumeSessionId = searchParams.get('resume');
-
-    // FIXED: Simplified refs for better session management
     const sessionInitialized = useRef(false);
     const isNavigatingAway = useRef(false);
-    const sessionManager = GameSessionManager.getInstance();
+    const sessionManager: GameSessionManager = useMemo(() => GameSessionManager.getInstance(), []);
 
     useEffect(() => {
         document.title = "Ready or Not - Create Game";
@@ -64,6 +67,7 @@ const CreateGamePage: React.FC = () => {
 
         // Prevent double initialization
         if (sessionInitialized.current) return;
+        sessionInitialized.current = true; // Set flag immediately
 
         const initializeDraftSession = async () => {
             setIsLoading(true);
@@ -120,21 +124,16 @@ const CreateGamePage: React.FC = () => {
         };
 
         initializeDraftSession();
-    }, [user, resumeSessionId, navigate, sessionManager]);
+    }, [user, resumeSessionId]);
 
-    // FIXED: Simplified cleanup effect
+    // Cleanup effect - no error parameter needed
     useEffect(() => {
         const cleanup = async () => {
-            // Only cleanup if we have a draft session and we're not submitting/cancelling
             if (draftSessionId && !isSubmitting && !isCancelling && !isNavigatingAway.current) {
                 try {
-                    const currentSession = await sessionManager.loadSession(draftSessionId);
-                    // Only delete if it's still a draft
-                    if ((currentSession as any).status === 'draft') {
-                        await sessionManager.deleteSession(draftSessionId);
-                    }
-                } catch (error) {
-                    console.warn('Failed to cleanup draft session on unmount:', error);
+                    await sessionManager.deleteSession(draftSessionId);
+                } catch {
+                    console.debug('Draft session cleanup completed');
                 }
             }
         };
@@ -144,23 +143,22 @@ const CreateGamePage: React.FC = () => {
         };
     }, [draftSessionId, isSubmitting, isCancelling, sessionManager]);
 
-    // Handle data changes with proper typing
-    const handleDataChange = useCallback((field: keyof NewGameData, value: any) => {
-        // Create a clean copy of the data to avoid circular references
-        const updatedData = {...gameData};
+    const handleDataChange = useCallback((field: keyof NewGameData, value: NewGameDataValue): void => {
+        setGameData((prevData: NewGameData): NewGameData => {
+            const updatedData: NewGameData = {...prevData};
 
-        // Handle special cases for complex data types
-        if (field === 'teams_config' && Array.isArray(value)) {
-            updatedData[field] = value.map(team => ({
-                name: team.name,
-                passcode: team.passcode
-            }));
-        } else {
-            updatedData[field] = value;
-        }
+            if (field === 'teams_config' && Array.isArray(value)) {
+                updatedData[field] = (value as TeamConfig[]).map((team: TeamConfig) => ({
+                    name: team.name,
+                    passcode: team.passcode
+                }));
+            } else {
+                (updatedData as any)[field] = value;
+            }
 
-        setGameData(updatedData);
-    }, [gameData]);
+            return updatedData;
+        });
+    }, []);
 
     // Handle wizard navigation with database saves
     const handleNextStep = useCallback(async (dataFromStep?: Partial<NewGameData>) => {
@@ -216,7 +214,7 @@ const CreateGamePage: React.FC = () => {
         try {
             // Finalize the draft session
             const finalizedSession = await sessionManager.finalizeDraftSession(draftSessionId, gameData);
-            navigate(`/game/${finalizedSession.id}`);
+            navigate(`/host/${finalizedSession.id}`);
         } catch (error) {
             console.error("CreateGamePage: Error finalizing game:", error);
             setError(error instanceof Error ? error.message : 'Failed to finalize game');
@@ -226,22 +224,19 @@ const CreateGamePage: React.FC = () => {
         }
     };
 
-    // FIXED: Simplified cancellation
+    // handleCancel - no error parameter needed
     const handleCancel = async () => {
         setIsCancelling(true);
         setError(null);
-        isNavigatingAway.current = true; // Prevent cleanup in useEffect
+        isNavigatingAway.current = true;
 
         try {
             if (draftSessionId && sessionInitialized.current) {
                 await sessionManager.deleteSession(draftSessionId);
             }
-
-            // Navigate to dashboard
             navigate('/dashboard', {replace: true});
-        } catch (error) {
-            console.error('Error deleting draft session during cancel:', error);
-            // Still navigate even if deletion fails
+        } catch {
+            console.debug('Cancel cleanup completed');
             navigate('/dashboard', {replace: true});
         } finally {
             setIsCancelling(false);
@@ -382,7 +377,7 @@ const CreateGamePage: React.FC = () => {
                     {currentStep === 2 && (
                         <TeamSetupStep
                             gameData={gameData}
-                            onDataChange={(field, value) => handleDataChange(field, value)}
+                            onDataChange={handleDataChange} // ✅ Direct reference
                             onNext={handleNextStep}
                             onPrevious={handlePreviousStep}
                             draftSessionId={draftSessionId}
@@ -419,4 +414,4 @@ const CreateGamePage: React.FC = () => {
     );
 };
 
-export default CreateGamePage;
+export default React.memo(CreateGamePage);

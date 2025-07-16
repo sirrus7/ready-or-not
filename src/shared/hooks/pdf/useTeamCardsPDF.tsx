@@ -1,43 +1,21 @@
-import React, { createContext, useContext, useCallback, useState } from 'react';
-import { generateTeamCardsPDF } from '../pdf';
-import type { TeamConfig, TeamCardAssets, PDFConfig } from '../pdf';
+// =====================================================================================
+// src/shared/hooks/pdf/useTeamCardsPDF.tsx - Optimized PDFProvider
+// =====================================================================================
+import React, {createContext, useContext, useCallback, useState, useMemo, useEffect} from 'react';
+import {generateTeamCardsPDF} from './generate-team-cards';
+import type {TeamConfig, TeamCardAssets, PDFConfig} from './types';
 
-// ============================================
-// PDF Type Registry & Type Mappings
-// ============================================
+// PDF Types and Context (existing types)
+type PDFType = 'teamCards';
 
-// Available PDF types
-type PDFType = 'teamCards'; // | 'invoice' | 'report' (future)
-
-// Type mappings for each PDF type
-interface PDFTypeMap {
+type PDFTypeMap = {
     teamCards: {
         teams: TeamConfig[];
         assets?: TeamCardAssets;
         config?: Partial<PDFConfig>;
         debug: boolean;
     };
-    // Future types:
-    // invoice: {
-    //   invoice: InvoiceData;
-    //   assets?: InvoiceAssets;
-    //   config?: InvoiceConfig;
-    // };
-    // report: {
-    //   report: ReportData;
-    //   assets?: ReportAssets;
-    //   config?: ReportConfig;
-    // };
-}
-
-// Generator functions for each PDF type
-type PDFGeneratorMap = {
-    [K in PDFType]: (data: PDFTypeMap[K]) => Promise<void>;
 };
-
-// ============================================
-// PDF Generation Context
-// ============================================
 
 interface BasePDFState {
     isGenerating: boolean;
@@ -56,11 +34,15 @@ interface PDFGenerationContextValue extends BasePDFState {
 
 const PDFGenerationContext = createContext<PDFGenerationContextValue | null>(null);
 
-// ============================================
-// PDF Provider
-// ============================================
+// ✅ OPTIMIZED: Memoized PDFProvider
+export const PDFGenerationProvider: React.FC<{ children: React.ReactNode }> = React.memo(({children}) => {
+    useEffect(() => {
+        console.log('🏗️ [PDFPROVIDER] COMPONENT MOUNTED');
+        return () => console.log('💀 [PDFPROVIDER] COMPONENT UNMOUNTED');
+    }, []);
 
-export const PDFGenerationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    console.log('🔍 [PDFPROVIDER] Component re-rendering');
+
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -68,29 +50,20 @@ export const PDFGenerationProvider: React.FC<{ children: React.ReactNode }> = ({
         setError(null);
     }, []);
 
-    // PDF generators registry
-    const generators: PDFGeneratorMap = {
-        teamCards: async ({ teams, assets = {}, config, debug }) => {
-            await generateTeamCardsPDF(teams, assets, config, debug);
-        },
-        // Future generators:
-        // invoice: async ({ invoice, assets, config }) => {
-        //   await generateInvoicePDF(invoice, assets, config);
-        // },
-        // report: async ({ report, assets, config }) => {
-        //   await generateReportPDF(report, assets, config);
-        // },
-    };
-
+    // ✅ Stable generator functions
     const generatePDF = useCallback(async <T extends PDFType>(
         type: T,
-        data: PDFTypeMap[T]
+        data: PDFTypeMap[T],
+        debug: boolean = false
     ) => {
         setIsGenerating(true);
         setError(null);
         try {
-            const generator = generators[type];
-            await generator(data);
+            if (type === 'teamCards') {
+                const {teams, assets = {}, config} = data as PDFTypeMap['teamCards'];
+                await generateTeamCardsPDF(teams, assets, config, debug);
+            }
+            // Future PDF types can be added here
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : `Failed to generate ${type} PDF`;
             setError(errorMessage);
@@ -100,35 +73,35 @@ export const PDFGenerationProvider: React.FC<{ children: React.ReactNode }> = ({
         }
     }, []);
 
-    const value: PDFGenerationContextValue = {
+    // ✅ Memoized context value
+    const value: PDFGenerationContextValue = useMemo(() => ({
         generatePDF,
         isGenerating,
         error,
         clearError
-    };
+    }), [generatePDF, isGenerating, error, clearError]);
 
     return (
         <PDFGenerationContext.Provider value={value}>
             {children}
         </PDFGenerationContext.Provider>
     );
-};
+});
 
-// ============================================
-// Typed Hook for Specific PDF Types
-// ============================================
+PDFGenerationProvider.displayName = 'PDFGenerationProvider';
 
-export function usePDFGeneration<T extends PDFType>(type: T, debug: boolean): PDFGenerationContextType<T> {
+// ✅ Optimized hook
+export function usePDFGeneration<T extends PDFType>(type: T, debug: boolean = false): PDFGenerationContextType<T> {
     const context = useContext(PDFGenerationContext);
     if (!context) {
         throw new Error('usePDFGeneration must be used within PDFGenerationProvider');
     }
 
-    const { generatePDF: baseGeneratePDF, isGenerating, error, clearError } = context;
+    const {generatePDF: baseGeneratePDF, isGenerating, error, clearError} = context;
 
     const generatePDF = useCallback(
         (data: PDFTypeMap[T]) => baseGeneratePDF(type, data, debug),
-        [baseGeneratePDF, type]
+        [baseGeneratePDF, type, debug]
     );
 
     return {
@@ -138,9 +111,3 @@ export function usePDFGeneration<T extends PDFType>(type: T, debug: boolean): PD
         clearError
     };
 }
-
-// ============================================
-// Type Exports for Consumers
-// ============================================
-
-export type { PDFType, PDFTypeMap };
