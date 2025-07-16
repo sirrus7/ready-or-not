@@ -2,7 +2,7 @@
 // Enhanced version with KPI update broadcasting support
 
 import {Slide} from '@shared/types/game';
-import {HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, VideoReadyMessage} from './types';
+import {HostCommand, SlideUpdate, PresentationPong, JoinInfoMessage} from './types';
 import {SyncAction, Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
@@ -49,15 +49,22 @@ export class SimpleBroadcastManager {
 
     // Connection tracking
     private connectionStatus: ConnectionStatus = 'disconnected';
-    private pingInterval: NodeJS.Timeout | null = null;
-    private lastPong: number = 0;
+    private hostPingInterval: NodeJS.Timeout | null = null;
+    private presentationPong: number = 0;
     private statusCallbacks: Set<(status: ConnectionStatus) => void> = new Set();
 
     // Message handlers
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
     private slideHandlers: Set<SlideHandler> = new Set();
     private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
-    private videoReadyHandlers: Set<(ready: boolean) => void> = new Set();
+    private hostPingHandlers: Set<() => void> = new Set();
+    
+    // Track video ready status from presentation pongs
+    private lastVideoReadyStatus: boolean = false;
+    private videoReadyCallbacks: Set<(ready: boolean) => void> = new Set();
+    
+    // Track last sent video ready state for presentation
+    private lastSentVideoReady: boolean = false;
 
     // Track if this instance has been destroyed
     private isDestroyed: boolean = false;
@@ -68,7 +75,7 @@ export class SimpleBroadcastManager {
         this.channel = new BroadcastChannel(`game-session-${sessionId}`);
         console.log(`[SimpleBroadcastManager-${mode}] Created new instance for session ${sessionId}, initial status: ${this.connectionStatus}`);
         this.setupMessageHandling();
-        this.startPingPong();
+        this.startHostPing();
     }
 
     static getInstance(sessionId: string, mode: 'host' | 'presentation'): SimpleBroadcastManager {
@@ -84,6 +91,13 @@ export class SimpleBroadcastManager {
             SimpleBroadcastManager.instances.set(key, new SimpleBroadcastManager(sessionId, mode));
         }
         return SimpleBroadcastManager.instances.get(key)!;
+    }
+
+    private notifyVideoReadyStatus(ready: boolean) {
+        if (this.lastVideoReadyStatus !== ready) {
+            this.lastVideoReadyStatus = ready;
+            this.videoReadyCallbacks.forEach(callback => callback(ready));
+        }
     }
 
     private setupMessageHandling(): void {
@@ -123,15 +137,13 @@ export class SimpleBroadcastManager {
                     }
                     break;
 
-                case 'PRESENTATION_STATUS':
+                case 'PRESENTATION_PONG':
                     if (this.mode === 'host') {
-                        const status = message as PresentationStatus;
-                        if (status.status === 'ready') {
-                            this.updateConnectionStatus('connected');
-                        } else if (status.status === 'pong') {
-                            this.lastPong = Date.now();
-                            this.updateConnectionStatus('connected');
-                        }
+                        const pong = message as PresentationPong;
+                        this.updateConnectionStatus('connected');
+                        this.presentationPong = Date.now();
+                        console.log(`[SimpleBroadcastManager-${this.mode}] Received PRESENTATION_PONG, videoLoaded:`, pong.videoLoaded);
+                        this.notifyVideoReadyStatus(pong.videoLoaded);
                     }
                     break;
 
@@ -149,55 +161,39 @@ export class SimpleBroadcastManager {
                     }
                     break;
 
-                case 'PING':
+                case 'HOST_PING':
                     if (this.mode === 'presentation') {
-                        this.sendStatus('pong');
+                        this.hostPingHandlers.forEach(handler => handler());
                     }
                     break;
 
                 case 'COMMAND_ACK':
                     break;
-
-                case 'VIDEO_READY':
-                    if (this.mode === 'host') {
-                        const videoReady = message as VideoReadyMessage;
-                        console.log(`[SimpleBroadcastManager-${this.mode}] Received VIDEO_READY:`, videoReady.ready);
-                        this.videoReadyHandlers.forEach(handler => handler(videoReady.ready));
-                    }
-                    break;
             }
         };
     }
 
-    private startPingPong(): void {
-        if (this.mode === 'host') {
-            // Host sends ping every 2 seconds
-            this.pingInterval = setInterval(() => {
-                if (this.isDestroyed) return;
-
-                this.sendMessage({
-                    type: 'PING',
-                    sessionId: this.sessionId,
-                    timestamp: Date.now()
-                });
-
-                // Check for presentation timeout (5 seconds)
-                // Only check timeout if we've ever been connected (lastPong > 0)
-                if (this.lastPong > 0 && Date.now() - this.lastPong > 5000 && this.connectionStatus === 'connected') {
-                    console.log('[SimpleBroadcastManager] Presentation timeout detected');
-                    this.updateConnectionStatus('disconnected');
-                }
-            }, 2000);
-        } else {
-            // Presentation announces ready after a short delay
-            if (this.mode === 'presentation') {
-                setTimeout(() => {
-                    if (!this.isDestroyed) {
-                        this.sendStatus('ready');
-                    }
-                }, 100);
-            }
+    private startHostPing(): void {
+        if (this.mode !== 'host') {
+            return;
         }
+        // Host sends ping every 2 seconds
+        this.hostPingInterval = setInterval(() => {
+            if (this.isDestroyed) return;
+
+            this.sendMessage({
+                type: 'HOST_PING',
+                sessionId: this.sessionId,
+                timestamp: Date.now()
+            });
+
+            // Check for presentation timeout (5 seconds)
+            // Only check timeout if we've ever been connected (lastPong > 0)
+            if (this.presentationPong > 0 && Date.now() - this.presentationPong > 5000 && this.connectionStatus === 'connected') {
+                console.log('[SimpleBroadcastManager] Presentation timeout detected');
+                this.updateConnectionStatus('disconnected');
+            }
+        }, 2000);
     }
 
     private sendMessage(message: any): void {
@@ -329,17 +325,22 @@ export class SimpleBroadcastManager {
         };
     }
 
-    sendStatus(status: 'ready' | 'pong'): void {
+    sendPresentationStatus(videoLoaded?: boolean): void {
         if (this.mode !== 'presentation' || this.isDestroyed) return;
 
-        const statusMessage: PresentationStatus = {
-            type: 'PRESENTATION_STATUS',
+        // If videoLoaded is provided, update our tracked state
+        if (videoLoaded !== undefined) {
+            this.lastSentVideoReady = videoLoaded;
+        }
+        
+        const pongMessage: PresentationPong = {
+            type: 'PRESENTATION_PONG',
             sessionId: this.sessionId,
-            status,
+            videoLoaded: this.lastSentVideoReady,
             timestamp: Date.now()
         };
 
-        this.sendMessage(statusMessage);
+        this.sendMessage(pongMessage);
     }
 
     destroy(): void {
@@ -349,9 +350,9 @@ export class SimpleBroadcastManager {
         }
         this.isDestroyed = true;
 
-        if (this.pingInterval) {
-            clearInterval(this.pingInterval);
-            this.pingInterval = null;
+        if (this.hostPingInterval) {
+            clearInterval(this.hostPingInterval);
+            this.hostPingInterval = null;
         }
 
         // Close the channel
@@ -365,7 +366,8 @@ export class SimpleBroadcastManager {
         this.statusCallbacks.clear();
         this.commandHandlers.clear();
         this.slideHandlers.clear();
-        this.videoReadyHandlers.clear();
+        this.videoReadyCallbacks.clear();
+        this.hostPingHandlers.clear();
 
         // Remove from instances map
         const key = `${this.sessionId}-${this.mode}`;
@@ -381,27 +383,23 @@ export class SimpleBroadcastManager {
         };
     }
 
-    // Video ready methods
-    sendVideoReady(ready: boolean): void {
-        if (this.mode !== 'presentation' || this.isDestroyed) return;
-        
-        console.log(`[SimpleBroadcastManager-${this.mode}] Sending video ready:`, ready);
-        const message: VideoReadyMessage = {
-            type: 'VIDEO_READY',
-            sessionId: this.sessionId,
-            ready,
-            timestamp: Date.now()
-        };
-
-        this.sendMessage(message);
-    }
-
+    // Video ready status from PRESENTATION_PONG
     onVideoReady(callback: (ready: boolean) => void): () => void {
         if (this.isDestroyed) return () => {};
 
-        this.videoReadyHandlers.add(callback);
+        this.videoReadyCallbacks.add(callback);
+        // Immediately notify with current status
+        callback(this.lastVideoReadyStatus);
+        
         return () => {
-            this.videoReadyHandlers.delete(callback);
+            this.videoReadyCallbacks.delete(callback);
+        };
+    }
+
+    onHostPing(callback: () => void): () => void {
+        this.hostPingHandlers.add(callback);
+        return () => {
+            this.hostPingHandlers.delete(callback);
         };
     }
 

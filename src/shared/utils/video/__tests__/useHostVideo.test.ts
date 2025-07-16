@@ -10,7 +10,6 @@ vi.mock('../videoProps', () => ({
         ref: props.videoRef,
         playsInline: true,
         controls: false,
-        autoPlay: props.autoPlay,
         muted: props.muted,
         preload: 'auto',
         style: { width: '100%', height: '100%', objectFit: 'contain' },
@@ -62,7 +61,6 @@ describe('useHostVideo', () => {
                     sessionId: 'test-session',
                     sourceUrl: 'test-video.mp4',
                     isEnabled: true,
-                    autoPlay: true,
                 })
             );
 
@@ -84,7 +82,6 @@ describe('useHostVideo', () => {
                     sessionId: 'test-session',
                     sourceUrl: 'test-video.mp4',
                     isEnabled: true,
-                    autoPlay: true,
                 })
             );
 
@@ -119,7 +116,6 @@ describe('useHostVideo', () => {
                     sessionId: 'test-session',
                     sourceUrl: 'test-video.mp4',
                     isEnabled: true,
-                    autoPlay: true,
                 })
             );
 
@@ -151,7 +147,6 @@ describe('useHostVideo', () => {
                         sessionId: 'test-session',
                         sourceUrl,
                         isEnabled: true,
-                        autoPlay: true,
                     }),
                 {
                     initialProps: { sourceUrl: 'video1.mp4' },
@@ -185,7 +180,6 @@ describe('useHostVideo', () => {
                     sessionId: 'test-session',
                     sourceUrl: 'test-video.mp4',
                     isEnabled: true,
-                    autoPlay: true,
                 })
             );
 
@@ -208,7 +202,6 @@ describe('useHostVideo', () => {
                     sessionId: 'test-session',
                     sourceUrl: 'test-video2.mp4',
                     isEnabled: true,
-                    autoPlay: true,
                 })
             );
 

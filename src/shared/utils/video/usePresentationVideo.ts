@@ -9,7 +9,6 @@ interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
     playsInline: boolean;
     controls: boolean;
-    autoPlay: boolean;
     muted: boolean;
     preload: string;
     crossOrigin?: string;
@@ -26,7 +25,6 @@ interface UsePresentationVideoProps {
     sessionId: string | null;
     sourceUrl: string | null;
     isEnabled: boolean;
-    autoPlay?: boolean;
 }
 
 interface UsePresentationVideoReturn {
@@ -39,7 +37,6 @@ export const usePresentationVideo = ({
     sessionId, 
     sourceUrl, 
     isEnabled,
-    autoPlay = false 
 }: UsePresentationVideoProps): UsePresentationVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isConnected, setIsConnected] = useState(false);
@@ -203,11 +200,10 @@ export const usePresentationVideo = ({
         return createVideoProps({
             videoRef,
             muted: state.isMuted,
-            autoPlay,
             onVideoEnd,
             onError
         });
-    }, [state.isMuted, autoPlay]);
+    }, [state.isMuted]);
     
     return {
         videoRef,

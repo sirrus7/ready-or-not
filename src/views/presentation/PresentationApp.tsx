@@ -129,7 +129,7 @@ const PresentationApp: React.FC = () => {
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && broadcastManager && !isConnectedToHost) {
-                broadcastManager.sendStatus('ready');
+                broadcastManager.sendPresentationStatus(false);
             }
         };
 
@@ -142,7 +142,8 @@ const PresentationApp: React.FC = () => {
         setStatusMessage('Reconnecting...');
 
         if (broadcastManager) {
-            broadcastManager.sendStatus('ready');
+            // Just trigger a pong without changing video state
+            broadcastManager.sendPresentationStatus();
         }
     };
 

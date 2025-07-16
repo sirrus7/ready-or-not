@@ -8,7 +8,6 @@ interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
     playsInline: boolean;
     controls: boolean;
-    autoPlay: boolean;
     muted: boolean;
     preload: string;
     crossOrigin?: string;
@@ -32,10 +31,9 @@ interface UseHostVideoProps {
     sessionId: string | null;
     sourceUrl: string | null;
     isEnabled: boolean;
-    autoPlay?: boolean;
 }
 
-export const useHostVideo = ({ sessionId, sourceUrl, isEnabled, autoPlay = false }: UseHostVideoProps): UseHostVideoReturn => {
+export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoProps): UseHostVideoReturn => {
     // Use the simplified sync hook
     const { videoRef, state, controls, audioTarget } = useSimpleVideoSync({
         sessionId,
@@ -43,32 +41,8 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled, autoPlay = false
         isEnabled
     });
     
-    // Track if we've auto-played this source
-    const autoPlayedRef = useRef<string | null>(null);
-    
     // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
-    
-    // Auto-play when video is ready
-    useEffect(() => {
-        if (autoPlay && state.hostReady && sourceUrl && autoPlayedRef.current !== sourceUrl) {
-            // Wait for both videos to be ready if presentation is connected
-            if (state.presentationConnected && !state.presentationReady) {
-                hostVideoLogger.log('Waiting for presentation to be ready before auto-play');
-                return;
-            }
-            
-            hostVideoLogger.log('Auto-playing video', {
-                data: {
-                    hostReady: state.hostReady,
-                    presentationReady: state.presentationReady,
-                    presentationConnected: state.presentationConnected
-                }
-            });
-            autoPlayedRef.current = sourceUrl;
-            controls.play();
-        }
-    }, [autoPlay, state.hostReady, state.presentationReady, state.presentationConnected, sourceUrl, controls]);
     
     // Wrapped control functions that handle the time parameter
     const play = useCallback(async (time?: number) => {
@@ -90,11 +64,10 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled, autoPlay = false
         return createVideoProps({
             videoRef,
             muted: audioTarget === 'presentation', // Host muted when presentation is active
-            autoPlay,
             onVideoEnd,
             onError
         });
-    }, [videoRef, audioTarget, autoPlay]);
+    }, [videoRef, audioTarget]);
     
     return {
         videoRef,

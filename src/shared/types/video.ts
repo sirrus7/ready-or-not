@@ -27,7 +27,6 @@ export interface VideoProps {
     ref: React.RefObject<HTMLVideoElement>;
     playsInline: boolean;
     controls: boolean;
-    autoPlay: boolean;
     muted: boolean;
     preload: string;
     crossOrigin?: string;

@@ -5,7 +5,6 @@ export interface VideoElementProps {
     ref: RefObject<HTMLVideoElement>;
     playsInline: boolean;
     controls: boolean;
-    autoPlay: boolean;
     muted: boolean;
     preload: string;
     crossOrigin: string;
@@ -19,7 +18,6 @@ export interface VideoPropsConfig {
     muted: boolean;
     onVideoEnd?: () => void;
     onError?: () => void;
-    autoPlay?: boolean; // Make autoPlay configurable
 }
 
 /**
@@ -27,7 +25,7 @@ export interface VideoPropsConfig {
  * Consolidates all video element properties in one place to prevent inconsistencies
  */
 export const createVideoProps = (config: VideoPropsConfig): VideoElementProps => {
-    const { videoRef, muted, onVideoEnd, onError, autoPlay = false } = config; // Default to false
+    const { videoRef, muted, onVideoEnd, onError } = config; // Default to false
 
     // Store callbacks for event handlers (if your hooks need this pattern)
     if (onVideoEnd && videoRef.current) {
@@ -44,7 +42,6 @@ export const createVideoProps = (config: VideoPropsConfig): VideoElementProps =>
         ref: videoRef,
         playsInline: true,
         controls: false,
-        autoPlay, // Use the configurable value
         muted,
         // Chrome + Supabase optimizations
         preload: isChrome ? 'metadata' : 'auto',

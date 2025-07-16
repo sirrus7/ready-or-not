@@ -321,7 +321,6 @@ describe('Video Sync Complete Scenarios', () => {
                 sessionId: 'test-session',
                 sourceUrl: 'test.mp4',
                 isEnabled: true,
-                autoPlay: true
             }));
 
             // Should autoplay
@@ -372,7 +371,6 @@ describe('Video Sync Complete Scenarios', () => {
                 sessionId: 'test-session',
                 sourceUrl: 'test.mp4',
                 isEnabled: true,
-                autoPlay: true
             }));
 
             // Should not autoplay yet

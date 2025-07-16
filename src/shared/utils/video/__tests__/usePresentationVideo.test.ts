@@ -11,7 +11,6 @@ vi.mock('../videoProps', () => ({
         ref: props.videoRef,
         playsInline: true,
         controls: false,
-        autoPlay: props.autoPlay,
         muted: props.muted,
         preload: 'auto',
         style: { width: '100%', height: '100%', objectFit: 'contain' },
@@ -400,13 +399,11 @@ describe('usePresentationVideo', () => {
                     sessionId: 'test-session',
                     sourceUrl: 'test-video.mp4',
                     isEnabled: true,
-                    autoPlay: true,
                 })
             );
 
             const props = result.current.getVideoProps();
 
-            expect(props.autoPlay).toBe(true);
             expect(props.muted).toBe(false);
             expect(props.controls).toBe(false);
         });

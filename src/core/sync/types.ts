@@ -29,11 +29,11 @@ export interface SlideUpdate {
     timestamp: number;
 }
 
-export interface PresentationStatus {
-    type: 'PRESENTATION_STATUS';
+export interface PresentationPong {
+    type: 'PRESENTATION_PONG';
     sessionId: string;
-    status: 'ready' | 'pong';
     timestamp: number;
+    videoLoaded: boolean;
 }
 
 export interface CommandAck {
@@ -51,9 +51,3 @@ export interface JoinInfoMessage {
     timestamp: number;
 }
 
-export interface VideoReadyMessage {
-    type: 'VIDEO_READY';
-    sessionId: string;
-    ready: boolean;
-    timestamp: number;
-}

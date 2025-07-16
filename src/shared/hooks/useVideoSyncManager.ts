@@ -101,12 +101,14 @@ export const useVideoSyncManager = ({
   // Send ready status for presentation
   useEffect(() => {
     if (role === 'presentation' && broadcastManager) {
-      broadcastManager.sendStatus('ready');
+      // Initial ping without changing video state
+      broadcastManager.sendPresentationStatus();
 
       // Send periodic pings to maintain connection
       const interval = setInterval(() => {
-        broadcastManager.sendStatus('pong');
-      }, 3000);
+        // Send pong with whatever the current video state is
+        broadcastManager.sendPresentationStatus();
+      }, 1000);
 
       return () => clearInterval(interval);
     }
@@ -116,7 +118,7 @@ export const useVideoSyncManager = ({
   const sendVideoReady = useCallback((ready: boolean) => {
     if (broadcastManager && role === 'presentation') {
       console.log(`[VideoSync] Sending video ready status: ${ready}`);
-      broadcastManager.sendVideoReady(ready);
+      broadcastManager.sendPresentationStatus(ready);
     }
   }, [broadcastManager, role]);
 

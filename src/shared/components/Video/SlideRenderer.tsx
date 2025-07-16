@@ -128,14 +128,12 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         sessionId: sessionId || null,
         sourceUrl,
         isEnabled: isHost && isVideoSlide && !!sourceUrl,
-        autoPlay: true
     });
 
     const presentationVideo = usePresentationVideo({
         sessionId: sessionId || null,
         sourceUrl,
         isEnabled: !isHost && isVideoSlide && !!sourceUrl,
-        autoPlay: true
     });
 
     // Use the same logic as before to select active video
