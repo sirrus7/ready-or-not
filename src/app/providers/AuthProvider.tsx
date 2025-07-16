@@ -1,5 +1,5 @@
-// src/app/providers/AuthProvider.tsx
-import React, {createContext, useContext, useEffect, useState} from 'react';
+// src/app/providers/AuthProvider.tsx - Back to working basics with performance fixes
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {auth, User} from '@shared/services/supabase';
 
 interface AuthContextType {
@@ -14,7 +14,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {
@@ -23,7 +22,7 @@ export const useAuth = () => {
     return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(({children}) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -35,7 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
                 setUser(session?.user ?? null);
                 setError(null);
             } catch (err) {
-                console.error('[AuthProvider] Exception getting session:', err);
                 setError(err instanceof Error ? err.message : 'Failed to initialize authentication');
                 setUser(null);
             } finally {
@@ -45,13 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
 
         initializeAuth();
 
-        // Set up auth state change listener
+        // Set up auth state change listener - simplified like original
         const {data: {subscription}} = auth.onAuthStateChange((event, session) => {
-            // Only log in development for critical auth state changes
-            if (import.meta.env.DEV && (event === 'SIGNED_OUT' || event === 'SIGNED_IN')) {
-                console.warn('[AuthProvider] Auth state change:', event);
-            }
-
             if (event === 'SIGNED_IN') {
                 setUser(session?.user ?? null);
                 setError(null);
@@ -61,17 +54,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
             } else if (event === 'TOKEN_REFRESHED') {
                 setUser(session?.user ?? null);
                 setError(null);
+            } else if (event === 'INITIAL_SESSION') {
+                setUser(session?.user ?? null);
+                setError(null);
             }
-
+            // Always set loading false for any auth event (like original)
             setLoading(false);
         });
 
         return () => {
             subscription?.unsubscribe();
         };
-    }, []);
+    }, []); // Empty dependency array
 
-    const signIn = async (email: string, password: string) => {
+    const signIn = useCallback(async (email: string, password: string) => {
         try {
             setError(null);
             setLoading(true);
@@ -81,13 +77,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
             console.error('[AuthProvider] Sign in error:', err);
             const errorMessage = err instanceof Error ? err.message : 'Sign in failed';
             setError(errorMessage);
-            throw err;
-        } finally {
             setLoading(false);
+            throw err;
         }
-    };
+    }, []);
 
-    const signUp = async (email: string, password: string) => {
+    const signUp = useCallback(async (email: string, password: string) => {
         try {
             setError(null);
             setLoading(true);
@@ -97,13 +92,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
             console.error('[AuthProvider] Sign up error:', err);
             const errorMessage = err instanceof Error ? err.message : 'Sign up failed';
             setError(errorMessage);
-            throw err;
-        } finally {
             setLoading(false);
+            throw err;
         }
-    };
+    }, []);
 
-    const signOut = async () => {
+    const signOut = useCallback(async () => {
         try {
             setError(null);
             setLoading(true);
@@ -113,29 +107,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
             console.error('[AuthProvider] Sign out error:', err);
             const errorMessage = err instanceof Error ? err.message : 'Sign out failed';
             setError(errorMessage);
-            throw err;
-        } finally {
             setLoading(false);
+            throw err;
         }
-    };
+    }, []);
 
-    const clearError = () => {
+    const clearError = useCallback(() => {
         setError(null);
-    };
+    }, []);
 
-    const value: AuthContextType = {
-        user,
-        loading,
-        error,
-        signIn,
-        signUp,
-        signOut,
-        clearError
-    };
+    // Optimized context value - functions are stable via useCallback
+    const value: AuthContextType = useMemo(() => {
+        return {
+            user,
+            loading,
+            error,
+            signIn,
+            signUp,
+            signOut,
+            clearError
+        };
+    }, [user, loading, error, signIn, signUp, signOut, clearError]); // Include all values
 
     return (
         <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );
-};
+});
+
+AuthProvider.displayName = 'AuthProvider';

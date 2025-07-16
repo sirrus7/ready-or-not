@@ -1,21 +1,20 @@
-
 // Main function
-export { generateTeamCardsPDF } from './generate-team-cards.ts';
+export {generateTeamCardsPDF} from './generate-team-cards.ts';
 
 // Types
-export type { TeamConfig, PDFConfig, TeamCardAssets } from './types';
+export type {TeamConfig, PDFConfig, TeamCardAssets} from './types';
 
 // Config
-export { DEFAULT_CONFIG } from './config';
+export {DEFAULT_CONFIG} from './config';
 
 // Individual utilities (if needed)
-export { validateTeams, validateConfig } from './utils/validation';
-export { processLogo, generateQRCodeDataImage } from './utils/assets';
-export { generateTeamCardHTML } from './templates/team-card';
+export {validateTeams, validateConfig} from './utils/validation';
+export {processLogo, generateQRCodeDataImage} from './utils/assets';
+export {generateTeamCardHTML} from './templates/team-card';
 
-import React, { createContext, useContext, useCallback, useState } from 'react';
-import { generateTeamCardsPDF } from '../pdf';
-import type { TeamConfig, TeamCardAssets, PDFConfig } from '../pdf';
+import React, {createContext, useContext, useCallback, useState, useMemo} from 'react';
+import {generateTeamCardsPDF} from '../pdf';
+import type {TeamConfig, TeamCardAssets, PDFConfig} from '../pdf';
 
 interface TeamCardsPDFContextType {
     generatePDF: (teams: TeamConfig[], assets?: TeamCardAssets, config?: Partial<PDFConfig>) => Promise<void>;
@@ -24,7 +23,7 @@ interface TeamCardsPDFContextType {
 
 const TeamCardsPDFContext = createContext<TeamCardsPDFContextType | null>(null);
 
-export const TeamCardsPDFProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const TeamCardsPDFProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
     const [isGenerating, setIsGenerating] = useState(false);
 
     const generatePDF = useCallback(async (
@@ -40,15 +39,15 @@ export const TeamCardsPDFProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     }, []);
 
-    const value = {
+    const value = useMemo(() => ({
         generatePDF,
         isGenerating
-    };
+    }), [generatePDF, isGenerating]);
 
     return (
         <TeamCardsPDFContext.Provider value={value}>
             {children}
-            </TeamCardsPDFContext.Provider>
+        </TeamCardsPDFContext.Provider>
     );
 };
 

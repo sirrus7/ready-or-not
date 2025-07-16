@@ -1,5 +1,5 @@
 // src/shared/hooks/useSessionManager.ts
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useMemo} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {GameSession, GameSessionInsert, GameStructure, NewGameData} from '@shared/types';
 import {User} from '@shared/services/supabase'
@@ -135,5 +135,11 @@ export const useSessionManager = (
         setError(null);
     }, []);
 
-    return {session, isLoading, error, updateSessionInDb, clearSessionError};
+    return useMemo(() => ({
+        session,
+        isLoading,
+        error,
+        updateSessionInDb,
+        clearSessionError
+    }), [session, isLoading, error, updateSessionInDb, clearSessionError]);
 };

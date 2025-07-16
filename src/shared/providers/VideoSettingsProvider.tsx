@@ -1,5 +1,5 @@
 // src/context/VideoSettingsContext.tsx
-import React, {createContext, useEffect, useState, useCallback} from 'react';
+import React, {createContext, useEffect, useState, useCallback, useMemo} from 'react';
 
 export interface VideoSettings {
     hostVideoEnabled: boolean;
@@ -28,10 +28,10 @@ interface VideoSettingsProviderProps {
     sessionId?: string;
 }
 
-export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
-                                                                                children,
-                                                                                sessionId
-                                                                            }) => {
+export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = React.memo(({
+                                                                                           children,
+                                                                                           sessionId
+                                                                                       }) => {
     const [settings, setSettings] = useState<VideoSettings>(defaultSettings);
 
     // Load settings from localStorage on mount
@@ -42,7 +42,18 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
         if (stored) {
             try {
                 const parsedSettings = JSON.parse(stored);
-                setSettings(prev => ({...prev, ...parsedSettings}));
+
+                // 🎯 FIX: Only update if settings are actually different
+                setSettings(prev => {
+                    const newSettings = {...prev, ...parsedSettings};
+
+                    // Compare the objects - only update if different
+                    if (JSON.stringify(prev) === JSON.stringify(newSettings)) {
+                        return prev; // Return same reference to prevent re-render
+                    }
+
+                    return newSettings;
+                });
             } catch (error) {
                 console.warn('Failed to parse stored video settings:', error);
             }
@@ -52,7 +63,14 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
     // Save settings to localStorage when they change
     useEffect(() => {
         const storageKey = sessionId ? `videoSettings_${sessionId}` : 'videoSettings_global';
-        localStorage.setItem(storageKey, JSON.stringify(settings));
+
+        // Only save if settings have actually changed from defaults or stored value
+        const currentStored = localStorage.getItem(storageKey);
+        const settingsToStore = JSON.stringify(settings);
+
+        if (currentStored !== settingsToStore) {
+            localStorage.setItem(storageKey, settingsToStore);
+        }
     }, [settings, sessionId]);
 
     const updateSettings = useCallback((updates: Partial<VideoSettings>) => {
@@ -71,15 +89,15 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = ({
         }));
     }, []);
 
-    const contextValue: VideoSettingsContextType = {
+    const contextValue: VideoSettingsContextType = useMemo(() => ({
         settings,
         updateSettings,
         toggleHostVideo,
-    };
+    }), [settings, updateSettings, toggleHostVideo]);
 
     return (
         <VideoSettingsContext.Provider value={contextValue}>
             {children}
         </VideoSettingsContext.Provider>
     );
-};
+});

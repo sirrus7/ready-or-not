@@ -281,8 +281,30 @@ export const useGameController = (
         }
     }, [dbSession, gameStructure?.slides.length, sessionManager]);
 
-    // RETURN VALUES (keeping existing return structure)
-    return {
+    // Move these callback definitions BEFORE the return (give them new names to avoid conflicts)
+    const updateHostNotesForCurrentSlide = useCallback(async (notes: string) => {
+        if (currentSlideIndex === null || !dbSession) return;
+        const updatedHostNotes = {...hostNotesState, [currentSlideIndex]: notes};
+        setHostNotesState(updatedHostNotes);
+        try {
+            await sessionManager.updateSession(dbSession.id, {host_notes: updatedHostNotes});
+            setDbSession(prev => prev ? {...prev, host_notes: updatedHostNotes} : null);
+        } catch (error) {
+            console.error('[useGameController] Error saving host notes:', error);
+        }
+    }, [currentSlideIndex, dbSession, hostNotesState, sessionManager]);
+
+    const updateAllTeamsSubmittedCurrentInteractivePhase = useCallback((submitted: boolean) => {
+        setAllTeamsSubmittedCurrentInteractivePhase(submitted);
+    }, []);
+
+    const updateCurrentHostAlertState = useCallback((alert: { title: string; message: string } | null) => {
+        console.log('[useGameController] setCurrentHostAlertState called with:', alert);
+        setCurrentHostAlertState(alert);
+    }, []);
+
+    // RETURN VALUES (keeping existing return structure but memoized)
+    return useMemo(() => ({
         // Session state
         dbSession,
         currentSlideIndex,
@@ -298,28 +320,24 @@ export const useGameController = (
         previousSlide,
         selectSlideByIndex,
 
-        // State management methods (keeping existing methods)
-        updateHostNotesForCurrentSlide: useCallback(async (notes: string) => {
-            if (currentSlideIndex === null || !dbSession) return;
-            const updatedHostNotes = {...hostNotesState, [currentSlideIndex]: notes};
-            setHostNotesState(updatedHostNotes);
-            try {
-                await sessionManager.updateSession(dbSession.id, {host_notes: updatedHostNotes});
-                setDbSession(prev => prev ? {...prev, host_notes: updatedHostNotes} : null);
-            } catch (error) {
-                console.error('[useGameController] Error saving host notes:', error);
-            }
-        }, [currentSlideIndex, dbSession, hostNotesState, sessionManager]),
-
-        setAllTeamsSubmittedCurrentInteractivePhase: useCallback((submitted: boolean) => {
-            setAllTeamsSubmittedCurrentInteractivePhase(submitted);
-        }, []),
-
-        setCurrentHostAlertState: useCallback((alert: { title: string; message: string } | null) => {
-            console.log('[useGameController] setCurrentHostAlertState called with:', alert);
-            setCurrentHostAlertState(alert);
-        }, []),
-
+        // State management methods (keeping original API names)
+        updateHostNotesForCurrentSlide,
+        setAllTeamsSubmittedCurrentInteractivePhase: updateAllTeamsSubmittedCurrentInteractivePhase,
+        setCurrentHostAlertState: updateCurrentHostAlertState,
         clearHostAlert,
-    };
+    }), [
+        dbSession,
+        currentSlideIndex,
+        currentSlideData,
+        hostNotesState,
+        currentHostAlertState,
+        allTeamsSubmittedState,
+        nextSlide,
+        previousSlide,
+        selectSlideByIndex,
+        updateHostNotesForCurrentSlide,
+        updateAllTeamsSubmittedCurrentInteractivePhase,
+        updateCurrentHostAlertState,
+        clearHostAlert,
+    ]);
 };

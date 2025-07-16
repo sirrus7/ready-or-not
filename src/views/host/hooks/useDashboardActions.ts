@@ -90,12 +90,11 @@ export const useDashboardActions = (
             alert(`Navigating to report for completed game: ${sessionId} (Not yet implemented)`);
         } else {
             // Active games go to game
-            navigate(`/game/${sessionId}`);
+            navigate(`/host/${sessionId}`);
         }
     }, [navigate]);
 
-    const handleResumeDraft = useCallback((sessionId: string, sessionName: string) => {
-        console.log('Resuming draft game creation:', sessionId, sessionName);
+    const handleResumeDraft = useCallback((sessionId: string, _sessionName: string) => {
         // Navigate to create-game with the draft session ID
         // The CreateGamePage will detect and load the existing draft
         navigate(`/create-game?resume=${sessionId}`);

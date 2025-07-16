@@ -110,7 +110,7 @@ const DashboardPage: React.FC = () => {
         if (status === 'draft') {
             handleResumeDraft(game.id, game.name);
         } else if (status === 'active') {
-            navigate(`/game/${game.id}`);
+            navigate(`/host/${game.id}`);
         } else {
             // Navigate to game results/analytics page
             navigate(`/game-results/${game.id}`);

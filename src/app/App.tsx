@@ -1,10 +1,12 @@
-// src/app/App.tsx - Simplified with routing extracted to Router.tsx
-import React from 'react';
+// =====================================================================================
+// src/app/App.tsx - Optimized with React.memo
+// =====================================================================================
+import React, {useEffect} from 'react';
 import ErrorBoundary from '@shared/components/UI/ErrorBoundary';
 import {PDFGenerationProvider} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
 import Router from '@routing/Router';
 
-const App: React.FC = () => {
+const App: React.FC = React.memo(() => {
     return (
         <ErrorBoundary>
             <PDFGenerationProvider>
@@ -12,6 +14,7 @@ const App: React.FC = () => {
             </PDFGenerationProvider>
         </ErrorBoundary>
     );
-}
+});
 
+App.displayName = 'App';
 export default App;
