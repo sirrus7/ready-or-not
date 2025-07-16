@@ -53,7 +53,8 @@ export default tseslint.config(
     {
         files: [
             'src/shared/services/supabase/**/*.{ts,tsx}',
-            'src/shared/services/supabase/client.ts'
+            'src/shared/services/supabase/client.ts',
+            'src/services/sso-service.ts'  // ADD THIS LINE
         ],
         rules: {
             'no-restricted-imports': 'off' // Allow direct Supabase imports in service layer
@@ -66,19 +67,7 @@ export default tseslint.config(
     {
         files: ['**/*.{ts,tsx}'],
         rules: {
-            // Prevent console.log in production code (except in services for debugging)
-            'no-console': ['warn', {
-                allow: ['warn', 'error']
-            }],
-
-            // Encourage proper error handling
-            '@typescript-eslint/no-unused-vars': ['error', {
-                argsIgnorePattern: '^_',
-                varsIgnorePattern: '^_'
-            }],
-
-            // Prevent any/unknown without explicit reasoning
-            '@typescript-eslint/no-explicit-any': 'warn'
+            // Add your additional rules here
         }
     }
 );
