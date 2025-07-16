@@ -1,7 +1,7 @@
 // =====================================================================================
 // src/shared/hooks/pdf/useTeamCardsPDF.tsx - Optimized PDFProvider
 // =====================================================================================
-import React, {createContext, useContext, useCallback, useState, useMemo, useEffect} from 'react';
+import React, {createContext, useContext, useCallback, useState, useMemo} from 'react';
 import {generateTeamCardsPDF} from './generate-team-cards';
 import type {TeamConfig, TeamCardAssets, PDFConfig} from './types';
 
@@ -36,13 +36,6 @@ const PDFGenerationContext = createContext<PDFGenerationContextValue | null>(nul
 
 // ✅ OPTIMIZED: Memoized PDFProvider
 export const PDFGenerationProvider: React.FC<{ children: React.ReactNode }> = React.memo(({children}) => {
-    useEffect(() => {
-        console.log('🏗️ [PDFPROVIDER] COMPONENT MOUNTED');
-        return () => console.log('💀 [PDFPROVIDER] COMPONENT UNMOUNTED');
-    }, []);
-
-    console.log('🔍 [PDFPROVIDER] Component re-rendering');
-
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
