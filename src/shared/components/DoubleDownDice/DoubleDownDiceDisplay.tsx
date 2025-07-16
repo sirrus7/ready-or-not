@@ -1,12 +1,13 @@
 // src/shared/components/DoubleDownDice/DoubleDownDiceDisplay.tsx
 import React, {useState, useEffect, useRef} from 'react';
-import {Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, TrendingUp} from 'lucide-react';
+import {TrendingUp} from 'lucide-react';
 import {DoubleDownEffectsProcessor} from '@core/game/DoubleDownEffectsProcessor';
 import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
 import {DoubleDownDecision, DoubleDownResult, KpiChange, Slide, TeamRoundData} from "@shared/types";
 import {formatCurrency, formatNumber} from "@shared/utils/formatUtils";
 import {DoubleDownAudioManager} from '@shared/utils/audio';
+import Dice3D from "./Dice3D";
 
 type DiceResult = Omit<DoubleDownResult, 'id' | 'created_at' | 'session_id'>;
 
@@ -33,19 +34,6 @@ const DICE_BOOSTS = {
     12: 100    // 100% boost (double)
 } as const;
 
-const DiceIcon: React.FC<{ value: number }> = ({value}) => {
-    const icons = {
-        1: Dice1,
-        2: Dice2,
-        3: Dice3,
-        4: Dice4,
-        5: Dice5,
-        6: Dice6
-    };
-    const Icon = icons[value as keyof typeof icons] || Dice6;
-    return <Icon className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 text-black"/>;
-};
-
 const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                                                          sessionId,
                                                                          investmentId,
@@ -64,9 +52,95 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     const [hasAppliedEffects, setHasAppliedEffects] = useState(false);
     const [currentPhase, setCurrentPhase] = useState<'loading' | 'showing_teams' | 'rolling' | 'showing_results' | 'applying_effects' | 'complete'>('loading');
     const [affectedTeams, setAffectedTeams] = useState<string[]>([]);
+    const [isRolling, setIsRolling] = useState(false);
     const processingRef = useRef(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const audioManager: DoubleDownAudioManager = DoubleDownAudioManager.getInstance();
+    // Add this after your existing useState declarations
+    const [debugMode, setDebugMode] = useState(process.env.NODE_ENV === 'development');
+
+    // Add this debug component before your main switch statement
+    const DebugPanel = () => {
+        if (!debugMode) return null;
+
+        const handleDebugReroll = () => {
+            // Reset states
+            setHasRolled(false);
+            setHasAppliedEffects(false);
+            setCurrentPhase('rolling');
+            setIsRolling(true);
+
+            // Generate new random values
+            const newDice1 = Math.floor(Math.random() * 6) + 1;
+            const newDice2 = Math.floor(Math.random() * 6) + 1;
+            const newTotal = newDice1 + newDice2;
+            const newBoost = DICE_BOOSTS[newTotal as keyof typeof DICE_BOOSTS];
+
+            // Set new result after a delay to simulate rolling
+            setTimeout(() => {
+                const newResult: DiceResult = {
+                    investment_id: investmentId,
+                    dice1_value: newDice1,
+                    dice2_value: newDice2,
+                    total_value: newTotal,
+                    boost_percentage: newBoost,
+                    affected_teams: affectedTeams
+                };
+
+                setDiceResult(newResult);
+                setIsRolling(false);
+                setHasRolled(true);
+                setCurrentPhase('showing_results');
+            }, 2000);
+        };
+
+        const handlePhaseChange = (phase: string) => {
+            setCurrentPhase(phase as any);
+        };
+
+        return (
+            <div className="fixed top-4 right-4 bg-black/80 text-white p-4 rounded-lg z-50 font-mono text-sm">
+                <div className="mb-2 text-xs text-gray-300">🔧 DEV DEBUG</div>
+                <div className="space-y-2">
+                    <button
+                        onClick={handleDebugReroll}
+                        className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs w-full"
+                    >
+                        🎲 Reroll Dice
+                    </button>
+                    <div className="text-xs text-gray-400">
+                        Current: {diceResult?.dice1_value || '?'} + {diceResult?.dice2_value || '?'} = {diceResult?.total_value || '?'}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                        Boost: {diceResult?.boost_percentage || 0}%
+                    </div>
+                    <div className="text-xs text-gray-400">
+                        Phase: {currentPhase}
+                    </div>
+                    <div className="flex gap-1">
+                        <button
+                            onClick={() => handlePhaseChange('rolling')}
+                            className="bg-gray-600 hover:bg-gray-700 px-2 py-1 rounded text-xs flex-1"
+                        >
+                            Roll
+                        </button>
+                        <button
+                            onClick={() => handlePhaseChange('showing_results')}
+                            className="bg-gray-600 hover:bg-gray-700 px-2 py-1 rounded text-xs flex-1"
+                        >
+                            Result
+                        </button>
+                    </div>
+                    <button
+                        onClick={() => setDebugMode(false)}
+                        className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs w-full"
+                    >
+                        Hide Debug
+                    </button>
+                </div>
+            </div>
+        );
+    };
 
     useEffect((): () => void => {
         console.log('🔍 [DEBUG] useEffect firing for initializeDoubleDownRoll:', {
@@ -95,31 +169,17 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         console.log('[DoubleDownDiceDisplay] PRESENTATION: Waiting for host result...');
 
         setCurrentPhase('rolling');
+        setIsRolling(true); // Start CSS animation instead of setInterval
 
-        // Show rolling animation while waiting
-        const rollInterval = setInterval(() => {
-            const tempResult: DiceResult = {
-                investment_id: investmentId,
-                dice1_value: Math.floor(Math.random() * 6) + 1,
-                dice2_value: Math.floor(Math.random() * 6) + 1,
-                total_value: 0,
-                boost_percentage: 0,
-                affected_teams: teamNames
-            };
-            tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
-            tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
-            setDiceResult(tempResult);
-        }, 100);
-
-        // Poll for host result
+        // Poll for host result without constant visual updates
         let attempts: number = 0;
-        const maxAttempts: number = 20; // 10 seconds total
+        const maxAttempts: number = 20;
 
         while (attempts < maxAttempts && !hasRolled) {
             const existingResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
 
             if (existingResult) {
-                clearInterval(rollInterval);
+                setIsRolling(false); // Stop animation
 
                 const finalResult: DiceResult = {
                     investment_id: existingResult.investment_id,
@@ -134,13 +194,9 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 setHasRolled(true);
                 setCurrentPhase('showing_results');
 
-                // FIX #3: Presentation should only get display changes, not apply effects
                 setTimeout(async () => {
                     if (finalResult) {
-                        // Play result audio immediately when dice settle
-                        audioManager.playResultAudio(investmentId, finalResult.total_value);
-
-                        // Wait a bit for audio to start, then apply effects
+                        await audioManager.playResultAudio(investmentId, finalResult.total_value);
                         await applyEffectsAsPresentation(finalResult);
                         setHasAppliedEffects(true);
                         setCurrentPhase('complete');
@@ -154,7 +210,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             attempts++;
         }
 
-        clearInterval(rollInterval);
+        setIsRolling(false); // Stop animation on timeout
         console.error('[DoubleDownDiceDisplay] PRESENTATION: Timeout waiting for host result');
         setCurrentPhase('complete');
     };
@@ -257,29 +313,15 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }
     };
 
-    // Add this method above the existing rollDice method
     const simulateDiceAnimation = async (teamsToUse: string[], duration: number = 2000): Promise<void> => {
-        const rollInterval = 200; // Reduced frequency
-        const animationSteps = duration / rollInterval;
+        // Start CSS animation instead of state updates
+        setIsRolling(true);
 
-        for (let i = 0; i < animationSteps; i++) {
-            await new Promise(resolve => setTimeout(resolve, rollInterval));
+        // Wait for animation duration without constant state updates
+        await new Promise(resolve => setTimeout(resolve, duration));
 
-            // Only update state if component is still in rolling phase
-            if (currentPhase === 'rolling') {
-                const tempResult: DiceResult = {
-                    investment_id: investmentId,
-                    dice1_value: Math.floor(Math.random() * 6) + 1,
-                    dice2_value: Math.floor(Math.random() * 6) + 1,
-                    total_value: 0,
-                    boost_percentage: 0,
-                    affected_teams: teamsToUse
-                };
-                tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
-                tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
-                setDiceResult(tempResult);
-            }
-        }
+        // Stop animation
+        setIsRolling(false);
     };
 
     const rollDice = async (teams?: string[]) => {
@@ -647,12 +689,12 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                 {investmentName}
                             </h2>
                             <h3 className="text-lg font-semibold text-white mb-6 text-center">Rolling Dice...</h3>
-                            <div className="flex gap-6 justify-center animate-bounce">
-                                <div className="bg-white rounded-xl p-4 shadow-lg">
-                                    <DiceIcon value={diceResult?.dice1_value || 1}/>
+                            <div className="flex gap-6 justify-center">
+                                <div className="bg-transparent">
+                                    <Dice3D value={diceResult?.dice1_value || 1} isRolling={isRolling}/>
                                 </div>
-                                <div className="bg-white rounded-xl p-4 shadow-lg">
-                                    <DiceIcon value={diceResult?.dice2_value || 1}/>
+                                <div className="bg-transparent">
+                                    <Dice3D value={diceResult?.dice2_value || 1} isRolling={isRolling}/>
                                 </div>
                             </div>
                         </div>
@@ -672,11 +714,11 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                             <h3 className="text-lg font-semibold text-white mb-6 text-center">Final Result:</h3>
 
                             <div className="flex gap-6 justify-center mb-8">
-                                <div className="bg-white rounded-xl p-4 shadow-lg">
-                                    <DiceIcon value={diceResult?.dice1_value || 1}/>
+                                <div className="bg-transparent">
+                                    <Dice3D value={diceResult?.dice1_value || 1} isRolling={false}/>
                                 </div>
-                                <div className="bg-white rounded-xl p-4 shadow-lg">
-                                    <DiceIcon value={diceResult?.dice2_value || 1}/>
+                                <div className="bg-transparent">
+                                    <Dice3D value={diceResult?.dice2_value || 1} isRolling={false}/>
                                 </div>
                             </div>
 
@@ -698,7 +740,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                 )}
                                 {diceResult?.boost_percentage === 100 && (
                                     <div className="text-5xl font-bold text-green-400 animate-bounce">
-                                        🎉 JACKPOT! 🎉
+                                        JACKPOT!
                                         <div className="text-3xl mt-2">100% BONUS!</div>
                                     </div>
                                 )}
@@ -750,11 +792,11 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                             {diceResult && (
                                 <>
                                     <div className="flex gap-6 justify-center mb-8">
-                                        <div className="bg-white rounded-xl p-4 shadow-lg">
-                                            <DiceIcon value={diceResult.dice1_value}/>
+                                        <div className="bg-transparent">
+                                            <Dice3D value={diceResult?.dice1_value || 1} isRolling={false}/>
                                         </div>
-                                        <div className="bg-white rounded-xl p-4 shadow-lg">
-                                            <DiceIcon value={diceResult.dice2_value}/>
+                                        <div className="bg-transparent">
+                                            <Dice3D value={diceResult?.dice2_value || 1} isRolling={false}/>
                                         </div>
                                     </div>
 
@@ -776,7 +818,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                         )}
                                         {diceResult.boost_percentage === 100 && (
                                             <div className="text-5xl font-bold text-green-400">
-                                                🎉 JACKPOT! 🎉
+                                                JACKPOT!
                                                 <div className="text-3xl mt-2">100% BONUS!</div>
                                             </div>
                                         )}
@@ -840,11 +882,13 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 backgroundColor: '#006D32' // Fallback color if image fails to load
             }}
         >
+            <DebugPanel/>
             <div className="max-w-sm sm:max-w-2xl md:max-w-4xl mx-auto px-4">
                 {getPhaseDisplay()}
             </div>
         </div>
-    );
+    )
+        ;
 };
 
 export default DoubleDownDiceDisplay;
