@@ -52,7 +52,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                                                          investmentName,
                                                                          slideId,
                                                                          isHost = false
-                                                                     }) => {
+                                                                     }: DoubleDownDiceDisplayProps) => {
     console.log('🔍 [DEBUG] DoubleDownDiceDisplay COMPONENT MOUNTED/RENDERED:', {
         slideId,
         investmentId,
@@ -66,9 +66,9 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     const [affectedTeams, setAffectedTeams] = useState<string[]>([]);
     const processingRef = useRef(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const audioManager = DoubleDownAudioManager.getInstance();
+    const audioManager: DoubleDownAudioManager = DoubleDownAudioManager.getInstance();
 
-    useEffect(() => {
+    useEffect((): () => void => {
         console.log('🔍 [DEBUG] useEffect firing for initializeDoubleDownRoll:', {
             slideId,
             investmentId,
@@ -77,7 +77,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
         initializeDoubleDownRoll();
 
-        return () => {
+        return (): void => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
             }
@@ -85,7 +85,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         };
     }, [slideId, investmentId, sessionId]);
 
-    useEffect(() => {
+    useEffect((): void => {
         if (currentPhase === 'showing_teams' && affectedTeams.length > 0) {
             audioManager.playIntroAudio(investmentId);
         }
@@ -112,11 +112,11 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }, 100);
 
         // Poll for host result
-        let attempts = 0;
-        const maxAttempts = 20; // 10 seconds total
+        let attempts: number = 0;
+        const maxAttempts: number = 20; // 10 seconds total
 
         while (attempts < maxAttempts && !hasRolled) {
-            const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+            const existingResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
 
             if (existingResult) {
                 clearInterval(rollInterval);
@@ -159,7 +159,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         setCurrentPhase('complete');
     };
 
-    const initializeDoubleDownRoll = async () => {
+    const initializeDoubleDownRoll: () => Promise<void> = async (): Promise<void> => {
         console.log('🔍 [DEBUG] initializeDoubleDownRoll called:', {
             slideId,
             investmentId,
@@ -181,7 +181,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
         try {
             // Check for existing result FIRST (your existing code)
-            const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+            const existingResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
             if (existingResult) {
                 console.log('[DoubleDownDiceDisplay] Result already exists, using existing result');
 
@@ -386,7 +386,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     const saveResult = async (result: DiceResult) => {
         try {
             // Check if result already exists before saving
-            const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+            const existingResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
 
             if (existingResult) {
                 console.log(`[DoubleDownDiceDisplay] Result already exists for investment ${investmentId}, skipping save`);
@@ -564,13 +564,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }
     };
 
-    const getBoostColor = (boost: number) => {
-        if (boost === 100) return 'text-green-400';
-        if (boost === 75) return 'text-blue-400';
-        if (boost === 25) return 'text-yellow-400';
-        return 'text-gray-400';
-    };
-
     const formatKpiChange = (change: { kpi: string; change_value: number; display_value: string }) => {
         const sign = change.change_value >= 0 ? '+' : '';
 
@@ -672,15 +665,26 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                             </div>
                         </div>
 
-                        {/* Special handling for 75% bonus */}
+                        {/* Special handling for each boost percentage */}
+                        {diceResult?.boost_percentage === 0 && (
+                            <div className="text-5xl font-bold text-red-400 mb-6 animate-pulse">
+                                NO BONUS!
+                            </div>
+                        )}
+                        {diceResult?.boost_percentage === 25 && (
+                            <div className="text-5xl font-bold text-yellow-400 mb-6">
+                                25% BONUS!
+                            </div>
+                        )}
                         {diceResult?.boost_percentage === 75 && (
                             <div className="text-6xl font-bold text-green-400 mb-6 animate-pulse">
                                 75% BONUS!
                             </div>
                         )}
-                        {diceResult?.boost_percentage !== 75 && (
-                            <div className={`text-4xl font-bold mb-6 ${getBoostColor(diceResult?.boost_percentage || 0)}`}>
-                                {diceResult?.boost_percentage}% Boost
+                        {diceResult?.boost_percentage === 100 && (
+                            <div className="text-8xl font-bold text-green-400 mb-6 animate-bounce">
+                                🎉 JACKPOT! 🎉
+                                <div className="text-6xl mt-2">100% BONUS!</div>
                             </div>
                         )}
                     </div>
@@ -725,24 +729,44 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Special handling for 75% bonus */}
+                                {/* Special handling for each boost percentage */}
+                                {diceResult.boost_percentage === 0 && (
+                                    <div className="text-5xl font-bold text-red-400 mb-6">
+                                        NO BONUS!
+                                    </div>
+                                )}
+                                {diceResult.boost_percentage === 25 && (
+                                    <div className="text-5xl font-bold text-yellow-400 mb-6">
+                                        25% BONUS!
+                                    </div>
+                                )}
                                 {diceResult.boost_percentage === 75 && (
                                     <div className="text-6xl font-bold text-green-400 mb-6">
                                         75% BONUS!
                                     </div>
                                 )}
-                                {diceResult.boost_percentage !== 75 && (
-                                    <div className={`text-4xl font-bold mb-6 ${getBoostColor(diceResult.boost_percentage)}`}>
-                                        {diceResult.boost_percentage}% Boost
+                                {diceResult.boost_percentage === 100 && (
+                                    <div className="text-8xl font-bold text-green-400 mb-6">
+                                        🎉 JACKPOT! 🎉
+                                        <div className="text-6xl mt-2">100% BONUS!</div>
                                     </div>
                                 )}
 
                                 {diceResult.boost_percentage > 0 && (
-                                    <div className="mb-6">
+                                    <div className="mb-6 bg-black/20 border border-white/30 rounded-lg p-6">
                                         <h3 className="text-xl font-bold text-white mb-4 flex items-center justify-center gap-2">
                                             <TrendingUp size={24}/>
-                                            Teams Receiving {diceResult.boost_percentage}% Bonus
+                                            KPI Changes
                                         </h3>
+
+                                        {/* KPI Changes would go here - placeholder for now */}
+                                        <div className="mb-4 text-center">
+                                            <div className="text-white">KPI changes will be displayed here</div>
+                                        </div>
+
+                                        <h4 className="text-lg font-bold text-white mb-2 text-center">
+                                            Teams that doubled down are:
+                                        </h4>
                                         <div className="flex flex-wrap gap-2 justify-center">
                                             {affectedTeams.map((team, index) => (
                                                 <div key={index}
@@ -761,7 +785,8 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                             <div className="mt-8 p-6 bg-black/50 rounded-lg border-2 border-white">
                                 <div className="flex items-center justify-center mb-4">
                                     <BarChart className="w-5 h-5 text-blue-400 mr-2"/>
-                                    <h3 className="text-lg font-semibold text-white">KPI Changes - Update Your Physical Boards!</h3>
+                                    <h3 className="text-lg font-semibold text-white">KPI Changes - Update Your Physical
+                                        Boards!</h3>
                                 </div>
 
                                 <div className="bg-slate-700/30 rounded-lg p-4 mb-4">
@@ -802,8 +827,8 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         <div
             className="w-full h-full flex items-center justify-center p-8"
             style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23047857' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                backgroundColor: '#047857'
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='felt' x='0' y='0' width='20' height='20' patternUnits='userSpaceOnUse'%3E%3Crect width='20' height='20' fill='%23006D32'/%3E%3Ccircle cx='10' cy='10' r='1' fill='%23004D23' opacity='0.3'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23felt)'/%3E%3Cg stroke='%23FFD700' stroke-width='1' fill='none'%3E%3Cpath d='M10 10 L90 10 L90 90 L10 90 Z'/%3E%3Cpath d='M10 50 L90 50'/%3E%3Cpath d='M50 10 L50 90'/%3E%3C/g%3E%3C/svg%3E")`,
+                backgroundColor: '#006D32'
             }}
         >
             <div className="max-w-4xl mx-auto">
