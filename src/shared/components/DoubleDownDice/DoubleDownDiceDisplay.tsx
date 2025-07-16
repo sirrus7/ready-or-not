@@ -43,7 +43,7 @@ const DiceIcon: React.FC<{ value: number }> = ({value}) => {
         6: Dice6
     };
     const Icon = icons[value as keyof typeof icons] || Dice6;
-    return <Icon className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 text-white"/>;
+    return <Icon className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 text-black"/>;
 };
 
 const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
@@ -596,53 +596,62 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         switch (currentPhase) {
             case 'loading':
                 return (
-                    <div className="text-center text-white">
-                        <h1 className="text-6xl font-bold text-white mb-4 tracking-wider drop-shadow-lg">DOUBLE DOWN</h1>
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                        Loading double down data...
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
+                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <div
+                                className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+                            <div className="text-white/80 text-center">Loading double down data...</div>
+                        </div>
                     </div>
                 );
 
             case 'showing_teams':
                 return (
-                    <div className="text-center">
-                        <h1 className="text-6xl font-bold text-white mb-4 tracking-wider drop-shadow-lg">DOUBLE DOWN</h1>
-                        <h2 className="text-4xl font-bold text-white mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            {investmentName}
-                        </h2>
-                        <h3 className="text-2xl font-bold text-white mb-6">
-                            Teams Doubling Down:
-                        </h3>
-                        <div className="space-y-3 mb-6">
-                            {affectedTeams.map((team, index) => (
-                                <div key={index}
-                                     className="bg-game-orange-600/20 border border-game-orange-500/30 rounded-lg px-6 py-3">
-                                    <span className="text-xl font-medium text-white">{team}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="text-gray-300 text-lg">
-                            Rolling dice automatically in 3... 2... 1...
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl max-w-lg">
+                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <h2 className="text-2xl font-bold text-game-orange-300 mb-6 text-center">
+                                {investmentName}
+                            </h2>
+                            <h3 className="text-lg font-semibold text-white mb-4 text-center">
+                                Teams Doubling Down:
+                            </h3>
+                            <div className="flex flex-wrap gap-2 justify-center mb-6">
+                                {affectedTeams.map((team, index) => (
+                                    <div key={index}
+                                         className="bg-game-orange-500/20 border border-game-orange-400/50 rounded-lg px-3 py-1">
+                                        <span className="text-white font-medium">{team}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="text-white/80 text-center">
+                                Rolling dice automatically in 3... 2... 1...
+                            </div>
                         </div>
                     </div>
                 );
 
             case 'rolling':
                 return (
-                    <div className="text-center">
-                        <h1 className="text-6xl font-bold text-white mb-4 tracking-wider drop-shadow-lg">DOUBLE DOWN</h1>
-                        <h2 className="text-4xl font-bold text-white mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            {investmentName}
-                        </h2>
-                        <h3 className="text-2xl font-bold text-white mb-8">Rolling Dice...</h3>
-                        <div className="animate-bounce">
-                            <div className="flex gap-2 sm:gap-4 md:gap-6 justify-center mb-6">
-                                <div
-                                    className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 sm:p-4 md:p-6 shadow-inner">
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
+                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <h2 className="text-2xl font-bold text-game-orange-300 mb-6 text-center">
+                                {investmentName}
+                            </h2>
+                            <h3 className="text-lg font-semibold text-white mb-6 text-center">Rolling Dice...</h3>
+                            <div className="flex gap-6 justify-center animate-bounce">
+                                <div className="bg-white rounded-xl p-4 shadow-lg">
                                     <DiceIcon value={diceResult?.dice1_value || 1}/>
                                 </div>
-                                <div
-                                    className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 sm:p-4 md:p-6 shadow-inner">
+                                <div className="bg-white rounded-xl p-4 shadow-lg">
                                     <DiceIcon value={diceResult?.dice2_value || 1}/>
                                 </div>
                             </div>
@@ -652,150 +661,166 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
             case 'showing_results':
                 return (
-                    <div className="text-center">
-                        <h1 className="text-6xl font-bold text-white mb-4 tracking-wider drop-shadow-lg">DOUBLE DOWN</h1>
-                        <h2 className="text-4xl font-bold text-white mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            {investmentName}
-                        </h2>
-                        <h3 className="text-2xl font-bold text-white mb-4">Final Result:</h3>
-                        <div className="flex gap-2 sm:gap-4 md:gap-6 justify-center mb-6">
-                            <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-white/20">
-                                <DiceIcon value={diceResult?.dice1_value || 1}/>
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
+                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <h2 className="text-2xl font-bold text-game-orange-300 mb-6 text-center">
+                                {investmentName}
+                            </h2>
+                            <h3 className="text-lg font-semibold text-white mb-6 text-center">Final Result:</h3>
+
+                            <div className="flex gap-6 justify-center mb-8">
+                                <div className="bg-white rounded-xl p-4 shadow-lg">
+                                    <DiceIcon value={diceResult?.dice1_value || 1}/>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 shadow-lg">
+                                    <DiceIcon value={diceResult?.dice2_value || 1}/>
+                                </div>
                             </div>
-                            <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-white/20">
-                                <DiceIcon value={diceResult?.dice2_value || 1}/>
+
+                            <div className="text-center">
+                                {diceResult?.boost_percentage === 0 && (
+                                    <div className="text-3xl font-bold text-red-400 animate-pulse">
+                                        NO BONUS!
+                                    </div>
+                                )}
+                                {diceResult?.boost_percentage === 25 && (
+                                    <div className="text-3xl font-bold text-yellow-400">
+                                        25% BONUS!
+                                    </div>
+                                )}
+                                {diceResult?.boost_percentage === 75 && (
+                                    <div className="text-4xl font-bold text-green-400 animate-pulse">
+                                        75% BONUS!
+                                    </div>
+                                )}
+                                {diceResult?.boost_percentage === 100 && (
+                                    <div className="text-5xl font-bold text-green-400 animate-bounce">
+                                        🎉 JACKPOT! 🎉
+                                        <div className="text-3xl mt-2">100% BONUS!</div>
+                                    </div>
+                                )}
                             </div>
                         </div>
-
-                        {/* Special handling for each boost percentage */}
-                        {diceResult?.boost_percentage === 0 && (
-                            <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-red-400 mb-6 animate-pulse">
-                                NO BONUS!
-                            </div>
-                        )}
-                        {diceResult?.boost_percentage === 25 && (
-                            <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-yellow-400 mb-6">
-                                25% BONUS!
-                            </div>
-                        )}
-                        {diceResult?.boost_percentage === 75 && (
-                            <div
-                                className="text-4xl sm:text-5xl md:text-6xl font-bold text-green-400 mb-6 animate-pulse drop-shadow-lg">
-                                75% BONUS!
-                            </div>
-                        )}
-                        {diceResult?.boost_percentage === 100 && (
-                            <div
-                                className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-green-400 mb-6 animate-bounce">
-                                🎉 JACKPOT! 🎉
-                                <div className="text-4xl sm:text-5xl md:text-6xl mt-2">100% BONUS!</div>
-                            </div>
-                        )}
                     </div>
                 );
 
             case 'applying_effects':
                 return (
-                    <div className="text-center">
-                        <h1 className="text-6xl font-bold text-white mb-4 tracking-wider drop-shadow-lg">DOUBLE DOWN</h1>
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                        <div className="text-white text-lg">Applying effects...</div>
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
+                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <div
+                                className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+                            <div className="text-white text-center">Applying effects...</div>
+                        </div>
                     </div>
                 );
 
             case 'complete':
                 if (affectedTeams.length === 0) {
                     return (
-                        <div className="text-center">
-                            <h1 className="text-6xl font-bold text-white mb-4 tracking-wider drop-shadow-lg">DOUBLE DOWN</h1>
-                            <div className="text-2xl text-gray-400">
-                                No teams doubled down on this investment
+                        <div className="flex items-center justify-center min-h-[60vh]">
+                            <div
+                                className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
+                                <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                    DOWN</h1>
+                                <div className="text-xl text-white/80 text-center">
+                                    No teams doubled down on this investment
+                                </div>
                             </div>
                         </div>
                     );
                 }
 
                 return (
-                    <div className="text-center">
-                        <h1 className="text-6xl font-bold text-white mb-4 tracking-wider drop-shadow-lg">DOUBLE DOWN</h1>
-                        <h2 className="text-4xl font-bold text-white mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            {investmentName}
-                        </h2>
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl max-w-4xl">
+                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <h2 className="text-2xl font-bold text-game-orange-300 mb-6 text-center">
+                                {investmentName}
+                            </h2>
 
-                        {diceResult && (
-                            <>
-                                <div className="flex gap-2 sm:gap-4 md:gap-6 justify-center mb-6">
-                                    <div
-                                        className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 sm:p-4 md:p-6 shadow-inner">
-                                        <DiceIcon value={diceResult.dice1_value}/>
+                            {diceResult && (
+                                <>
+                                    <div className="flex gap-6 justify-center mb-8">
+                                        <div className="bg-white rounded-xl p-4 shadow-lg">
+                                            <DiceIcon value={diceResult.dice1_value}/>
+                                        </div>
+                                        <div className="bg-white rounded-xl p-4 shadow-lg">
+                                            <DiceIcon value={diceResult.dice2_value}/>
+                                        </div>
                                     </div>
-                                    <div
-                                        className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 sm:p-4 md:p-6 shadow-inner">
-                                        <DiceIcon value={diceResult.dice2_value}/>
-                                    </div>
-                                </div>
 
-                                {/* Special handling for each boost percentage */}
-                                {diceResult.boost_percentage === 0 && (
-                                    <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-red-400 mb-6">
-                                        NO BONUS!
+                                    <div className="text-center mb-8">
+                                        {diceResult.boost_percentage === 0 && (
+                                            <div className="text-3xl font-bold text-red-400">
+                                                NO BONUS!
+                                            </div>
+                                        )}
+                                        {diceResult.boost_percentage === 25 && (
+                                            <div className="text-3xl font-bold text-yellow-400">
+                                                25% BONUS!
+                                            </div>
+                                        )}
+                                        {diceResult.boost_percentage === 75 && (
+                                            <div className="text-4xl font-bold text-green-400">
+                                                75% BONUS!
+                                            </div>
+                                        )}
+                                        {diceResult.boost_percentage === 100 && (
+                                            <div className="text-5xl font-bold text-green-400">
+                                                🎉 JACKPOT! 🎉
+                                                <div className="text-3xl mt-2">100% BONUS!</div>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                                {diceResult.boost_percentage === 25 && (
-                                    <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-yellow-400 mb-6">
-                                        25% BONUS!
-                                    </div>
-                                )}
-                                {diceResult.boost_percentage === 75 && (
-                                    <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-green-400 mb-6">
-                                        75% BONUS!
-                                    </div>
-                                )}
-                                {diceResult.boost_percentage === 100 && (
-                                    <div
-                                        className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-green-400 mb-6">
-                                        🎉 JACKPOT! 🎉
-                                        <div className="text-4xl sm:text-5xl md:text-6xl mt-2">100% BONUS!</div>
-                                    </div>
-                                )}
 
-                                {diceResult.boost_percentage > 0 && (
-                                    <div className="mb-6 bg-black/40 backdrop-blur-sm border border-white/20 rounded-xl p-6 shadow-2xl">
-                                        <h3 className="text-xl font-bold text-white mb-4 flex items-center justify-center gap-2">
-                                            <TrendingUp size={24}/>
-                                            KPI Changes
-                                        </h3>
+                                    {diceResult.boost_percentage > 0 && (
+                                        <div className="space-y-6">
+                                            {/* KPI Changes */}
+                                            <div className="bg-black/50 rounded-xl p-6 border border-white/20">
+                                                <h3 className="text-xl font-bold text-white mb-4 text-center flex items-center justify-center gap-2">
+                                                    <TrendingUp size={24}/>
+                                                    KPI Changes
+                                                </h3>
 
-                                        {/* ACTUAL KPI CHANGES DISPLAY */}
-                                        {kpiChanges.length > 0 && (
-                                            <div className="mb-4 text-center">
-                                                <div className="bg-slate-700/30 rounded-lg p-4 mb-4">
-                                                    <div className="flex flex-col items-center gap-2">
+                                                {kpiChanges.length > 0 && (
+                                                    <div className="grid grid-cols-2 gap-4 text-center">
                                                         {kpiChanges[0]?.changes.map((change, changeIndex) => (
                                                             <div key={changeIndex} className="text-lg font-bold">
                                                                 {formatKpiChange(change)}
                                                             </div>
                                                         ))}
                                                     </div>
+                                                )}
+                                            </div>
+
+                                            {/* Teams */}
+                                            <div className="bg-black/50 rounded-xl p-6 border border-white/20">
+                                                <h4 className="text-xl font-bold text-white mb-4 text-center">
+                                                    Teams that doubled down are:
+                                                </h4>
+                                                <div className="flex flex-wrap gap-3 justify-center">
+                                                    {affectedTeams.map((team, index) => (
+                                                        <div key={index}
+                                                             className="bg-game-orange-500/20 border border-game-orange-400/50 rounded-lg px-4 py-2">
+                                                            <span className="text-white font-medium">{team}</span>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
-                                        )}
-
-                                        <h4 className="text-lg font-bold text-white mb-2 text-center">
-                                            Teams that doubled down are:
-                                        </h4>
-                                        <div className="flex flex-wrap gap-2 justify-center">
-                                            {affectedTeams.map((team, index) => (
-                                                <div key={index}
-                                                     className="bg-yellow-600/80 border border-yellow-400/60 rounded-lg px-4 py-2 shadow-lg">
-                                                    <span className="text-lg font-medium text-white">{team}</span>
-                                                </div>
-                                            ))}
                                         </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
+                                    )}
+                                </>
+                            )}
+                        </div>
                     </div>
                 );
 
