@@ -2,7 +2,6 @@
 import {GameSession, GameSessionInsert, GameStructure, NewGameData, TeamRoundData} from '@shared/types';
 import {db, formatSupabaseError} from '@shared/services/supabase';
 import {ScoringEngine} from './ScoringEngine';
-import {SimpleRealtimeManager} from "@core/sync";
 
 export class GameSessionManager {
     private static instance: GameSessionManager;
@@ -165,8 +164,6 @@ export class GameSessionManager {
         hostId: string,
         fullGameStructure: GameStructure
     ): Promise<GameSession> {
-        console.log("[GameSessionManager] Attempting to create new session...");
-
         const firstSlide = fullGameStructure.slides[0];
         if (!firstSlide) {
             throw new Error("Game structure is missing slides, cannot create session.");

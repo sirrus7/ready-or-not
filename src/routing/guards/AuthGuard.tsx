@@ -1,5 +1,4 @@
 // src/components/AuthGuard.tsx
-import React, {useEffect} from 'react';
 import {Navigate, useLocation} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider.tsx';
 
@@ -8,16 +7,8 @@ interface AuthGuardProps {
 }
 
 const AuthGuard: React.FC<AuthGuardProps> = React.memo(({children}) => {
-    console.log('🔍 [AUTHGUARD] Component re-rendering');
     const {user, loading} = useAuth();
     const location = useLocation();
-
-    useEffect(() => {
-        console.log('🏗️ [AUTHGUARD] COMPONENT MOUNTED');
-        return () => {
-            console.log('💀 [AUTHGUARD] COMPONENT UNMOUNTED');
-        };
-    }, []);
 
     // SIMPLIFIED: No hasLoadedOnce state that could cause remounts
     if (loading) {

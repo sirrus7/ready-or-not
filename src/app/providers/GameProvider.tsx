@@ -1,7 +1,7 @@
 // src/app/providers/GameProvider.tsx
 // UPDATED: Now provides permanent adjustments globally from centralized system
 
-import React, {createContext, useContext, useCallback, useMemo, useRef, useEffect} from 'react';
+import React, {createContext, useContext, useCallback, useMemo, useRef} from 'react';
 import {useParams} from 'react-router-dom';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {useGameController} from '@core/game/useGameController';
@@ -62,32 +62,11 @@ export const useGameContext = (): GameContextType => {
 };
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(({children}) => {
-    console.log('🚨 [GAMEPROVIDER] Component re-rendering (WITH MEMO)');
-    console.log('🚨 [GAMEPROVIDER] Children ref:', children);
-
-    // Debug mounting vs re-rendering
-    useEffect(() => {
-        console.log('🏗️ [GAMEPROVIDER] COMPONENT MOUNTED');
-        return () => {
-            console.log('💀 [GAMEPROVIDER] COMPONENT UNMOUNTED');
-        };
-    }, []);
-
     const {sessionId} = useParams<{ sessionId: string }>();
-    console.log('🔍 [DEBUG] useParams result:', sessionId);
-
     const {user, loading: authLoading} = useAuth();
-    console.log('🔍 [DEBUG] useAuth result:', {user_id: user?.id, authLoading});
-
     const gameStructure: GameStructure = readyOrNotGame_2_0_DD;
-
     const {session, updateSessionInDb} = useSessionManager(sessionId, user, authLoading, gameStructure);
-    console.log('🔍 [DEBUG] useSessionManager result:', {sessionId: session?.id});
-    console.log('🔍 [DEBUG] useSessionManager refs:', {session, updateSessionInDb});
-
     const teamDataManager = useTeamDataManager(session?.id || null);
-    console.log('🔍 [DEBUG] useTeamDataManager result:', {teamsLength: teamDataManager.teams.length});
-    console.log('🔍 [DEBUG] useTeamDataManager ref:', teamDataManager);
     const {
         teams,
         teamDecisions,
@@ -107,7 +86,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
         fetchTeamDecisionsFromHook: teamDataManager.fetchTeamDecisionsForSession,
         setTeamRoundDataDirectly: teamDataManager.setTeamRoundDataDirectly,
     });
-    console.log('🔍 [DEBUG] gameProcessing ref:', gameProcessing);
 
     // Initialize game controller with both processing functions
     const gameController = useGameController(
@@ -118,7 +96,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
         gameProcessing.processPayoffSlide,
         gameProcessing.processKpiResetSlide,
     );
-    console.log('🔍 [DEBUG] gameController ref:', gameController);
 
     const resetTeamDecision = useCallback(async (teamId: string, interactiveDataKey: string) => {
         if (!session?.id) {
@@ -138,40 +115,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
                 interactiveDataKey
             );
 
-            console.log(`[GameProvider] ✅ Reset decision for team ${teamId}: ${interactiveDataKey}`);
         } catch (error) {
             console.error('GameProvider: Error resetting team decision:', error);
             throw error;
         }
     }, [session?.id, teamDataManager]);
-
-
-    const prevValues = useRef({
-        currentSessionId: null as string | null,
-        sessionIsPlaying: null as boolean | null,
-        gameControllerSlideIndex: null as number | null,
-        teamDataManagerTeamsLength: null as number | null,
-    });
-
-    // Log what changed
-    useEffect(() => {
-        const prev = prevValues.current;
-        const current = {
-            currentSessionId,
-            sessionIsPlaying,
-            gameControllerSlideIndex: gameController.currentSlideIndex,
-            teamDataManagerTeamsLength: teamDataManager.teams.length,
-        };
-
-        Object.entries(current).forEach(([key, value]) => {
-            if (prev[key as keyof typeof prev] !== value) {
-                console.log(`🔍 [CHANGE] ${key} changed:`, prev[key as keyof typeof prev], '->', value);
-            }
-        });
-
-        prevValues.current = current;
-    });
-
 
     const gameControllerRef = useRef(gameController);
     const gameProcessingRef = useRef(gameProcessing);
@@ -185,7 +133,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     const sessionIsPlaying = session?.is_playing ?? false;
 
     const appState: AppState = useMemo(() => {
-        console.log('🔍 [APPSTATE] AppState being recreated - PRIMITIVE VALUES');
         return {
             currentSessionId: currentSessionId,
             gameStructure,
@@ -221,7 +168,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     ]);
 
     const contextValue: GameContextType = useMemo(() => {
-        console.log('🔍 [CONTEXT] Context value being recreated');
         return {
             state: appState,
             currentSlideData: gameControllerRef.current.currentSlideData,
@@ -257,6 +203,5 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
         </GameContext.Provider>
     );
 }, () => {
-    console.log('🔍 [MEMO] Custom comparison - forcing no re-renders');
     return true; // Always consider props equal = never re-render
 });

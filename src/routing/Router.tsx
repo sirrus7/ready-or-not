@@ -1,5 +1,5 @@
 // src/routing/Router.tsx - RESTORED your original routes, only removed conflicting /game route
-import React, {Suspense, useEffect} from 'react';
+import React, {Suspense} from 'react';
 import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import {AuthProvider} from '@app/providers/AuthProvider';
 import {GameProvider} from '@app/providers/GameProvider';
@@ -20,15 +20,6 @@ import {
 } from '@routing/routes';
 
 const Router: React.FC = React.memo(() => {
-    console.log('🔍 [ROUTER] Component re-rendering');
-
-    useEffect(() => {
-        console.log('🏗️ [ROUTER] COMPONENT MOUNTED');
-        return () => {
-            console.log('💀 [ROUTER] COMPONENT UNMOUNTED');
-        };
-    }, []);
-
     return (
         <BrowserRouter>
             {/* ✅ SINGLE AuthProvider for entire application */}

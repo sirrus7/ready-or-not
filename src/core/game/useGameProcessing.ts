@@ -275,7 +275,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                     db.decisions.deleteBySession(currentDbSession.id),
                     db.kpis.deleteBySession(currentDbSession.id),
                     db.adjustments.deleteBySession(currentDbSession.id),
-                    db.consequenceApplications.deleteBySession(currentDbSession.id),
                     db.payoffApplications.deleteBySession(currentDbSession.id), // NEW: Clean up payoff applications
                 ]);
 

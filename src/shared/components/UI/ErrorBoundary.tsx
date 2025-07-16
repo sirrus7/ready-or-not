@@ -1,6 +1,6 @@
 // src/components/ErrorBoundary.tsx
-import React, { Component, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import React, {Component, ReactNode} from 'react';
+import {AlertTriangle, RefreshCw} from 'lucide-react';
 
 interface Props {
     children: ReactNode;
@@ -15,12 +15,12 @@ interface State {
 class ErrorBoundary extends Component<Props, State> {
     constructor(props: Props) {
         super(props);
-        this.state = { hasError: false };
+        this.state = {hasError: false};
     }
 
     static getDerivedStateFromError(error: Error): State {
         console.error('[ErrorBoundary] Caught error:', error);
-        return { hasError: true, error };
+        return {hasError: true, error};
     }
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
@@ -28,7 +28,6 @@ class ErrorBoundary extends Component<Props, State> {
     }
 
     render() {
-        console.log('🔍 [ERRORBOUNDARY] Component re-rendering');
         if (this.state.hasError) {
             if (this.props.fallback) {
                 return this.props.fallback;
@@ -37,7 +36,7 @@ class ErrorBoundary extends Component<Props, State> {
             return (
                 <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
                     <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-6 text-center">
-                        <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
+                        <AlertTriangle size={48} className="text-red-500 mx-auto mb-4"/>
                         <h2 className="text-xl font-bold text-red-700 mb-2">Something went wrong</h2>
                         <p className="text-gray-600 mb-4">
                             {this.state.error?.message || 'An unexpected error occurred'}
@@ -46,7 +45,7 @@ class ErrorBoundary extends Component<Props, State> {
                             onClick={() => window.location.reload()}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-game-orange-600 text-white rounded-lg hover:bg-game-orange-700 transition-colors"
                         >
-                            <RefreshCw size={16} />
+                            <RefreshCw size={16}/>
                             Reload Page
                         </button>
                         {process.env.NODE_ENV === 'development' && (
@@ -63,14 +62,6 @@ class ErrorBoundary extends Component<Props, State> {
         }
 
         return this.props.children;
-    }
-
-    componentDidMount() {
-        console.log('🏗️ [ERRORBOUNDARY] COMPONENT MOUNTED');
-    }
-
-    componentWillUnmount() {
-        console.log('💀 [ERRORBOUNDARY] COMPONENT UNMOUNTED');
     }
 }
 

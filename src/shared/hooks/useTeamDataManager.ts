@@ -66,10 +66,8 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         setTeamsState(prev => {
             const nextTeams = typeof newTeams === 'function' ? newTeams(prev) : newTeams;
             if (deepEqual(prev, nextTeams)) {
-                console.log('🔍 [TeamDataManager] Teams unchanged, skipping update');
                 return prev;
             }
-            console.log('🔍 [TeamDataManager] Teams changed, updating');
             return nextTeams;
         });
     }, []);
@@ -78,10 +76,8 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         setTeamDecisionsState(prev => {
             const nextDecisions = typeof newDecisions === 'function' ? newDecisions(prev) : newDecisions;
             if (deepEqual(prev, nextDecisions)) {
-                console.log('🔍 [TeamDataManager] Decisions unchanged, skipping update');
                 return prev;
             }
-            console.log('🔍 [TeamDataManager] Decisions changed, updating');
             return nextDecisions;
         });
     }, []);
@@ -90,10 +86,8 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         setTeamRoundDataState(prev => {
             const nextRoundData = typeof newRoundData === 'function' ? newRoundData(prev) : newRoundData;
             if (deepEqual(prev, nextRoundData)) {
-                console.log('🔍 [TeamDataManager] RoundData unchanged, skipping update');
                 return prev;
             }
-            console.log('🔍 [TeamDataManager] RoundData changed, updating');
             return nextRoundData;
         });
     }, []);
@@ -102,10 +96,8 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         setPermanentAdjustmentsState(prev => {
             const nextAdjustments = typeof newAdjustments === 'function' ? newAdjustments(prev) : newAdjustments;
             if (deepEqual(prev, nextAdjustments)) {
-                console.log('🔍 [TeamDataManager] Adjustments unchanged, skipping update');
                 return prev;
             }
-            console.log('🔍 [TeamDataManager] Adjustments changed, updating');
             return nextAdjustments;
         });
     }, []);

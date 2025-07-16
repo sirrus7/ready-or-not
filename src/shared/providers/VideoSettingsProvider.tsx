@@ -32,19 +32,7 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = React
                                                                                            children,
                                                                                            sessionId
                                                                                        }) => {
-    console.log('🔍 [VIDEOSETTINGS] Component re-rendering');
-    console.log('🔍 [VIDEOSETTINGS] Props:', {sessionId, children_type: typeof children});
-
-    // In VideoSettingsProvider.tsx, add this useEffect:
-    useEffect(() => {
-        console.log('🏗️ [VIDEOSETTINGS] COMPONENT MOUNTED');
-        return () => {
-            console.log('💀 [VIDEOSETTINGS] COMPONENT UNMOUNTED');
-        };
-    }, []);
-
     const [settings, setSettings] = useState<VideoSettings>(defaultSettings);
-    console.log('🔍 [VIDEOSETTINGS] Current settings:', settings);
 
     // Load settings from localStorage on mount
     useEffect(() => {
@@ -54,7 +42,6 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = React
         if (stored) {
             try {
                 const parsedSettings = JSON.parse(stored);
-                console.log('🔍 [VIDEOSETTINGS] Loaded settings:', parsedSettings);
 
                 // 🎯 FIX: Only update if settings are actually different
                 setSettings(prev => {
@@ -62,11 +49,9 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = React
 
                     // Compare the objects - only update if different
                     if (JSON.stringify(prev) === JSON.stringify(newSettings)) {
-                        console.log('🔍 [VIDEOSETTINGS] Settings unchanged, skipping update');
                         return prev; // Return same reference to prevent re-render
                     }
 
-                    console.log('🔍 [VIDEOSETTINGS] Settings changed, updating');
                     return newSettings;
                 });
             } catch (error) {
@@ -77,7 +62,6 @@ export const VideoSettingsProvider: React.FC<VideoSettingsProviderProps> = React
 
     // Save settings to localStorage when they change
     useEffect(() => {
-        console.log('🔍 [VIDEOSETTINGS] Saving to localStorage:', settings);
         const storageKey = sessionId ? `videoSettings_${sessionId}` : 'videoSettings_global';
 
         // Only save if settings have actually changed from defaults or stored value

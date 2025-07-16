@@ -57,15 +57,6 @@ export const PresentationLoadingFallback = () => <RouteLoadingFallback message="
 // ============================================================================
 
 export const AuthenticatedPage: React.FC<{ children: React.ReactNode }> = React.memo(({children}) => {
-    console.log('🔍 [AUTHPAGE] Component re-rendering');
-
-    useEffect(() => {
-        console.log('🏗️ [AUTHPAGE] COMPONENT MOUNTED');
-        return () => {
-            console.log('💀 [AUTHPAGE] COMPONENT UNMOUNTED');
-        };
-    }, []);
-
     return <AuthGuard>{children}</AuthGuard>;
 });
 

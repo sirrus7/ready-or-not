@@ -83,35 +83,26 @@ const HostApp: React.FC = () => {
     const [previousSlideData, setPreviousSlideData] = useState<Slide | null>(null);
 
     const handleVideoEnd = useCallback(() => {
-        console.log('[HostApp] Video ended naturally, currentSlideData:', currentSlideData);
         if (!currentSlideData) return;
-
-        console.log('[HostApp] Video end logic - interactive_data_key:', currentSlideData.interactive_data_key, 'allTeamsSubmitted:', allTeamsSubmittedCurrentInteractivePhase);
-        console.log('[HostApp] Video end logic - host_alert:', currentSlideData.host_alert, 'timer_duration:', currentSlideData.timer_duration_seconds);
-        console.log('[HostApp] Video end logic - auto_advance_after_video:', currentSlideData.auto_advance_after_video);
 
         // For interactive slides, check if we should wait for submissions
         if (currentSlideData.interactive_data_key && !allTeamsSubmittedCurrentInteractivePhase) {
-            console.log('[HostApp] Showing submission wait alert');
             setCurrentHostAlertState({
                 title: "Timer Complete",
                 message: "The timer has ended, but not all teams have submitted. You may wait or proceed to the next slide."
             });
         } else if (currentSlideData.host_alert || currentSlideData.timer_duration_seconds) {
-            console.log('[HostApp] Showing host alert after video completion');
             setCurrentHostAlertState(currentSlideData.host_alert || {
                 title: "Timer Complete",
                 message: "Click OK to continue to the next slide."
             });
         } else if (shouldAutoAdvance(gameVersion, currentSlideData.auto_advance_after_video)) {
-            console.log('[HostApp] Auto-advancing to next slide');
             nextSlide('video');
         }
         // If auto_advance_after_video is false, do nothing (wait for manual advance)
     }, [currentSlideData, allTeamsSubmittedCurrentInteractivePhase, setCurrentHostAlertState]);
 
     const memoizedSlideRendererProps = useMemo((): SlideRendererProps => {
-        console.log('🔍 [DEBUG] useMemo RECALCULATING SlideRenderer props');
         return {
             slide: currentSlideData,
             sessionId: currentSessionId,
@@ -146,7 +137,6 @@ const HostApp: React.FC = () => {
             previousSlideData.type.startsWith('interactive_') &&
             currentSlideData?.id !== previousSlideData.id) {
 
-            console.log('📱 Broadcasting decision_closed for:', previousSlideData.interactive_data_key);
             realtimeManager.sendTeamEvent('decision_closed', {
                 decisionKey: previousSlideData.interactive_data_key,
                 message: 'Decision period has ended',
@@ -282,35 +272,6 @@ const HostApp: React.FC = () => {
     if (!gameStructure || !currentSessionId || currentSessionId === 'new') {
         return <div className="min-h-screen ..."><AlertCircle/>Session Not Fully Loaded</div>;
     }
-
-    console.log('🔍 [DEBUG] HostApp RE-RENDERING SlideRenderer:', {
-        slideId: currentSlideData?.id,
-        timestamp: Date.now(),
-
-        // Session & Structure
-        currentSessionId,
-        current_slide_index,
-        gameStructure: !!gameStructure,
-
-        // Teams Data (likely culprits)
-        teamsLength: state.teams?.length,
-        teamDecisionsKeys: Object.keys(state.teamDecisions || {}),
-        teamRoundDataKeys: Object.keys(state.teamRoundData || {}),
-        permanentAdjustmentsLength: permanentAdjustments?.length,
-
-        // Loading States
-        isLoading: state.isLoading,
-
-        // Interactive State
-        allTeamsSubmitted: allTeamsSubmittedCurrentInteractivePhase,
-
-        // Alerts & Errors
-        hasCurrentHostAlert: !!state.currentHostAlert,
-        hasError: !!state.error,
-
-        // Local State
-        hasPreviousSlideData: !!previousSlideData,
-    });
 
     return (
         <div

@@ -23,34 +23,20 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(({children}) => {
-    console.log('🔍 [AUTHPROVIDER] Component re-rendering');
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        console.log('🏗️ [AUTHPROVIDER] COMPONENT MOUNTED');
-        return () => {
-            console.log('💀 [AUTHPROVIDER] COMPONENT UNMOUNTED');
-        };
-    }, []);
-
-    useEffect(() => {
-        console.log('🔍 [AUTHPROVIDER] Setting up auth initialization and listener');
-
         const initializeAuth = async () => {
             try {
-                console.log('🔍 [AUTHPROVIDER] Getting initial session...');
                 const session = await auth.getSession();
-                console.log('🔍 [AUTHPROVIDER] Initial session result:', session?.user?.id || 'no user');
                 setUser(session?.user ?? null);
                 setError(null);
             } catch (err) {
-                console.error('[AuthProvider] Exception getting session:', err);
                 setError(err instanceof Error ? err.message : 'Failed to initialize authentication');
                 setUser(null);
             } finally {
-                console.log('🔍 [AUTHPROVIDER] Setting loading false after init');
                 setLoading(false);
             }
         };
@@ -58,45 +44,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(
         initializeAuth();
 
         // Set up auth state change listener - simplified like original
-        console.log('🔍 [AUTHPROVIDER] Setting up auth state listener');
         const {data: {subscription}} = auth.onAuthStateChange((event, session) => {
-            console.log(`🔍 [AUTHPROVIDER] Auth state change: ${event}, user: ${session?.user?.id || 'none'}`);
-
             if (event === 'SIGNED_IN') {
-                console.log('🔍 [AUTHPROVIDER] Processing SIGNED_IN');
                 setUser(session?.user ?? null);
                 setError(null);
             } else if (event === 'SIGNED_OUT') {
-                console.log('🔍 [AUTHPROVIDER] Processing SIGNED_OUT');
                 setUser(null);
                 setError(null);
             } else if (event === 'TOKEN_REFRESHED') {
-                console.log('🔍 [AUTHPROVIDER] Processing TOKEN_REFRESHED');
                 setUser(session?.user ?? null);
                 setError(null);
             } else if (event === 'INITIAL_SESSION') {
-                console.log('🔍 [AUTHPROVIDER] Processing INITIAL_SESSION');
                 setUser(session?.user ?? null);
                 setError(null);
             }
-
             // Always set loading false for any auth event (like original)
             setLoading(false);
         });
 
         return () => {
-            console.log('🔍 [AUTHPROVIDER] Cleaning up auth listener');
             subscription?.unsubscribe();
         };
     }, []); // Empty dependency array
 
     const signIn = useCallback(async (email: string, password: string) => {
-        console.log('🔍 [AUTHPROVIDER] signIn called with email:', email);
         try {
             setError(null);
             setLoading(true);
-            const data = await auth.signIn(email, password);
-            console.log('🔍 [AUTHPROVIDER] Sign in successful:', data.user?.id);
+            await auth.signIn(email, password);
             // Success handled by onAuthStateChange
         } catch (err) {
             console.error('[AuthProvider] Sign in error:', err);
@@ -108,12 +83,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     }, []);
 
     const signUp = useCallback(async (email: string, password: string) => {
-        console.log('🔍 [AUTHPROVIDER] signUp called with email:', email);
         try {
             setError(null);
             setLoading(true);
-            const data = await auth.signUp(email, password);
-            console.log('🔍 [AUTHPROVIDER] Sign up successful:', data.user?.id);
+            await auth.signUp(email, password);
             // Success handled by onAuthStateChange
         } catch (err) {
             console.error('[AuthProvider] Sign up error:', err);
@@ -125,12 +98,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     }, []);
 
     const signOut = useCallback(async () => {
-        console.log('🔍 [AUTHPROVIDER] signOut called');
         try {
             setError(null);
             setLoading(true);
             await auth.signOut();
-            console.log('🔍 [AUTHPROVIDER] Sign out successful');
             // Success handled by onAuthStateChange
         } catch (err) {
             console.error('[AuthProvider] Sign out error:', err);
@@ -142,7 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     }, []);
 
     const clearError = useCallback(() => {
-        console.log('🔍 [AUTHPROVIDER] clearError called');
         setError(null);
     }, []);
 
@@ -158,8 +128,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(
             clearError
         };
     }, [user, loading, error, signIn, signUp, signOut, clearError]); // Include all values
-
-    console.log('🔍 [AUTHPROVIDER] About to render children, current user:', user?.id || 'none');
 
     return (
         <AuthContext.Provider value={value}>

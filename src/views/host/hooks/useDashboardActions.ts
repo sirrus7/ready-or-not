@@ -94,8 +94,7 @@ export const useDashboardActions = (
         }
     }, [navigate]);
 
-    const handleResumeDraft = useCallback((sessionId: string, sessionName: string) => {
-        console.log('Resuming draft game creation:', sessionId, sessionName);
+    const handleResumeDraft = useCallback((sessionId: string, _sessionName: string) => {
         // Navigate to create-game with the draft session ID
         // The CreateGamePage will detect and load the existing draft
         navigate(`/create-game?resume=${sessionId}`);

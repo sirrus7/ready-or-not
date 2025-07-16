@@ -55,13 +55,6 @@ const CreateGamePage: React.FC = () => {
     const sessionManager: GameSessionManager = useMemo(() => GameSessionManager.getInstance(), []);
 
     useEffect(() => {
-        console.log('🎮 [CREATEGAMEPAGE] Component mounted');
-        return () => {
-            console.log('🎮 [CREATEGAMEPAGE] Component unmounting');
-        };
-    }, []);
-
-    useEffect(() => {
         document.title = "Ready or Not - Create Game";
     }, []);
 
