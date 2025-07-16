@@ -92,25 +92,10 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsLoading(true);
             setError(null);
 
-            // Ensure initialization is always async to maintain loading state
-            await new Promise(resolve => setTimeout(resolve, 10));
-
-            // First, check for URL token
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlToken = urlParams.get('sso_token');
-
-            if (urlToken) {
-                const result = await login(urlToken);
-                if (result.valid) {
-                    setIsLoading(false);
-                    return;
-                }
-            }
-
-            // If no URL token, try to validate saved session
-            const savedSession = SessionStorageManager.loadSession();
-            if (savedSession) {
-                const validation = await ssoService.validateLocalSession(savedSession.session_id);
+            // First, try to validate any saved session
+            const saved = SessionStorageManager.loadSession();
+            if (saved) {
+                const validation = await ssoService.validateLocalSession(saved.session_id);
                 if (validation.valid && validation.user && validation.session) {
                     setUser(validation.user);
                     setSession(validation.session);
@@ -120,7 +105,19 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // No valid session found
+            // If no saved session, try to authenticate from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('sso_token');
+
+            if (token) {
+                const result = await login(token);
+                if (result.valid) {
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // No valid authentication found
             setUser(null);
             setSession(null);
             setIsLoading(false);
@@ -132,7 +129,7 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
 
     // =====================================================
-    // AUTH ACTIONS
+    // AUTHENTICATION FUNCTIONS
     // =====================================================
 
     const login = useCallback(async (token: string): Promise<ValidationResponse> => {
@@ -140,21 +137,26 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsLoading(true);
             setError(null);
 
-            // Get client IP and browser info
+            // Get client information for session tracking
             const clientIP = await getClientIP();
-            const browserInfo = getBrowserInfo();
+            const userAgent = getBrowserInfo();
 
-            // Authenticate with SSO service
-            const result = await ssoService.authenticateWithSSO(token, {
-                ip_address: clientIP,
-                user_agent: browserInfo,
+            const sessionOptions = {
                 duration_hours: 8,
+                ip_address: clientIP,
+                user_agent: userAgent,
                 game_context: {
                     game: 'ready-or-not',
                     version: '2.0',
-                    entry_point: 'sso_login'
+                    entry_point: 'sso_login',
+                    browser: getBrowserInfo(),
+                    screen_size: `${window.screen.width}x${window.screen.height}`,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
                 }
-            });
+            };
+
+            // Authenticate with SSO service
+            const result = await ssoService.authenticateWithSSO(token, sessionOptions);
 
             if (result.valid && result.user && result.session) {
                 setUser(result.user);
@@ -163,35 +165,31 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Save session to localStorage
                 SessionStorageManager.saveSession(result.session.session_id, result.user);
 
-                // Set up session refresh
+                // Set up automatic session refresh
                 setupSessionRefresh();
 
-                // Clear URL token
-                if (window.history && window.location.search.includes('sso_token')) {
-                    window.history.replaceState({}, '', window.location.pathname);
-                }
-
-                setIsLoading(false);
+                // Clear token from URL for security
+                window.history.replaceState({}, document.title, window.location.pathname);
             } else {
-                setError(result.message || 'Failed to authenticate');
-                setIsLoading(false);
+                setError(result.message || 'Authentication failed');
             }
 
             return result;
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Network error';
+            console.error('Login error:', err);
+            const errorMessage = err instanceof Error ? err.message : 'Failed to authenticate';
             setError(errorMessage);
-            setIsLoading(false);
-
             return {
                 valid: false,
                 error: 'authentication_error',
                 message: errorMessage
             };
+        } finally {
+            setIsLoading(false);
         }
     }, []);
 
-    const logout = useCallback(async () => {
+    const logout = useCallback(async (): Promise<void> => {
         try {
             setIsLoading(true);
 
@@ -213,19 +211,19 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setUser(null);
             setSession(null);
             setError(null);
-            setIsLoading(false);
         } catch (err) {
             console.error('Logout error:', err);
             setError('Failed to logout');
+        } finally {
             setIsLoading(false);
         }
     }, [session]);
 
-    const refreshSession = useCallback(async () => {
+    const refreshSession = useCallback(async (): Promise<void> => {
         try {
-            const savedSession = SessionStorageManager.loadSession();
-            if (savedSession) {
-                const validation = await ssoService.validateLocalSession(savedSession.session_id);
+            const saved = SessionStorageManager.loadSession();
+            if (saved) {
+                const validation = await ssoService.validateLocalSession(saved.session_id);
                 if (validation.valid && validation.user && validation.session) {
                     setUser(validation.user);
                     setSession(validation.session);

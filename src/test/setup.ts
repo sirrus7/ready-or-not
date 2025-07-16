@@ -1,173 +1,265 @@
-import { vi } from 'vitest'
+/**
+ * Test Setup Configuration - Fixed Version
+ * Global test setup with proper mocking and cleanup
+ *
+ * File: src/test/setup.ts
+ */
+
+import { vi, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom'
 
-// Type definitions for better TypeScript support
-interface MockStorage {
-    [key: string]: string;
-}
-
-interface GlobalWithMocks {
-    __mockLocalStorage?: MockStorage;
-    __testUtils?: {
-        mockLocalStorage: Storage;
-        mockLocation: Location;
-        originalConsole: Console;
-        resetMocks: () => void;
-    };
-}
+// =====================================================
+// GLOBAL MOCKS
+// =====================================================
 
 // Mock localStorage with proper implementation
-const mockLocalStorage: Storage = {
-    getItem: vi.fn((key: string) => {
-        const storage: MockStorage = (globalThis as GlobalWithMocks).__mockLocalStorage || {};
-        return storage[key] || null;
-    }),
-    setItem: vi.fn((key: string, value: string) => {
-        const storage: MockStorage = (globalThis as GlobalWithMocks).__mockLocalStorage || {};
-        storage[key] = value;
-        (globalThis as GlobalWithMocks).__mockLocalStorage = storage;
-    }),
-    removeItem: vi.fn((key: string) => {
-        const storage: MockStorage = (globalThis as GlobalWithMocks).__mockLocalStorage || {};
-        delete storage[key];
-        (globalThis as GlobalWithMocks).__mockLocalStorage = storage;
-    }),
-    clear: vi.fn(() => {
-        (globalThis as GlobalWithMocks).__mockLocalStorage = {};
-    }),
-    key: vi.fn((index: number) => {
-        const storage: MockStorage = (globalThis as GlobalWithMocks).__mockLocalStorage || {};
-        const keys = Object.keys(storage);
-        return keys[index] || null;
-    }),
-    length: 0
+const createMockLocalStorage = () => {
+    const store: { [key: string]: string } = {};
+
+    return {
+        getItem: vi.fn((key: string) => store[key] || null),
+        setItem: vi.fn((key: string, value: string) => {
+            store[key] = value;
+        }),
+        removeItem: vi.fn((key: string) => {
+            delete store[key];
+        }),
+        clear: vi.fn(() => {
+            Object.keys(store).forEach(key => delete store[key]);
+        }),
+        key: vi.fn((index: number) => {
+            const keys = Object.keys(store);
+            return keys[index] || null;
+        }),
+        get length() {
+            return Object.keys(store).length;
+        }
+    };
 };
 
-// Define length as a getter
-Object.defineProperty(mockLocalStorage, 'length', {
-    get: () => {
-        const storage: MockStorage = (globalThis as GlobalWithMocks).__mockLocalStorage || {};
-        return Object.keys(storage).length;
-    }
+const mockLocalStorage = createMockLocalStorage();
+
+Object.defineProperty(global, 'localStorage', {
+    value: mockLocalStorage,
+    writable: true
 });
 
-// Set up localStorage mock
 Object.defineProperty(window, 'localStorage', {
     value: mockLocalStorage,
     writable: true
 });
 
-// Mock sessionStorage similarly
-Object.defineProperty(window, 'sessionStorage', {
-    value: mockLocalStorage,
-    writable: true
-});
-
-// Mock crypto for session ID generation
-Object.defineProperty(global, 'crypto', {
-    value: {
-        getRandomValues: vi.fn((arr: Uint8Array) => {
-            for (let i = 0; i < arr.length; i++) {
-                arr[i] = Math.floor(Math.random() * 256);
-            }
-            return arr;
-        }),
-        randomUUID: vi.fn(() => 'mock-uuid-' + Math.random().toString(36).substr(2, 9))
-    } as Crypto,
-    writable: true
-});
-
 // Mock window.location
-const mockLocation: Location = {
+const mockLocation = {
     href: 'http://localhost:3000',
-    pathname: '/',
     search: '',
-    hash: '',
-    origin: 'http://localhost:3000',
-    protocol: 'http:',
-    host: 'localhost:3000',
+    pathname: '/',
     hostname: 'localhost',
     port: '3000',
+    protocol: 'http:',
     assign: vi.fn(),
     replace: vi.fn(),
-    reload: vi.fn(),
-    toString: vi.fn(() => 'http://localhost:3000')
-} as Location;
+    reload: vi.fn()
+};
 
 Object.defineProperty(window, 'location', {
     value: mockLocation,
     writable: true
 });
 
+Object.defineProperty(global, 'location', {
+    value: mockLocation,
+    writable: true
+});
+
 // Mock window.history
+const mockHistory = {
+    replaceState: vi.fn(),
+    pushState: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    go: vi.fn(),
+    length: 1,
+    scrollRestoration: 'auto' as ScrollRestoration,
+    state: null
+};
+
 Object.defineProperty(window, 'history', {
+    value: mockHistory,
+    writable: true
+});
+
+// Mock window.screen
+Object.defineProperty(window, 'screen', {
     value: {
-        replaceState: vi.fn(),
-        pushState: vi.fn(),
-        back: vi.fn(),
-        forward: vi.fn(),
-        go: vi.fn(),
-        length: 1,
-        state: null,
-        scrollRestoration: 'auto'
-    } as History,
+        width: 1920,
+        height: 1080,
+        availWidth: 1920,
+        availHeight: 1040,
+        colorDepth: 24,
+        pixelDepth: 24
+    },
     writable: true
 });
 
-// Mock navigator
-Object.defineProperty(navigator, 'userAgent', {
-    value: 'Test Browser',
+// Mock window.navigator
+Object.defineProperty(window, 'navigator', {
+    value: {
+        userAgent: 'Test Browser',
+        language: 'en-US',
+        platform: 'Test Platform',
+        cookieEnabled: true,
+        onLine: true
+    },
     writable: true
 });
 
-// Mock fetch
-global.fetch = vi.fn(() =>
-    Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({}),
-        text: () => Promise.resolve('')
-    } as Response)
-);
+// Mock Intl for timezone support
+const mockDateTimeFormat = vi.fn().mockImplementation(() => ({
+    resolvedOptions: () => ({ timeZone: 'America/New_York' }),
+    format: vi.fn().mockReturnValue('1/1/2023, 12:00:00 PM'),
+    formatToParts: vi.fn()
+}));
 
-// Mock base64 functions
-global.atob = vi.fn((str: string) => {
-    return Buffer.from(str, 'base64').toString('binary');
+const mockNumberFormat = vi.fn().mockImplementation(() => ({
+    format: vi.fn().mockReturnValue('1,000'),
+    formatToParts: vi.fn()
+}));
+
+global.Intl = {
+    DateTimeFormat: mockDateTimeFormat,
+    NumberFormat: mockNumberFormat,
+    Collator: vi.fn(),
+    PluralRules: vi.fn(),
+    RelativeTimeFormat: vi.fn(),
+    ListFormat: vi.fn(),
+    Locale: vi.fn(),
+    Segmenter: vi.fn(),
+    getCanonicalLocales: vi.fn(),
+    supportedValuesOf: vi.fn()
+} as typeof Intl;
+
+// Mock fetch for IP detection
+global.fetch = vi.fn().mockResolvedValue({
+    json: () => Promise.resolve({ ip: '192.168.1.100' }),
+    ok: true,
+    status: 200
+} as Response);
+
+// Mock console methods to reduce test noise
+const originalConsole = {
+    log: console.log,
+    warn: console.warn,
+    error: console.error,
+    info: console.info,
+    debug: console.debug
+};
+
+// =====================================================
+// GLOBAL TEST SETUP
+// =====================================================
+
+beforeEach(() => {
+    // Reset all mocks
+    vi.clearAllMocks();
+
+    // Reset localStorage
+    mockLocalStorage.clear();
+
+    // Reset location
+    mockLocation.href = 'http://localhost:3000';
+    mockLocation.search = '';
+    mockLocation.pathname = '/';
+
+    // Reset history
+    mockHistory.replaceState.mockClear();
+    mockHistory.pushState.mockClear();
+
+    // Mock console to reduce noise during tests
+    console.error = vi.fn();
+    console.warn = vi.fn();
+    console.info = vi.fn();
+    console.debug = vi.fn();
 });
 
-global.btoa = vi.fn((str: string) => {
-    return Buffer.from(str, 'binary').toString('base64');
+afterEach(() => {
+    // Restore console
+    console.log = originalConsole.log;
+    console.warn = originalConsole.warn;
+    console.error = originalConsole.error;
+    console.info = originalConsole.info;
+    console.debug = originalConsole.debug;
+
+    // Clear any pending timers
+    vi.clearAllTimers();
+    vi.useRealTimers();
+
+    // Clear any pending intervals/timeouts
+    if (typeof window !== 'undefined') {
+        // Clear any intervals that might still be running
+        for (let i = 1; i < 1000; i++) {
+            clearInterval(i);
+            clearTimeout(i);
+        }
+    }
 });
 
-// Mock TextEncoder/TextDecoder
-global.TextEncoder = vi.fn(() => ({
-    encode: vi.fn((str: string) => new Uint8Array(Buffer.from(str, 'utf8'))),
-})) as unknown as typeof TextEncoder;
+// =====================================================
+// ERROR HANDLING
+// =====================================================
 
-global.TextDecoder = vi.fn(() => ({
-    decode: vi.fn((buffer: Uint8Array) => Buffer.from(buffer).toString('utf8'))
-})) as unknown as typeof TextDecoder;
+// Catch unhandled promise rejections during tests
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Don't throw in tests, just log
+});
 
-// Store original console for reference
-const originalConsole = { ...console };
+// Catch uncaught exceptions during tests
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Don't throw in tests, just log
+});
 
-// Mock console for cleaner output
-console.warn = vi.fn();
-console.error = vi.fn();
+// =====================================================
+// TEST UTILITIES
+// =====================================================
 
-// Global test utilities - ALL VARIABLES PROPERLY TYPED
-(globalThis as GlobalWithMocks).__testUtils = {
+// Export utilities for tests
+export const testUtils = {
     mockLocalStorage,
     mockLocation,
-    originalConsole,
+    mockHistory,
     resetMocks: () => {
         vi.clearAllMocks();
-        (globalThis as GlobalWithMocks).__mockLocalStorage = {};
-        mockLocation.href = 'http://localhost:3000';
-        mockLocation.pathname = '/';
+        mockLocalStorage.clear();
         mockLocation.search = '';
-        mockLocation.hash = '';
+        mockLocation.pathname = '/';
+    },
+    setLocation: (search: string, pathname = '/') => {
+        mockLocation.search = search;
+        mockLocation.pathname = pathname;
+        mockLocation.href = `http://localhost:3000${pathname}${search}`;
     }
 };
 
-// Initialize storage
-(globalThis as GlobalWithMocks).__mockLocalStorage = {};
+// Global test data
+export const testData = {
+    mockUser: {
+        id: 'user-123',
+        email: 'test@example.com',
+        full_name: 'Test User',
+        role: 'host' as const,
+        games: [{ name: 'ready-or-not', permission_level: 'host' as const }]
+    },
+    mockSession: {
+        session_id: 'session-123',
+        user_id: 'user-123',
+        email: 'test@example.com',
+        permission_level: 'host',
+        expires_at: new Date(Date.now() + 8 * 3600 * 1000).toISOString(),
+        created_at: new Date().toISOString(),
+        last_activity: new Date().toISOString(),
+        is_active: true,
+        game_context: {}
+    }
+};

@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useSSO, SessionManager, formatSessionExpiry, formatTime } from '../../hooks/useSSO';
+import { useSSO } from './SSOProvider';
+import { formatSessionExpiry, formatTime } from './SessionStorageManager';
 import { ssoService } from '../../services/sso-service';
 
 // =====================================================
@@ -268,7 +269,7 @@ export function SessionInfo() {
             <div className="bg-white border rounded-lg p-4">
                 <h3 className="font-bold mb-3 text-gray-800">Active Sessions ({activeSessions.length})</h3>
                 <div className="max-h-48 overflow-y-auto space-y-2">
-                    {activeSessions.map((session: any, index: number) => (
+                    {activeSessions.map((session: unknown, index: number) => (
                         <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
                             <div>
                                 <div className="font-medium">{session.email}</div>

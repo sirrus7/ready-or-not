@@ -1,397 +1,332 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-    SessionStorageManager,
-    getClientIP,
-    getBrowserInfo,
-    formatSessionExpiry,
-    formatTime,
-    hasPermission,
-    hasGameAccess
-} from '../SessionStorageManager';
+/**
+ * SSO Test Utilities
+ * Helper functions and mocks for SSO testing
+ *
+ * File: src/test/sso-test-utils.ts
+ */
 
-// Mock fetch for getClientIP tests
-global.fetch = vi.fn();
+import { vi } from 'vitest';
+import { SSOUser } from '../services/sso-service';
 
-// Create a working mock localStorage
-const createMockLocalStorage = () => {
-    const store: { [key: string]: string } = {};
+// =====================================================
+// TYPE DEFINITIONS
+// =====================================================
 
+interface MockSSOService {
+    authenticateWithSSO: ReturnType<typeof vi.fn>;
+    validateLocalSession: ReturnType<typeof vi.fn>;
+    extendLocalSession: ReturnType<typeof vi.fn>;
+    cleanupSession: ReturnType<typeof vi.fn>;
+    generateMockUsers: ReturnType<typeof vi.fn>;
+    generateMockToken: ReturnType<typeof vi.fn>;
+    healthCheck: ReturnType<typeof vi.fn>;
+    getActiveSessions: ReturnType<typeof vi.fn>;
+}
+
+interface MockSessionStorage {
+    saveSession: ReturnType<typeof vi.fn>;
+    loadSession: ReturnType<typeof vi.fn>;
+    clearSession: ReturnType<typeof vi.fn>;
+    getSessionInfo: ReturnType<typeof vi.fn>;
+}
+
+interface TestResult {
+    current: {
+        isAuthenticated: boolean;
+        isLoading: boolean;
+        user: SSOUser | null;
+        session: unknown | null;
+        error: string | null;
+    };
+}
+
+export const createMockUser = (role: 'host' | 'org_admin' | 'super_admin' = 'host'): SSOUser => ({
+    id: `user-${role}-${Date.now()}`,
+    email: `${role}@example.com`,
+    full_name: `${role.charAt(0).toUpperCase() + role.slice(1)} User`,
+    role,
+    games: [
+        { name: 'ready-or-not', permission_level: role },
+        { name: 'test-game', permission_level: role }
+    ],
+    organization_type: role === 'host' ? 'school' : 'district',
+    district_info: role !== 'host' ? {
+        id: 'district-123',
+        name: 'Test District',
+        state: 'CA'
+    } : undefined,
+    school_info: role === 'host' ? {
+        id: 'school-456',
+        name: 'Test School',
+        district_id: 'district-123'
+    } : undefined
+});
+
+export const createMockSession = (user: SSOUser) => ({
+    session_id: `session-${user.id}-${Date.now()}`,
+    user_id: user.id,
+    email: user.email,
+    permission_level: user.role,
+    expires_at: new Date(Date.now() + 8 * 3600 * 1000).toISOString(),
+    created_at: new Date().toISOString(),
+    last_activity: new Date().toISOString(),
+    is_active: true,
+    game_context: {
+        game: 'ready-or-not',
+        version: '2.0',
+        user_role: user.role,
+        organization_type: user.organization_type
+    }
+});
+
+export const createMockToken = (user: SSOUser): string => {
+    const payload = {
+        user_id: user.id,
+        email: user.email,
+        role: user.role,
+        games: user.games,
+        exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+        iat: Math.floor(Date.now() / 1000)
+    };
+
+    // Simple mock JWT structure
+    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const encodedPayload = btoa(JSON.stringify(payload));
+    const signature = 'mock-signature';
+
+    return `${header}.${encodedPayload}.${signature}`;
+};
+
+// =====================================================
+// MOCK FACTORIES
+// =====================================================
+
+export const createMockSSOService = (): MockSSOService => ({
+    authenticateWithSSO: vi.fn(),
+    validateLocalSession: vi.fn(),
+    extendLocalSession: vi.fn(),
+    cleanupSession: vi.fn(),
+    generateMockUsers: vi.fn().mockReturnValue([
+        createMockUser('host'),
+        createMockUser('org_admin'),
+        createMockUser('super_admin')
+    ]),
+    generateMockToken: vi.fn().mockImplementation(createMockToken),
+    healthCheck: vi.fn().mockResolvedValue({
+        status: 'healthy',
+        database: 'connected',
+        timestamp: new Date().toISOString()
+    }),
+    getActiveSessions: vi.fn().mockResolvedValue([])
+});
+
+export const createMockSessionStorage = (): MockSessionStorage => ({
+    saveSession: vi.fn().mockReturnValue({ success: true }),
+    loadSession: vi.fn().mockReturnValue(null),
+    clearSession: vi.fn(),
+    getSessionInfo: vi.fn().mockReturnValue({
+        hasSession: false,
+        sessionAge: 0,
+        userEmail: undefined
+    })
+});
+
+// =====================================================
+// TEST HELPERS
+// =====================================================
+
+export const waitForAuthenticationState = async (
+    result: TestResult,
+    expected: { isAuthenticated: boolean; isLoading: boolean },
+    timeout = 5000
+): Promise<void> => {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+        if (
+            result.current.isAuthenticated === expected.isAuthenticated &&
+            result.current.isLoading === expected.isLoading
+        ) {
+            return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    throw new Error(
+        `Timeout waiting for authentication state. Expected: ${JSON.stringify(expected)}, ` +
+        `Got: { isAuthenticated: ${result.current.isAuthenticated}, isLoading: ${result.current.isLoading} }`
+    );
+};
+
+export const setupMockAuthentication = (
+    ssoService: MockSSOService,
+    user: SSOUser = createMockUser(),
+    shouldSucceed = true
+) => {
+    const mockSession = createMockSession(user);
+
+    if (shouldSucceed) {
+        ssoService.authenticateWithSSO.mockResolvedValue({
+            valid: true,
+            user,
+            session: mockSession,
+            message: 'Authentication successful'
+        });
+
+        ssoService.validateLocalSession.mockResolvedValue({
+            valid: true,
+            user,
+            session: mockSession,
+            message: 'Session valid'
+        });
+
+        ssoService.extendLocalSession.mockResolvedValue({
+            success: true,
+            session: {
+                ...mockSession,
+                expires_at: new Date(Date.now() + 12 * 3600 * 1000).toISOString()
+            }
+        });
+
+        ssoService.cleanupSession.mockResolvedValue({
+            success: true,
+            message: 'Session cleaned up'
+        });
+    } else {
+        ssoService.authenticateWithSSO.mockResolvedValue({
+            valid: false,
+            error: 'authentication_failed',
+            message: 'Invalid credentials'
+        });
+
+        ssoService.validateLocalSession.mockResolvedValue({
+            valid: false,
+            error: 'session_invalid',
+            message: 'Session not found'
+        });
+
+        ssoService.extendLocalSession.mockResolvedValue({
+            success: false,
+            error: 'extension_failed'
+        });
+
+        ssoService.cleanupSession.mockResolvedValue({
+            success: false,
+            error: 'cleanup_failed'
+        });
+    }
+
+    return { user, session: mockSession };
+};
+
+export const mockUrlWithToken = (token: string): void => {
+    const mockLocation = window.location as Location & {
+        search: string;
+        href: string;
+    };
+    mockLocation.search = `?sso_token=${token}`;
+    mockLocation.href = `http://localhost:3000/?sso_token=${token}`;
+};
+
+export const clearUrlToken = (): void => {
+    const mockLocation = window.location as Location & {
+        search: string;
+        href: string;
+    };
+    mockLocation.search = '';
+    mockLocation.href = 'http://localhost:3000/';
+};
+
+// =====================================================
+// ASSERTION HELPERS
+// =====================================================
+
+export const expectAuthenticatedState = (result: TestResult, user: SSOUser): void => {
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.user).toEqual(user);
+    expect(result.current.session).toBeDefined();
+    expect(result.current.error).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+};
+
+export const expectUnauthenticatedState = (result: TestResult): void => {
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.user).toBeNull();
+    expect(result.current.session).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+};
+
+export const expectLoadingState = (result: TestResult): void => {
+    expect(result.current.isLoading).toBe(true);
+};
+
+// =====================================================
+// CLEANUP HELPERS
+// =====================================================
+
+export const cleanupAsyncOperations = (): void => {
+    // Clear any pending timers
+    vi.clearAllTimers();
+
+    // Clear any pending intervals
+    for (let i = 1; i < 1000; i++) {
+        clearInterval(i);
+        clearTimeout(i);
+    }
+
+    // Reset fake timers
+    vi.useRealTimers();
+};
+
+export const setupTimerMocks = () => {
+    vi.useFakeTimers();
     return {
-        getItem: vi.fn((key: string) => store[key] || null),
-        setItem: vi.fn((key: string, value: string) => {
-            store[key] = value;
-        }),
-        removeItem: vi.fn((key: string) => {
-            delete store[key];
-        }),
-        clear: vi.fn(() => {
-            Object.keys(store).forEach(key => delete store[key]);
-        })
+        advanceTime: (ms: number): void => vi.advanceTimersByTime(ms),
+        cleanup: (): void => {
+            vi.clearAllTimers();
+            vi.useRealTimers();
+        }
     };
 };
 
-const mockLocalStorage = createMockLocalStorage();
+// =====================================================
+// MOCK ENVIRONMENT SETUP
+// =====================================================
 
-Object.defineProperty(window, 'localStorage', {
-    value: mockLocalStorage,
-    writable: true
-});
+export const setupTestEnvironment = () => {
+    // Mock window properties needed for SSO
+    Object.defineProperty(window, 'screen', {
+        value: { width: 1920, height: 1080 },
+        writable: true
+    });
 
-// Mock console.error to avoid noise in tests
-const originalConsoleError = console.error;
-beforeEach(() => {
-    console.error = vi.fn();
-    vi.clearAllMocks();
-});
+    // Mock Intl for timezone detection
+    const mockDateTimeFormat = vi.fn().mockImplementation(() => ({
+        resolvedOptions: () => ({ timeZone: 'America/New_York' })
+    }));
 
-afterEach(() => {
-    console.error = originalConsoleError;
-});
+    global.Intl = {
+        DateTimeFormat: mockDateTimeFormat,
+        NumberFormat: vi.fn(),
+        Collator: vi.fn(),
+        PluralRules: vi.fn(),
+        RelativeTimeFormat: vi.fn(),
+        ListFormat: vi.fn(),
+        Locale: vi.fn(),
+        Segmenter: vi.fn(),
+        getCanonicalLocales: vi.fn(),
+        supportedValuesOf: vi.fn()
+    } as typeof Intl;
 
-// Test data
-const mockUser = {
-    id: 'user-123',
-    email: 'test@example.com',
-    full_name: 'Test User',
-    role: 'host' as const,
-    games: [{ name: 'ready-or-not', permission_level: 'host' as const }]
+    // Mock fetch for IP detection
+    global.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({ ip: '192.168.1.100' }),
+        ok: true
+    } as Response);
+
+    return {
+        cleanup: (): void => {
+            vi.clearAllMocks();
+        }
+    };
 };
-
-describe('Utility Functions', () => {
-    describe('getClientIP', () => {
-        it('should return IP address when API call succeeds', async () => {
-            const mockIP = '192.168.1.1';
-            const mockFetch = vi.mocked(fetch);
-            mockFetch.mockResolvedValueOnce({
-                json: () => Promise.resolve({ ip: mockIP })
-            } as Response);
-
-            const result = await getClientIP();
-            expect(result).toBe(mockIP);
-        });
-
-        it('should return null when API call fails', async () => {
-            const mockFetch = vi.mocked(fetch);
-            mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
-            const result = await getClientIP();
-            expect(result).toBeNull();
-        });
-
-        it('should return null when response does not contain IP', async () => {
-            const mockFetch = vi.mocked(fetch);
-            mockFetch.mockResolvedValueOnce({
-                json: () => Promise.resolve({})
-            } as Response);
-
-            const result = await getClientIP();
-            expect(result).toBeNull();
-        });
-    });
-
-    describe('getBrowserInfo', () => {
-        const originalUserAgent = navigator.userAgent;
-
-        afterEach(() => {
-            Object.defineProperty(navigator, 'userAgent', {
-                value: originalUserAgent,
-                writable: true
-            });
-        });
-
-        it('should detect Chrome browser', () => {
-            Object.defineProperty(navigator, 'userAgent', {
-                value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                writable: true
-            });
-
-            expect(getBrowserInfo()).toBe('Chrome');
-        });
-
-        it('should detect Firefox browser', () => {
-            Object.defineProperty(navigator, 'userAgent', {
-                value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
-                writable: true
-            });
-
-            expect(getBrowserInfo()).toBe('Firefox');
-        });
-
-        it('should detect Safari browser', () => {
-            Object.defineProperty(navigator, 'userAgent', {
-                value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
-                writable: true
-            });
-
-            expect(getBrowserInfo()).toBe('Safari');
-        });
-
-        it('should detect Edge browser', () => {
-            Object.defineProperty(navigator, 'userAgent', {
-                value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59',
-                writable: true
-            });
-
-            expect(getBrowserInfo()).toBe('Edge');
-        });
-
-        it('should return Unknown for unrecognized browser', () => {
-            Object.defineProperty(navigator, 'userAgent', {
-                value: 'SomeUnknownBrowser/1.0',
-                writable: true
-            });
-
-            expect(getBrowserInfo()).toBe('Unknown');
-        });
-    });
-
-    describe('formatSessionExpiry', () => {
-        it('should format hours and minutes correctly', () => {
-            const now = Date.now();
-            const futureTime = new Date(now + 2.5 * 3600 * 1000).toISOString();
-            const result = formatSessionExpiry(futureTime);
-            expect(result).toBe('2h 30m');
-        });
-
-        it('should format minutes only when less than 1 hour', () => {
-            const now = Date.now();
-            const futureTime = new Date(now + 45 * 60 * 1000).toISOString();
-            const result = formatSessionExpiry(futureTime);
-            expect(result).toBe('45m');
-        });
-
-        it('should return "Expired" for past times', () => {
-            const pastTime = new Date(Date.now() - 1000).toISOString();
-            const result = formatSessionExpiry(pastTime);
-            expect(result).toBe('Expired');
-        });
-
-        it('should handle exactly 1 hour', () => {
-            const now = Date.now();
-            const futureTime = new Date(now + 3600 * 1000).toISOString();
-            const result = formatSessionExpiry(futureTime);
-            expect(result).toBe('1h 0m');
-        });
-
-        it('should handle exactly 0 minutes remaining', () => {
-            const now = Date.now();
-            const futureTime = new Date(now + 1000).toISOString();
-            const result = formatSessionExpiry(futureTime);
-            expect(result).toBe('0m');
-        });
-    });
-
-    describe('formatTime', () => {
-        it('should format timestamp to locale string', () => {
-            const timestamp = '2023-01-01T12:00:00Z';
-            const result = formatTime(timestamp);
-            expect(typeof result).toBe('string');
-            expect(result.length).toBeGreaterThan(0);
-        });
-
-        it('should handle different date formats', () => {
-            const timestamp = '2023-01-01T00:00:00Z';
-            const result = formatTime(timestamp);
-            expect(result).toContain('2023');
-        });
-    });
-
-    describe('SessionStorageManager', () => {
-        beforeEach(() => {
-            mockLocalStorage.clear();
-        });
-
-        describe('saveSession', () => {
-            it('should save session successfully', () => {
-                const result = SessionStorageManager.saveSession('session-123', mockUser);
-                expect(result.success).toBe(true);
-                expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-                    'ready_or_not_sso_session',
-                    expect.any(String)
-                );
-            });
-
-            it('should handle localStorage errors', () => {
-                mockLocalStorage.setItem.mockImplementationOnce(() => {
-                    throw new Error('Storage quota exceeded');
-                });
-
-                const result = SessionStorageManager.saveSession('session-123', mockUser);
-                expect(result.success).toBe(false);
-                expect(result.error).toBe('Failed to save session to storage');
-            });
-        });
-
-        describe('loadSession', () => {
-            it('should load valid session', () => {
-                const sessionData = {
-                    version: '1.0',
-                    session_id: 'session-123',
-                    user: mockUser,
-                    saved_at: new Date().toISOString(),
-                    expires_client_check: new Date(Date.now() + 8 * 3600 * 1000).toISOString()
-                };
-
-                mockLocalStorage.setItem('ready_or_not_sso_session', JSON.stringify(sessionData));
-
-                const result = SessionStorageManager.loadSession();
-
-                expect(result).toEqual({
-                    session_id: 'session-123',
-                    user: mockUser
-                });
-            });
-
-            it('should return null when no session exists', () => {
-                const result = SessionStorageManager.loadSession();
-                expect(result).toBeNull();
-            });
-
-            it('should handle corrupted session data', () => {
-                mockLocalStorage.setItem('ready_or_not_sso_session', 'invalid json');
-
-                const result = SessionStorageManager.loadSession();
-
-                expect(result).toBeNull();
-                expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('ready_or_not_sso_session');
-            });
-
-            it('should handle version mismatch', () => {
-                const sessionData = {
-                    version: '0.9',
-                    session_id: 'session-123',
-                    user: mockUser,
-                    saved_at: new Date().toISOString(),
-                    expires_client_check: new Date(Date.now() + 8 * 3600 * 1000).toISOString()
-                };
-
-                mockLocalStorage.setItem('ready_or_not_sso_session', JSON.stringify(sessionData));
-
-                const result = SessionStorageManager.loadSession();
-
-                expect(result).toBeNull();
-                expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('ready_or_not_sso_session');
-            });
-
-            it('should handle expired client session', () => {
-                const sessionData = {
-                    version: '1.0',
-                    session_id: 'session-123',
-                    user: mockUser,
-                    saved_at: new Date().toISOString(),
-                    expires_client_check: new Date(Date.now() - 1000).toISOString()
-                };
-
-                mockLocalStorage.setItem('ready_or_not_sso_session', JSON.stringify(sessionData));
-
-                const result = SessionStorageManager.loadSession();
-
-                expect(result).toBeNull();
-                expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('ready_or_not_sso_session');
-            });
-        });
-
-        describe('clearSession', () => {
-            it('should clear session successfully', () => {
-                SessionStorageManager.clearSession();
-                expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('ready_or_not_sso_session');
-            });
-
-            it('should handle localStorage errors gracefully', () => {
-                mockLocalStorage.removeItem.mockImplementationOnce(() => {
-                    throw new Error('Storage error');
-                });
-
-                expect(() => SessionStorageManager.clearSession()).not.toThrow();
-            });
-        });
-
-        describe('getSessionInfo', () => {
-            it('should return session info when session exists', () => {
-                const sessionData = {
-                    version: '1.0',
-                    session_id: 'session-123',
-                    user: mockUser,
-                    saved_at: new Date(Date.now() - 60000).toISOString(),
-                    expires_client_check: new Date(Date.now() + 8 * 3600 * 1000).toISOString()
-                };
-
-                mockLocalStorage.setItem('ready_or_not_sso_session', JSON.stringify(sessionData));
-
-                const result = SessionStorageManager.getSessionInfo();
-
-                expect(result.hasSession).toBe(true);
-                expect(result.userEmail).toBe('test@example.com');
-                expect(result.sessionAge).toBeGreaterThan(0);
-            });
-
-            it('should return no session when session does not exist', () => {
-                const result = SessionStorageManager.getSessionInfo();
-                expect(result.hasSession).toBe(false);
-                expect(result.userEmail).toBeUndefined();
-                expect(result.sessionAge).toBeUndefined();
-            });
-
-            it('should handle corrupted session data gracefully', () => {
-                mockLocalStorage.setItem('ready_or_not_sso_session', 'invalid json');
-
-                const result = SessionStorageManager.getSessionInfo();
-                expect(result.hasSession).toBe(false);
-            });
-
-            it('should handle missing saved_at field', () => {
-                const sessionData = {
-                    version: '1.0',
-                    session_id: 'session-123',
-                    user: mockUser,
-                    expires_client_check: new Date(Date.now() + 8 * 3600 * 1000).toISOString()
-                };
-
-                mockLocalStorage.setItem('ready_or_not_sso_session', JSON.stringify(sessionData));
-
-                const result = SessionStorageManager.getSessionInfo();
-
-                expect(result.hasSession).toBe(true);
-                expect(result.sessionAge).toBeUndefined();
-            });
-        });
-    });
-
-    describe('Permission Helper Functions', () => {
-        describe('Role Hierarchy', () => {
-            it('should validate role hierarchy correctly', () => {
-                expect(hasPermission('host', 'host')).toBe(true);
-                expect(hasPermission('org_admin', 'host')).toBe(true);
-                expect(hasPermission('super_admin', 'host')).toBe(true);
-                expect(hasPermission('host', 'org_admin')).toBe(false);
-                expect(hasPermission('org_admin', 'org_admin')).toBe(true);
-                expect(hasPermission('super_admin', 'org_admin')).toBe(true);
-                expect(hasPermission('host', 'super_admin')).toBe(false);
-                expect(hasPermission('org_admin', 'super_admin')).toBe(false);
-                expect(hasPermission('super_admin', 'super_admin')).toBe(true);
-            });
-
-            it('should handle invalid roles', () => {
-                expect(hasPermission('invalid', 'host')).toBe(false);
-                expect(hasPermission('host', 'invalid')).toBe(false);
-                expect(hasPermission('invalid', 'invalid')).toBe(false);
-            });
-        });
-
-        describe('Game Access', () => {
-            it('should check game access correctly', () => {
-                expect(hasGameAccess(mockUser, 'ready-or-not')).toBe(true);
-                expect(hasGameAccess(mockUser, 'other-game')).toBe(false);
-            });
-
-            it('should handle empty games array', () => {
-                const userWithNoGames = { ...mockUser, games: [] };
-                expect(hasGameAccess(userWithNoGames, 'ready-or-not')).toBe(false);
-            });
-
-            it('should handle null user', () => {
-                expect(hasGameAccess(null, 'ready-or-not')).toBe(false);
-            });
-        });
-    });
-});
