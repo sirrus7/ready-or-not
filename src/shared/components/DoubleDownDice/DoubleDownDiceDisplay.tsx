@@ -198,7 +198,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
                 setTimeout(async () => {
                     if (finalResult) {
-                        await audioManager.playResultAudio(investmentId, finalResult.total_value);
                         await applyEffectsAsPresentation(finalResult);
                         setHasAppliedEffects(true);
                         setCurrentPhase('complete');
@@ -289,7 +288,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
             // Show teams for 3 seconds, then proceed based on mode
             setCurrentPhase('showing_teams');
-            audioManager.loadIntroAudio(investmentId);
+            await audioManager.loadIntroAudio(investmentId);
 
             timeoutRef.current = setTimeout(() => {
                 console.log('[DoubleDownDiceDisplay] setTimeout fired with captured teamNames:', teamNames);
@@ -422,8 +421,9 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
         // Show results for 3 seconds, then apply effects
         setTimeout(async () => {
+            await audioManager.playResultAudio(investmentId, result.total_value);
             await applyDoubleDownEffects(result);
-        }, 3000);
+        }, 500);
     };
 
     const calculateFinalKpiChanges = (boostPercentage: number): KpiChanges => {

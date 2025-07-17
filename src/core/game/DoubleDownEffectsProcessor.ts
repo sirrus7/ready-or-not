@@ -1,21 +1,13 @@
 // src/core/game/DoubleDownEffectsProcessor.ts
 import {FinancialMetrics, ScoringEngine} from './ScoringEngine';
-import {allInvestmentPayoffsData} from '@core/content/InvestmentPayoffContent';
 import {db} from '@shared/services/supabase';
 import {formatCurrency, formatNumber} from "@shared/utils/formatUtils";
-import {DoubleDownDecision, KpiEffect, TeamRoundData} from "@shared/types";
+import {DoubleDownDecision, DoubleDownResult, KpiEffect, TeamRoundData} from "@shared/types";
 
 interface KpiChangeDetail {
     kpi: string;
     change_value: number;
     display_value: string;
-}
-
-interface FixedDoubleDownRanges {
-    capacity: number;
-    orders: number;
-    asp: number;
-    cost: number;
 }
 
 export class DoubleDownEffectsProcessor {
@@ -30,45 +22,6 @@ export class DoubleDownEffectsProcessor {
         // 75% boost = add 75% more = multiply by 0.75
         // 100% boost = add 100% more = multiply by 1.0 (double)
         return boostPercentage / 100;
-    }
-
-    /**
-     * Generate fixed-range effects based on client requirements
-     * Capacity: up or down by 250 (rounded UP to nearest 250)
-     * Orders: up or down by 250 (rounded UP to nearest 250)
-     * ASP: up or down by 10 (rounded UP to nearest 10)
-     * Cost: up or down by 25k (rounded UP to nearest 25k)
-     */
-    private static generateFixedRangeEffects(boostPercentage: number): FixedDoubleDownRanges {
-        if (boostPercentage === 0) {
-            return {capacity: 0, orders: 0, asp: 0, cost: 0};
-        }
-
-        const direction: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
-        const scaleFactor: number = boostPercentage / 100;
-
-        // Calculate base values (before rounding)
-        const capacityBase: number = 250 * scaleFactor * direction;
-        const ordersBase: number = 250 * scaleFactor * direction;
-        const aspBase: number = 10 * scaleFactor * direction;
-        const costBase: number = 25000 * scaleFactor * direction;
-
-        // Round UP to nearest board state increment
-        const roundUpToNearest = (value: number, increment: number): number => {
-            if (value === 0) return 0;
-            if (value > 0) {
-                return Math.ceil(value / increment) * increment;
-            } else {
-                return -Math.ceil(Math.abs(value) / increment) * increment;
-            }
-        };
-
-        return {
-            capacity: roundUpToNearest(capacityBase, 250),
-            orders: roundUpToNearest(ordersBase, 250),
-            asp: roundUpToNearest(aspBase, 10),
-            cost: roundUpToNearest(costBase, 25000)
-        };
     }
 
     /**
@@ -160,31 +113,35 @@ export class DoubleDownEffectsProcessor {
 
             console.log(`[DoubleDownEffectsProcessor] Applying ${boostPercentage}% boost to team ${teamId.substring(0, 8)} for investment ${investmentOptionId}`);
 
-            // Generate fixed-range effects based on client requirements
-            const fixedRanges: FixedDoubleDownRanges = this.generateFixedRangeEffects(boostPercentage);
+            // Get stored KPI changes from database instead of generating new ones
+            const storedResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentOptionId);
+            if (!storedResult) {
+                console.error(`[DoubleDownEffectsProcessor] No stored result found for investment ${investmentOptionId}`);
+                return;
+            }
 
             const multipliedEffects: KpiEffect[] = [
                 {
                     kpi: 'capacity' as const,
-                    change_value: fixedRanges.capacity,
+                    change_value: storedResult.capacity_change,
                     timing: 'immediate' as const,
                     description: `Double Down Bonus: ${boostPercentage}%`
                 },
                 {
                     kpi: 'orders' as const,
-                    change_value: fixedRanges.orders,
+                    change_value: storedResult.orders_change,
                     timing: 'immediate' as const,
                     description: `Double Down Bonus: ${boostPercentage}%`
                 },
                 {
                     kpi: 'asp' as const,
-                    change_value: fixedRanges.asp,
+                    change_value: storedResult.asp_change,
                     timing: 'immediate' as const,
                     description: `Double Down Bonus: ${boostPercentage}%`
                 },
                 {
                     kpi: 'cost' as const,
-                    change_value: fixedRanges.cost,
+                    change_value: storedResult.cost_change,
                     timing: 'immediate' as const,
                     description: `Double Down Bonus: ${boostPercentage}%`
                 }
@@ -236,7 +193,7 @@ export class DoubleDownEffectsProcessor {
     ): Promise<KpiChangeDetail[]> {
         try {
             // Get stored result with pre-calculated KPI changes
-            const storedResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+            const storedResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
 
             if (storedResult) {
                 return [
@@ -270,7 +227,6 @@ export class DoubleDownEffectsProcessor {
             case 'revenue':
             case 'net_margin':
             case 'net_income':
-                return formatCurrency(value);
             case 'asp':
                 return formatCurrency(value);
             default:
