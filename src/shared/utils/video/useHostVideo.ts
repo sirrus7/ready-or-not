@@ -345,25 +345,8 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                         
                         const state = stateRef.current;
                         
-                        // If connected to presentation, wait for it to be ready
-                        if (state.presentationIsConnected && state.hostSyncManager && !state.isPresentationVideoReady) {
-                            console.log('[useHostVideo] Waiting for presentation to be ready...');
-                            const maxWaitTime = 5000; // 5 seconds timeout
-                            const startTime = Date.now();
-                            
-                            while (!state.isPresentationVideoReady && (Date.now() - startTime) < maxWaitTime) {
-                                await new Promise(resolve => setTimeout(resolve, 100));
-                            }
-                            
-                            if (!state.isPresentationVideoReady) {
-                                console.warn('[useHostVideo] Presentation not ready after timeout, proceeding anyway');
-                            } else {
-                                console.log('[useHostVideo] Presentation is ready');
-                            }
-                        }
-                        
-                        // Play the host video
-                        console.log('[useHostVideo] Playing host video');
+                        // Play the host video immediately
+                        console.log('[useHostVideo] Auto-playing host video');
                         await video.play();
                         
                         // Send play command to presentation if connected
@@ -400,6 +383,31 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             video.removeEventListener('error', handleError);
         };
     }, [sourceUrl, isEnabled, stopSyncInterval]);
+
+    // Pause videos on page unload/refresh
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            const video = videoRef.current;
+            if (video && !video.paused) {
+                console.log('[useHostVideo] Page unloading - pausing video');
+                video.pause();
+            }
+            // Send pause command to presentation if connected
+            if (presentationIsConnected && hostSyncManager) {
+                hostSyncManager.sendCommand('pause', {
+                    time: video?.currentTime || 0,
+                    playbackRate: video?.playbackRate || 1,
+                    volume: presentationVolume,
+                    muted: presentationMuted,
+                });
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [presentationIsConnected, hostSyncManager, presentationVolume, presentationMuted]);
 
     useEffect(() => {
         return () => {
