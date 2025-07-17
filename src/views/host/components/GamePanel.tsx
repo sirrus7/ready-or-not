@@ -7,7 +7,14 @@ import HostGameControls from './GameControls';
 import {useGameContext} from '@app/providers/GameProvider';
 import {Info, AlertTriangle} from 'lucide-react';
 
-const GamePanel: React.FC = () => {
+interface GamePanelProps {
+    joinInfo: { joinUrl: string; qrCodeDataUrl: string } | null;
+    setJoinInfo: (info: { joinUrl: string; qrCodeDataUrl: string } | null) => void;
+    isJoinInfoOpen: boolean;
+    setIsJoinInfoOpen: (open: boolean) => void;
+}
+
+const GamePanel: React.FC<GamePanelProps> = ({ joinInfo, setJoinInfo, isJoinInfoOpen, setIsJoinInfoOpen }) => {
     const {state, currentSlideData} = useGameContext();
     const {gameStructure, currentSessionId, error: appError, isLoading} = state;
 
@@ -54,7 +61,12 @@ const GamePanel: React.FC = () => {
 
                 {/* Bottom Controls */}
                 <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3">
-                    <HostGameControls/>
+                    <HostGameControls 
+                        joinInfo={joinInfo}
+                        setJoinInfo={setJoinInfo}
+                        isJoinInfoOpen={isJoinInfoOpen}
+                        setIsJoinInfoOpen={setIsJoinInfoOpen}
+                    />
                 </div>
             </div>
         </>

@@ -3,15 +3,16 @@ import React, {useState, useEffect} from 'react';
 import QRCode from 'qrcode';
 import Modal from '@shared/components/UI/Modal';
 import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
-import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 
 interface JoinInfoModalProps {
     isOpen: boolean;
     onClose: () => void;
     sessionId: string | null;
+    joinInfo: { joinUrl: string; qrCodeDataUrl: string } | null;
+    setJoinInfo: (info: { joinUrl: string; qrCodeDataUrl: string } | null) => void;
 }
 
-const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId}) => {
+const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId, joinInfo, setJoinInfo}) => {
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
     const [displayUrl, setDisplayUrl] = useState<string>('');
     const [isLoadingUrl, setIsLoadingUrl] = useState(false);
@@ -37,9 +38,8 @@ const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId
                 })
                     .then(qr => {
                         setQrCodeDataUrl(qr);
-
-                        // Send to presentation display
-                        SimpleBroadcastManager.getInstance(sessionId, 'host').sendJoinInfo(url, qr);
+                        // Update parent state for broadcasting
+                        setJoinInfo({ joinUrl: url, qrCodeDataUrl: qr });
                     })
                     .catch(err => {
                         console.error('Error generating QR code:', err);
@@ -49,13 +49,12 @@ const JoinInfoModal: React.FC<JoinInfoModalProps> = ({isOpen, onClose, sessionId
         }
     }, [isOpen, sessionId]);
 
-    // Send close message to presentation when modal closes
+    // Clear join info when modal closes
     useEffect(() => {
-        if (!isOpen && sessionId) {
-            const broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'host');
-            broadcastManager.sendJoinInfoClose();
+        if (!isOpen) {
+            setJoinInfo(null);
         }
-    }, [isOpen, sessionId]);
+    }, [isOpen, setJoinInfo]);
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Team Join Information" size="md">

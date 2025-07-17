@@ -1,8 +1,9 @@
 // src/shared/utils/video/usePresentationVideo.ts
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
-import { useVideoSyncManager } from '@shared/hooks/useVideoSyncManager';
+import { PresentationBroadcastManager } from '@core/sync/PresentationBroadcastManager';
 import { HostCommand } from '@core/sync/types';
+import { PresentationSyncManager } from '@core/sync/PresentationSyncManager';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -15,10 +16,12 @@ interface VideoElementProps {
     style: React.CSSProperties;
 }
 
-interface UsePresentationVideoReturn {
+type UsePresentationVideoReturn ={
     videoRef: React.RefObject<HTMLVideoElement>;
     isConnectedToHost: boolean;
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
+    sendCommand: (action: string, data?: any) => Promise<void>;
+    resetConnectionState: () => void;
 }
 
 interface UsePresentationVideoProps {
@@ -27,11 +30,7 @@ interface UsePresentationVideoProps {
     isEnabled: boolean;
 }
 
-export const usePresentationVideo = ({
-                                         sessionId,
-                                         sourceUrl,
-                                         isEnabled
-                                     }: UsePresentationVideoProps): UsePresentationVideoReturn => {
+export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePresentationVideoProps): UsePresentationVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [localIsConnected, setLocalIsConnected] = useState(false);
     const onEndedRef = useRef<(() => void) | undefined>();
@@ -39,231 +38,242 @@ export const usePresentationVideo = ({
     const isBufferingRef = useRef(false);
     const previousSourceUrl = useRef<string | null>(null);
 
-    // Use Chrome/Supabase optimizations
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
-    // Use sync manager for communication only
-    const { isConnected, onCommand, onConnectionChange } = useVideoSyncManager({
-        sessionId,
-        role: 'presentation'
-    });
-
-    // Track connection status
-    useEffect(() => {
-        const unsubscribe = onConnectionChange(setLocalIsConnected);
-        return unsubscribe;
-    }, [onConnectionChange]);
-
-    // TEMPORARY: Force play when video becomes ready
-    useEffect(() => {
-        if (!isEnabled || !sourceUrl || !videoRef.current) return;
-        
-        const video = videoRef.current;
-        
-        const forcePlay = async () => {
-            console.log('[Presentation] 🚨 FORCE PLAY - Video ready, attempting to play...');
-            console.log('[Presentation] 🚨 FORCE PLAY - Current state:', {
-                paused: video.paused,
-                readyState: video.readyState,
-                muted: video.muted,
-                volume: video.volume,
-                currentTime: video.currentTime,
-                src: video.src
-            });
-            
-            try {
-                // Don't force volume settings - use what the host has set
-                
-                // CRITICAL: Ensure we start from the very beginning
-                video.currentTime = 0;
-                console.log('[Presentation] 🚨 FORCE PLAY - Reset to beginning, currentTime:', video.currentTime);
-                
-                // Wait for canplaythrough to ensure ALL audio is loaded
-                if (video.readyState < 4) {
-                    console.log('[Presentation] 🚨 FORCE PLAY - Waiting for canplaythrough...');
-                    await new Promise<void>((resolve) => {
-                        const handleCanPlayThrough = () => {
-                            video.removeEventListener('canplaythrough', handleCanPlayThrough);
-                            console.log('[Presentation] 🚨 FORCE PLAY - canplaythrough received');
-                            resolve();
-                        };
-                        video.addEventListener('canplaythrough', handleCanPlayThrough);
-                    });
-                }
-                
-                // Double-check we're still at the beginning
-                if (video.currentTime !== 0) {
-                    console.log('[Presentation] 🚨 FORCE PLAY - Resetting to 0 again, was at:', video.currentTime);
-                    video.currentTime = 0;
-                }
-                
-                // Try to play
-                await video.play();
-                console.log('[Presentation] 🚨 FORCE PLAY - SUCCESS! Playing from:', video.currentTime);
-            } catch (e) {
-                console.error('[Presentation] 🚨 FORCE PLAY - FAILED:', e);
-            }
-        };
-        
-        // Always wait for canplaythrough for complete audio loading
-        const handleCanPlayThrough = () => {
-            video.removeEventListener('canplaythrough', handleCanPlayThrough);
-            forcePlay();
-        };
-        video.addEventListener('canplaythrough', handleCanPlayThrough);
-        
-        // If already at canplaythrough, trigger immediately
-        if (video.readyState >= 4) {
-            forcePlay();
-        }
-        
-        return () => {
-            video.removeEventListener('canplaythrough', handleCanPlayThrough);
-        };
-    }, [isEnabled, sourceUrl]);
+    const broadcastManager = sessionId && isEnabled ? PresentationBroadcastManager.getInstance(sessionId) : null;
+    const syncManager = sessionId && isEnabled ? PresentationSyncManager.getInstance(sessionId) : null;
 
     // Listen for commands from host
+    const onCommand = useCallback((callback: (command: HostCommand) => void) => {
+        if (!broadcastManager) return () => {};
+        return broadcastManager.onHostCommand(callback);
+    }, [broadcastManager]);
+
+    // Track connection status (based on receiving commands)
     useEffect(() => {
-        const unsubscribe = onCommand(async (command: HostCommand) => {
+        if (!broadcastManager) return;
+        let timeout: NodeJS.Timeout | null = null;
+        const resetTimeout = () => {
+            if (timeout) clearTimeout(timeout);
+            setLocalIsConnected(true);
+            timeout = setTimeout(() => setLocalIsConnected(false), 10000);
+        };
+        const unsubscribe = broadcastManager.onHostCommand(() => {
+            resetTimeout();
+        });
+        resetTimeout();
+        return () => {
+            if (timeout) clearTimeout(timeout);
+            unsubscribe();
+        };
+    }, [broadcastManager]);
+
+    // Send ready status and periodic pongs
+    useEffect(() => {
+        if (!broadcastManager) return;
+        broadcastManager.sendStatus('ready');
+        const interval = setInterval(() => {
+            broadcastManager.sendStatus('pong');
+        }, 3000);
+        return () => clearInterval(interval);
+    }, [broadcastManager]);
+
+    // Handle video status polls from host
+    useEffect(() => {
+        if (!broadcastManager) return;
+        
+        const handleVideoStatusPoll = () => {
             const video = videoRef.current;
-            if (!video || !isEnabled) {
-                console.log('[Presentation] 🚫 Command ignored - video not available or not enabled:', {
-                    hasVideo: !!video,
-                    isEnabled,
-                    command: command.action
-                });
+            if (!video) {
+                console.log('[usePresentationVideo] Video status poll - no video element');
+                broadcastManager.sendVideoStatusResponse(false);
                 return;
             }
-
-            console.log('[Presentation] 📨 Received command:', command.action, command.data);
-            console.log('[Presentation] 📊 Video state before command:', {
-                currentTime: video.currentTime,
-                paused: video.paused,
-                muted: video.muted,
-                volume: video.volume,
+            
+            const isReady = video.readyState >= 2; // HAVE_CURRENT_DATA or higher
+            console.log('[usePresentationVideo] Video status poll - responding with ready:', isReady, {
                 readyState: video.readyState,
-                src: video.src
+                src: video.src,
+                currentSrc: video.currentSrc
             });
-
-            try {
-                // Update playback rate if provided
-                if (command.data?.playbackRate && video.playbackRate !== command.data.playbackRate) {
-                    console.log('[Presentation] 🎭 Changing playback rate:', video.playbackRate, '->', command.data.playbackRate);
-                    video.playbackRate = command.data.playbackRate;
-                }
-
-                switch (command.action) {
-                    case 'play':
-                        console.log('[Presentation] 🎬 PLAY command processing...');
-                        if (command.data?.time !== undefined) {
-                            const timeDiff = Math.abs(video.currentTime - command.data.time);
-                            console.log('[Presentation] 🕐 Time sync check:', {
-                                commandTime: command.data.time,
-                                currentTime: video.currentTime,
-                                timeDiff,
-                                willSeek: timeDiff > 0.2
-                            });
-                            if (timeDiff > 0.2) {
-                                video.currentTime = command.data.time;
-                                console.log('[Presentation] 🎯 Seeked to:', video.currentTime);
-                            }
-                        }
-                        
-                        // Apply volume settings from command if provided
-                        if (command.data?.volume !== undefined) {
-                            console.log('[Presentation] 🔊 Setting volume:', command.data.volume);
-                            video.volume = command.data.volume;
-                        }
-                        if (command.data?.muted !== undefined) {
-                            console.log('[Presentation] 🔇 Setting muted:', command.data.muted);
-                            video.muted = command.data.muted;
-                        }
-                        
-                        // Wait for video to be ready before playing
-                        if (video.readyState < 2) {
-                            console.log('[Presentation] ⏳ Video not ready (readyState=' + video.readyState + '), waiting for canplay...');
-                            await new Promise<void>((resolve) => {
-                                const onCanPlay = () => {
-                                    console.log('[Presentation] ✅ Video ready after wait');
-                                    video.removeEventListener('canplay', onCanPlay);
-                                    resolve();
-                                };
-                                video.addEventListener('canplay', onCanPlay);
-                            });
-                        } else {
-                            console.log('[Presentation] ✅ Video already ready (readyState=' + video.readyState + ')');
-                        }
-                        
-                        console.log('[Presentation] 🎵 About to call video.play()...');
-                        try {
-                            await video.play();
-                            console.log('[Presentation] ✅ video.play() SUCCESS');
-                        } catch (playError) {
-                            console.error('[Presentation] 🚨 video.play() FAILED:', playError);
-                            throw playError;
-                        }
-                        break;
-
-                    case 'pause':
-                        video.pause();
-                        if (command.data?.time !== undefined) {
-                            video.currentTime = command.data.time;
-                        }
-                        break;
-
-                    case 'seek':
-                        if (command.data?.time !== undefined) {
-                            video.currentTime = command.data.time;
-                        }
-                        break;
-
-                    case 'volume':
-                        // Apply volume settings from command
-                        if (command.data?.volume !== undefined) {
-                            console.log('[Presentation] 🔊 Volume command - setting volume:', command.data.volume);
-                            video.volume = command.data.volume;
-                        }
-                        if (command.data?.muted !== undefined) {
-                            console.log('[Presentation] 🔇 Volume command - setting muted:', command.data.muted);
-                            video.muted = command.data.muted;
-                        }
-                        break;
-
-                    case 'sync':
-                        // Handle periodic sync to prevent drift
-                        if (command.data?.time !== undefined && !video.paused && !isBufferingRef.current) {
-                            // IMPORTANT: Don't sync during the first 3 seconds to prevent audio cutout
-                            if (video.currentTime < 3.0) {
-                                console.log(`[Presentation] 🎵 Ignoring sync during first 3 seconds to preserve audio (currentTime: ${video.currentTime.toFixed(2)})`);
-                                break;
-                            }
-                            
-                            const timeDiff = Math.abs(video.currentTime - command.data.time);
-                            if (timeDiff > 0.2) {
-                                console.log(`[Presentation] Adjusting drift: ${timeDiff.toFixed(2)}s`);
-                                video.currentTime = command.data.time;
-                            }
-                        }
-                        break;
-
-                    case 'reset':
-                        video.pause();
-                        video.currentTime = 0;
-                        break;
-
-                    case 'close_presentation':
-                        window.close();
-                        break;
-                }
-            } catch (error) {
-                console.error('[Presentation] Command execution failed:', error);
-            }
-        });
-
+            broadcastManager.sendVideoStatusResponse(isReady);
+        };
+        
+        const unsubscribe = broadcastManager.onVideoStatusPoll(handleVideoStatusPoll);
         return unsubscribe;
-    }, [onCommand, isEnabled]);
+    }, [broadcastManager]);
 
-    // Handle buffering states AND COMPREHENSIVE VIDEO LOGGING
+    // Handle connection status changes - pause video when disconnected
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        
+        if (!localIsConnected && !video.paused) {
+            console.log('[usePresentationVideo] Lost connection to host - pausing presentation video');
+            video.pause();
+        }
+    }, [localIsConnected]);
+
+    // Handle window close - pause video when presentation window is closed
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            const video = videoRef.current;
+            if (video && !video.paused) {
+                console.log('[usePresentationVideo] Presentation window closing - pausing video');
+                video.pause();
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, []);
+
+    // Imperative video control API for parent components (used by SlideRenderer)
+    const sendCommand = useCallback(async (action: string, data?: any) => {
+        const video = videoRef.current;
+        console.log('[usePresentationVideo] sendCommand called:', { 
+            action, 
+            data, 
+            hasVideo: !!video, 
+            isEnabled, 
+            videoRef: videoRef.current,
+            videoReadyState: video?.readyState,
+            videoSrc: video?.src,
+            videoCurrentSrc: video?.currentSrc
+        });
+        
+        if (!video || !isEnabled) {
+            console.log('[usePresentationVideo] sendCommand failed - no video or not enabled:', { 
+                hasVideo: !!video, 
+                isEnabled,
+                videoRef: videoRef.current,
+                videoReadyState: video?.readyState,
+                videoSrc: video?.src,
+                videoCurrentSrc: video?.currentSrc
+            });
+            return;
+        }
+
+        console.log('[usePresentationVideo] sendCommand', action, data, {
+            videoReadyState: video.readyState,
+            videoPaused: video.paused,
+            videoCurrentTime: video.currentTime,
+            videoDuration: video.duration,
+            videoSrc: video.src,
+            videoCurrentSrc: video.currentSrc,
+            videoMuted: video.muted,
+            videoVolume: video.volume,
+            videoEnded: video.ended,
+            videoError: video.error
+        });
+        
+        try {
+            switch (action) {
+                case 'play':
+                    if (data?.time !== undefined) {
+                        const timeDiff = Math.abs(video.currentTime - data.time);
+                        if (timeDiff > 0.2) {
+                            video.currentTime = data.time;
+                        }
+                    }
+                    if (data?.volume !== undefined) video.volume = data.volume;
+                    if (data?.muted !== undefined) video.muted = data.muted;
+                    if (video.readyState < 2) {
+                        console.log('[usePresentationVideo] Video not ready, waiting for canplay...');
+                        await new Promise<void>((resolve) => {
+                            const onCanPlay = () => {
+                                video.removeEventListener('canplay', onCanPlay);
+                                console.log('[usePresentationVideo] Video ready, proceeding with play');
+                                resolve();
+                            };
+                            video.addEventListener('canplay', onCanPlay);
+                        });
+                    }
+                    console.log('[usePresentationVideo] Attempting to play video');
+                    try {
+                        await video.play();
+                        console.log('[usePresentationVideo] Play command completed');
+                    } catch (playError) {
+                        console.error('[usePresentationVideo] Play failed:', playError);
+                        // If autoplay is blocked, try to play with user interaction
+                        if (playError instanceof Error && playError.name === 'NotAllowedError') {
+                            console.log('[usePresentationVideo] Autoplay blocked, trying to play with user interaction');
+                            // This might need user interaction to work
+                            try {
+                                await video.play();
+                                console.log('[usePresentationVideo] Play succeeded after retry');
+                            } catch (retryError) {
+                                console.error('[usePresentationVideo] Play retry failed:', retryError);
+                            }
+                        }
+                    }
+                            console.log('[usePresentationVideo] Video state after play:', {
+            videoReadyState: video.readyState,
+            videoPaused: video.paused,
+            videoCurrentTime: video.currentTime,
+            videoDuration: video.duration,
+            videoMuted: video.muted,
+            videoVolume: video.volume,
+            videoEnded: video.ended,
+            videoError: video.error,
+            videoSrc: video.src,
+            videoCurrentSrc: video.currentSrc
+        });
+                    
+                    // Check if video is still playing after a short delay
+                    setTimeout(() => {
+                        console.log('[usePresentationVideo] Video state 1 second after play:', {
+                            videoReadyState: video.readyState,
+                            videoPaused: video.paused,
+                            videoCurrentTime: video.currentTime,
+                            videoDuration: video.duration,
+                            videoMuted: video.muted,
+                            videoVolume: video.volume,
+                            videoEnded: video.ended,
+                            videoError: video.error
+                        });
+                    }, 1000);
+                    break;
+                case 'pause':
+                    video.pause();
+                    if (data?.time !== undefined) video.currentTime = data.time;
+                    break;
+                case 'seek':
+                    if (data?.time !== undefined) video.currentTime = data.time;
+                    break;
+                case 'volume':
+                    if (data?.volume !== undefined) video.volume = data.volume;
+                    if (data?.muted !== undefined) video.muted = data.muted;
+                    break;
+                case 'reset':
+                    video.pause();
+                    video.currentTime = 0;
+                    break;
+                case 'close_presentation':
+                    window.close();
+                    break;
+            }
+        } catch (error) {
+            console.error('[usePresentationVideo] sendCommand failed:', error);
+        }
+    }, [isEnabled, videoRef]);
+
+    // Video event listeners and props
+    const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
+        onEndedRef.current = onVideoEnd;
+        onErrorRef.current = onError;
+        return createVideoProps({
+            videoRef,
+            muted: false,
+            autoPlay: false, // We control when to play, not the browser
+            onVideoEnd,
+            onError
+        });
+    }, []);
+
+    // Handle video source changes, buffering, and logging (optional, can be added as needed)
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -284,6 +294,10 @@ export const usePresentationVideo = ({
                 error: video.error ? `${video.error.code}: ${video.error.message}` : null
             });
         };
+        
+        // Log initial state immediately
+        console.log('[usePresentationVideo] Setting up video event listeners');
+        logVideoState('INITIAL_STATE');
 
         const handleWaiting = () => {
             isBufferingRef.current = true;
@@ -291,6 +305,7 @@ export const usePresentationVideo = ({
         };
 
         const handleCanPlay = () => {
+            console.log('[usePresentationVideo] handleCanPlay');
             isBufferingRef.current = false;
             logVideoState('CANPLAY (ready to play)');
         };
@@ -302,11 +317,24 @@ export const usePresentationVideo = ({
         const handleCanPlayThrough = () => logVideoState('CANPLAYTHROUGH');
         const handlePlay = () => logVideoState('PLAY');
         const handlePlaying = () => logVideoState('PLAYING');
-        const handlePause = () => logVideoState('PAUSE');
+        const handlePause = () => {
+            logVideoState('PAUSE');
+            console.log('[usePresentationVideo] Video paused - this might be why audio stops');
+            // Log the call stack to see what caused the pause
+            console.log('[usePresentationVideo] Pause call stack:', new Error().stack);
+        };
+
+        const handleVolumeChange = () => {
+            logVideoState('VOLUME_CHANGE');
+            console.log('[usePresentationVideo] Video volume changed - this might be why audio stops');
+        };
         const handleSeeked = () => logVideoState('SEEKED');
         const handleSeeking = () => logVideoState('SEEKING');
         const handleTimeUpdate = () => logVideoState('TIMEUPDATE');
-        const handleEnded = () => logVideoState('ENDED');
+        const handleEnded = () => {
+            logVideoState('ENDED');
+            console.log('[usePresentationVideo] Video ended - this might be why audio stops');
+        };
         const handleError = (e: Event) => {
             logVideoState('ERROR');
             console.error('[Presentation] 🚨 VIDEO ERROR EVENT:', e);
@@ -315,7 +343,6 @@ export const usePresentationVideo = ({
         const handleEmptied = () => logVideoState('EMPTIED');
         const handleStalled = () => logVideoState('STALLED');
         const handleSuspend = () => logVideoState('SUSPEND');
-        const handleVolumeChange = () => logVideoState('VOLUMECHANGE');
         const handleRateChange = () => logVideoState('RATECHANGE');
         const handleProgress = () => logVideoState('PROGRESS');
 
@@ -368,7 +395,7 @@ export const usePresentationVideo = ({
             video.removeEventListener('progress', handleProgress);
             video.removeEventListener('waiting', handleWaiting);
         };
-    }, []);
+    }, [videoRef]);
 
     // Load video source
     useEffect(() => {
@@ -387,46 +414,28 @@ export const usePresentationVideo = ({
             onErrorRef.current?.();
         };
 
-        if (isEnabled && sourceUrl) {
+        if (sourceUrl) {
             if (video.currentSrc !== sourceUrl) {
-                console.log('[Presentation] 📼 Loading new video source:', {
-                    newUrl: sourceUrl,
-                    oldUrl: video.currentSrc,
-                    previousSourceUrl: previousSourceUrl.current
-                });
-                
-                console.log('[Presentation] 📊 Video state before loading:', {
-                    currentTime: video.currentTime,
-                    paused: video.paused,
-                    muted: video.muted,
-                    volume: video.volume,
-                    readyState: video.readyState,
-                    networkState: video.networkState
-                });
-                
                 video.src = sourceUrl;
-                console.log('[Presentation] 📥 Set video.src, about to call video.load()...');
                 video.load();
-                console.log('[Presentation] 🔄 video.load() called');
                 
-                // Don't set default volume - let the host control it
-                console.log('[Presentation] 🔊 Waiting for volume settings from host');
+                // Listen for canplay event to notify host that video is ready
+                const handleCanPlay = () => {
+                    if (syncManager) {
+                        syncManager.sendPresentationVideoReady();
+                    }
+                    video.removeEventListener('canplay', handleCanPlay);
+                };
+                video.addEventListener('canplay', handleCanPlay);
                 
                 // Don't pause here - let the host control playback
                 // The host will send a play command when the slide changes
-            } else {
-                console.log('[Presentation] 🔄 Video source unchanged, skipping load');
             }
             previousSourceUrl.current = sourceUrl;
         } else {
-            console.log('[Presentation] 🚫 Video disabled or no source URL:', {
-                isEnabled,
-                sourceUrl
-            });
             previousSourceUrl.current = null;
-            // Not a video slide, ensure it's paused
+            // Not a video slide or URL is loading, ensure it's paused
             if (!video.paused) {
-                console.log('[Presentation] ⏸️ Pausing video for non-video slide');
                 video.pause();
             }
         }
@@ -438,25 +447,16 @@ export const usePresentationVideo = ({
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
         };
-    }, [sourceUrl, isEnabled]);
-
-    // Create video props
-    const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
-        onEndedRef.current = onVideoEnd;
-        onErrorRef.current = onError;
-
-        return createVideoProps({
-            videoRef,
-            muted: false, // Presentation handles audio
-            autoPlay: false, // Never autoplay - wait for commands
-            onVideoEnd,
-            onError
-        });
-    }, []);
+    }, [sourceUrl, syncManager]);
 
     return {
         videoRef,
         isConnectedToHost: localIsConnected,
         getVideoProps,
+        sendCommand,
+        resetConnectionState: () => {
+            // No-op for presentation video - this is only used by host video
+            console.log('[usePresentationVideo] resetConnectionState called (no-op for presentation)');
+        },
     };
 };
