@@ -117,9 +117,19 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         const video = videoRef.current;
         if (!video) return;
         
-        // Prevent multiple simultaneous play attempts
+        // If video is already playing, just send command to presentation
         if (!video.paused) {
-            console.log('[useHostVideo] Video already playing, skipping play command');
+            console.log('[useHostVideo] Video already playing, sending command to presentation only');
+            if (presentationIsConnected && hostSyncManager) {
+                hostSyncManager.sendCommand('play', {
+                    time: video.currentTime,
+                    playbackRate: video.playbackRate,
+                    volume: presentationVolume,
+                    muted: presentationMuted,
+                });
+            }
+            // Manually dispatch play event to update UI since video.play() won't fire one
+            // video.dispatchEvent(new Event('play'));
             return;
         }
         

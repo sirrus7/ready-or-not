@@ -66,6 +66,7 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
         video.addEventListener('play', updatePlayState);
         video.addEventListener('pause', updatePlayState);
         video.addEventListener('volumechange', updateVolumeState);
+        video.addEventListener('playing', updatePlayState);
 
         // Set initial states
         updateTime();
