@@ -4,6 +4,7 @@ import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/
 import { PresentationBroadcastManager } from '@core/sync/PresentationBroadcastManager';
 import { HostCommand } from '@core/sync/types';
 import { PresentationSyncManager } from '@core/sync/PresentationSyncManager';
+import { videoDebug } from './debug';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -85,13 +86,14 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         const handleVideoStatusPoll = () => {
             const video = videoRef.current;
             if (!video) {
-                console.log('[usePresentationVideo] Video status poll - no video element');
+                videoDebug.videoLog('usePresentationVideo', 'Video status poll - no video element');
                 broadcastManager.sendVideoStatusResponse(false);
                 return;
             }
             
             const isReady = video.readyState >= 2; // HAVE_CURRENT_DATA or higher
-            console.log('[usePresentationVideo] Video status poll - responding with ready:', isReady, {
+            videoDebug.videoLog('usePresentationVideo', 'Video status poll - responding with ready:', {
+                isReady,
                 readyState: video.readyState,
                 src: video.src,
                 currentSrc: video.currentSrc
@@ -109,7 +111,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         if (!video) return;
         
         if (!localIsConnected && !video.paused) {
-            console.log('[usePresentationVideo] Lost connection to host - pausing presentation video');
+            videoDebug.videoLog('usePresentationVideo', 'Lost connection to host - pausing presentation video');
             video.pause();
         }
     }, [localIsConnected]);
@@ -119,7 +121,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         const handleBeforeUnload = () => {
             const video = videoRef.current;
             if (video && !video.paused) {
-                console.log('[usePresentationVideo] Presentation window closing - pausing video');
+                videoDebug.videoLog('usePresentationVideo', 'Presentation window closing - pausing video');
                 video.pause();
             }
         };
@@ -133,7 +135,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
     // Imperative video control API for parent components (used by SlideRenderer)
     const sendCommand = useCallback(async (action: string, data?: any) => {
         const video = videoRef.current;
-        console.log('[usePresentationVideo] sendCommand called:', { 
+        videoDebug.videoLog('usePresentationVideo', 'sendCommand called:', { 
             action, 
             data, 
             hasVideo: !!video, 
@@ -145,7 +147,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         });
         
         if (!video || !isEnabled) {
-            console.log('[usePresentationVideo] sendCommand failed - no video or not enabled:', { 
+            videoDebug.videoLog('usePresentationVideo', 'sendCommand failed - no video or not enabled:', { 
                 hasVideo: !!video, 
                 isEnabled,
                 videoRef: videoRef.current,
@@ -156,7 +158,9 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
             return;
         }
 
-        console.log('[usePresentationVideo] sendCommand', action, data, {
+        videoDebug.videoLog('usePresentationVideo', 'sendCommand', {
+            action,
+            data,
             videoReadyState: video.readyState,
             videoPaused: video.paused,
             videoCurrentTime: video.currentTime,
@@ -181,35 +185,35 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
                     if (data?.volume !== undefined) video.volume = data.volume;
                     if (data?.muted !== undefined) video.muted = data.muted;
                     if (video.readyState < 2) {
-                        console.log('[usePresentationVideo] Video not ready, waiting for canplay...');
+                        videoDebug.videoLog('usePresentationVideo', 'Video not ready, waiting for canplay...');
                         await new Promise<void>((resolve) => {
                             const onCanPlay = () => {
                                 video.removeEventListener('canplay', onCanPlay);
-                                console.log('[usePresentationVideo] Video ready, proceeding with play');
+                                videoDebug.videoLog('usePresentationVideo', 'Video ready, proceeding with play');
                                 resolve();
                             };
                             video.addEventListener('canplay', onCanPlay);
                         });
                     }
-                    console.log('[usePresentationVideo] Attempting to play video');
+                    videoDebug.videoLog('usePresentationVideo', 'Attempting to play video');
                     try {
                         await video.play();
-                        console.log('[usePresentationVideo] Play command completed');
+                        videoDebug.videoLog('usePresentationVideo', 'Play command completed');
                     } catch (playError) {
-                        console.error('[usePresentationVideo] Play failed:', playError);
+                        videoDebug.error('[usePresentationVideo] Play failed:', playError);
                         // If autoplay is blocked, try to play with user interaction
                         if (playError instanceof Error && playError.name === 'NotAllowedError') {
-                            console.log('[usePresentationVideo] Autoplay blocked, trying to play with user interaction');
+                            videoDebug.videoLog('usePresentationVideo', 'Autoplay blocked, trying to play with user interaction');
                             // This might need user interaction to work
                             try {
                                 await video.play();
-                                console.log('[usePresentationVideo] Play succeeded after retry');
+                                videoDebug.videoLog('usePresentationVideo', 'Play succeeded after retry');
                             } catch (retryError) {
-                                console.error('[usePresentationVideo] Play retry failed:', retryError);
+                                videoDebug.error('[usePresentationVideo] Play retry failed:', retryError);
                             }
                         }
                     }
-                            console.log('[usePresentationVideo] Video state after play:', {
+                            videoDebug.videoLog('usePresentationVideo', 'Video state after play:', {
             videoReadyState: video.readyState,
             videoPaused: video.paused,
             videoCurrentTime: video.currentTime,
@@ -224,7 +228,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
                     
                     // Check if video is still playing after a short delay
                     setTimeout(() => {
-                        console.log('[usePresentationVideo] Video state 1 second after play:', {
+                        videoDebug.videoLog('usePresentationVideo', 'Video state 1 second after play:', {
                             videoReadyState: video.readyState,
                             videoPaused: video.paused,
                             videoCurrentTime: video.currentTime,
@@ -279,7 +283,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         if (!video) return;
 
         const logVideoState = (eventType: string) => {
-            console.log(`[Presentation] 🎥 VIDEO EVENT: ${eventType}`, {
+            videoDebug.videoLog('usePresentationVideo', `🎥 VIDEO EVENT: ${eventType}`, {
                 currentTime: video.currentTime,
                 duration: video.duration,
                 paused: video.paused,
@@ -296,7 +300,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         };
         
         // Log initial state immediately
-        console.log('[usePresentationVideo] Setting up video event listeners');
+        videoDebug.videoLog('usePresentationVideo', 'Setting up video event listeners');
         logVideoState('INITIAL_STATE');
 
         const handleWaiting = () => {
@@ -305,7 +309,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         };
 
         const handleCanPlay = () => {
-            console.log('[usePresentationVideo] handleCanPlay');
+            videoDebug.videoLog('usePresentationVideo', 'handleCanPlay');
             isBufferingRef.current = false;
             logVideoState('CANPLAY (ready to play)');
         };
@@ -319,25 +323,25 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         const handlePlaying = () => logVideoState('PLAYING');
         const handlePause = () => {
             logVideoState('PAUSE');
-            console.log('[usePresentationVideo] Video paused - this might be why audio stops');
+            videoDebug.videoLog('usePresentationVideo', 'Video paused - this might be why audio stops');
             // Log the call stack to see what caused the pause
-            console.log('[usePresentationVideo] Pause call stack:', new Error().stack);
+            videoDebug.videoLog('usePresentationVideo', 'Pause call stack:', new Error().stack);
         };
 
         const handleVolumeChange = () => {
             logVideoState('VOLUME_CHANGE');
-            console.log('[usePresentationVideo] Video volume changed - this might be why audio stops');
+            videoDebug.videoLog('usePresentationVideo', 'Video volume changed - this might be why audio stops');
         };
         const handleSeeked = () => logVideoState('SEEKED');
         const handleSeeking = () => logVideoState('SEEKING');
         const handleTimeUpdate = () => logVideoState('TIMEUPDATE');
         const handleEnded = () => {
             logVideoState('ENDED');
-            console.log('[usePresentationVideo] Video ended - this might be why audio stops');
+            videoDebug.videoLog('usePresentationVideo', 'Video ended - this might be why audio stops');
         };
         const handleError = (e: Event) => {
             logVideoState('ERROR');
-            console.error('[Presentation] 🚨 VIDEO ERROR EVENT:', e);
+            videoDebug.error('[Presentation] 🚨 VIDEO ERROR EVENT:', e);
         };
         const handleAbort = () => logVideoState('ABORT');
         const handleEmptied = () => logVideoState('EMPTIED');
@@ -449,14 +453,14 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         };
     }, [sourceUrl, syncManager]);
 
-    return {
-        videoRef,
-        isConnectedToHost: localIsConnected,
-        getVideoProps,
-        sendCommand,
-        resetConnectionState: () => {
-            // No-op for presentation video - this is only used by host video
-            console.log('[usePresentationVideo] resetConnectionState called (no-op for presentation)');
-        },
-    };
+            return {
+            videoRef,
+            isConnectedToHost: localIsConnected,
+            getVideoProps,
+            sendCommand,
+            resetConnectionState: () => {
+                // No-op for presentation video - this is only used by host video
+                videoDebug.videoLog('usePresentationVideo', 'resetConnectionState called (no-op for presentation)');
+            },
+        };
 };

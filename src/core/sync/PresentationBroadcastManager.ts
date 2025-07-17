@@ -1,6 +1,7 @@
 import { Slide } from '@shared/types/game';
 import { HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, PresentationVideoReady, VideoStatusPoll, VideoStatusResponse, BroadcastEventType } from './types';
 import { Team, TeamDecision, TeamRoundData } from '@shared/types';
+import { videoDebug } from '@shared/utils/video/debug';
 
 /**
  * PresentationBroadcastManager - Presentation-side BroadcastChannel sync for host
@@ -34,7 +35,7 @@ export class PresentationBroadcastManager {
   }
 
   private setupMessageHandling(): void {
-    console.log('[PresentationBroadcastManager] Setting up message handling');
+    videoDebug.syncLog('PresentationBroadcastManager', 'Setting up message handling');
     this.channel.onmessage = (event) => {
       if (this.isDestroyed) return;
       const message = event.data;
@@ -42,20 +43,20 @@ export class PresentationBroadcastManager {
 
       switch (message.type) {
         case BroadcastEventType.HOST_COMMAND:
-          console.log('[PresentationBroadcastManager] Processing host command:', message.action);
+          videoDebug.syncLog('PresentationBroadcastManager', `Processing host command: ${message.action}`);
           this.commandHandlers.forEach(handler => handler(message as HostCommand));
           // Send acknowledgment (optional, not used by presentation)
           break;
         case BroadcastEventType.SLIDE_UPDATE:
-          console.log('[PresentationBroadcastManager] Processing slide update:', message.slide?.id);
+          videoDebug.syncLog('PresentationBroadcastManager', `Processing slide update: ${message.slide?.id}`);
           this.slideHandlers.forEach(handler => handler(message.slide, message.teamData));
           break;
         case BroadcastEventType.JOIN_INFO:
-          console.log('[PresentationBroadcastManager] Processing join info');
+          videoDebug.syncLog('PresentationBroadcastManager', 'Processing join info');
           this.joinInfoHandlers.forEach(handler => handler(message.joinUrl, message.qrCodeDataUrl));
           break;
         case BroadcastEventType.JOIN_INFO_CLOSE:
-          console.log('[PresentationBroadcastManager] Processing join info close');
+          videoDebug.syncLog('PresentationBroadcastManager', 'Processing join info close');
           this.joinInfoHandlers.forEach(handler => handler('', ''));
           break;
         case BroadcastEventType.PING:
@@ -63,15 +64,15 @@ export class PresentationBroadcastManager {
           this.pingHandlers.forEach(handler => handler());
           break;
         case BroadcastEventType.CLOSE_PRESENTATION:
-          console.log('[PresentationBroadcastManager] Processing close presentation');
+          videoDebug.syncLog('PresentationBroadcastManager', 'Processing close presentation');
           this.closePresentationHandlers.forEach(handler => handler());
           break;
         case BroadcastEventType.VIDEO_STATUS_POLL:
-          console.log('[PresentationBroadcastManager] Processing video status poll');
+          videoDebug.syncLog('PresentationBroadcastManager', 'Processing video status poll');
           this.videoStatusPollHandlers.forEach(handler => handler(message as VideoStatusPoll));
           break;
         default:
-          console.log('[PresentationBroadcastManager] Ignoring unknown message type:', message.type);
+          videoDebug.syncLog('PresentationBroadcastManager', `Ignoring unknown message type: ${message.type}`);
           // Ignore other message types
           break;
       }

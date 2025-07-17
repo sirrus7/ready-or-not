@@ -11,6 +11,7 @@ import {useSignedMediaUrl} from '@shared/hooks/useSignedMediaUrl';
 import DoubleDownDiceDisplay from '@shared/components/DoubleDownDice/DoubleDownDiceDisplay';
 import {getInvestmentBySlideId} from '@core/content/DoubleDownMapping';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
+import { videoDebug } from '@shared/utils/video/debug';
 
 export interface SlideRendererProps {
     slide: Slide | null;
@@ -146,7 +147,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const activeVideo = isHost ? hostVideo : presentationVideo;
 
     // Debug video rendering conditions
-    console.log('[SlideRenderer] Video rendering conditions:', {
+    videoDebug.videoLog('SlideRenderer', 'Video rendering conditions:', {
         slideId: slide?.id,
         slideType: slide?.type,
         isVideoSlide,
@@ -159,7 +160,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     // Expose imperative video control API to parent if requested
     useEffect(() => {
         if (onVideoControl && isVideoSlide && activeVideo) {
-            console.log('[SlideRenderer] Exposing video control API:', {
+            videoDebug.videoLog('SlideRenderer', 'Exposing video control API:', {
                 hasActiveVideo: !!activeVideo,
                 hasSendCommand: !!activeVideo.sendCommand,
                 videoRef: activeVideo.videoRef?.current
@@ -221,7 +222,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
             {/* Video element for video slides */}
             {isVideoSlide && activeVideo && (() => {
-                console.log('[SlideRenderer] Rendering video element');
+                videoDebug.videoLog('SlideRenderer', 'Rendering video element');
                 const videoProps = activeVideo.getVideoProps(onVideoEnd, () => setVideoError(true));
                 return (
                     <video

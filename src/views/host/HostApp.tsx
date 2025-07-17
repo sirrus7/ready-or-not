@@ -11,6 +11,7 @@ import {ChallengeOption, GameStructure, InvestmentOption, Slide} from "@shared/t
 import {shouldAutoAdvance} from '@shared/utils/versionUtils';
 import type {SlideRendererProps} from '@shared/components/Video/SlideRenderer';
 import { TeamGameEventType } from '@core/sync/SimpleRealtimeManager';
+import { videoDebug } from '@shared/utils/video/debug';
 
 const broadcastInteractiveSlideData = (
     realtimeManager: SimpleRealtimeManager,
@@ -196,11 +197,11 @@ const HostApp: React.FC = () => {
             // TODO - we should invert pass video to slide renderer rather than have it instantiate...honestly child component?? 
             
             presentationTabRef.current = newTab;
-            console.log('[HostApp] setting presentationConnectionStatus to connecting');
+            videoDebug.videoLog('HostApp', 'setting presentationConnectionStatus to connecting');
             setPresentationConnectionStatus('connecting');
         } else {
             alert("Failed to open presentation display. Please ensure pop-ups are allowed for this site.");
-            console.log('[HostApp] setting presentationConnectionStatus to disconnected');
+            videoDebug.videoLog('HostApp', 'setting presentationConnectionStatus to disconnected');
             setPresentationConnectionStatus('disconnected');
         }
     }, [currentSessionId]);
@@ -210,16 +211,16 @@ const HostApp: React.FC = () => {
         if (!presentationTabRef.current) return;
         const checkInterval = setInterval(() => {
             if (presentationTabRef.current?.closed) {
-                console.log('[HostApp] Presentation window closed - restoring audio dominance');
+                videoDebug.videoLog('HostApp', 'Presentation window closed - restoring audio dominance');
                 setPresentationConnectionStatus('disconnected');
                 
                 // Force sync manager to disconnect immediately
                 if (hostSyncManager) {
-                    console.log('[HostApp] Calling forceDisconnect on hostSyncManager');
+                    videoDebug.videoLog('HostApp', 'Calling forceDisconnect on hostSyncManager');
                     // Force immediate disconnect status update
                     hostSyncManager.forceDisconnect();
                 } else {
-                    console.log('[HostApp] No hostSyncManager available for forceDisconnect');
+                    videoDebug.videoLog('HostApp', 'No hostSyncManager available for forceDisconnect');
                 }
                 
                 // Restore audio precedence to host
@@ -257,7 +258,7 @@ const HostApp: React.FC = () => {
     useEffect(() => {
         if (!hostSyncManager) return;
         const unsubscribe = hostSyncManager.onPresentationStatus((status: string) => {
-            console.log('[HostApp] received presentation status', status);
+            videoDebug.videoLog('HostApp', `received presentation status: ${status}`);
             setIsPresentationConnected(status === 'connected');
             setPresentationConnectionStatus(status as PresentationConnectionStatus);
         });
@@ -268,7 +269,7 @@ const HostApp: React.FC = () => {
     useEffect(() => {
         if (!hostSyncManager) return;
         hostSyncManager.onPresentationVideoReady(() => {
-            console.log('[HostApp] Presentation video ready');
+            videoDebug.videoLog('HostApp', 'Presentation video ready');
         });
     }, [hostSyncManager]);
 

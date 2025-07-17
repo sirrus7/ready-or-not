@@ -1,6 +1,7 @@
 import { Slide } from '@shared/types/game';
 import { HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, PresentationVideoReady, VideoStatusResponse, BroadcastEventType } from './types';
 import { Team, TeamDecision, TeamRoundData } from '@shared/types';
+import { videoDebug } from '@shared/utils/video/debug';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -46,7 +47,7 @@ export class HostBroadcastManager {
           this.updateConnectionStatus('disconnected');
           break;
         case BroadcastEventType.PRESENTATION_STATUS: {
-          console.log('received presentation status somehow')
+          videoDebug.syncLog('HostBroadcastManager', 'received presentation status somehow');
           const status = message as PresentationStatus;
           if (status.status === 'ready') {
             this.updateConnectionStatus('connected');
@@ -57,16 +58,16 @@ export class HostBroadcastManager {
           break;
         }
         case BroadcastEventType.PRESENTATION_VIDEO_READY:
-          console.log('received presentation video ready somehow')
+          videoDebug.syncLog('HostBroadcastManager', 'received presentation video ready somehow');
           this.onPresentationVideoReadyHandlers.forEach(handler => handler());
           break;
         case BroadcastEventType.VIDEO_STATUS_RESPONSE: {
           const response = message as VideoStatusResponse;
           if (response.isReady) {
-            console.log('[HostBroadcastManager] Received video status response: ready');
+            videoDebug.syncLog('HostBroadcastManager', 'Received video status response: ready');
             this.onPresentationVideoReadyHandlers.forEach(handler => handler());
           } else {
-            console.log('[HostBroadcastManager] Received video status response: not ready');
+            videoDebug.syncLog('HostBroadcastManager', 'Received video status response: not ready');
           }
           break;
         }
@@ -99,26 +100,26 @@ export class HostBroadcastManager {
       this.channel.postMessage(message);
     } catch (error) {
       if (!this.isDestroyed) {
-        console.error('[HostBroadcastManager] Failed to send message:', error);
+        videoDebug.error('[HostBroadcastManager] Failed to send message:', error);
       }
     }
   }
 
   private updateConnectionStatus(status: ConnectionStatus): void {
     if (this.isDestroyed) return;
-    console.log('[HostBroadcastManager - updateConnectionStatus] updating connection status to', status);
+    videoDebug.syncLog('HostBroadcastManager', `updating connection status to ${status}`);
     if (this.connectionStatus !== status) {
       this.connectionStatus = status;
-      console.log('[HostBroadcastManager] Calling', this.statusCallbacks.size, 'status callbacks');
+      videoDebug.syncLog('HostBroadcastManager', `Calling ${this.statusCallbacks.size} status callbacks`);
       this.statusCallbacks.forEach(callback => {
         try {
           callback(status);
         } catch (error) {
-          console.error('[HostBroadcastManager] Error in status callback:', error);
+          videoDebug.error('[HostBroadcastManager] Error in status callback:', error);
         }
       });
     } else {
-      console.log('[HostBroadcastManager] Status unchanged, not calling callbacks');
+      videoDebug.syncLog('HostBroadcastManager', 'Status unchanged, not calling callbacks');
     }
   }
 
@@ -133,7 +134,7 @@ export class HostBroadcastManager {
    * Force disconnect status (for when window is closed)
    */
   forceDisconnect(): void {
-    console.log('[HostBroadcastManager] Force disconnecting presentation');
+    videoDebug.syncLog('HostBroadcastManager', 'Force disconnecting presentation');
     this.updateConnectionStatus('disconnected');
   }
 
@@ -224,7 +225,7 @@ export class HostBroadcastManager {
   onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
     if (this.isDestroyed) return () => {};
     this.statusCallbacks.add(callback);
-    console.log('[HostBroadcastManager] registering onPresentationStatus');
+    videoDebug.syncLog('HostBroadcastManager', 'registering onPresentationStatus');
     // Immediately call with current status
     callback(this.connectionStatus);
     return () => {
@@ -253,7 +254,7 @@ export class HostBroadcastManager {
     try {
       this.channel.close();
     } catch (error) {
-      console.warn('[HostBroadcastManager] Error closing channel:', error);
+      videoDebug.warn('[HostBroadcastManager] Error closing channel:', error);
     }
     this.statusCallbacks.clear();
     this.onPresentationVideoReadyHandlers.clear();

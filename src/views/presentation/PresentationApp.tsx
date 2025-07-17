@@ -6,6 +6,7 @@ import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from 'lucide-react';
 import { usePresentationSyncManager } from '@core/sync/PresentationSyncManager';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
+import { videoDebug } from '@shared/utils/video/debug';
 /**
  * Simplified presentation app that immediately displays content from the host.
  */
@@ -112,14 +113,14 @@ const PresentationApp: React.FC = () => {
 
     useEffect(() => {
         if (!syncManager) return;
-        console.log('[PresentationApp] Setting up host command listener');
+        videoDebug.videoLog('PresentationApp', 'Setting up host command listener');
         const unsub = syncManager.onHostCommand((command) => {
-            console.log('[PresentationApp] Received host command:', command.action, command.data);
+            videoDebug.videoLog('PresentationApp', `Received host command: ${command.action}`, command.data);
             if (!videoRef.current) {
-                console.log('[PresentationApp] No video ref available for command:', command.action);
+                videoDebug.videoLog('PresentationApp', `No video ref available for command: ${command.action}`);
                 return;
             }
-            console.log('[PresentationApp] Executing command on video:', command.action);
+            videoDebug.videoLog('PresentationApp', `Executing command on video: ${command.action}`);
             switch (command.action) {
                 case 'play':
                 case 'pause':
@@ -132,11 +133,11 @@ const PresentationApp: React.FC = () => {
                     window.close();
                     break;
             }
-            console.log('[PresentationApp] Setting isConnectedToHost to true (from command)');
+            videoDebug.videoLog('PresentationApp', 'Setting isConnectedToHost to true (from command)');
             setIsConnectedToHost(true);
             if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = setTimeout(() => {
-                console.log('[PresentationApp] Command timeout - setting disconnected');
+                videoDebug.videoLog('PresentationApp', 'Command timeout - setting disconnected');
                 setIsConnectedToHost(false);
                 setStatusMessage('Connection lost - waiting for host...');
                 setConnectionError(true);
@@ -235,7 +236,7 @@ const PresentationApp: React.FC = () => {
                 teamRoundData={broadcastedTeamData?.teamRoundData || {}}
                 teamDecisions={broadcastedTeamData?.teamDecisions || []}
                 onVideoControl={api => { 
-                    console.log('[PresentationApp] Received video control API:', {
+                    videoDebug.videoLog('PresentationApp', 'Received video control API:', {
                         hasSendCommand: !!api.sendCommand
                     });
                     videoRef.current = api; 
