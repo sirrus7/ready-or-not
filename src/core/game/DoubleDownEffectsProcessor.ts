@@ -4,25 +4,13 @@ import {db} from '@shared/services/supabase';
 import {formatCurrency, formatNumber} from "@shared/utils/formatUtils";
 import {DoubleDownDecision, DoubleDownResult, KpiEffect, TeamRoundData} from "@shared/types";
 
-interface KpiChangeDetail {
+export interface KpiChangeDetail {
     kpi: string;
     change_value: number;
     display_value: string;
 }
 
 export class DoubleDownEffectsProcessor {
-
-    /**
-     * Calculate the multiplier for double down effects
-     * @param boostPercentage The boost percentage from dice roll (0, 25, 75, or 100)
-     * @returns The multiplier to apply to base effects (0.75 = 75% additional)
-     */
-    private static calculateDoubleDownMultiplier(boostPercentage: number): number {
-        // Double down adds a percentage of the original effect
-        // 75% boost = add 75% more = multiply by 0.75
-        // 100% boost = add 100% more = multiply by 1.0 (double)
-        return boostPercentage / 100;
-    }
 
     /**
      * Process double down effects for a specific investment when dice are rolled
@@ -37,13 +25,8 @@ export class DoubleDownEffectsProcessor {
             const decisions: DoubleDownDecision[] = await db.decisions.getTeamsDoubledDownOnInvestment(sessionId, investmentId);
 
             if (!decisions || decisions.length === 0) {
-                console.log(`[DoubleDownEffectsProcessor] No teams found for investment ${investmentId}`);
                 return;
             }
-
-            const multiplier: number = this.calculateDoubleDownMultiplier(boostPercentage);
-
-            console.log(`[DoubleDownEffectsProcessor] Applying ${boostPercentage}% bonus (${multiplier}x additional) to ${decisions.length} teams for investment ${investmentId}`);
 
             // Apply effects to each team
             for (const decision of decisions) {
@@ -54,39 +37,9 @@ export class DoubleDownEffectsProcessor {
                     boostPercentage,
                     185 // Default slide ID for double down, could be passed as parameter
                 );
-
-                console.log(`[DoubleDownEffectsProcessor] Applied ${boostPercentage}% bonus to team ${decision.team_name} for investment ${investmentId}`);
             }
         } catch (error) {
             console.error('[DoubleDownEffectsProcessor] Error processing double down for investment:', error);
-        }
-    }
-
-    /**
-     * Process all double down results (existing method)
-     */
-    static async processDoubleDownResults(sessionId: string) {
-        console.log('[DoubleDownEffectsProcessor] Processing double down results...');
-
-        try {
-            // Get all double down results for this session
-            const results = await db.doubleDown.getResultsForSession(sessionId);
-
-            if (!results || results.length === 0) {
-                console.log('[DoubleDownEffectsProcessor] No double down results found');
-                return;
-            }
-
-            // Process each investment's results
-            for (const result of results) {
-                await this.processDoubleDownForInvestment(
-                    sessionId,
-                    result.investment_id,
-                    result.boost_percentage
-                );
-            }
-        } catch (error) {
-            console.error('[DoubleDownEffectsProcessor] Error processing double down results:', error);
         }
     }
 
@@ -96,7 +49,7 @@ export class DoubleDownEffectsProcessor {
         investmentOptionId: string,
         boostPercentage: number,
         slideId: number
-    ) {
+    ): Promise<void> {
         try {
             // Check if effects have already been applied to prevent duplicates
             const alreadyApplied: boolean = await db.payoffApplications.hasBeenApplied({
@@ -107,11 +60,8 @@ export class DoubleDownEffectsProcessor {
             });
 
             if (alreadyApplied) {
-                console.log(`[DoubleDownEffectsProcessor] Double down effects already applied for team ${teamId.substring(0, 8)}, investment ${investmentOptionId}, skipping`);
                 return;
             }
-
-            console.log(`[DoubleDownEffectsProcessor] Applying ${boostPercentage}% boost to team ${teamId.substring(0, 8)} for investment ${investmentOptionId}`);
 
             // Get stored KPI changes from database instead of generating new ones
             const storedResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentOptionId);
@@ -173,12 +123,8 @@ export class DoubleDownEffectsProcessor {
                 slide_id: slideId,
                 investment_phase_id: 'double-down'
             });
-
-            console.log(`[DoubleDownEffectsProcessor] Successfully applied ${boostPercentage}% boost to team ${teamId.substring(0, 8)} for investment ${investmentOptionId}`);
-
         } catch (error) {
             console.error(`[DoubleDownEffectsProcessor] Error applying multiplier to team ${teamId.substring(0, 8)}:`, error);
-
             // Don't throw - we want to continue processing other teams even if one fails
             // The error is logged and the team just won't get the bonus (which is better than crashing)
         }

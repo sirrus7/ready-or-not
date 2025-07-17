@@ -1,6 +1,6 @@
 // src/shared/components/DoubleDownDice/DoubleDownDiceDisplay.tsx
 import React, {useState, useEffect, useRef} from 'react';
-import {DoubleDownEffectsProcessor} from '@core/game/DoubleDownEffectsProcessor';
+import {DoubleDownEffectsProcessor, KpiChangeDetail} from '@core/game/DoubleDownEffectsProcessor';
 import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
 import {DoubleDownDecision, DoubleDownResult, InvestmentPayoff, KpiChange, Slide, TeamRoundData} from "@shared/types";
@@ -42,11 +42,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                                                          slideId,
                                                                          isHost = false
                                                                      }: DoubleDownDiceDisplayProps) => {
-    console.log('🔍 [DEBUG] DoubleDownDiceDisplay COMPONENT MOUNTED/RENDERED:', {
-        slideId,
-        investmentId,
-        isHost
-    });
     const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
     const [kpiChanges, setKpiChanges] = useState<KpiChange[]>([]);
     const [hasRolled, setHasRolled] = useState(false);
@@ -57,99 +52,8 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     const processingRef = useRef(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const audioManager: DoubleDownAudioManager = DoubleDownAudioManager.getInstance();
-    // Add this after your existing useState declarations
-    const [debugMode, setDebugMode] = useState(process.env.NODE_ENV === 'development');
-
-    // Add this debug component before your main switch statement
-    const DebugPanel = () => {
-        if (!debugMode) return null;
-
-        const handleDebugReroll = () => {
-            // Reset states
-            setHasRolled(false);
-            setHasAppliedEffects(false);
-            setCurrentPhase('rolling');
-            setIsRolling(true);
-
-            // Generate new random values
-            const newDice1 = Math.floor(Math.random() * 6) + 1;
-            const newDice2 = Math.floor(Math.random() * 6) + 1;
-            const newTotal = newDice1 + newDice2;
-            const newBoost = DICE_BOOSTS[newTotal as keyof typeof DICE_BOOSTS];
-
-            // Set new result after a delay to simulate rolling
-            setTimeout(() => {
-                const newResult: DiceResult = {
-                    investment_id: investmentId,
-                    dice1_value: newDice1,
-                    dice2_value: newDice2,
-                    total_value: newTotal,
-                    boost_percentage: newBoost,
-                    affected_teams: affectedTeams
-                };
-
-                setDiceResult(newResult);
-                setIsRolling(false);
-                setHasRolled(true);
-                setCurrentPhase('showing_results');
-            }, 2000);
-        };
-
-        const handlePhaseChange = (phase: string) => {
-            setCurrentPhase(phase as any);
-        };
-
-        return (
-            <div className="fixed top-4 right-4 bg-black/80 text-white p-4 rounded-lg z-50 font-mono text-sm">
-                <div className="mb-2 text-xs text-gray-300">🔧 DEV DEBUG</div>
-                <div className="space-y-2">
-                    <button
-                        onClick={handleDebugReroll}
-                        className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs w-full"
-                    >
-                        🎲 Reroll Dice
-                    </button>
-                    <div className="text-xs text-gray-400">
-                        Current: {diceResult?.dice1_value || '?'} + {diceResult?.dice2_value || '?'} = {diceResult?.total_value || '?'}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                        Boost: {diceResult?.boost_percentage || 0}%
-                    </div>
-                    <div className="text-xs text-gray-400">
-                        Phase: {currentPhase}
-                    </div>
-                    <div className="flex gap-1">
-                        <button
-                            onClick={() => handlePhaseChange('rolling')}
-                            className="bg-gray-600 hover:bg-gray-700 px-2 py-1 rounded text-xs flex-1"
-                        >
-                            Roll
-                        </button>
-                        <button
-                            onClick={() => handlePhaseChange('showing_results')}
-                            className="bg-gray-600 hover:bg-gray-700 px-2 py-1 rounded text-xs flex-1"
-                        >
-                            Result
-                        </button>
-                    </div>
-                    <button
-                        onClick={() => setDebugMode(false)}
-                        className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs w-full"
-                    >
-                        Hide Debug
-                    </button>
-                </div>
-            </div>
-        );
-    };
 
     useEffect((): () => void => {
-        console.log('🔍 [DEBUG] useEffect firing for initializeDoubleDownRoll:', {
-            slideId,
-            investmentId,
-            sessionId
-        });
-
         initializeDoubleDownRoll();
 
         return (): void => {
@@ -167,8 +71,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     }, [currentPhase, affectedTeams.length]);
 
     const waitForHostResult = async (teamNames: string[]) => {
-        console.log('[DoubleDownDiceDisplay] PRESENTATION: Waiting for host result...');
-
         setCurrentPhase('rolling');
         setIsRolling(true); // Start CSS animation instead of setInterval
 
@@ -216,19 +118,8 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     };
 
     const initializeDoubleDownRoll: () => Promise<void> = async (): Promise<void> => {
-        console.log('🔍 [DEBUG] initializeDoubleDownRoll called:', {
-            slideId,
-            investmentId,
-            isHost,
-            hasRolled,
-            hasAppliedEffects,
-            currentPhase,
-            isProcessing: processingRef.current
-        });
-
         // CRITICAL: Prevent multiple simultaneous executions
         if (processingRef.current) {
-            console.log('[DoubleDownDiceDisplay] BLOCKED: Already processing initialization');
             return;
         }
 
@@ -239,8 +130,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             // Check for existing result FIRST (your existing code)
             const existingResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
             if (existingResult) {
-                console.log('[DoubleDownDiceDisplay] Result already exists, using existing result');
-
                 const finalResult: DiceResult = {
                     investment_id: existingResult.investment_id,
                     dice1_value: existingResult.dice1_value,
@@ -290,8 +179,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             await audioManager.loadIntroAudio(investmentId);
 
             timeoutRef.current = setTimeout(() => {
-                console.log('[DoubleDownDiceDisplay] setTimeout fired with captured teamNames:', teamNames);
-
                 if (isHost) {
                     // HOST: Roll dice and save result
                     if (!hasRolled && teamNames.length > 0) {
@@ -325,14 +212,11 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
     const rollDice = async (teams?: string[]) => {
         // Use parameter if provided, otherwise fall back to state
-        const teamsToUse = teams || affectedTeams;
+        const teamsToUse: string[] = teams || affectedTeams;
 
         if (hasRolled || teamsToUse.length === 0) {
-            console.log('[DoubleDownDiceDisplay] BLOCKING roll - hasRolled:', hasRolled, 'teamsToUse.length:', teamsToUse.length);
             return;
         }
-
-        console.log('[DoubleDownDiceDisplay] ✅ Proceeding with dice roll for teams:', teamsToUse);
 
         setCurrentPhase('rolling');
 
@@ -343,8 +227,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
         if (isHost) {
             // HOST: Generate random dice results
-            console.log('[DoubleDownDiceDisplay] HOST: Generating random dice results');
-
             // Use extracted animation method
             await simulateDiceAnimation(2000);
 
@@ -353,17 +235,8 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             finalDice2 = Math.floor(Math.random() * 6) + 1;
             finalTotal = finalDice1 + finalDice2;
             finalBoost = DICE_BOOSTS[finalTotal as keyof typeof DICE_BOOSTS];
-
-            console.log('[DoubleDownDiceDisplay] HOST: Generated dice results:', {
-                finalDice1,
-                finalDice2,
-                finalTotal,
-                finalBoost
-            });
         } else {
             // PRESENTATION: Fetch results from database
-            console.log('[DoubleDownDiceDisplay] PRESENTATION: Fetching dice results from database');
-
             // Use extracted animation method while fetching
             await simulateDiceAnimation(2000);
 
@@ -375,7 +248,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             while (!existingResult && attempts < maxAttempts) {
                 existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
                 if (!existingResult) {
-                    console.log('[DoubleDownDiceDisplay] PRESENTATION: No result found, retrying...');
                     await new Promise(resolve => setTimeout(resolve, 500));
                     attempts++;
                 }
@@ -391,13 +263,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             finalDice2 = existingResult.dice2_value;
             finalTotal = existingResult.total_value;
             finalBoost = existingResult.boost_percentage;
-
-            console.log('[DoubleDownDiceDisplay] PRESENTATION: Using database results:', {
-                finalDice1,
-                finalDice2,
-                finalTotal,
-                finalBoost
-            });
         }
 
         const result: DiceResult = {
@@ -420,6 +285,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
         // Show results for 3 seconds, then apply effects
         setTimeout(async () => {
+            // Once we have a result of the dice play the audio on the roll number
             await audioManager.playResultAudio(investmentId, result.total_value);
             await applyDoubleDownEffects(result);
         }, 500);
@@ -489,7 +355,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             const existingResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
 
             if (existingResult) {
-                console.log(`[DoubleDownDiceDisplay] Result already exists for investment ${investmentId}, skipping save`);
                 return;
             }
 
@@ -509,11 +374,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 asp_change: kpiChanges.asp_change,
                 cost_change: kpiChanges.cost_change
             });
-
-            console.log(`[DoubleDownDiceDisplay] Successfully saved result for investment ${investmentId} with KPI changes:`, kpiChanges);
-
-            // REMOVED: No longer broadcasting dice-roll events - unnecessary complexity
-
         } catch (error) {
             console.error('Error saving dice result:', error);
         }
@@ -551,13 +411,9 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             boostPercentage: result.boost_percentage,
             message: `Double Down bonus applied: ${result.boost_percentage}% boost from ${investmentName}`
         });
-
-        console.log(`[DoubleDownDiceDisplay] Broadcasted KPI data to teams`);
     };
 
     const applyEffectsAsHost = async (result: DiceResult) => {
-        console.log(`[DoubleDownDiceDisplay] HOST: Applying effects to database`);
-
         // Get team data and before values
         const teamDecisions: DoubleDownDecision[] = await db.decisions.getTeamsDoubledDownOnInvestment(sessionId, investmentId);
 
@@ -584,14 +440,10 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         // Still broadcast the actual database changes to teams
         const updatedKpis: Record<string, TeamRoundData | null> = await getUpdatedKpisForBroadcast(teamDecisions);
         await broadcastKpiUpdatesToTeams(updatedKpis, result);
-
-        console.log(`[DoubleDownDiceDisplay] HOST: Applied effects and broadcasted to teams`);
     };
 
     const applyEffectsAsPresentation = async (result: DiceResult) => {
-        console.log(`[DoubleDownDiceDisplay] PRESENTATION: Getting display changes only`);
-
-        const displayChanges = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
+        const displayChanges: KpiChangeDetail[] = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
             sessionId,
             investmentId
         );
@@ -602,26 +454,16 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }));
 
         setKpiChanges(formattedChanges);
-        console.log(`[DoubleDownDiceDisplay] PRESENTATION: Set display changes`);
     };
 
     const applyDoubleDownEffects = async (result: DiceResult) => {
-        console.log('🔍 [DEBUG] applyDoubleDownEffects called:', {
-            hasAppliedEffects,
-            resultBoost: result.boost_percentage,
-            affectedTeamsLength: result.affected_teams.length,
-            isHost
-        });
         if (hasAppliedEffects || result.affected_teams.length === 0) {
-            console.log(`[DoubleDownDiceDisplay] Skipping effects application - already applied: ${hasAppliedEffects}, teams: ${result.affected_teams.length}`);
             return;
         }
 
         setCurrentPhase('applying_effects');
 
         try {
-            console.log(`[DoubleDownDiceDisplay] Applying effects for investment ${investmentId} with ${result.boost_percentage}% boost`);
-
             if (isHost) {
                 await applyEffectsAsHost(result);
             } else {
@@ -630,8 +472,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
             setHasAppliedEffects(true);
             setCurrentPhase('complete');
-            console.log(`[DoubleDownDiceDisplay] Successfully completed effects application for investment ${investmentId}`);
-
         } catch (error) {
             console.error('[DoubleDownDiceDisplay] Error applying double down effects:', error);
             setCurrentPhase('complete');
@@ -677,7 +517,9 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                 DOWN</h1>
                             <div
                                 className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-                            <div className="text-white/80 md:text-lg lg:text-xl xl:text-2xl text-center">Loading double down data...</div>
+                            <div className="text-white/80 md:text-lg lg:text-xl xl:text-2xl text-center">Loading double
+                                down data...
+                            </div>
                         </div>
                     </div>
                 );
@@ -746,24 +588,29 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                             </div>
                             <div className="text-center mb-6">
                                 {diceResult?.boost_percentage === 0 && (
-                                    <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-red-400">
+                                    <div
+                                        className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-red-400">
                                         NO BONUS
                                     </div>
                                 )}
                                 {diceResult?.boost_percentage === 25 && (
-                                    <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-yellow-400">
+                                    <div
+                                        className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-yellow-400">
                                         25% BONUS!
                                     </div>
                                 )}
                                 {diceResult?.boost_percentage === 75 && (
-                                    <div className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-yellow-400 animate-pulse">
+                                    <div
+                                        className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-yellow-400 animate-pulse">
                                         75% BONUS!
                                     </div>
                                 )}
                                 {diceResult?.boost_percentage === 100 && (
-                                    <div className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-green-400 animate-bounce">
+                                    <div
+                                        className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-green-400 animate-bounce">
                                         JACKPOT!
-                                        <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl mt-2">100% BONUS!</div>
+                                        <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl mt-2">100%
+                                            BONUS!</div>
                                     </div>
                                 )}
                             </div>
@@ -780,7 +627,9 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                 DOWN</h1>
                             <div
                                 className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-                            <div className="text-white md:text-lg lg:text-xl xl:text-2xl text-center">Applying effects...</div>
+                            <div className="text-white md:text-lg lg:text-xl xl:text-2xl text-center">Applying
+                                effects...
+                            </div>
                         </div>
                     </div>
                 );
@@ -818,36 +667,43 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                     </div>
                                     <div className="text-center mb-8">
                                         {diceResult.boost_percentage === 0 && (
-                                            <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-red-400">
+                                            <div
+                                                className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-red-400">
                                                 NO BONUS
                                             </div>
                                         )}
                                         {diceResult.boost_percentage === 25 && (
-                                            <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-yellow-400">
+                                            <div
+                                                className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-yellow-400">
                                                 25% BONUS!
                                             </div>
                                         )}
                                         {diceResult.boost_percentage === 75 && (
-                                            <div className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-yellow-400">
+                                            <div
+                                                className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-yellow-400">
                                                 75% BONUS!
                                             </div>
                                         )}
                                         {diceResult.boost_percentage === 100 && (
-                                            <div className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-green-400">
+                                            <div
+                                                className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-green-400">
                                                 JACKPOT!
-                                                <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl mt-2">100% BONUS!</div>
+                                                <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl mt-2">100%
+                                                    BONUS!</div>
                                             </div>
                                         )}
                                     </div>
                                     {kpiChanges.length > 0 && (
                                         <div className="bg-black/50 rounded-xl p-6 mb-8">
-                                            <h3 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-white mb-4 text-center">KPI Changes</h3>
+                                            <h3 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-white mb-4 text-center">KPI
+                                                Changes</h3>
                                             <div className="grid gap-4">
                                                 {kpiChanges.map((teamChange, teamIndex) => (
                                                     <div key={teamIndex} className="text-center">
                                                         <div className="flex flex-wrap gap-2 justify-center">
                                                             {teamChange.changes.map((change, changeIndex) => (
-                                                                <span key={changeIndex} className="text-base md:text-lg lg:text-xl xl:text-2xl">
+                                                                <span key={changeIndex}
+                                                                      className="text-base md:text-lg lg:text-xl xl:text-2xl">
                                                                 {formatKpiChange(change)}
                                                             </span>
                                                             ))}
@@ -860,7 +716,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                     {affectedTeams.length > 0 && (
                                         <div className="bg-black/50 rounded-xl p-6">
                                             <h3 className="text-lg md:text-xl lg:text-2xl xl:text-3xl font-semibold text-white mb-4 text-center">
-                                                Teams that doubled down are:
+                                                Teams that doubled down:
                                             </h3>
                                             <div className="flex flex-wrap gap-2 justify-center">
                                                 {affectedTeams.map((team, index) => (
@@ -896,7 +752,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 backgroundColor: '#006D32' // Fallback color if image fails to load
             }}
         >
-            <DebugPanel/>
             <div className="max-w-sm sm:max-w-2xl md:max-w-4xl mx-auto px-4">
                 {getPhaseDisplay()}
             </div>
