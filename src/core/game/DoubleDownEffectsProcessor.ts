@@ -231,33 +231,31 @@ export class DoubleDownEffectsProcessor {
      * Get KPI changes for display purposes
      */
     static async getKpiChangesForDisplay(
-        _sessionId: string,
+        sessionId: string,
         investmentId: string,
-        boostPercentage: number
     ): Promise<KpiChangeDetail[]> {
         try {
-            const rd3Payoffs = allInvestmentPayoffsData['rd3-payoff'] || [];
-            const payoffForOption = rd3Payoffs.find(p => p.id === investmentId);
+            // Get stored result with pre-calculated KPI changes
+            const storedResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
 
-            if (!payoffForOption?.effects) {
-                return [];
+            if (storedResult) {
+                return [
+                    {kpi: 'capacity', change_value: storedResult.capacity_change},
+                    {kpi: 'orders', change_value: storedResult.orders_change},
+                    {kpi: 'asp', change_value: storedResult.asp_change},
+                    {kpi: 'cost', change_value: storedResult.cost_change}
+                ].filter(effect => effect.change_value !== 0)
+                    .map(effect => ({
+                        kpi: effect.kpi,
+                        change_value: effect.change_value,
+                        display_value: this.formatKpiValue(effect.kpi, effect.change_value)
+                    }));
             }
 
-            const fixedRanges: FixedDoubleDownRanges = this.generateFixedRangeEffects(boostPercentage);
-
-            return [
-                {kpi: 'capacity', change_value: fixedRanges.capacity},
-                {kpi: 'orders', change_value: fixedRanges.orders},
-                {kpi: 'asp', change_value: fixedRanges.asp},
-                {kpi: 'cost', change_value: fixedRanges.cost}
-            ].filter(effect => effect.change_value !== 0)
-                .map(effect => ({
-                    kpi: effect.kpi,
-                    change_value: effect.change_value,
-                    display_value: this.formatKpiValue(effect.kpi, effect.change_value)
-                }));
+            // Return empty array if no stored result
+            return [];
         } catch (error) {
-            console.error('[DoubleDownEffectsProcessor] Error getting KPI changes for display:', error);
+            console.error('[DoubleDownEffectsProcessor] Error getting stored KPI changes:', error);
             return [];
         }
     }

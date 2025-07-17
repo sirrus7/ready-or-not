@@ -259,8 +259,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 if (finalResult.affected_teams && finalResult.affected_teams.length > 0) {
                     const displayChanges = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
                         sessionId,
-                        investmentId,
-                        finalResult.boost_percentage
+                        investmentId
                     );
 
                     const formattedChanges: KpiChange[] = finalResult.affected_teams.map(teamName => ({
@@ -425,6 +424,36 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }, 3000);
     };
 
+    const calculateFinalKpiChanges = (boostPercentage: number, dice1: number, dice2: number) => {
+        if (boostPercentage === 0) {
+            return {capacity: 0, orders: 0, asp: 0, cost: 0};
+        }
+
+        // Use dice values for consistent direction (not random)
+        const direction: 1 | -1 = (dice1 + dice2) % 2 === 0 ? 1 : -1;
+
+        // Base values that get multiplied by boost percentage
+        const baseCapacity = 250;
+        const baseOrders = 250;
+        const baseAsp = 10;
+        const baseCost = 25000;
+
+        // Apply boost percentage and round to proper increments
+        const multiplier: number = boostPercentage / 100;
+
+        const capacityChange: number = Math.round((baseCapacity * multiplier) / 250) * 250 * direction;
+        const ordersChange: number = Math.round((baseOrders * multiplier) / 250) * 250 * direction;
+        const aspChange: number = Math.round((baseAsp * multiplier) / 10) * 10 * direction;
+        const costChange: number = Math.round((baseCost * multiplier) / 25000) * 25000 * direction;
+
+        return {
+            capacity: capacityChange,
+            orders: ordersChange,
+            asp: aspChange,
+            cost: costChange
+        };
+    };
+
     const saveResult = async (result: DiceResult) => {
         try {
             // Check if result already exists before saving
@@ -435,6 +464,9 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 return;
             }
 
+            // Calculate final KPI changes once with proper rounding
+            const kpiChanges = calculateFinalKpiChanges(result.boost_percentage, result.dice1_value, result.dice2_value);
+
             await db.doubleDown.saveResult({
                 session_id: sessionId,
                 investment_id: investmentId,
@@ -442,10 +474,14 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 dice2_value: result.dice2_value,
                 total_value: result.total_value,
                 boost_percentage: result.boost_percentage,
-                affected_teams: result.affected_teams
+                affected_teams: result.affected_teams,
+                capacity_change: kpiChanges.capacity,
+                orders_change: kpiChanges.orders,
+                asp_change: kpiChanges.asp,
+                cost_change: kpiChanges.cost
             });
 
-            console.log(`[DoubleDownDiceDisplay] Successfully saved result for investment ${investmentId}`);
+            console.log(`[DoubleDownDiceDisplay] Successfully saved result for investment ${investmentId} with KPI changes:`, kpiChanges);
 
             // REMOVED: No longer broadcasting dice-roll events - unnecessary complexity
 
@@ -460,39 +496,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             beforeValues[decision.team_id] = await db.kpis.getForTeamRound(sessionId, decision.team_id, 3);
         }
         return beforeValues;
-    };
-
-    const calculateActualChanges = async (teamDecisions: DoubleDownDecision[], beforeValues: Record<string, TeamRoundData | null>): Promise<KpiChange[]> => {
-        const actualChanges: KpiChange[] = [];
-
-        for (const decision of teamDecisions) {
-            const teamId = decision.team_id;
-            const teamName = decision.team_name;
-            const beforeKpis = beforeValues[teamId];
-            const afterKpis = await db.kpis.getForTeamRound(sessionId, teamId, 3);
-
-            if (beforeKpis && afterKpis) {
-                const changes = [
-                    {
-                        kpi: 'capacity',
-                        change_value: afterKpis.current_capacity - beforeKpis.current_capacity,
-                        display_value: `${afterKpis.current_capacity - beforeKpis.current_capacity}`
-                    },
-                    {
-                        kpi: 'cost',
-                        change_value: afterKpis.current_cost - beforeKpis.current_cost,
-                        display_value: `$${(afterKpis.current_cost - beforeKpis.current_cost).toLocaleString()}`
-                    }
-                ].filter(change => change.change_value !== 0);
-
-                actualChanges.push({
-                    team_name: teamName,
-                    changes
-                });
-            }
-        }
-
-        return actualChanges;
     };
 
     const getUpdatedKpisForBroadcast = async (teamDecisions: DoubleDownDecision[]): Promise<Record<string, TeamRoundData | null>> => {
@@ -545,11 +548,21 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             result.boost_percentage
         );
 
-        // Calculate actual changes and broadcast
-        const actualChanges: KpiChange[] = await calculateActualChanges(teamDecisions, beforeValues);
-        const updatedKpis: Record<string, TeamRoundData | null> = await getUpdatedKpisForBroadcast(teamDecisions);
+        // HOST DISPLAY: Use stored KPI changes (same as presentation)
+        const displayChanges = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
+            sessionId,
+            investmentId
+        );
 
-        setKpiChanges(actualChanges);
+        const formattedChanges: KpiChange[] = result.affected_teams.map(teamName => ({
+            team_name: teamName,
+            changes: displayChanges
+        }));
+
+        setKpiChanges(formattedChanges);
+
+        // Still broadcast the actual database changes to teams
+        const updatedKpis: Record<string, TeamRoundData | null> = await getUpdatedKpisForBroadcast(teamDecisions);
         await broadcastKpiUpdatesToTeams(updatedKpis, result);
 
         console.log(`[DoubleDownDiceDisplay] HOST: Applied effects and broadcasted to teams`);
@@ -560,8 +573,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
         const displayChanges = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
             sessionId,
-            investmentId,
-            result.boost_percentage
+            investmentId
         );
 
         const formattedChanges: KpiChange[] = result.affected_teams.map(teamName => ({
