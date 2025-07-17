@@ -36,6 +36,12 @@ export interface PresentationStatus {
     timestamp: number;
 }
 
+export interface PresentationVideoReady {
+    type: 'PRESENTATION_VIDEO_READY';
+    sessionId: string;
+    timestamp: number;
+}
+
 export interface CommandAck {
     type: 'COMMAND_ACK';
     sessionId: string;

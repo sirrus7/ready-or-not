@@ -2,7 +2,7 @@
 // Enhanced version with KPI update broadcasting support
 
 import {Slide} from '@shared/types/game';
-import {HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage} from './types';
+import {HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, PresentationVideoReady} from './types';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
@@ -49,6 +49,7 @@ export class SimpleBroadcastManager {
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
     private slideHandlers: Set<(slide: Slide, teamData?: any) => void> = new Set();
     private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
+    private onPresentationVideoReadyHandlers: Set<() => void> = new Set();
 
     // Track if this instance has been destroyed
     private isDestroyed: boolean = false;
@@ -141,6 +142,13 @@ export class SimpleBroadcastManager {
                     if (this.mode === 'presentation') {
                         this.sendStatus('pong');
                     }
+                    break;
+
+                case 'PRESENTATION_VIDEO_READY':
+                    if (this.mode === 'presentation') {
+                        return;
+                    }
+                    this.onPresentationVideoReadyHandlers.forEach(handler => handler());
                     break;
 
                 case 'COMMAND_ACK':
@@ -272,6 +280,18 @@ export class SimpleBroadcastManager {
         this.sendMessage(message);
     }
 
+    sendPresentationVideoReady() {
+        if (this.mode !== 'presentation' || this.isDestroyed) return;
+
+        const statusMessage: PresentationVideoReady = {
+            type: 'PRESENTATION_VIDEO_READY',
+            sessionId: this.sessionId,
+            timestamp: Date.now()
+        };
+
+        this.sendMessage(statusMessage);
+    }
+
     onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
         if (this.isDestroyed) return () => {
         };
@@ -355,6 +375,11 @@ export class SimpleBroadcastManager {
         return () => {
             this.joinInfoHandlers.delete(callback);
         };
+    }
+
+
+    onPresentationVideoReady(callback: () => void) {
+        this.onPresentationVideoReadyHandlers.add(callback);
     }
 
     private sendDisconnectMessage(): void {
