@@ -4,12 +4,14 @@ import {TrendingUp} from 'lucide-react';
 import {DoubleDownEffectsProcessor} from '@core/game/DoubleDownEffectsProcessor';
 import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
-import {DoubleDownDecision, DoubleDownResult, KpiChange, Slide, TeamRoundData} from "@shared/types";
+import {DoubleDownDecision, DoubleDownResult, InvestmentPayoff, KpiChange, Slide, TeamRoundData} from "@shared/types";
 import {formatCurrency, formatNumber} from "@shared/utils/formatUtils";
 import {DoubleDownAudioManager} from '@shared/utils/audio';
 import Dice3D from "./Dice3D";
+import {allInvestmentPayoffsData} from "@core/content/InvestmentPayoffContent";
 
-type DiceResult = Omit<DoubleDownResult, 'id' | 'created_at' | 'session_id'>;
+type DiceResult = Omit<DoubleDownResult, 'id' | 'created_at' | 'session_id' | 'capacity_change' | 'orders_change' | 'asp_change' | 'cost_change'>;
+type KpiChanges = Pick<DoubleDownResult, 'capacity_change' | 'orders_change' | 'asp_change' | 'cost_change'>;
 
 interface DoubleDownDiceDisplayProps {
     sessionId: string;
@@ -312,7 +314,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }
     };
 
-    const simulateDiceAnimation = async (teamsToUse: string[], duration: number = 2000): Promise<void> => {
+    const simulateDiceAnimation = async (duration: number = 2000): Promise<void> => {
         // Start CSS animation instead of state updates
         setIsRolling(true);
 
@@ -346,7 +348,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             console.log('[DoubleDownDiceDisplay] HOST: Generating random dice results');
 
             // Use extracted animation method
-            await simulateDiceAnimation(teamsToUse, 2000);
+            await simulateDiceAnimation(2000);
 
             // Generate final dice result
             finalDice1 = Math.floor(Math.random() * 6) + 1;
@@ -365,7 +367,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             console.log('[DoubleDownDiceDisplay] PRESENTATION: Fetching dice results from database');
 
             // Use extracted animation method while fetching
-            await simulateDiceAnimation(teamsToUse, 2000);
+            await simulateDiceAnimation(2000);
 
             // Fetch results from database (retry until available)
             let existingResult = null;
@@ -424,33 +426,61 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }, 3000);
     };
 
-    const calculateFinalKpiChanges = (boostPercentage: number, dice1: number, dice2: number) => {
+    const calculateFinalKpiChanges = (boostPercentage: number): KpiChanges => {
         if (boostPercentage === 0) {
-            return {capacity: 0, orders: 0, asp: 0, cost: 0};
+            return {
+                capacity_change: 0,
+                orders_change: 0,
+                asp_change: 0,
+                cost_change: 0
+            };
         }
 
-        // Use dice values for consistent direction (not random)
-        const direction: 1 | -1 = (dice1 + dice2) % 2 === 0 ? 1 : -1;
+        // Get the original investment payoffs
+        const rd3Payoffs: InvestmentPayoff[] = allInvestmentPayoffsData['rd3-payoff'] || [];
+        const payoffForOption: InvestmentPayoff | undefined = rd3Payoffs.find(p => p.id === investmentId);
 
-        // Base values that get multiplied by boost percentage
-        const baseCapacity = 250;
-        const baseOrders = 250;
-        const baseAsp = 10;
-        const baseCost = 25000;
+        if (!payoffForOption?.effects) {
+            return {
+                capacity_change: 0,
+                orders_change: 0,
+                asp_change: 0,
+                cost_change: 0
+            };
+        }
 
-        // Apply boost percentage and round to proper increments
-        const multiplier: number = boostPercentage / 100;
+        // Apply boost percentage as ADDITIONAL bonus
+        const boostMultiplier: number = boostPercentage / 100;
+        let capacityChange: number = 0;
+        let ordersChange: number = 0;
+        let aspChange: number = 0;
+        let costChange: number = 0;
 
-        const capacityChange: number = Math.round((baseCapacity * multiplier) / 250) * 250 * direction;
-        const ordersChange: number = Math.round((baseOrders * multiplier) / 250) * 250 * direction;
-        const aspChange: number = Math.round((baseAsp * multiplier) / 10) * 10 * direction;
-        const costChange: number = Math.round((baseCost * multiplier) / 25000) * 25000 * direction;
+        // Find and boost the relevant KPI effects
+        payoffForOption.effects.forEach(effect => {
+            const boostedValue = effect.change_value * boostMultiplier;
+
+            switch(effect.kpi) {
+                case 'capacity':
+                    capacityChange = Math.ceil(Math.abs(boostedValue) / 250) * 250 * Math.sign(boostedValue);
+                    break;
+                case 'orders':
+                    ordersChange = Math.ceil(Math.abs(boostedValue) / 250) * 250 * Math.sign(boostedValue);
+                    break;
+                case 'asp':
+                    aspChange = Math.ceil(Math.abs(boostedValue) / 10) * 10 * Math.sign(boostedValue);
+                    break;
+                case 'cost':
+                    costChange = Math.ceil(Math.abs(boostedValue) / 25000) * 25000 * Math.sign(boostedValue);
+                    break;
+            }
+        });
 
         return {
-            capacity: capacityChange,
-            orders: ordersChange,
-            asp: aspChange,
-            cost: costChange
+            capacity_change: capacityChange,
+            orders_change: ordersChange,
+            asp_change: aspChange,
+            cost_change: costChange
         };
     };
 
@@ -465,7 +495,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             }
 
             // Calculate final KPI changes once with proper rounding
-            const kpiChanges = calculateFinalKpiChanges(result.boost_percentage, result.dice1_value, result.dice2_value);
+            const kpiChanges: KpiChanges = calculateFinalKpiChanges(result.boost_percentage);
 
             await db.doubleDown.saveResult({
                 session_id: sessionId,
@@ -475,10 +505,10 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 total_value: result.total_value,
                 boost_percentage: result.boost_percentage,
                 affected_teams: result.affected_teams,
-                capacity_change: kpiChanges.capacity,
-                orders_change: kpiChanges.orders,
-                asp_change: kpiChanges.asp,
-                cost_change: kpiChanges.cost
+                capacity_change: kpiChanges.capacity_change,
+                orders_change: kpiChanges.orders_change,
+                asp_change: kpiChanges.asp_change,
+                cost_change: kpiChanges.cost_change
             });
 
             console.log(`[DoubleDownDiceDisplay] Successfully saved result for investment ${investmentId} with KPI changes:`, kpiChanges);
@@ -488,14 +518,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         } catch (error) {
             console.error('Error saving dice result:', error);
         }
-    };
-
-    const getBeforeKpiValues = async (teamDecisions: DoubleDownDecision[]): Promise<Record<string, TeamRoundData | null>> => {
-        const beforeValues: Record<string, TeamRoundData | null> = {};
-        for (const decision of teamDecisions) {
-            beforeValues[decision.team_id] = await db.kpis.getForTeamRound(sessionId, decision.team_id, 3);
-        }
-        return beforeValues;
     };
 
     const getUpdatedKpisForBroadcast = async (teamDecisions: DoubleDownDecision[]): Promise<Record<string, TeamRoundData | null>> => {
@@ -539,7 +561,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
         // Get team data and before values
         const teamDecisions: DoubleDownDecision[] = await db.decisions.getTeamsDoubledDownOnInvestment(sessionId, investmentId);
-        const beforeValues: Record<string, TeamRoundData | null> = await getBeforeKpiValues(teamDecisions);
 
         // Apply effects to database
         await DoubleDownEffectsProcessor.processDoubleDownForInvestment(
