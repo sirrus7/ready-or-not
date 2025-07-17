@@ -67,44 +67,60 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     // PRESENTATION FUNCTION: Wait for host results, no audio
     const waitForHostResult = async (teamNames: string[]) => {
         setCurrentPhase('rolling');
+
+        // Start animation immediately while polling for results
         setIsRolling(true);
 
-        // Poll for host result
+        // Poll for host result in background
         let attempts = 0;
-        const maxAttempts = 20;
+        const maxAttempts = 60;
+        let hostResult: DoubleDownResult | null = null;
 
-        while (attempts < maxAttempts && !hasRolled) {
-            const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+        // Start polling immediately
+        const pollForResult = async () => {
+            while (attempts < maxAttempts && !hostResult) {
+                hostResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
 
-            if (existingResult) {
-                setIsRolling(false);
+                if (hostResult) {
+                    const finalResult: DiceResult = {
+                        investment_id: hostResult.investment_id,
+                        dice1_value: hostResult.dice1_value,
+                        dice2_value: hostResult.dice2_value,
+                        total_value: hostResult.total_value,
+                        boost_percentage: hostResult.boost_percentage,
+                        affected_teams: hostResult.affected_teams || teamNames
+                    };
 
-                const finalResult: DiceResult = {
-                    investment_id: existingResult.investment_id,
-                    dice1_value: existingResult.dice1_value,
-                    dice2_value: existingResult.dice2_value,
-                    total_value: existingResult.total_value,
-                    boost_percentage: existingResult.boost_percentage,
-                    affected_teams: existingResult.affected_teams || teamNames
-                };
+                    // Set the result so the animation can use it
+                    setDiceResult(finalResult);
+                    return finalResult;
+                }
 
-                // Update state and apply effects (no audio)
-                setDiceResult(finalResult);
-                setHasRolled(true);
-                setCurrentPhase('showing_results');
-
-                await applyEffectsAsPresentation(finalResult);
-                setHasAppliedEffects(true);
-                setCurrentPhase('complete');
-                return;
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
             }
+            return null;
+        };
 
-            await new Promise(resolve => setTimeout(resolve, 500));
-            attempts++;
+        // Run polling and animation in parallel
+        const [result] = await Promise.all([
+            pollForResult(),
+            simulateDiceAnimation(2500) // Slightly shorter than host animation
+        ]);
+
+        setIsRolling(false);
+
+        if (result) {
+            setHasRolled(true);
+            setCurrentPhase('showing_results');
+
+            await applyEffectsAsPresentation(result);
+            setHasAppliedEffects(true);
+            setCurrentPhase('complete');
+            return;
         }
 
         // Timeout fallback
-        setIsRolling(false);
         setCurrentPhase('complete');
         console.error('[DoubleDownDiceDisplay] Timeout waiting for host result');
     };
@@ -196,21 +212,14 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     };
 
     // HOST FUNCTION: Generate dice, play audio, save results
-    const rollDice = async (teams?: string[]) => {
+    const rollDice = async (teams: string[]) => {
         const teamsToUse = teams || affectedTeams;
 
         if (hasRolled || teamsToUse.length === 0) return;
 
         setCurrentPhase('rolling');
 
-        // Start dice animation AND intro audio simultaneously
-        const diceAnimationPromise = simulateDiceAnimation(3000);
-        const audioPromise = audioManager.playIntroAudio(investmentId);
-
-        // Wait for both to complete
-        await Promise.all([diceAnimationPromise, audioPromise]);
-
-        // Generate dice results
+        // Generate dice results FIRST before animation
         const dice1: number = Math.floor(Math.random() * 6) + 1;
         const dice2: number = Math.floor(Math.random() * 6) + 1;
         const total: number = dice1 + dice2;
@@ -225,8 +234,17 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             affected_teams: teamsToUse
         };
 
-        // Update state and save
+        // Set the dice result immediately so the animation can use it
         setDiceResult(result);
+
+        // Start dice animation AND intro audio simultaneously
+        const diceAnimationPromise = simulateDiceAnimation(3000);
+        const audioPromise = audioManager.playIntroAudio(investmentId);
+
+        // Wait for both to complete
+        await Promise.all([diceAnimationPromise, audioPromise]);
+
+        // Animation is complete, now transition to results
         setHasRolled(true);
         setCurrentPhase('showing_results');
         await saveResult(result);
@@ -408,6 +426,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         try {
             await applyEffectsAsHost(result);
             setHasAppliedEffects(true);
+            setCurrentPhase('complete');
         } catch (error) {
             console.error('[DoubleDownDiceDisplay] Error applying host effects:', error);
         }

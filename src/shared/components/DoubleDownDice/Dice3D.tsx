@@ -16,19 +16,85 @@ const Dice3D: React.FC<Dice3DProps> = ({value, isRolling}) => {
         if (isRolling && !isAnimating) {
             setIsAnimating(true);
 
-            // Start showing random values (slowed down)
-            intervalRef.current = setInterval(() => {
-                setDisplayValue(Math.floor(Math.random() * 6) + 1);
-            }, 200); // Slowed from 100ms to 200ms
+            // Animation phases with decreasing speed
+            const phases = [
+                {duration: 1000, interval: 100},  // Fast rolling for 1 second
+                {duration: 800, interval: 150},   // Medium rolling for 0.8 seconds
+                {duration: 600, interval: 200},   // Slow rolling for 0.6 seconds
+                {duration: 400, interval: 300},   // Very slow rolling for 0.4 seconds
+                {duration: 200, interval: 400}    // Final slow roll for 0.2 seconds
+            ];
 
-            // After 2.5 seconds, settle to final value (increased duration)
-            timeoutRef.current = setTimeout(() => {
-                if (intervalRef.current) {
-                    clearInterval(intervalRef.current);
+            let currentPhase = 0;
+            let startTime = Date.now();
+
+            const animatePhase = () => {
+                if (currentPhase >= phases.length) {
+                    // Animation complete, settle on final value
+                    setDisplayValue(value);
+                    setIsAnimating(false);
+                    return;
                 }
-                setDisplayValue(value);
-                setIsAnimating(false);
-            }, 2500); // Increased from 1500ms to 2500ms
+
+                const phase = phases[currentPhase];
+                const elapsedTime = Date.now() - startTime;
+
+                if (elapsedTime >= phase.duration) {
+                    // Move to next phase
+                    currentPhase++;
+                    startTime = Date.now();
+
+                    // Clear current interval
+                    if (intervalRef.current) {
+                        clearInterval(intervalRef.current);
+                    }
+
+                    // Start next phase
+                    animatePhase();
+                    return;
+                }
+
+                // Set interval for current phase
+                intervalRef.current = setInterval(() => {
+                    // As we get closer to the end, bias towards the target value
+                    const totalPhases = phases.length;
+                    const progressThroughPhases = currentPhase / totalPhases;
+
+                    if (progressThroughPhases > 0.6 && Math.random() < 0.3) {
+                        // 30% chance to show target value in later phases
+                        setDisplayValue(value);
+                    } else if (progressThroughPhases > 0.8 && Math.random() < 0.5) {
+                        // 50% chance to show target value in final phases
+                        setDisplayValue(value);
+                    } else {
+                        // Show random value, but bias towards target in later phases
+                        let randomValue = Math.floor(Math.random() * 6) + 1;
+
+                        // In final phases, occasionally show adjacent values to target
+                        if (progressThroughPhases > 0.7 && Math.random() < 0.4) {
+                            const adjacent = [
+                                Math.max(1, value - 1),
+                                value,
+                                Math.min(6, value + 1)
+                            ];
+                            randomValue = adjacent[Math.floor(Math.random() * adjacent.length)];
+                        }
+
+                        setDisplayValue(randomValue);
+                    }
+                }, phase.interval);
+
+                // Set timeout for phase duration
+                timeoutRef.current = setTimeout(() => {
+                    if (intervalRef.current) {
+                        clearInterval(intervalRef.current);
+                    }
+                    animatePhase();
+                }, phase.duration);
+            };
+
+            // Start the animation
+            animatePhase();
 
         } else if (!isRolling) {
             // Clean up and show final value
