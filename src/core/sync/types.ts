@@ -13,13 +13,15 @@ export enum BroadcastEventType {
     JOIN_INFO_CLOSE = 'JOIN_INFO_CLOSE',
     PING = 'PING',
     PRESENTATION_DISCONNECT = 'PRESENTATION_DISCONNECT',
+    VIDEO_STATUS_POLL = 'VIDEO_STATUS_POLL',
+    VIDEO_STATUS_RESPONSE = 'VIDEO_STATUS_RESPONSE',
 }
 
 export interface HostCommand {
     type: BroadcastEventType.HOST_COMMAND;
     sessionId: string;
     id: string;
-    action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume';
+    action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume' | 'video_status_poll';
     data?: {
         time: number;
         volume: number;
@@ -67,6 +69,19 @@ export interface JoinInfoMessage {
     sessionId: string;
     joinUrl: string;
     qrCodeDataUrl: string;
+    timestamp: number;
+}
+
+export interface VideoStatusPoll {
+    type: BroadcastEventType.VIDEO_STATUS_POLL;
+    sessionId: string;
+    timestamp: number;
+}
+
+export interface VideoStatusResponse {
+    type: BroadcastEventType.VIDEO_STATUS_RESPONSE;
+    sessionId: string;
+    isReady: boolean;
     timestamp: number;
 }
 

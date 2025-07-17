@@ -77,6 +77,31 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         return () => clearInterval(interval);
     }, [broadcastManager]);
 
+    // Handle video status polls from host
+    useEffect(() => {
+        if (!broadcastManager) return;
+        
+        const handleVideoStatusPoll = () => {
+            const video = videoRef.current;
+            if (!video) {
+                console.log('[usePresentationVideo] Video status poll - no video element');
+                broadcastManager.sendVideoStatusResponse(false);
+                return;
+            }
+            
+            const isReady = video.readyState >= 2; // HAVE_CURRENT_DATA or higher
+            console.log('[usePresentationVideo] Video status poll - responding with ready:', isReady, {
+                readyState: video.readyState,
+                src: video.src,
+                currentSrc: video.currentSrc
+            });
+            broadcastManager.sendVideoStatusResponse(isReady);
+        };
+        
+        const unsubscribe = broadcastManager.onVideoStatusPoll(handleVideoStatusPoll);
+        return unsubscribe;
+    }, [broadcastManager]);
+
     // Handle connection status changes - pause video when disconnected
     useEffect(() => {
         const video = videoRef.current;

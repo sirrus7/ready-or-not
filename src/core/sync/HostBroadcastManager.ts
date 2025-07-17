@@ -1,5 +1,5 @@
 import { Slide } from '@shared/types/game';
-import { HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, PresentationVideoReady, BroadcastEventType } from './types';
+import { HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, PresentationVideoReady, VideoStatusResponse, BroadcastEventType } from './types';
 import { Team, TeamDecision, TeamRoundData } from '@shared/types';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
@@ -60,6 +60,16 @@ export class HostBroadcastManager {
           console.log('received presentation video ready somehow')
           this.onPresentationVideoReadyHandlers.forEach(handler => handler());
           break;
+        case BroadcastEventType.VIDEO_STATUS_RESPONSE: {
+          const response = message as VideoStatusResponse;
+          if (response.isReady) {
+            console.log('[HostBroadcastManager] Received video status response: ready');
+            this.onPresentationVideoReadyHandlers.forEach(handler => handler());
+          } else {
+            console.log('[HostBroadcastManager] Received video status response: not ready');
+          }
+          break;
+        }
         default:
           // Ignore other message types
           break;
@@ -130,7 +140,7 @@ export class HostBroadcastManager {
   /**
    * Send a host command (play, pause, seek, etc.) to the presentation
    */
-  sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'decision_reset' | 'sync' | 'volume' | 'close_presentation', data?: any): void {
+  sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'decision_reset' | 'sync' | 'volume' | 'close_presentation' | 'video_status_poll', data?: any): void {
     if (this.isDestroyed) return;
     const command: HostCommand = {
       type: BroadcastEventType.HOST_COMMAND,
@@ -144,6 +154,19 @@ export class HostBroadcastManager {
       timestamp: Date.now(),
     };
     this.sendMessage(command);
+  }
+
+  /**
+   * Send a video status poll to the presentation
+   */
+  sendVideoStatusPoll(): void {
+    if (this.isDestroyed) return;
+    const poll = {
+      type: BroadcastEventType.VIDEO_STATUS_POLL,
+      sessionId: this.sessionId,
+      timestamp: Date.now()
+    };
+    this.sendMessage(poll);
   }
 
   /**

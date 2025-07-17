@@ -138,18 +138,25 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 video.currentTime = time;
             }
             
-            // If connected to presentation, wait for it to be ready
+            // If connected to presentation but not ready, poll for status
             if (presentationIsConnected && hostSyncManager && !isPresentationVideoReady) {
-                console.log('[useHostVideo] Waiting for presentation to be ready...');
-                const maxWaitTime = 5000; // 5 seconds timeout
+                console.log('[useHostVideo] Polling presentation for video status...');
+                
+                // Keep polling up to 5000ms
+                const maxWaitTime = 5000;
+                const pollInterval = 200; // Poll every 200ms
                 const startTime = Date.now();
                 
                 while (!isPresentationVideoReady && (Date.now() - startTime) < maxWaitTime) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    // Send poll
+                    hostSyncManager.sendVideoStatusPoll();
+                    
+                    // Wait for response or next poll interval
+                    await new Promise(resolve => setTimeout(resolve, pollInterval));
                 }
                 
                 if (!isPresentationVideoReady) {
-                    console.warn('[useHostVideo] Presentation not ready after timeout, proceeding anyway');
+                    console.log('[useHostVideo] Presentation not ready after 5 seconds, proceeding anyway');
                 } else {
                     console.log('[useHostVideo] Presentation is ready');
                 }
@@ -345,13 +352,37 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                         
                         const state = stateRef.current;
                         
-                        // Play the host video immediately
+                        // If connected to presentation but not ready, poll for status
+                        if (state.presentationIsConnected && state.hostSyncManager && !state.isPresentationVideoReady) {
+                            console.log('[useHostVideo] Auto-play: Polling presentation for video status...');
+                            
+                            // Keep polling up to 5000ms
+                            const maxWaitTime = 5000;
+                            const pollInterval = 200; // Poll every 200ms
+                            const startTime = Date.now();
+                            
+                            while (!state.isPresentationVideoReady && (Date.now() - startTime) < maxWaitTime) {
+                                // Send poll
+                                state.hostSyncManager.sendVideoStatusPoll();
+                                
+                                // Wait for response or next poll interval
+                                await new Promise(resolve => setTimeout(resolve, pollInterval));
+                            }
+                            
+                            if (!state.isPresentationVideoReady) {
+                                console.log('[useHostVideo] Auto-play: Presentation not ready after 5 seconds, proceeding anyway');
+                            } else {
+                                console.log('[useHostVideo] Auto-play: Presentation is ready');
+                            }
+                        }
+                        
+                        // Play the host video
                         console.log('[useHostVideo] Auto-playing host video');
                         await video.play();
                         
                         // Send play command to presentation if connected
                         if (state.presentationIsConnected && state.hostSyncManager) {
-                            console.log('[useHostVideo] Sending play command to presentation');
+                            console.log('[useHostVideo] Auto-play: Sending play command to presentation');
                             state.hostSyncManager.sendCommand('play', {
                                 time: video.currentTime,
                                 playbackRate: video.playbackRate,

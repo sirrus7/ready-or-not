@@ -1,5 +1,5 @@
 import { Slide } from '@shared/types/game';
-import { HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, PresentationVideoReady, BroadcastEventType } from './types';
+import { HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, PresentationVideoReady, VideoStatusPoll, VideoStatusResponse, BroadcastEventType } from './types';
 import { Team, TeamDecision, TeamRoundData } from '@shared/types';
 
 /**
@@ -13,6 +13,7 @@ export class PresentationBroadcastManager {
   private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
   private commandHandlers: Set<(command: HostCommand) => void> = new Set();
   private pingHandlers: Set<() => void> = new Set();
+  private videoStatusPollHandlers: Set<(poll: VideoStatusPoll) => void> = new Set();
   private isDestroyed: boolean = false;
   private closePresentationHandlers: Set<() => void> = new Set();
 
@@ -64,6 +65,10 @@ export class PresentationBroadcastManager {
         case BroadcastEventType.CLOSE_PRESENTATION:
           console.log('[PresentationBroadcastManager] Processing close presentation');
           this.closePresentationHandlers.forEach(handler => handler());
+          break;
+        case BroadcastEventType.VIDEO_STATUS_POLL:
+          console.log('[PresentationBroadcastManager] Processing video status poll');
+          this.videoStatusPollHandlers.forEach(handler => handler(message as VideoStatusPoll));
           break;
         default:
           console.log('[PresentationBroadcastManager] Ignoring unknown message type:', message.type);
@@ -126,6 +131,19 @@ export class PresentationBroadcastManager {
   }
 
   /**
+   * Listen for video status polls from the host
+   * @param callback (poll) => void
+   * @returns unsubscribe function
+   */
+  onVideoStatusPoll(callback: (poll: VideoStatusPoll) => void): () => void {
+    if (this.isDestroyed) return () => {};
+    this.videoStatusPollHandlers.add(callback);
+    return () => {
+      this.videoStatusPollHandlers.delete(callback);
+    };
+  }
+
+  /**
    * Send status ("ready" or "pong") to the host
    * @param status 'ready' | 'pong'
    */
@@ -159,6 +177,20 @@ export class PresentationBroadcastManager {
       timestamp: Date.now()
     };
     this.channel.postMessage(message);
+  }
+
+  /**
+   * Send video status response to the host
+   */
+  sendVideoStatusResponse(isReady: boolean): void {
+    if (this.isDestroyed) return;
+    const response: VideoStatusResponse = {
+      type: BroadcastEventType.VIDEO_STATUS_RESPONSE,
+      sessionId: this.sessionId,
+      isReady,
+      timestamp: Date.now()
+    };
+    this.channel.postMessage(response);
   }
 
   /**

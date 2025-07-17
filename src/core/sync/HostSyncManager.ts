@@ -67,8 +67,15 @@ export class HostSyncManager {
   /**
    * Send a host command (play, pause, seek, etc.) to the presentation
    */
-  sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume', data?: any): void {
+  sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume' | 'video_status_poll', data?: any): void {
     this.broadcastManager.sendCommand(action, data);
+  }
+
+  /**
+   * Send a video status poll to the presentation
+   */
+  sendVideoStatusPoll(): void {
+    this.broadcastManager.sendVideoStatusPoll();
   }
 
   /**
