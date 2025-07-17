@@ -21,6 +21,7 @@ type UsePresentationVideoReturn ={
     isConnectedToHost: boolean;
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
     sendCommand: (action: string, data?: any) => Promise<void>;
+    resetConnectionState: () => void;
 }
 
 interface UsePresentationVideoProps {
@@ -453,5 +454,9 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         isConnectedToHost: localIsConnected,
         getVideoProps,
         sendCommand,
+        resetConnectionState: () => {
+            // No-op for presentation video - this is only used by host video
+            console.log('[usePresentationVideo] resetConnectionState called (no-op for presentation)');
+        },
     };
 };

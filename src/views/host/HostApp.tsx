@@ -91,7 +91,7 @@ const HostApp: React.FC = () => {
     const [presentationConnectionStatus, setPresentationConnectionStatus] = useState<PresentationConnectionStatus>('disconnected');
     const presentationTabRef = useRef<Window | null>(null);
     // TODO - unfortunate this needs to be here, but it's a hack to get the video control API to the slide renderer
-    const videoControlRef = useRef<{ sendCommand: (action: string, data?: any) => void } | null>(null);
+    const videoControlRef = useRef<{ sendCommand: (action: string, data?: any) => void; resetConnectionState?: () => void } | null>(null);
 
     const handleVideoEnd = useCallback(() => {
         if (!currentSlideData) return;
@@ -124,7 +124,7 @@ const HostApp: React.FC = () => {
             teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
                 Object.values(teamDecisionsByPhase)
             ),
-            onVideoControl: (api: { sendCommand: (action: string, data?: any) => void }) => {
+            onVideoControl: (api: { sendCommand: (action: string, data?: any) => void; resetConnectionState?: () => void }) => {
                 videoControlRef.current = api;
             }
         };
@@ -231,6 +231,10 @@ const HostApp: React.FC = () => {
                         muted: false,
                         volume: 1
                     });
+                    // Reset connection state when presentation window is intentionally closed
+                    if (videoControlRef.current.resetConnectionState) {
+                        videoControlRef.current.resetConnectionState();
+                    }
                 }
                 
                 presentationTabRef.current = null;
@@ -490,9 +494,6 @@ const HostApp: React.FC = () => {
                         setJoinInfo={setJoinInfo}
                         isJoinInfoOpen={isJoinInfoOpen}
                         setIsJoinInfoOpen={setIsJoinInfoOpen}
-                        onClosePresentation={() => {
-                            hostSyncManager?.sendClosePresentation();
-                        }}
                     />
                 </div>
                 <div className="lg:col-span-8 xl:col-span-9 flex flex-col min-h-0">

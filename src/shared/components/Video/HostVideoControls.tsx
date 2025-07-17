@@ -119,8 +119,12 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
     };
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        setIsDragging(true);
-        handleSeekBarClick(e);
+        // Only handle seek bar mouse down, not volume slider
+        if (e.target === e.currentTarget || e.currentTarget.contains(e.target as Node)) {
+            console.log('[HostVideoControls] Seek bar mouse down');
+            setIsDragging(true);
+            handleSeekBarClick(e);
+        }
     };
 
     const handleSeekBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -132,6 +136,7 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
     };
 
     const handleVolumeChange = (newVolume: number) => {
+        console.log('[HostVideoControls] Volume change:', newVolume);
         setVolume(newVolume);
         onVolumeChange?.(newVolume);
     };
@@ -149,12 +154,18 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
         const handleMouseMove = (e: MouseEvent) => {
             const rect = seekBarRef.current?.getBoundingClientRect();
             if (!rect || !duration) return;
-            const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+            
+            // Only handle mouse events if they're within the seek bar bounds
+            const clickX = e.clientX - rect.left;
+            if (clickX < 0 || clickX > rect.width) return;
+            
+            console.log('[HostVideoControls] Seek bar dragging:', clickX, rect.width);
             const newTime = (clickX / rect.width) * duration;
             onSeek(newTime);
         };
 
         const handleMouseUp = () => {
+            console.log('[HostVideoControls] Seek bar drag ended');
             setIsDragging(false);
         };
 

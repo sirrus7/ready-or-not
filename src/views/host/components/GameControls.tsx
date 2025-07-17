@@ -40,6 +40,8 @@ const GameControls: React.FC<GameControlsProps> = ({ joinInfo, setJoinInfo, isJo
 
     const onConfirmExit = () => {
         hostSyncManager?.sendPresenationClose();
+        // Reset connection state when presentation is intentionally closed
+        // Note: This will be called when the host exits the game
         setIsExitConfirmModalOpen(false);
         navigate('/dashboard');
     };

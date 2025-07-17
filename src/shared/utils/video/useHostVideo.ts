@@ -27,6 +27,7 @@ interface UseHostVideoReturn {
     isPresentationVideoReady: boolean;
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
     sendCommand: (action: string, data?: any) => Promise<void>;
+    resetConnectionState: () => void;
 }
 
 interface UseHostVideoProps {
@@ -41,6 +42,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const [presentationVolume, setPresentationVolume] = useState(1);
     const [presentationIsConnected, setLocalIsConnected] = useState(false);
     const [isPresentationVideoReady, setIsPresentationVideoReady] = useState(false);
+    const [shouldResetConnection, setShouldResetConnection] = useState(false);
     const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
@@ -73,11 +75,18 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         }
     }, []);
 
-    // Handle connection changes
+        // Handle connection changes
     useEffect(() => {
         if (!hostSyncManager) return;
         const unsubscribe = hostSyncManager.onPresentationStatus((status) => {
+            const wasConnected = presentationIsConnected && !shouldResetConnection;
             setLocalIsConnected(status === 'connected');
+            
+            // Reset the reset flag when we get a new connection status
+            if (shouldResetConnection) {
+                setShouldResetConnection(false);
+            }
+            
             const video = videoRef.current;
             if (!video) return;
             
@@ -93,15 +102,16 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             } else {
                 video.muted = false;
                 stopSyncInterval();
-                // Pause host video when presentation disconnects
-                if (!video.paused) {
+                // Only pause host video when presentation disconnects if we were previously connected
+                // This prevents pausing in host-only mode when there's no presentation
+                if (!video.paused && wasConnected) {
                     console.log('[useHostVideo] Presentation disconnected - pausing host video');
                     video.pause();
                 }
             }
         });
         return unsubscribe;
-    }, [hostSyncManager, presentationMuted, presentationVolume, stopSyncInterval]);
+    }, [hostSyncManager, presentationMuted, presentationVolume, stopSyncInterval, presentationIsConnected, shouldResetConnection]);
 
     // Handle presentation video ready events
     useEffect(() => {
@@ -527,5 +537,6 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         isPresentationVideoReady,
         getVideoProps,
         sendCommand,
+        resetConnectionState: () => setShouldResetConnection(true),
     };
 };

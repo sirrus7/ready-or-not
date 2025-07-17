@@ -24,7 +24,7 @@ export interface SlideRendererProps {
      * Optional callback to expose imperative video control API to parent.
      * Called with { sendCommand } for video slides.
      */
-    onVideoControl?: (api: { sendCommand: (action: string, data?: any) => void }) => void;
+    onVideoControl?: (api: { sendCommand: (action: string, data?: any) => void; resetConnectionState?: () => void }) => void;
 }
 
 const SlideContent: React.FC<{
@@ -164,7 +164,10 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 hasSendCommand: !!activeVideo.sendCommand,
                 videoRef: activeVideo.videoRef?.current
             });
-            onVideoControl({ sendCommand: activeVideo.sendCommand });
+            onVideoControl({ 
+                sendCommand: activeVideo.sendCommand,
+                resetConnectionState: activeVideo.resetConnectionState
+            });
         }
     }, [onVideoControl, isVideoSlide, activeVideo]);
 
