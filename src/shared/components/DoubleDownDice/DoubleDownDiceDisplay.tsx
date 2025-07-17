@@ -168,7 +168,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
             // Go straight to rolling if teams exist
             await audioManager.loadIntroAudio(investmentId);
-            setCurrentPhase('rolling');
 
             if (isHost) {
                 rollDice(teamNames);
@@ -212,10 +211,10 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         await Promise.all([diceAnimationPromise, audioPromise]);
 
         // Generate dice results
-        const dice1 = Math.floor(Math.random() * 6) + 1;
-        const dice2 = Math.floor(Math.random() * 6) + 1;
-        const total = dice1 + dice2;
-        const boost = DICE_BOOSTS[total as keyof typeof DICE_BOOSTS];
+        const dice1: number = Math.floor(Math.random() * 6) + 1;
+        const dice2: number = Math.floor(Math.random() * 6) + 1;
+        const total: number = dice1 + dice2;
+        const boost: 0 | 25 | 75 | 100 = DICE_BOOSTS[total as keyof typeof DICE_BOOSTS];
 
         const result: DiceResult = {
             investment_id: investmentId,

@@ -100,12 +100,12 @@ const Dice3D: React.FC<Dice3DProps> = ({value, isRolling}) => {
             case 6:
                 return (
                     <>
-                        <div className={`${dotStyle}`} style={{top: '6px', left: '8px'}}/>
-                        <div className={`${dotStyle}`} style={{top: '19px', left: '8px'}}/>
-                        <div className={`${dotStyle}`} style={{top: '32px', left: '8px'}}/>
-                        <div className={`${dotStyle}`} style={{top: '6px', right: '8px'}}/>
-                        <div className={`${dotStyle}`} style={{top: '19px', right: '8px'}}/>
-                        <div className={`${dotStyle}`} style={{top: '32px', right: '8px'}}/>
+                        <div className={`${dotStyle} top-2 left-2`}/>
+                        <div className={`${dotStyle} top-1/2 left-2 transform -translate-y-1/2`}/>
+                        <div className={`${dotStyle} bottom-2 left-2`}/>
+                        <div className={`${dotStyle} top-2 right-2`}/>
+                        <div className={`${dotStyle} top-1/2 right-2 transform -translate-y-1/2`}/>
+                        <div className={`${dotStyle} bottom-2 right-2`}/>
                     </>
                 );
 
