@@ -5,6 +5,15 @@
 import {supabase} from '@shared/services/supabase';
 import type {InvestmentOption, Slide, ChallengeOption} from '@shared/types';
 
+export enum TeamGameEventType {
+    DECISION_TIME = 'decision_time',
+    DECISION_CLOSED = 'decision_closed',
+    KPI_UPDATED = 'kpi_updated',
+    DECISION_RESET = 'decision_reset',
+    GAME_ENDED = 'game_ended',
+    INTERACTIVE_SLIDE_DATA = 'interactive_slide_data',
+}
+
 export type RealtimeConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 export interface InteractiveSlideData {
@@ -24,7 +33,7 @@ export interface InteractiveSlideData {
 
 // Team game event structure
 export interface TeamGameEvent {
-    type: 'decision_time' | 'decision_closed' | 'kpi_updated' | 'decision_reset' | 'game_ended' | 'interactive_slide_data';
+    type: TeamGameEventType;
     sessionId: string;
     data?: any;
     timestamp: number;
@@ -131,7 +140,7 @@ export class SimpleRealtimeManager {
     }
 
     // HOST METHODS - Broadcasting to teams
-    sendTeamEvent(type: TeamGameEvent['type'], data?: any): void {
+    sendTeamEvent(type: TeamGameEventType, data?: any): void {
         if (this.mode !== 'host' || this.isDestroyed || !this.channel) return;
 
         const event: TeamGameEvent = {
@@ -158,7 +167,7 @@ export class SimpleRealtimeManager {
     sendDecisionTime(slide: Slide): void {
         if (!slide.interactive_data_key) return;
 
-        this.sendTeamEvent('decision_time', {
+        this.sendTeamEvent(TeamGameEventType.DECISION_TIME, {
             decisionType: slide.type,
             decisionKey: slide.interactive_data_key,
             roundNumber: slide.round_number,
@@ -168,7 +177,7 @@ export class SimpleRealtimeManager {
     }
 
     sendKpiUpdated(slide: Slide, kpiData?: Record<string, any>): void {
-        this.sendTeamEvent('kpi_updated', {
+        this.sendTeamEvent(TeamGameEventType.KPI_UPDATED, {
             slideType: slide.type,
             roundNumber: slide.round_number,
             slideId: slide.id,
@@ -178,7 +187,7 @@ export class SimpleRealtimeManager {
     }
 
     sendDecisionReset(message?: string, teamId?: string, decisionKey?: string): void {
-        this.sendTeamEvent('decision_reset', {
+        this.sendTeamEvent(TeamGameEventType.DECISION_RESET, {
             message: message || 'Decisions have been reset by the host',
             ...(teamId && {teamId}),
             ...(decisionKey && {decisionKey})
@@ -186,14 +195,14 @@ export class SimpleRealtimeManager {
     }
 
     sendGameEnded(): void {
-        this.sendTeamEvent('game_ended', {
+        this.sendTeamEvent(TeamGameEventType.GAME_ENDED, {
             message: 'Game session has ended'
         });
     }
 
     sendInteractiveSlideData(slideData: InteractiveSlideData): void {
         console.log(`[SimpleRealtimeManager] Broadcasting interactive slide data for slide ${slideData.slideId}`);
-        this.sendTeamEvent('interactive_slide_data', slideData);
+        this.sendTeamEvent(TeamGameEventType.INTERACTIVE_SLIDE_DATA, slideData);
     }
 
     // TEAM METHODS - Listening to host events

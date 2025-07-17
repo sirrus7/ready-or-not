@@ -33,7 +33,7 @@ interface GameContextType {
     state: AppState;
     currentSlideData: Slide | null;
     gameVersion: string; // ADDED: Game version for version-dependent features
-    nextSlide: () => Promise<void>;
+    nextSlide: (source?: 'manual' | 'video' | 'auto') => Promise<void>;
     previousSlide: () => Promise<void>;
     selectSlideByIndex: (index: number) => Promise<void>;
     processPayoffSlide: (payoffSlide: Slide) => Promise<void>;

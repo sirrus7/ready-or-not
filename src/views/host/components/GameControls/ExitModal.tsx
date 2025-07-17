@@ -1,39 +1,19 @@
 // src/views/host/components/GameControls/ExitModal.tsx
 import React from 'react';
-import {useNavigate} from 'react-router-dom';
 import Modal from '@shared/components/UI/Modal';
-import {useGameContext} from '@app/providers/GameProvider';
-import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
+import { AppState } from '@shared/types';
 
 interface ExitGameModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onConfirmExit: (state: AppState) => void;
 }
 
 /**
  * `ExitGameModal` is a confirmation modal for the host to exit the current game session.
  * When confirmed, it broadcasts a close command and navigates the host back to the dashboard.
  */
-const ExitGameModal: React.FC<ExitGameModalProps> = ({isOpen, onClose}) => {
-    // Consume `state` from `GameContext` to get the current session ID.
-    const {state} = useGameContext();
-    const navigate = useNavigate(); // Hook for navigation.
-
-
-    /**
-     * Handles the confirmation of exiting the game.
-     * It broadcasts a command to close the presentation display and navigates to the dashboard.
-     */
-    const confirmExitGame = () => {
-        // Send a command to close the presentation window if a session is active
-        if (state.currentSessionId) {
-            const broadcastManager = SimpleBroadcastManager.getInstance(state.currentSessionId, 'host');
-            broadcastManager.sendCommand('close_presentation');
-        }
-
-        onClose(); // Close the modal.
-        navigate('/dashboard');
-    };
+const ExitGameModal: React.FC<ExitGameModalProps> = ({isOpen, onClose, onConfirmExit}) => {
 
     return (
         <Modal
@@ -53,7 +33,7 @@ const ExitGameModal: React.FC<ExitGameModalProps> = ({isOpen, onClose}) => {
                     <button
                         type="button"
                         className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm w-full sm:w-auto"
-                        onClick={confirmExitGame}
+                        onClick={onConfirmExit}
                     >
                         Yes, Save & Exit
                     </button>
