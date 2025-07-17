@@ -2,8 +2,20 @@
 import {Slide} from '@shared/types/game';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
+export enum BroadcastEventType {
+    HOST_COMMAND = 'HOST_COMMAND',
+    SLIDE_UPDATE = 'SLIDE_UPDATE',
+    PRESENTATION_STATUS = 'PRESENTATION_STATUS',
+    PRESENTATION_VIDEO_READY = 'PRESENTATION_VIDEO_READY',
+    COMMAND_ACK = 'COMMAND_ACK',
+    JOIN_INFO = 'JOIN_INFO',
+    JOIN_INFO_CLOSE = 'JOIN_INFO_CLOSE',
+    PING = 'PING',
+    PRESENTATION_DISCONNECT = 'PRESENTATION_DISCONNECT',
+}
+
 export interface HostCommand {
-    type: 'HOST_COMMAND';
+    type: BroadcastEventType.HOST_COMMAND;
     sessionId: string;
     id: string;
     action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume';
@@ -18,7 +30,7 @@ export interface HostCommand {
 }
 
 export interface SlideUpdate {
-    type: 'SLIDE_UPDATE';
+    type: BroadcastEventType.SLIDE_UPDATE;
     sessionId: string;
     slide: Slide;
     teamData?: { // NEW: Add optional team data
@@ -30,29 +42,31 @@ export interface SlideUpdate {
 }
 
 export interface PresentationStatus {
-    type: 'PRESENTATION_STATUS';
+    type: BroadcastEventType.PRESENTATION_STATUS;
     sessionId: string;
     status: 'ready' | 'pong';
     timestamp: number;
 }
 
 export interface PresentationVideoReady {
-    type: 'PRESENTATION_VIDEO_READY';
+    type: BroadcastEventType.PRESENTATION_VIDEO_READY;
     sessionId: string;
     timestamp: number;
 }
 
 export interface CommandAck {
-    type: 'COMMAND_ACK';
+    type: BroadcastEventType.COMMAND_ACK;
     sessionId: string;
     commandId: string;
     timestamp: number;
 }
 
 export interface JoinInfoMessage {
-    type: 'JOIN_INFO';
+    type: BroadcastEventType.JOIN_INFO;
     sessionId: string;
     joinUrl: string;
     qrCodeDataUrl: string;
     timestamp: number;
 }
+
+export { TeamGameEventType } from './SimpleRealtimeManager';

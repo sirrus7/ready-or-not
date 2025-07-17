@@ -1,7 +1,7 @@
 // src/views/team/hooks/useTeamGameState.ts
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {db, supabase} from '@shared/services/supabase';
-import {InteractiveSlideData, TeamGameEvent} from '@core/sync/SimpleRealtimeManager';
+import {InteractiveSlideData, TeamGameEvent, TeamGameEventType} from '@core/sync/SimpleRealtimeManager';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {GameSession, GameStructure, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
 import {useTeamGameContext} from "@app/providers/TeamGameProvider";
@@ -192,7 +192,7 @@ export const useTeamGameState = ({
         console.log(`[useTeamGameState] 📱 Received ${event.type}:`, event.data);
 
         switch (event.type) {
-            case 'interactive_slide_data':
+            case TeamGameEventType.INTERACTIVE_SLIDE_DATA:
                 console.log('🔍 Processing interactive_slide_data event:', event.data);
 
                 // Set the interactive data
@@ -229,7 +229,7 @@ export const useTeamGameState = ({
                     }
                 }
                 break;
-            case 'kpi_updated':
+            case TeamGameEventType.KPI_UPDATED:
                 // Fix: Use flat structure, not nested
                 if (loggedInTeamId && event.data?.updatedKpis?.[loggedInTeamId]) {
                     setCurrentTeamKpis(event.data.updatedKpis[loggedInTeamId]);
@@ -242,13 +242,13 @@ export const useTeamGameState = ({
                     teamGameContext.updatePermanentAdjustments(event.data.permanentAdjustments);
                 }
                 break;
-            case 'decision_reset':
+            case TeamGameEventType.DECISION_RESET:
                 handleDecisionDelete({});
                 break;
-            case 'game_ended':
+            case TeamGameEventType.GAME_ENDED:
                 handleSessionDelete({});
                 break;
-            case 'decision_closed':
+            case TeamGameEventType.DECISION_CLOSED:
                 console.log(`[useTeamGameState] 🚫 Decision period ended for: ${event.data?.decisionKey}`);
                 if (event.data?.decisionKey) {
                     setClosedDecisionKeys(prev => new Set([...prev, event.data.decisionKey]));

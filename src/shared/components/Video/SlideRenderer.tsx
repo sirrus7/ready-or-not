@@ -20,6 +20,11 @@ export interface SlideRendererProps {
     teams?: Team[];
     teamRoundData?: Record<string, Record<number, TeamRoundData>>;
     teamDecisions?: TeamDecision[];
+    /**
+     * Optional callback to expose imperative video control API to parent.
+     * Called with { sendCommand } for video slides.
+     */
+    onVideoControl?: (api: { sendCommand: (action: string, data?: any) => void }) => void;
 }
 
 const SlideContent: React.FC<{
@@ -114,7 +119,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          onVideoEnd,
                                                          teams,
                                                          teamRoundData,
-                                                         teamDecisions
+                                                         teamDecisions,
+                                                         onVideoControl
                                                      }) => {
     const [videoError, setVideoError] = useState(false);
 
@@ -138,6 +144,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
 
     // Use the same logic as before to select active video
     const activeVideo = isHost ? hostVideo : presentationVideo;
+
+    // Expose imperative video control API to parent if requested
+    useEffect(() => {
+        if (onVideoControl && isVideoSlide && activeVideo) {
+            onVideoControl({ sendCommand: activeVideo.sendCommand });
+        }
+    }, [onVideoControl, isVideoSlide, activeVideo]);
 
     useEffect(() => {
         setVideoError(false);

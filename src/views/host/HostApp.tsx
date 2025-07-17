@@ -5,11 +5,12 @@ import {useGameContext} from '@app/providers/GameProvider';
 import {AlertCircle, ChevronLeft, ChevronRight} from 'lucide-react';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import PresentationButton from '@views/host/components/GameControls/PresentationButton';
-import {HostSyncComponent} from '@views/host/components/HostSyncComponent';
+import { useHostSyncManager } from '@core/sync/HostSyncManager';
 import {SimpleRealtimeManager} from "@core/sync";
 import {ChallengeOption, GameStructure, InvestmentOption, Slide} from "@shared/types";
 import {shouldAutoAdvance} from '@shared/utils/versionUtils';
 import type {SlideRendererProps} from '@shared/components/Video/SlideRenderer';
+import { TeamGameEventType } from '@core/sync/SimpleRealtimeManager';
 
 const broadcastInteractiveSlideData = (
     realtimeManager: SimpleRealtimeManager,
@@ -140,7 +141,7 @@ const HostApp: React.FC = () => {
             previousSlideData.type.startsWith('interactive_') &&
             currentSlideData?.id !== previousSlideData.id) {
 
-            realtimeManager.sendTeamEvent('decision_closed', {
+            realtimeManager.sendTeamEvent(TeamGameEventType.DECISION_CLOSED, {
                 decisionKey: previousSlideData.interactive_data_key,
                 message: 'Decision period has ended',
                 slideId: previousSlideData.id
@@ -161,8 +162,52 @@ const HostApp: React.FC = () => {
         }
     }, [currentSessionId, currentSlideData, gameStructure]);
 
+    const hostSyncManager = useHostSyncManager(currentSessionId || null);
+
+    // Prepare team data for broadcasting
+    const teamData = {
+        teams: state.teams,
+        teamRoundData: state.teamRoundData,
+        teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
+            Object.values(teamDecisionsByPhase)
+        )
+    };
+
+    // Sync: Presentation connection status
+    useEffect(() => {
+        if (!hostSyncManager) return;
+        const unsubscribe = hostSyncManager.onPresentationStatus((status: string) => {
+            setIsPresentationConnected(status === 'connected');
+        });
+        return unsubscribe;
+    }, [hostSyncManager]);
+
+    // Sync: Presentation video ready
+    useEffect(() => {
+        if (!hostSyncManager) return;
+        hostSyncManager.onPresentationVideoReady(() => {
+            console.log('[HostApp] Presentation video ready');
+        });
+    }, [hostSyncManager]);
+
+    // Sync: Send slide updates to presentation
+    useEffect(() => {
+        if (!hostSyncManager || !currentSlideData) return;
+        hostSyncManager.sendSlideUpdate(currentSlideData, teamData);
+    }, [hostSyncManager, currentSlideData, teamData]);
+
+    // Sync: Send join info updates
+    useEffect(() => {
+        if (!hostSyncManager) return;
+        if (isJoinInfoOpen && joinInfo) {
+            hostSyncManager.sendJoinInfo(joinInfo.joinUrl, joinInfo.qrCodeDataUrl);
+        } else if (!isJoinInfoOpen) {
+            hostSyncManager.sendJoinInfoClose();
+        }
+    }, [hostSyncManager, joinInfo, isJoinInfoOpen]);
+
     const isFirstSlideOverall = current_slide_index === 0;
-    const isLastSlideOverall = current_slide_index === (gameStructure.slides.length - 1);
+    const isLastSlideOverall = gameStructure && gameStructure.slides ? current_slide_index === (gameStructure.slides.length - 1) : false;
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -266,31 +311,12 @@ const HostApp: React.FC = () => {
         return <div className="min-h-screen ..."><AlertCircle/>Session Not Fully Loaded</div>;
     }
 
-    // Prepare team data for broadcasting
-    const teamData = {
-        teams: state.teams,
-        teamRoundData: state.teamRoundData,
-        teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
-            Object.values(teamDecisionsByPhase)
-        )
-    };
-
     return (
         <div
             className="h-screen w-screen bg-gradient-to-br from-gray-200 to-gray-400 p-4 flex flex-col overflow-hidden">
             
-            {/* Host Sync Component for presentation communication */}
-            <HostSyncComponent
-                sessionId={currentSessionId}
-                currentSlide={currentSlideData}
-                teamData={teamData}
-                joinInfo={joinInfo}
-                isJoinInfoOpen={isJoinInfoOpen}
-                onPresentationStatusChange={setIsPresentationConnected}
-                onPresentationVideoReady={() => {
-                    console.log('[HostApp] Presentation video ready');
-                }}
-            />
+            {/* Host Sync Component for presentation communication - REMOVED */}
+            {/* Removed HostSyncComponent */}
 
             {/* Development Testing Tools - Complete Version */}
             {import.meta.env.DEV && (
@@ -398,7 +424,7 @@ const HostApp: React.FC = () => {
                         </div>
                         {currentSlideData && (
                             <div className="absolute top-3 right-3 z-50 w-48">
-                                <PresentationButton isConnected={isPresentationConnected} />
+                                <PresentationButton />
                             </div>
                         )}
                     </div>

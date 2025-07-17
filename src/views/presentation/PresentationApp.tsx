@@ -4,7 +4,7 @@ import {useParams} from 'react-router-dom';
 import {Slide} from '@shared/types/game';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from 'lucide-react';
-import {PresentationSyncComponent} from '@views/presentation/components/PresentationSyncComponent';
+import { usePresentationSyncManager } from '@core/sync/PresentationSyncManager';
 import {HostCommand} from "@core/sync/types";
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
@@ -28,9 +28,45 @@ const PresentationApp: React.FC = () => {
         qrCodeDataUrl: string;
     } | null>(null);
 
+    const syncManager = usePresentationSyncManager(sessionId || null);
+    const connectionTimeoutRef = useRef<NodeJS.Timeout>();
+
     useEffect(() => {
         document.title = "Ready or Not - Presentation";
     }, []);
+
+    useEffect(() => {
+        if (!syncManager) return;
+        const unsub = syncManager.onSlideUpdate((slide, teamData) => {
+            setCurrentSlide(slide);
+            setIsConnectedToHost(true);
+            setStatusMessage('Connected - Presentation Display Active');
+            setConnectionError(false);
+            if (teamData) setBroadcastedTeamData(teamData);
+            if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = setTimeout(() => {
+                setIsConnectedToHost(false);
+                setStatusMessage('Connection lost - waiting for host...');
+                setConnectionError(true);
+            }, 10000);
+        });
+        return () => {
+            unsub();
+            if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+        };
+    }, [syncManager]);
+
+    useEffect(() => {
+        if (!syncManager) return;
+        const unsub = syncManager.onJoinInfo((joinUrl, qrCodeDataUrl) => {
+            if (joinUrl && qrCodeDataUrl) {
+                setJoinInfo({ joinUrl, qrCodeDataUrl });
+            } else {
+                setJoinInfo(null);
+            }
+        });
+        return unsub;
+    }, [syncManager]);
 
     const videoRef = useRef<{ sendCommand: (action: string, data?: any) => void } | null>(null);
 
@@ -38,41 +74,41 @@ const PresentationApp: React.FC = () => {
         if (!currentSlide) return;
     };
 
-    const handleSlideUpdate = (slide: Slide, teamData?: {
-        teams: Team[];
-        teamRoundData: Record<string, Record<number, TeamRoundData>>;
-        teamDecisions: TeamDecision[];
-    }) => {
-        setCurrentSlide(slide);
-        setIsConnectedToHost(true);
-        setStatusMessage('Connected - Presentation Display Active');
-        setConnectionError(false);
-        
-        if (teamData) {
-            setBroadcastedTeamData(teamData);
-        }
-    };
+    useEffect(() => {
+        if (!syncManager) return;
+        const unsub = syncManager.onHostCommand((command) => {
+            if (!videoRef.current) return;
+            switch (command.action) {
+                case 'play':
+                case 'pause':
+                case 'seek':
+                case 'reset':
+                case 'volume':
+                    videoRef.current.sendCommand(command.action, command.data);
+                    break;
+                case 'close_presentation':
+                    window.close();
+                    break;
+            }
+            setIsConnectedToHost(true);
+            if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = setTimeout(() => {
+                setIsConnectedToHost(false);
+                setStatusMessage('Connection lost - waiting for host...');
+                setConnectionError(true);
+            }, 10000);
+        });
+        return unsub;
+    }, [syncManager]);
 
-    const handleJoinInfoUpdate = (info: { joinUrl: string; qrCodeDataUrl: string } | null) => {
-        setJoinInfo(info);
-    };
-
-    const handleHostCommand = (command: HostCommand) => {
-        if (!videoRef.current) return;
-        
-        switch (command.action) {
-            case 'play':
-            case 'pause':
-            case 'seek':
-            case 'reset':
-            case 'volume':
-                videoRef.current.sendCommand(command.action, command.data);
-                break;
-            case 'close_presentation':
-                window.close();
-                break;
-        }
-    };
+    useEffect(() => {
+        if (!syncManager) return;
+        syncManager.sendStatus('ready');
+        const interval = setInterval(() => {
+            syncManager.sendStatus('pong');
+        }, 3000);
+        return () => clearInterval(interval);
+    }, [syncManager]);
 
     const handleConnectionStatusChange = (connected: boolean) => {
         setIsConnectedToHost(connected);
@@ -127,14 +163,8 @@ const PresentationApp: React.FC = () => {
 
     return (
         <div className="h-screen w-screen overflow-hidden bg-black relative">
-            {/* Presentation Sync Component */}
-            <PresentationSyncComponent
-                sessionId={sessionId}
-                onSlideUpdate={handleSlideUpdate}
-                onJoinInfoUpdate={handleJoinInfoUpdate}
-                onHostCommand={handleHostCommand}
-                onConnectionStatusChange={handleConnectionStatusChange}
-            />
+            {/* Presentation Sync Component - REMOVED */}
+            {/* <PresentationSyncComponent ... /> */}
             
             <SlideRenderer
                 ref={videoRef}

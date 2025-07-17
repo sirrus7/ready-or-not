@@ -19,6 +19,10 @@ interface UsePresentationVideoReturn {
     videoRef: React.RefObject<HTMLVideoElement>;
     isConnectedToHost: boolean;
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
+    /**
+     * Imperative video control API for parent components (used by SlideRenderer)
+     */
+    sendCommand: (action: string, data?: any) => Promise<void>;
 }
 
 interface UsePresentationVideoProps {
@@ -454,9 +458,60 @@ export const usePresentationVideo = ({
         });
     }, []);
 
+    // Imperative sendCommand implementation
+    const sendCommand = useCallback(async (action: string, data?: any) => {
+        const video = videoRef.current;
+        if (!video || !isEnabled) return;
+        try {
+            switch (action) {
+                case 'play':
+                    if (data?.time !== undefined) {
+                        const timeDiff = Math.abs(video.currentTime - data.time);
+                        if (timeDiff > 0.2) {
+                            video.currentTime = data.time;
+                        }
+                    }
+                    if (data?.volume !== undefined) video.volume = data.volume;
+                    if (data?.muted !== undefined) video.muted = data.muted;
+                    if (video.readyState < 2) {
+                        await new Promise<void>((resolve) => {
+                            const onCanPlay = () => {
+                                video.removeEventListener('canplay', onCanPlay);
+                                resolve();
+                            };
+                            video.addEventListener('canplay', onCanPlay);
+                        });
+                    }
+                    await video.play();
+                    break;
+                case 'pause':
+                    video.pause();
+                    if (data?.time !== undefined) video.currentTime = data.time;
+                    break;
+                case 'seek':
+                    if (data?.time !== undefined) video.currentTime = data.time;
+                    break;
+                case 'volume':
+                    if (data?.volume !== undefined) video.volume = data.volume;
+                    if (data?.muted !== undefined) video.muted = data.muted;
+                    break;
+                case 'reset':
+                    video.pause();
+                    video.currentTime = 0;
+                    break;
+                case 'close_presentation':
+                    window.close();
+                    break;
+            }
+        } catch (error) {
+            console.error('[usePresentationVideo] sendCommand failed:', error);
+        }
+    }, [isEnabled]);
+
     return {
         videoRef,
         isConnectedToHost: localIsConnected,
         getVideoProps,
+        sendCommand,
     };
 };

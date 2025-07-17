@@ -2,7 +2,7 @@
 // Enhanced version with KPI update broadcasting support
 
 import {Slide} from '@shared/types/game';
-import {HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, PresentationVideoReady} from './types';
+import {HostCommand, SlideUpdate, PresentationStatus, JoinInfoMessage, PresentationVideoReady, BroadcastEventType} from './types';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
@@ -86,19 +86,20 @@ export class SimpleBroadcastManager {
             // Only process messages for this session
             if (message.sessionId !== this.sessionId) return;
 
-            if (message.type === 'PRESENTATION_DISCONNECT' && this.mode === 'host') {
+            if (message.type === BroadcastEventType.PRESENTATION_DISCONNECT && this.mode === 'host') {
                 console.log('[SimpleBroadcastManager] Received explicit disconnect from presentation');
                 this.updateConnectionStatus('disconnected');
                 return;
             }
 
             switch (message.type) {
-                case 'HOST_COMMAND':
+                case BroadcastEventType.HOST_COMMAND:
                     if (this.mode === 'presentation') {
+                        console.log('[BROADCAST MANAGER] - ', 'handling host command', message);
                         this.commandHandlers.forEach(handler => handler(message as HostCommand));
                         // Send acknowledgment
                         this.sendMessage({
-                            type: 'COMMAND_ACK',
+                            type: BroadcastEventType.COMMAND_ACK,
                             sessionId: this.sessionId,
                             commandId: message.id,
                             timestamp: Date.now()
@@ -106,13 +107,13 @@ export class SimpleBroadcastManager {
                     }
                     break;
 
-                case 'SLIDE_UPDATE':
+                case BroadcastEventType.SLIDE_UPDATE:
                     if (this.mode === 'presentation') {
                         this.slideHandlers.forEach(handler => handler(message.slide, message.teamData));
                     }
                     break;
 
-                case 'PRESENTATION_STATUS':
+                case BroadcastEventType.PRESENTATION_STATUS:
                     if (this.mode === 'host') {
                         const status = message as PresentationStatus;
                         if (status.status === 'ready') {
@@ -124,7 +125,7 @@ export class SimpleBroadcastManager {
                     }
                     break;
 
-                case 'JOIN_INFO':
+                case BroadcastEventType.JOIN_INFO:
                     if (this.mode === 'presentation') {
                         this.joinInfoHandlers.forEach(handler =>
                             handler(message.joinUrl, message.qrCodeDataUrl)
@@ -132,26 +133,26 @@ export class SimpleBroadcastManager {
                     }
                     break;
 
-                case 'JOIN_INFO_CLOSE':
+                case BroadcastEventType.JOIN_INFO_CLOSE:
                     if (this.mode === 'presentation') {
                         this.joinInfoHandlers.forEach(handler => handler('', ''));
                     }
                     break;
 
-                case 'PING':
+                case BroadcastEventType.PING:
                     if (this.mode === 'presentation') {
                         this.sendStatus('pong');
                     }
                     break;
 
-                case 'PRESENTATION_VIDEO_READY':
+                case BroadcastEventType.PRESENTATION_VIDEO_READY:
                     if (this.mode === 'presentation') {
                         return;
                     }
                     this.onPresentationVideoReadyHandlers.forEach(handler => handler());
                     break;
 
-                case 'COMMAND_ACK':
+                case BroadcastEventType.COMMAND_ACK:
                     break;
             }
         };
@@ -164,7 +165,7 @@ export class SimpleBroadcastManager {
                 if (this.isDestroyed) return;
 
                 this.sendMessage({
-                    type: 'PING',
+                    type: BroadcastEventType.PING,
                     sessionId: this.sessionId,
                     timestamp: Date.now()
                 });
@@ -222,7 +223,7 @@ export class SimpleBroadcastManager {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const command: HostCommand = {
-            type: 'HOST_COMMAND',
+            type: BroadcastEventType.HOST_COMMAND,
             sessionId: this.sessionId,
             id: `cmd_${Date.now()}`,
             action,
@@ -244,7 +245,7 @@ export class SimpleBroadcastManager {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const update: SlideUpdate = {
-            type: 'SLIDE_UPDATE',
+            type: BroadcastEventType.SLIDE_UPDATE,
             sessionId: this.sessionId,
             slide,
             teamData,
@@ -258,7 +259,7 @@ export class SimpleBroadcastManager {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const message: JoinInfoMessage = {
-            type: 'JOIN_INFO',
+            type: BroadcastEventType.JOIN_INFO,
             sessionId: this.sessionId,
             joinUrl,
             qrCodeDataUrl,
@@ -272,7 +273,7 @@ export class SimpleBroadcastManager {
         if (this.mode !== 'host' || this.isDestroyed) return;
 
         const message = {
-            type: 'JOIN_INFO_CLOSE',
+            type: BroadcastEventType.JOIN_INFO_CLOSE,
             sessionId: this.sessionId,
             timestamp: Date.now()
         };
@@ -284,7 +285,7 @@ export class SimpleBroadcastManager {
         if (this.mode !== 'presentation' || this.isDestroyed) return;
 
         const statusMessage: PresentationVideoReady = {
-            type: 'PRESENTATION_VIDEO_READY',
+            type: BroadcastEventType.PRESENTATION_VIDEO_READY,
             sessionId: this.sessionId,
             timestamp: Date.now()
         };
@@ -330,7 +331,7 @@ export class SimpleBroadcastManager {
         if (this.mode !== 'presentation' || this.isDestroyed) return;
 
         const statusMessage: PresentationStatus = {
-            type: 'PRESENTATION_STATUS',
+            type: BroadcastEventType.PRESENTATION_STATUS,
             sessionId: this.sessionId,
             status,
             timestamp: Date.now()
@@ -386,7 +387,7 @@ export class SimpleBroadcastManager {
         if (this.mode !== 'presentation' || this.isDestroyed) return;
 
         const message = {
-            type: 'PRESENTATION_DISCONNECT',
+            type: BroadcastEventType.PRESENTATION_DISCONNECT,
             sessionId: this.sessionId,
             timestamp: Date.now()
         };
