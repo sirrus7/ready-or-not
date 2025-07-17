@@ -115,6 +115,7 @@ export class SimpleBroadcastManager {
 
                 case BroadcastEventType.PRESENTATION_STATUS:
                     if (this.mode === 'host') {
+                        console.log('[SimpleBroadcastManager] received presentation status', message);
                         const status = message as PresentationStatus;
                         if (status.status === 'ready') {
                             this.updateConnectionStatus('connected');
@@ -141,6 +142,7 @@ export class SimpleBroadcastManager {
 
                 case BroadcastEventType.PING:
                     if (this.mode === 'presentation') {
+                        console.log('[SimpleBroadcastManager] received ping, sending pong');
                         this.sendStatus('pong');
                     }
                     break;

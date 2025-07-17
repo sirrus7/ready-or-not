@@ -1,10 +1,10 @@
 // src/views/host/HostApp.tsx - REFACTOR: Final, stable layout fix
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState, useRef} from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
 import {AlertCircle, ChevronLeft, ChevronRight} from 'lucide-react';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
-import PresentationButton from '@views/host/components/GameControls/PresentationButton';
+import PresentationButton, { ConnectionStatus as PresentationConnectionStatus } from '@views/host/components/GameControls/PresentationButton';
 import { useHostSyncManager } from '@core/sync/HostSyncManager';
 import {SimpleRealtimeManager} from "@core/sync";
 import {ChallengeOption, GameStructure, InvestmentOption, Slide} from "@shared/types";
@@ -68,6 +68,8 @@ const broadcastInteractiveSlideData = (
     realtimeManager.sendInteractiveSlideData(interactiveData);
 };
 
+type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
+
 const HostApp: React.FC = () => {
     const {
         state,
@@ -85,6 +87,9 @@ const HostApp: React.FC = () => {
     const [isPresentationConnected, setIsPresentationConnected] = useState(false);
     const [joinInfo, setJoinInfo] = useState<{ joinUrl: string; qrCodeDataUrl: string } | null>(null);
     const [isJoinInfoOpen, setIsJoinInfoOpen] = useState(false);
+
+    const [presentationConnectionStatus, setPresentationConnectionStatus] = useState<PresentationConnectionStatus>('disconnected');
+    const presentationTabRef = useRef<Window | null>(null);
 
     const handleVideoEnd = useCallback(() => {
         if (!currentSlideData) return;
@@ -128,6 +133,10 @@ const HostApp: React.FC = () => {
     ]);
 
     useEffect(() => {
+        console.log('presentationConnectionStatus', presentationConnectionStatus);
+    }, [presentationConnectionStatus]);
+
+    useEffect(() => {
         document.title = "Ready or Not - Host";
     }, []);
 
@@ -163,6 +172,48 @@ const HostApp: React.FC = () => {
     }, [currentSessionId, currentSlideData, gameStructure]);
 
     const hostSyncManager = useHostSyncManager(currentSessionId || null);
+
+    // Open presentation window and set status
+    const handleOpenDisplay = useCallback(() => {
+        if (!currentSessionId) {
+            alert("No active session. Please create or select a game first.");
+            return;
+        }
+        const url = `/display/${currentSessionId}`;
+        const newTab = window.open(url, '_blank');
+        if (newTab) {
+            presentationTabRef.current = newTab;
+            console.log('[HostApp] setting presentationConnectionStatus to connecting');
+            setPresentationConnectionStatus('connecting');
+        } else {
+            alert("Failed to open presentation display. Please ensure pop-ups are allowed for this site.");
+            console.log('[HostApp] setting presentationConnectionStatus to disconnected');
+            setPresentationConnectionStatus('disconnected');
+        }
+    }, [currentSessionId]);
+
+    // Listen for connection status from HostSyncManager
+    useEffect(() => {
+        if (!hostSyncManager) return;
+        const unsubscribe = hostSyncManager.onPresentationStatus((status: string) => {
+            console.log('[HostApp] received presentation status', status);
+            setPresentationConnectionStatus(status as PresentationConnectionStatus);
+        });
+        return unsubscribe;
+    }, [hostSyncManager]);
+
+    // Monitor presentation tab state and set status to disconnected if closed
+    useEffect(() => {
+        if (!presentationTabRef.current) return;
+        const checkInterval = setInterval(() => {
+            if (presentationTabRef.current?.closed) {
+                setPresentationConnectionStatus('disconnected');
+                presentationTabRef.current = null;
+                clearInterval(checkInterval);
+            }
+        }, 2000);
+        return () => clearInterval(checkInterval);
+    }, [presentationTabRef.current]);
 
     // Prepare team data for broadcasting
     const teamData = {
@@ -412,6 +463,9 @@ const HostApp: React.FC = () => {
                         setJoinInfo={setJoinInfo}
                         isJoinInfoOpen={isJoinInfoOpen}
                         setIsJoinInfoOpen={setIsJoinInfoOpen}
+                        onClosePresentation={() => {
+                            hostSyncManager?.sendClosePresentation();
+                        }}
                     />
                 </div>
                 <div className="lg:col-span-8 xl:col-span-9 flex flex-col min-h-0">
@@ -424,7 +478,10 @@ const HostApp: React.FC = () => {
                         </div>
                         {currentSlideData && (
                             <div className="absolute top-3 right-3 z-50 w-48">
-                                <PresentationButton />
+                                <PresentationButton
+                                    connectionStatus={presentationConnectionStatus}
+                                    onOpenDisplay={handleOpenDisplay}
+                                />
                             </div>
                         )}
                     </div>

@@ -1,6 +1,7 @@
 // src/shared/hooks/useVideoSyncManager.ts
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { SimpleBroadcastManager } from '@core/sync/SimpleBroadcastManager';
+import { HostBroadcastManager } from '@core/sync/HostBroadcastManager';
+import { PresentationBroadcastManager } from '@core/sync/PresentationBroadcastManager';
 import { HostCommand } from '@core/sync/types';
 
 interface UseVideoSyncManagerProps {
@@ -15,92 +16,77 @@ interface UseVideoSyncManagerReturn {
   onConnectionChange: (callback: (connected: boolean) => void) => () => void;
 }
 
-export const useVideoSyncManager = ({
-                                      sessionId,
-                                      role
-                                    }: UseVideoSyncManagerProps): UseVideoSyncManagerReturn => {
+export function useVideoSyncManager({ sessionId, role }: { sessionId: string | null, role: 'host' | 'presentation' }) {
+  let manager: HostBroadcastManager | PresentationBroadcastManager | null = null;
+  if (sessionId) {
+    if (role === 'host') {
+      manager = HostBroadcastManager.getInstance(sessionId);
+    } else {
+      manager = PresentationBroadcastManager.getInstance(sessionId);
+    }
+  }
   const [isConnected, setIsConnected] = useState(false);
 
-  const broadcastManager = useMemo(() =>
-          sessionId ? SimpleBroadcastManager.getInstance(sessionId, role) : null,
-      [sessionId, role]
-  );
-
   // Send commands (host only)
-  const sendCommand = useCallback((action: HostCommand['action'], data?: HostCommand['data']) => {
-    if (broadcastManager && role === 'host') {
-      console.log(`[VideoSync] Sending command: ${action}`, data);
-      broadcastManager.sendCommand(action, data);
+  const sendCommand = useCallback((action: import('@core/sync/types').HostCommand['action'], data?: import('@core/sync/types').HostCommand['data']) => {
+    if (role === 'host' && manager instanceof HostBroadcastManager) {
+      manager.sendCommand(action, data);
     }
-  }, [broadcastManager, role]);
+  }, [manager, role]);
 
   // Listen for commands (presentation only)
-  const onCommand = useCallback((callback: (command: HostCommand) => void) => {
-    if (!broadcastManager || role !== 'presentation') return () => {};
-    return broadcastManager.onHostCommand(callback);
-  }, [broadcastManager, role]);
+  const onCommand = useCallback((callback: (command: import('@core/sync/types').HostCommand) => void) => {
+    if (role === 'presentation' && manager instanceof PresentationBroadcastManager) {
+      return manager.onHostCommand(callback);
+    }
+    return () => {};
+  }, [manager, role]);
 
   // Connection status changes
   const onConnectionChange = useCallback((callback: (connected: boolean) => void) => {
-    if (!broadcastManager) return () => {};
-
-    if (role === 'host') {
-      return broadcastManager.onPresentationStatus((status) => {
+    if (!manager) return () => {};
+    if (role === 'host' && manager instanceof HostBroadcastManager) {
+      return manager.onPresentationStatus((status) => {
         const connected = status === 'connected';
         callback(connected);
       });
-    } else {
-      // For presentation, we need to monitor connection differently
-      // Since presentation doesn't have a direct way to know if it's connected,
-      // we'll rely on receiving commands as a sign of connection
-      let timeout: NodeJS.Timeout;
-      const checkConnection = () => {
-        callback(false); // Assume disconnected if no activity
-      };
-
-      // Set up a timeout that assumes disconnection after 5 seconds of no activity
-      const resetTimeout = () => {
-        clearTimeout(timeout);
-        timeout = setTimeout(checkConnection, 500);
-        callback(true); // We're connected if we're receiving commands
-      };
-
+    } else if (role === 'presentation' && manager instanceof PresentationBroadcastManager) {
       // Listen for any command as a sign of connection
-      const unsubscribe = broadcastManager.onHostCommand(() => {
+      let timeout: NodeJS.Timeout | null = null;
+      const resetTimeout = () => {
+        if (timeout) clearTimeout(timeout);
+        callback(true);
+        timeout = setTimeout(() => callback(false), 10000);
+      };
+      const unsubscribe = manager.onHostCommand(() => {
         resetTimeout();
       });
-
-      // Initial check
       resetTimeout();
-
       return () => {
-        clearTimeout(timeout);
+        if (timeout) clearTimeout(timeout);
         unsubscribe();
       };
     }
-  }, [broadcastManager, role]);
+    return () => {};
+  }, [manager, role]);
 
   // Monitor connection status internally
   useEffect(() => {
-    if (!broadcastManager) return;
-
+    if (!manager) return;
     const unsubscribe = onConnectionChange(setIsConnected);
     return unsubscribe;
-  }, [broadcastManager, onConnectionChange]);
+  }, [manager, onConnectionChange]);
 
   // Send ready status for presentation
   useEffect(() => {
-    if (role === 'presentation' && broadcastManager) {
-      broadcastManager.sendStatus('ready');
-
-      // Send periodic pings to maintain connection
+    if (role === 'presentation' && manager instanceof PresentationBroadcastManager) {
+      manager.sendStatus('ready');
       const interval = setInterval(() => {
-        broadcastManager.sendStatus('pong');
+        manager.sendStatus('pong');
       }, 3000);
-
       return () => clearInterval(interval);
     }
-  }, [role, broadcastManager]);
+  }, [role, manager]);
 
   return {
     isConnected,
@@ -108,4 +94,4 @@ export const useVideoSyncManager = ({
     onCommand,
     onConnectionChange,
   };
-};
+}

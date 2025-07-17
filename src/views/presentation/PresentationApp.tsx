@@ -5,7 +5,6 @@ import {Slide} from '@shared/types/game';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from 'lucide-react';
 import { usePresentationSyncManager } from '@core/sync/PresentationSyncManager';
-import {HostCommand} from "@core/sync/types";
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 /**

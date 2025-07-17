@@ -1,4 +1,4 @@
-import { SimpleBroadcastManager } from './SimpleBroadcastManager';
+import { HostBroadcastManager, ConnectionStatus } from './HostBroadcastManager';
 import { Slide, Team, TeamDecision, TeamRoundData } from '@shared/types';
 import { useEffect, useRef } from 'react';
 
@@ -6,16 +6,16 @@ import { useEffect, useRef } from 'react';
  * HostSyncManager
  *
  * Singleton manager for all host-side sync logic.
- * Encapsulates all usage of SimpleBroadcastManager for the host window.
+ * Encapsulates all usage of HostBroadcastManager for the host window.
  */
 export class HostSyncManager {
   private static instances: Map<string, HostSyncManager> = new Map();
-  private broadcastManager: SimpleBroadcastManager;
+  private broadcastManager: HostBroadcastManager;
   private sessionId: string;
 
   private constructor(sessionId: string) {
     this.sessionId = sessionId;
-    this.broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'host');
+    this.broadcastManager = HostBroadcastManager.getInstance(sessionId);
   }
 
   /**
@@ -37,6 +37,10 @@ export class HostSyncManager {
     teamDecisions: TeamDecision[];
   }): void {
     this.broadcastManager.sendSlideUpdate(slide, teamData);
+  }
+
+  sendPresenationClose() {
+    this.broadcastManager.sendClosePresentation();
   }
 
   /**
@@ -65,7 +69,7 @@ export class HostSyncManager {
    * @param callback (status) => void
    * @returns unsubscribe function
    */
-  onPresentationStatus(callback: (status: string) => void): () => void {
+  onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
     return this.broadcastManager.onPresentationStatus(callback);
   }
 

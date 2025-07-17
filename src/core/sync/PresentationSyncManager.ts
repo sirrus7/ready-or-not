@@ -1,22 +1,22 @@
-import { SimpleBroadcastManager } from './SimpleBroadcastManager';
+import { PresentationBroadcastManager } from './PresentationBroadcastManager';
 import { Slide, Team, TeamDecision, TeamRoundData } from '@shared/types';
-import { HostCommand, PresentationStatus, JoinInfoMessage } from './types';
+import { HostCommand } from './types';
 import { useEffect, useRef } from 'react';
 
 /**
  * PresentationSyncManager
  *
  * Singleton manager for all presentation-side sync logic.
- * Encapsulates all usage of SimpleBroadcastManager for the presentation window.
+ * Encapsulates all usage of PresentationBroadcastManager for the presentation window.
  */
 export class PresentationSyncManager {
   private static instances: Map<string, PresentationSyncManager> = new Map();
-  private broadcastManager: SimpleBroadcastManager;
+  private broadcastManager: PresentationBroadcastManager;
   private sessionId: string;
 
   private constructor(sessionId: string) {
     this.sessionId = sessionId;
-    this.broadcastManager = SimpleBroadcastManager.getInstance(sessionId, 'presentation');
+    this.broadcastManager = PresentationBroadcastManager.getInstance(sessionId);
   }
 
   /**
@@ -34,11 +34,7 @@ export class PresentationSyncManager {
    * @param callback (slide, teamData) => void
    * @returns unsubscribe function
    */
-  onSlideUpdate(callback: (slide: Slide, teamData?: {
-    teams: Team[];
-    teamRoundData: Record<string, Record<number, TeamRoundData>>;
-    teamDecisions: TeamDecision[];
-  }) => void): () => void {
+  onSlideUpdate(callback: (slide: Slide, teamData?: any) => void): () => void {
     return this.broadcastManager.onSlideUpdate(callback);
   }
 
@@ -69,20 +65,10 @@ export class PresentationSyncManager {
   }
 
   /**
-   * Listen for presentation connection status changes
-   * @param callback (status) => void
-   * @returns unsubscribe function
+   * Notify the host that the presentation video is ready
    */
-  onPresentationStatus(callback: (status: string) => void): () => void {
-    return this.broadcastManager.onPresentationStatus(callback);
-  }
-
-  /**
-   * Listen for video ready events from the presentation
-   * @param callback () => void
-   */
-  onPresentationVideoReady(callback: () => void): void {
-    this.broadcastManager.onPresentationVideoReady(callback);
+  sendPresentationVideoReady(): void {
+    this.broadcastManager.sendPresentationVideoReady();
   }
 
   /**

@@ -9,6 +9,8 @@ import ExitModal from './GameControls/ExitModal';
 import JoinInfoModal from './GameControls/JoinInfoModal';
 import NotesSection from './GameControls/NotesSection';
 import TeamCodesModal from './GameControls/TeamCodesModal';
+import { useNavigate } from 'react-router-dom';
+import { useHostSyncManager } from '@core/sync/HostSyncManager';
 
 interface GameControlsProps {
     joinInfo: { joinUrl: string; qrCodeDataUrl: string } | null;
@@ -18,12 +20,14 @@ interface GameControlsProps {
 }
 
 const GameControls: React.FC<GameControlsProps> = ({ joinInfo, setJoinInfo, isJoinInfoOpen, setIsJoinInfoOpen }) => {
-    const {state, currentSlideData, updateHostNotesForCurrentSlide, setCurrentHostAlertState} = useGameContext();
-
+    const {state, currentSlideData, updateHostNotesForCurrentSlide, setCurrentHostAlertState,} = useGameContext();
+    const hostSyncManager = useHostSyncManager(state.currentSessionId);
     // Modal states
     const [showNotes, setShowNotes] = useState(false);
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
     const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false);
+
+    const navigate = useNavigate();
 
     // Handlers
     const handleNotesToggle = () => setShowNotes(!showNotes);
@@ -32,6 +36,12 @@ const GameControls: React.FC<GameControlsProps> = ({ joinInfo, setJoinInfo, isJo
         if (currentSlideData) {
             updateHostNotesForCurrentSlide(e.target.value);
         }
+    };
+
+    const onConfirmExit = () => {
+        hostSyncManager?.sendPresenationClose();
+        setIsExitConfirmModalOpen(false);
+        navigate('/dashboard');
     };
 
     // FIXED: Safely handle null currentSlideData AND null/undefined hostNotes
@@ -80,6 +90,7 @@ const GameControls: React.FC<GameControlsProps> = ({ joinInfo, setJoinInfo, isJo
             <ExitModal
                 isOpen={isExitConfirmModalOpen}
                 onClose={() => setIsExitConfirmModalOpen(false)}
+                onConfirmExit={onConfirmExit}
             />
         </div>
     );

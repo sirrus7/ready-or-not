@@ -135,7 +135,7 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
         sourceUrl,
         isEnabled: isHost && isVideoSlide && !!sourceUrl
     });
-
+    
     const presentationVideo = usePresentationVideo({
         sessionId: sessionId || null,
         sourceUrl,
