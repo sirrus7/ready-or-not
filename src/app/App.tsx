@@ -1,7 +1,7 @@
 // =====================================================================================
 // src/app/App.tsx - Optimized with React.memo
 // =====================================================================================
-import React, {useEffect} from 'react';
+import React from 'react';
 import ErrorBoundary from '@shared/components/UI/ErrorBoundary';
 import {PDFGenerationProvider} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
 import Router from '@routing/Router';

@@ -113,7 +113,7 @@ const DashboardPage: React.FC = () => {
             navigate(`/host/${game.id}`);
         } else {
             // Navigate to game results/analytics page
-            navigate(`/game-results/${game.id}`);
+            navigate(`/results/${game.id}`);
         }
     };
 
@@ -465,7 +465,7 @@ const DashboardPage: React.FC = () => {
 
                                                         <div className="flex items-center gap-3 ml-6">
                                                             <button
-                                                                onClick={() => navigate(`/game-results/${game.id}`)}
+                                                                onClick={() => navigate(`/results/${game.id}`)}
                                                                 className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
                                                                 title="View results"
                                                             >

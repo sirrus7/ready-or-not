@@ -603,23 +603,16 @@ export class UnifiedEffectsProcessor {
         }
 
         // Determine which investment phase this payoff is for
-        const investmentPhase = getInvestmentPhaseBySlideId(payoffSlide.id);
+        const investmentPhase: string | null = getInvestmentPhaseBySlideId(payoffSlide.id);
         if (!investmentPhase) {
             console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine investment phase for payoff slide ${payoffSlide.id}`);
             return;
         }
 
-        // Determine which option this payoff slide is for using position-based detection
-        const slideOption = this.getPayoffSlideOption(payoffSlide.id, investmentPhase);
-        if (!slideOption) {
-            console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine option for payoff slide ${payoffSlide.id}`);
-            return;
-        }
-
         // Get payoff data for this phase
-        const roundNumber = getRoundForInvestmentPhase(investmentPhase);
+        const roundNumber: 1 | 2 | 3 | null = getRoundForInvestmentPhase(investmentPhase);
         const payoffKey = `rd${roundNumber}-payoff`;
-        const allPayoffsForPhase = allInvestmentPayoffsData[payoffKey] || [];
+        const allPayoffsForPhase: InvestmentPayoff[] = allInvestmentPayoffsData[payoffKey] || [];
         if (allPayoffsForPhase.length === 0) {
             console.warn(`[UnifiedEffectsProcessor] ⚠️ No payoffs defined for ${payoffKey}`);
             return;
@@ -631,7 +624,6 @@ export class UnifiedEffectsProcessor {
             // CONDITIONAL BONUS PAYOFFS: Handle RD-2 and RD-3 synergy bonuses
             // ========================================================================
             if (payoffSlide.id === 137 || payoffSlide.id === 138 || payoffSlide.id === 182 || payoffSlide.id === 183) {
-                console.log(`[UnifiedEffectsProcessor] Processing bonus slide ${payoffSlide.id} for team ${team.name}`);
 
                 // Get all team decisions to check investment combinations
                 const allDecisions: TeamDecision[] = await db.decisions.getBySession(currentDbSession.id);
@@ -852,6 +844,13 @@ export class UnifiedEffectsProcessor {
             // Get team's investment decisions for this phase
             const regularDecision: TeamDecision = teamDecisions[team.id]?.[investmentPhase];
             const immediateDecision: TeamDecision = teamDecisions[team.id]?.[`${investmentPhase}_immediate`];
+
+            // Determine which option this payoff slide is for using position-based detection
+            const slideOption = this.getPayoffSlideOption(payoffSlide.id, investmentPhase);
+            if (!slideOption) {
+                console.warn(`[UnifiedEffectsProcessor] ❌ Could not determine option for payoff slide ${payoffSlide.id}`);
+                return;
+            }
 
             // UPDATED: For strategy investment (option 'A'), check if they bought it in ANY round
             if (slideOption === 'A') {
