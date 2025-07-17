@@ -46,7 +46,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
     const [kpiChanges, setKpiChanges] = useState<KpiChange[]>([]);
     const [hasRolled, setHasRolled] = useState(false);
     const [hasAppliedEffects, setHasAppliedEffects] = useState(false);
-    const [currentPhase, setCurrentPhase] = useState<'loading' | 'showing_teams' | 'rolling' | 'showing_results' | 'applying_effects' | 'complete'>('loading');
+    const [currentPhase, setCurrentPhase] = useState<'loading' | 'rolling' | 'showing_results' | 'complete'>('loading');
     const [affectedTeams, setAffectedTeams] = useState<string[]>([]);
     const [isRolling, setIsRolling] = useState(false);
     const processingRef = useRef(false);
@@ -63,12 +63,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             audioManager.cleanupAudio(investmentId);
         };
     }, [slideId, investmentId, sessionId]);
-
-    useEffect((): void => {
-        if (currentPhase === 'showing_teams' && affectedTeams.length > 0) {
-            audioManager.playIntroAudio(investmentId);
-        }
-    }, [currentPhase, affectedTeams.length]);
 
     const waitForHostResult = async (teamNames: string[]) => {
         setCurrentPhase('rolling');
@@ -97,13 +91,12 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 setHasRolled(true);
                 setCurrentPhase('showing_results');
 
-                setTimeout(async () => {
-                    if (finalResult) {
-                        await applyEffectsAsPresentation(finalResult);
-                        setHasAppliedEffects(true);
-                        setCurrentPhase('complete');
-                    }
-                }, 3000);
+                // Presentation mode: no audio, just apply effects
+                if (finalResult) {
+                    await applyEffectsAsPresentation(finalResult);
+                    setHasAppliedEffects(true);
+                    setCurrentPhase('complete');
+                }
 
                 return;
             }
@@ -174,21 +167,15 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 return;
             }
 
-            // Show teams for 3 seconds, then proceed based on mode
-            setCurrentPhase('showing_teams');
+            // Go straight to rolling if teams exist
             await audioManager.loadIntroAudio(investmentId);
+            setCurrentPhase('rolling');
 
-            timeoutRef.current = setTimeout(() => {
-                if (isHost) {
-                    // HOST: Roll dice and save result
-                    if (!hasRolled && teamNames.length > 0) {
-                        rollDice(teamNames);
-                    }
-                } else {
-                    // PRESENTATION: Wait for host result (don't roll independently)
-                    waitForHostResult(teamNames);
-                }
-            }, 3000);
+            if (isHost) {
+                rollDice(teamNames);
+            } else {
+                waitForHostResult(teamNames);
+            }
 
         } catch (error) {
             console.error('Error initializing double down roll:', error);
@@ -276,6 +263,9 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
         setDiceResult(result);
         setHasRolled(true);
+        // Play intro audio during rolling
+        await audioManager.playIntroAudio(investmentId);
+
         setCurrentPhase('showing_results');
 
         // Only save if host
@@ -283,12 +273,9 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             await saveResult(result);
         }
 
-        // Show results for 3 seconds, then apply effects
-        setTimeout(async () => {
-            // Once we have a result of the dice play the audio on the roll number
-            await audioManager.playResultAudio(investmentId, result.total_value);
-            await applyDoubleDownEffects(result);
-        }, 500);
+        // Immediately play result audio and apply effects
+        await audioManager.playResultAudio(investmentId, result.total_value);
+        await applyDoubleDownEffects(result);
     };
 
     const calculateFinalKpiChanges = (boostPercentage: number): KpiChanges => {
@@ -461,20 +448,15 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             return;
         }
 
-        setCurrentPhase('applying_effects');
-
         try {
             if (isHost) {
                 await applyEffectsAsHost(result);
             } else {
                 await applyEffectsAsPresentation(result);
             }
-
             setHasAppliedEffects(true);
-            setCurrentPhase('complete');
         } catch (error) {
             console.error('[DoubleDownDiceDisplay] Error applying double down effects:', error);
-            setCurrentPhase('complete');
         }
     };
 
@@ -519,33 +501,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                 className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
                             <div className="text-white/80 md:text-lg lg:text-xl xl:text-2xl text-center">Loading double
                                 down data...
-                            </div>
-                        </div>
-                    </div>
-                );
-
-            case 'showing_teams':
-                return (
-                    <div className="flex items-center justify-center min-h-[60vh]">
-                        <div
-                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl max-w-lg">
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
-                                DOWN</h1>
-                            <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-game-orange-300 mb-6 text-center">
-                                {investmentName}
-                            </h2>
-                            <h3 className="text-lg md:text-xl lg:text-2xl xl:text-3xl font-semibold text-white mb-4 text-center">
-                                Teams that doubled down are:
-                            </h3>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                                {affectedTeams.map((team, index) => (
-                                    <div
-                                        key={index}
-                                        className="bg-game-orange-500 text-white px-3 py-1 rounded-full text-sm md:text-base lg:text-lg xl:text-xl font-medium"
-                                    >
-                                        {team}
-                                    </div>
-                                ))}
                             </div>
                         </div>
                     </div>
@@ -613,22 +568,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                             BONUS!</div>
                                     </div>
                                 )}
-                            </div>
-                        </div>
-                    </div>
-                );
-
-            case 'applying_effects':
-                return (
-                    <div className="flex items-center justify-center min-h-[60vh]">
-                        <div
-                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
-                                DOWN</h1>
-                            <div
-                                className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-                            <div className="text-white md:text-lg lg:text-xl xl:text-2xl text-center">Applying
-                                effects...
                             </div>
                         </div>
                     </div>
