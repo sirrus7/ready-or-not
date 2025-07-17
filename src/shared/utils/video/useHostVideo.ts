@@ -166,6 +166,9 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             console.log('[useHostVideo] Playing host video');
             await video.play();
             
+            // Manually dispatch play event to update UI
+            video.dispatchEvent(new Event('play'));
+            
             // Send play command to presentation if connected
             if (presentationIsConnected && hostSyncManager) {
                 console.log('[useHostVideo] Sending play command to presentation');
@@ -379,6 +382,9 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                         // Play the host video
                         console.log('[useHostVideo] Auto-playing host video');
                         await video.play();
+                        
+                        // Manually dispatch play event to update UI
+                        video.dispatchEvent(new Event('play'));
                         
                         // Send play command to presentation if connected
                         if (state.presentationIsConnected && state.hostSyncManager) {
