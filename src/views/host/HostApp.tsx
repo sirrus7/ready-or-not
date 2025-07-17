@@ -90,6 +90,8 @@ const HostApp: React.FC = () => {
 
     const [presentationConnectionStatus, setPresentationConnectionStatus] = useState<PresentationConnectionStatus>('disconnected');
     const presentationTabRef = useRef<Window | null>(null);
+    // TODO - unfortunate this needs to be here, but it's a hack to get the video control API to the slide renderer
+    const videoControlRef = useRef<{ sendCommand: (action: string, data?: any) => void } | null>(null);
 
     const handleVideoEnd = useCallback(() => {
         if (!currentSlideData) return;
@@ -121,7 +123,10 @@ const HostApp: React.FC = () => {
             teamRoundData: state.teamRoundData,
             teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
                 Object.values(teamDecisionsByPhase)
-            )
+            ),
+            onVideoControl: (api: { sendCommand: (action: string, data?: any) => void }) => {
+                videoControlRef.current = api;
+            }
         };
     }, [
         currentSlideData,
@@ -179,9 +184,17 @@ const HostApp: React.FC = () => {
             alert("No active session. Please create or select a game first.");
             return;
         }
+        
+        // Pause the host video when opening presentation
+        if (videoControlRef.current) {
+            videoControlRef.current.sendCommand('pause');
+        }
+        
         const url = `/display/${currentSessionId}`;
         const newTab = window.open(url, '_blank');
         if (newTab) {
+            // TODO - we should invert pass video to slide renderer rather than have it instantiate...honestly child component?? 
+            
             presentationTabRef.current = newTab;
             console.log('[HostApp] setting presentationConnectionStatus to connecting');
             setPresentationConnectionStatus('connecting');
@@ -191,16 +204,6 @@ const HostApp: React.FC = () => {
             setPresentationConnectionStatus('disconnected');
         }
     }, [currentSessionId]);
-
-    // Listen for connection status from HostSyncManager
-    useEffect(() => {
-        if (!hostSyncManager) return;
-        const unsubscribe = hostSyncManager.onPresentationStatus((status: string) => {
-            console.log('[HostApp] received presentation status', status);
-            setPresentationConnectionStatus(status as PresentationConnectionStatus);
-        });
-        return unsubscribe;
-    }, [hostSyncManager]);
 
     // Monitor presentation tab state and set status to disconnected if closed
     useEffect(() => {
@@ -228,7 +231,9 @@ const HostApp: React.FC = () => {
     useEffect(() => {
         if (!hostSyncManager) return;
         const unsubscribe = hostSyncManager.onPresentationStatus((status: string) => {
+            console.log('[HostApp] received presentation status', status);
             setIsPresentationConnected(status === 'connected');
+            setPresentationConnectionStatus(status as PresentationConnectionStatus);
         });
         return unsubscribe;
     }, [hostSyncManager]);

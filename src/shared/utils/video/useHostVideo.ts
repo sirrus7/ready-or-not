@@ -46,7 +46,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
 
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
-    const broadcastManager = sessionId ? HostBroadcastManager.getInstance(sessionId) : null;
+    const broadcastManager = sessionId && isEnabled ? HostBroadcastManager.getInstance(sessionId) : null;
 
     // Sync interval management
     const startSyncInterval = useCallback(() => {
@@ -80,6 +80,15 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             if (!video) return;
             if (status === 'connected') {
                 video.muted = true;
+                
+                // Always send volume settings immediately when connecting
+                broadcastManager.sendCommand('volume', {
+                    time: video.currentTime,
+                    volume: presentationVolume,
+                    muted: presentationMuted,
+                    playbackRate: video.playbackRate,
+                });
+                
                 const wasPlaying = !video.paused;
                 if (wasPlaying && video.readyState >= 3) {
                     broadcastManager.sendCommand('play', {
@@ -97,12 +106,6 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                         muted: presentationMuted,
                     });
                 }
-                broadcastManager.sendCommand('volume', {
-                    time: video.currentTime,
-                    volume: presentationVolume,
-                    muted: presentationMuted,
-                    playbackRate: video.playbackRate,
-                });
             } else {
                 video.muted = false;
                 stopSyncInterval();

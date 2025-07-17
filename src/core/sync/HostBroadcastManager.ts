@@ -46,6 +46,7 @@ export class HostBroadcastManager {
           this.updateConnectionStatus('disconnected');
           break;
         case BroadcastEventType.PRESENTATION_STATUS: {
+          console.log('received presentation status somehow')
           const status = message as PresentationStatus;
           if (status.status === 'ready') {
             this.updateConnectionStatus('connected');
@@ -56,6 +57,7 @@ export class HostBroadcastManager {
           break;
         }
         case BroadcastEventType.PRESENTATION_VIDEO_READY:
+          console.log('received presentation video ready somehow')
           this.onPresentationVideoReadyHandlers.forEach(handler => handler());
           break;
         default:
@@ -94,6 +96,7 @@ export class HostBroadcastManager {
 
   private updateConnectionStatus(status: ConnectionStatus): void {
     if (this.isDestroyed) return;
+    console.log('[HostBroadcastManager - updateConnectionStatus] updating connection status to', status);
     if (this.connectionStatus !== status) {
       this.connectionStatus = status;
       this.statusCallbacks.forEach(callback => {
@@ -187,6 +190,7 @@ export class HostBroadcastManager {
   onPresentationStatus(callback: (status: ConnectionStatus) => void): () => void {
     if (this.isDestroyed) return () => {};
     this.statusCallbacks.add(callback);
+    console.log('[HostBroadcastManager] registering onPresentationStatus');
     // Immediately call with current status
     callback(this.connectionStatus);
     return () => {

@@ -15,7 +15,7 @@ interface VideoElementProps {
     style: React.CSSProperties;
 }
 
-interface UsePresentationVideoReturn {
+type UsePresentationVideoReturn ={
     videoRef: React.RefObject<HTMLVideoElement>;
     isConnectedToHost: boolean;
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
@@ -38,7 +38,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
 
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
-    const broadcastManager = sessionId ? PresentationBroadcastManager.getInstance(sessionId) : null;
+    const broadcastManager = sessionId && isEnabled ? PresentationBroadcastManager.getInstance(sessionId) : null;
 
     // Listen for commands from host
     const onCommand = useCallback((callback: (command: HostCommand) => void) => {

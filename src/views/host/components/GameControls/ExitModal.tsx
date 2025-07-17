@@ -1,9 +1,6 @@
 // src/views/host/components/GameControls/ExitModal.tsx
 import React from 'react';
-import {useNavigate} from 'react-router-dom';
 import Modal from '@shared/components/UI/Modal';
-import {useGameContext} from '@app/providers/GameProvider';
-import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
 import { AppState } from '@shared/types';
 
 interface ExitGameModalProps {

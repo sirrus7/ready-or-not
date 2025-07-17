@@ -6,7 +6,6 @@ import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from 'lucide-react';
 import { usePresentationSyncManager } from '@core/sync/PresentationSyncManager';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
-
 /**
  * Simplified presentation app that immediately displays content from the host.
  */
@@ -166,7 +165,6 @@ const PresentationApp: React.FC = () => {
             {/* <PresentationSyncComponent ... /> */}
             
             <SlideRenderer
-                ref={videoRef}
                 slide={currentSlide}
                 sessionId={sessionId}
                 isHost={false}
@@ -174,6 +172,7 @@ const PresentationApp: React.FC = () => {
                 teams={broadcastedTeamData?.teams || []}
                 teamRoundData={broadcastedTeamData?.teamRoundData || {}}
                 teamDecisions={broadcastedTeamData?.teamDecisions || []}
+                onVideoControl={api => { videoRef.current = api; }}
             />
 
             {/* OVERLAYS for status messages */}
