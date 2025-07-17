@@ -10,12 +10,18 @@ import JoinInfoModal from './GameControls/JoinInfoModal';
 import NotesSection from './GameControls/NotesSection';
 import TeamCodesModal from './GameControls/TeamCodesModal';
 
-const GameControls: React.FC = () => {
+interface GameControlsProps {
+    joinInfo: { joinUrl: string; qrCodeDataUrl: string } | null;
+    setJoinInfo: (info: { joinUrl: string; qrCodeDataUrl: string } | null) => void;
+    isJoinInfoOpen: boolean;
+    setIsJoinInfoOpen: (open: boolean) => void;
+}
+
+const GameControls: React.FC<GameControlsProps> = ({ joinInfo, setJoinInfo, isJoinInfoOpen, setIsJoinInfoOpen }) => {
     const {state, currentSlideData, updateHostNotesForCurrentSlide, setCurrentHostAlertState} = useGameContext();
 
     // Modal states
     const [showNotes, setShowNotes] = useState(false);
-    const [isJoinTeamModalOpen, setIsJoinTeamModalOpen] = useState(false);
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
     const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false);
 
@@ -38,7 +44,7 @@ const GameControls: React.FC = () => {
             <div className="p-3 md:p-4">
                 {/* Action Buttons */}
                 <ActionButtons
-                    onOpenJoinInfo={() => setIsJoinTeamModalOpen(true)}
+                    onOpenJoinInfo={() => setIsJoinInfoOpen(true)}
                     onOpenTeamCodes={() => setIsTeamCodesModalOpen(true)}
                     onToggleNotes={handleNotesToggle}
                     onExitGame={() => setIsExitConfirmModalOpen(true)}
@@ -58,9 +64,11 @@ const GameControls: React.FC = () => {
             <AlertModal />
 
             <JoinInfoModal
-                isOpen={isJoinTeamModalOpen}
-                onClose={() => setIsJoinTeamModalOpen(false)}
+                isOpen={isJoinInfoOpen}
+                onClose={() => setIsJoinInfoOpen(false)}
                 sessionId={state.currentSessionId}
+                joinInfo={joinInfo}
+                setJoinInfo={setJoinInfo}
             />
 
             <TeamCodesModal

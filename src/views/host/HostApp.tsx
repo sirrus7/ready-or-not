@@ -5,7 +5,7 @@ import {useGameContext} from '@app/providers/GameProvider';
 import {AlertCircle, ChevronLeft, ChevronRight} from 'lucide-react';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import PresentationButton from '@views/host/components/GameControls/PresentationButton';
-import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
+import {HostSyncComponent} from '@views/host/components/HostSyncComponent';
 import {SimpleRealtimeManager} from "@core/sync";
 import {ChallengeOption, GameStructure, InvestmentOption, Slide} from "@shared/types";
 import {shouldAutoAdvance} from '@shared/utils/versionUtils';
@@ -81,6 +81,9 @@ const HostApp: React.FC = () => {
 
     const {currentSessionId, gameStructure, current_slide_index} = state;
     const [previousSlideData, setPreviousSlideData] = useState<Slide | null>(null);
+    const [isPresentationConnected, setIsPresentationConnected] = useState(false);
+    const [joinInfo, setJoinInfo] = useState<{ joinUrl: string; qrCodeDataUrl: string } | null>(null);
+    const [isJoinInfoOpen, setIsJoinInfoOpen] = useState(false);
 
     const handleVideoEnd = useCallback(() => {
         if (!currentSlideData) return;
@@ -149,16 +152,6 @@ const HostApp: React.FC = () => {
 
         // Exit early if no current slide
         if (!currentSlideData) return;
-
-        // ✅ EXISTING: Broadcast to presentation display (unchanged)
-        const broadcastManager = SimpleBroadcastManager.getInstance(currentSessionId, 'host');
-        broadcastManager.sendSlideUpdate(currentSlideData, {
-            teams: state.teams,
-            teamRoundData: state.teamRoundData,
-            teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
-                Object.values(teamDecisionsByPhase)
-            )
-        });
 
         // ✅ EXISTING: Broadcast to teams if slide is relevant
         const isInteractiveSlide = currentSlideData.interactive_data_key &&
@@ -273,9 +266,31 @@ const HostApp: React.FC = () => {
         return <div className="min-h-screen ..."><AlertCircle/>Session Not Fully Loaded</div>;
     }
 
+    // Prepare team data for broadcasting
+    const teamData = {
+        teams: state.teams,
+        teamRoundData: state.teamRoundData,
+        teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
+            Object.values(teamDecisionsByPhase)
+        )
+    };
+
     return (
         <div
             className="h-screen w-screen bg-gradient-to-br from-gray-200 to-gray-400 p-4 flex flex-col overflow-hidden">
+            
+            {/* Host Sync Component for presentation communication */}
+            <HostSyncComponent
+                sessionId={currentSessionId}
+                currentSlide={currentSlideData}
+                teamData={teamData}
+                joinInfo={joinInfo}
+                isJoinInfoOpen={isJoinInfoOpen}
+                onPresentationStatusChange={setIsPresentationConnected}
+                onPresentationVideoReady={() => {
+                    console.log('[HostApp] Presentation video ready');
+                }}
+            />
 
             {/* Development Testing Tools - Complete Version */}
             {import.meta.env.DEV && (
@@ -366,7 +381,12 @@ const HostApp: React.FC = () => {
 
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
                 <div className="lg:col-span-4 xl:col-span-3 min-h-0">
-                    <GamePanel/>
+                    <GamePanel 
+                        joinInfo={joinInfo}
+                        setJoinInfo={setJoinInfo}
+                        isJoinInfoOpen={isJoinInfoOpen}
+                        setIsJoinInfoOpen={setIsJoinInfoOpen}
+                    />
                 </div>
                 <div className="lg:col-span-8 xl:col-span-9 flex flex-col min-h-0">
                     {/* Stable Slide Display Area with fixed aspect ratio */}
@@ -378,7 +398,7 @@ const HostApp: React.FC = () => {
                         </div>
                         {currentSlideData && (
                             <div className="absolute top-3 right-3 z-50 w-48">
-                                <PresentationButton/>
+                                <PresentationButton isConnected={isPresentationConnected} />
                             </div>
                         )}
                     </div>

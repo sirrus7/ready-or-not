@@ -1,10 +1,10 @@
 // src/views/presentation/PresentationApp.tsx
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useRef} from 'react';
 import {useParams} from 'react-router-dom';
 import {Slide} from '@shared/types/game';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Monitor, RefreshCw, Wifi, WifiOff, Maximize, Minimize} from 'lucide-react';
-import {SimpleBroadcastManager} from '@core/sync/SimpleBroadcastManager';
+import {PresentationSyncComponent} from '@views/presentation/components/PresentationSyncComponent';
 import {HostCommand} from "@core/sync/types";
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
@@ -32,11 +32,54 @@ const PresentationApp: React.FC = () => {
         document.title = "Ready or Not - Presentation";
     }, []);
 
-    const broadcastManager = sessionId ?
-        SimpleBroadcastManager.getInstance(sessionId, 'presentation') : null;
+    const videoRef = useRef<{ sendCommand: (action: string, data?: any) => void } | null>(null);
 
     const handleVideoEnd = () => {
         if (!currentSlide) return;
+    };
+
+    const handleSlideUpdate = (slide: Slide, teamData?: {
+        teams: Team[];
+        teamRoundData: Record<string, Record<number, TeamRoundData>>;
+        teamDecisions: TeamDecision[];
+    }) => {
+        setCurrentSlide(slide);
+        setIsConnectedToHost(true);
+        setStatusMessage('Connected - Presentation Display Active');
+        setConnectionError(false);
+        
+        if (teamData) {
+            setBroadcastedTeamData(teamData);
+        }
+    };
+
+    const handleJoinInfoUpdate = (info: { joinUrl: string; qrCodeDataUrl: string } | null) => {
+        setJoinInfo(info);
+    };
+
+    const handleHostCommand = (command: HostCommand) => {
+        if (!videoRef.current) return;
+        
+        switch (command.action) {
+            case 'play':
+            case 'pause':
+            case 'seek':
+            case 'reset':
+            case 'volume':
+                videoRef.current.sendCommand(command.action, command.data);
+                break;
+            case 'close_presentation':
+                window.close();
+                break;
+        }
+    };
+
+    const handleConnectionStatusChange = (connected: boolean) => {
+        setIsConnectedToHost(connected);
+        if (!connected) {
+            setStatusMessage('Connection lost - waiting for host...');
+            setConnectionError(true);
+        }
     };
 
     const toggleFullscreen = async () => {
@@ -62,93 +105,39 @@ const PresentationApp: React.FC = () => {
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    useEffect(() => {
-        const handleBeforeUnload = () => {
-            // The broadcast manager's destroy method will handle sending disconnect message
-            if (broadcastManager) {
-                broadcastManager.destroy();
-            }
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [broadcastManager]);
 
     useEffect(() => {
-        // TODO - can we move this functionality somewhere like useVideoSyncManager
-        if (!broadcastManager) return;
-        const unsubscribeSlides = broadcastManager.onSlideUpdate((slide: Slide, teamData?: any) => {
-            setCurrentSlide(slide);
-            setIsConnectedToHost(true);
-            setStatusMessage('Connected - Presentation Display Active');
-            setConnectionError(false);
-
-            // NEW: Update team data if provided
-            if (teamData) {
-                setBroadcastedTeamData(teamData);
-            }
-        });
-
-        // Join info handler
-        const joinInfoUnsubscribe = broadcastManager.onJoinInfo((joinUrl, qrCodeDataUrl) => {
-            if (joinUrl && qrCodeDataUrl) {
-                // Show join info
-                setJoinInfo({ joinUrl, qrCodeDataUrl });
-            } else {
-                // Close join info (empty strings mean close)
-                setJoinInfo(null);
-            }
-        });
-
-        const handleHostCommand = (command: HostCommand) => {
-            if (command.action === 'close_presentation') {
-                window.close();
-            }
-        };
-        const unsubscribeCommands = broadcastManager.onHostCommand(handleHostCommand);
-        return () => {
-            unsubscribeSlides();
-            joinInfoUnsubscribe();
-            unsubscribeCommands();
-        };
-    }, [broadcastManager]);
-
-    useEffect(() => {
-        if (!sessionId || !broadcastManager) return;
+        if (!sessionId) return;
 
         const connectionTimeout = setTimeout(() => {
             if (!isConnectedToHost) {
                 setConnectionError(true);
                 setStatusMessage('Unable to connect to host. Please ensure the host dashboard is open.');
             }
-        }, 500);
+        }, 5000);
 
         return () => clearTimeout(connectionTimeout);
-    }, [sessionId, broadcastManager, isConnectedToHost]);
-
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && broadcastManager && !isConnectedToHost) {
-                broadcastManager.sendStatus('ready');
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [broadcastManager, isConnectedToHost]);
+    }, [sessionId, isConnectedToHost]);
 
     const handleRetry = () => {
         setConnectionError(false);
         setStatusMessage('Reconnecting...');
-
-        if (broadcastManager) {
-            broadcastManager.sendStatus('ready');
-        }
+        // The sync component will handle reconnection
     };
 
     return (
         <div className="h-screen w-screen overflow-hidden bg-black relative">
+            {/* Presentation Sync Component */}
+            <PresentationSyncComponent
+                sessionId={sessionId}
+                onSlideUpdate={handleSlideUpdate}
+                onJoinInfoUpdate={handleJoinInfoUpdate}
+                onHostCommand={handleHostCommand}
+                onConnectionStatusChange={handleConnectionStatusChange}
+            />
+            
             <SlideRenderer
+                ref={videoRef}
                 slide={currentSlide}
                 sessionId={sessionId}
                 isHost={false}
