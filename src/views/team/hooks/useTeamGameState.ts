@@ -9,7 +9,6 @@ import {useTeamGameContext} from "@app/providers/TeamGameProvider";
 interface UseTeamGameStateProps {
     sessionId: string | null;
     loggedInTeamId: string | null;
-    // Pass in centralized adjustments instead of managing separately
     permanentAdjustments?: PermanentKpiAdjustment[];
     isLoadingAdjustments?: boolean;
 }
@@ -68,7 +67,7 @@ export const useTeamGameState = ({
     const resetDebounceRef = useRef<NodeJS.Timeout | null>(null);
     const fetchDebounceRef = useRef<NodeJS.Timeout | null>(null);
     const teamGameContext = useTeamGameContext();
-    const isSlideAfterKpiReset = (slide: any): boolean => {
+    const isSlideAfterKpiReset: (slide: Slide) => boolean = (slide: Slide): boolean => {
         // Slide 143 follows 142 (KPI reset), Slide 68 follows 67 (KPI reset)
         return slide.id === 143 || slide.id === 68;
     };
@@ -87,20 +86,18 @@ export const useTeamGameState = ({
     // ========================================================================
     const fetchCurrentKpis = useCallback(async () => {
         if (!sessionId || !loggedInTeamId || !currentActiveSlide) return;
-        console.log("[useTeamGameState] currentActiveSlide: ", currentActiveSlide)
-
         setIsLoadingKpis(true);
         try {
-            let targetRound = (currentActiveSlide?.round_number as 1 | 2 | 3) || 1;
+            let targetRound: 1 | 2 | 3 = (currentActiveSlide?.round_number as 1 | 2 | 3) || 1;
 
             // PRODUCTION FIX: For KPI reset slides, wait for processing to complete
             if (targetRound > 1) {
-                let newRoundData = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
+                let newRoundData: TeamRoundData | null = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
 
                 // CRITICAL FIX: If this is a KPI reset slide and no data exists yet, wait for it
                 if (!newRoundData && (currentActiveSlide.type === 'kpi_reset' || isSlideAfterKpiReset(currentActiveSlide))) {
                     // Retry logic: Wait up to 3 seconds for KPI reset processing to complete
-                    let attempts = 0;
+                    let attempts: number = 0;
                     const maxAttempts = 6; // 6 attempts * 500ms = 3 seconds
 
                     while (attempts < maxAttempts && !newRoundData) {
@@ -131,9 +128,7 @@ export const useTeamGameState = ({
             }
 
             // Fetch data for the determined target round
-            console.log(`[useTeamGameState] 📊 Fetching KPIs for team ${loggedInTeamId}, round ${targetRound}`);
-            const kpis = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
-            console.log(`[useTeamGameState] 📊 Received KPIs:`, kpis);
+            const kpis: TeamRoundData | null = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
             setCurrentTeamKpis(kpis);
         } catch (error) {
             console.error('📊 [useTeamGameState] Error fetching KPIs:', error);
@@ -146,11 +141,8 @@ export const useTeamGameState = ({
     const handleSlideUpdate = useCallback((payload: SessionPayload) => {
         const updatedSession = payload.new;
 
-        console.log('📊 [useTeamGameState] handleSlideUpdate - updatedSession:', updatedSession);
-
         if (updatedSession?.current_slide_index !== undefined && gameStructure) {
             const newSlide = gameStructure.slides[updatedSession.current_slide_index];
-            console.log('📊 [useTeamGameState] handleSlideUpdate - newSlide:', newSlide);
             if (newSlide) {
                 setCurrentActiveSlide(newSlide);
 
@@ -200,29 +192,17 @@ export const useTeamGameState = ({
             return;
         }
 
-        console.log(`[useTeamGameState] 📱 Received ${event.type}:`, event.data);
-
         switch (event.type) {
             case TeamGameEventType.INTERACTIVE_SLIDE_DATA:
-                console.log('🔍 Processing interactive_slide_data event:', event.data);
-
                 // Set the interactive data
                 setInteractiveData(event.data);
 
-                // Handle the decision time logic (previously in decision_time case)
-                console.log('🔍 gameStructure exists:', !gameStructure);
-                console.log('🔍 Looking for slideId:', event.data?.slideId);
-
                 if (event.data?.slideId && gameStructure) {
-                    const slide = gameStructure.slides.find(s => s.id === event.data.slideId);
-
-                    console.log('🔍 Found slide:', slide);
-                    console.log('🔍 Slide IDs in structure:', gameStructure.slides.slice(0, 10).map(s => s.id));
+                    const slide: Slide | undefined = gameStructure.slides.find(s => s.id === event.data.slideId);
 
                     if (slide) {
                         // FIX: Find the INDEX of the slide, not the ID
-                        const slideIndex = gameStructure.slides.findIndex(s => s.id === event.data.slideId);
-                        console.log('🔍 Calling handleSlideUpdate with INDEX:', slideIndex, 'for slide ID:', slide.id);
+                        const slideIndex: number = gameStructure.slides.findIndex(s => s.id === event.data.slideId);
 
                         // Pass the INDEX, not the ID
                         handleSlideUpdate({new: {current_slide_index: slideIndex}});
@@ -260,7 +240,6 @@ export const useTeamGameState = ({
                 handleSessionDelete({});
                 break;
             case TeamGameEventType.DECISION_CLOSED:
-                console.log(`[useTeamGameState] 🚫 Decision period ended for: ${event.data?.decisionKey}`);
                 if (event.data?.decisionKey) {
                     setClosedDecisionKeys(prev => new Set([...prev, event.data.decisionKey]));
                 }
@@ -271,8 +250,6 @@ export const useTeamGameState = ({
     // NEW: Custom channel subscription - replaces all database subscriptions
     useEffect(() => {
         if (!sessionId || !loggedInTeamId) return;
-
-        console.log(`[useTeamGameState] 🔗 Connecting to team-events-${sessionId}`);
 
         const channel = supabase.channel(`team-events-${sessionId}`);
 
@@ -289,8 +266,6 @@ export const useTeamGameState = ({
             switch (status) {
                 case 'SUBSCRIBED':
                     setConnectionStatus('connected');
-                    console.log(`[useTeamGameState] ✅ Connected to team events`);
-
                     // Load/sync state on every connection (initial + reconnect)
                     if (sessionId && loggedInTeamId) {
                         const syncState = async () => {
@@ -326,7 +301,6 @@ export const useTeamGameState = ({
         });
 
         return () => {
-            console.log(`[useTeamGameState] 🔌 Disconnecting team events`);
             supabase.removeChannel(channel);
         };
     }, [sessionId, loggedInTeamId]);

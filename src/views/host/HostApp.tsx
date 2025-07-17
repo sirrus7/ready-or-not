@@ -1,17 +1,19 @@
 // src/views/host/HostApp.tsx - REFACTOR: Final, stable layout fix
-import React, {useCallback, useEffect, useMemo, useState, useRef} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import GamePanel from '@views/host/components/GamePanel';
 import {useGameContext} from '@app/providers/GameProvider';
 import {AlertCircle, ChevronLeft, ChevronRight} from 'lucide-react';
+import type {SlideRendererProps} from '@shared/components/Video/SlideRenderer';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
-import PresentationButton, { ConnectionStatus as PresentationConnectionStatus } from '@views/host/components/GameControls/PresentationButton';
-import { useHostSyncManager } from '@core/sync/HostSyncManager';
+import PresentationButton, {
+    ConnectionStatus as PresentationConnectionStatus
+} from '@views/host/components/GameControls/PresentationButton';
+import {useHostSyncManager} from '@core/sync/HostSyncManager';
 import {SimpleRealtimeManager} from "@core/sync";
 import {ChallengeOption, GameStructure, InvestmentOption, Slide} from "@shared/types";
 import {shouldAutoAdvance} from '@shared/utils/versionUtils';
-import type {SlideRendererProps} from '@shared/components/Video/SlideRenderer';
-import { TeamGameEventType } from '@core/sync/SimpleRealtimeManager';
-import { videoDebug } from '@shared/utils/video/debug';
+import {TeamGameEventType} from '@core/sync/SimpleRealtimeManager';
+import {videoDebug} from '@shared/utils/video/debug';
 
 const broadcastInteractiveSlideData = (
     realtimeManager: SimpleRealtimeManager,
@@ -65,11 +67,8 @@ const broadcastInteractiveSlideData = (
         interactiveData.rd3Investments = gameStructure.all_investment_options['rd3-invest'] || [];
     }
 
-    console.log('📱 Broadcasting interactive slide data for:', dataKey);
     realtimeManager.sendInteractiveSlideData(interactiveData);
 };
-
-type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 const HostApp: React.FC = () => {
     const {
@@ -136,10 +135,6 @@ const HostApp: React.FC = () => {
         state.teamRoundData,
         state.teamDecisions
     ]);
-
-    useEffect(() => {
-        console.log('presentationConnectionStatus', presentationConnectionStatus);
-    }, [presentationConnectionStatus]);
 
     useEffect(() => {
         document.title = "Ready or Not - Host";
@@ -256,12 +251,11 @@ const HostApp: React.FC = () => {
     // Sync: Presentation connection status
     useEffect(() => {
         if (!hostSyncManager) return;
-        const unsubscribe = hostSyncManager.onPresentationStatus((status: string) => {
+        return hostSyncManager.onPresentationStatus((status: string) => {
             videoDebug.videoLog('HostApp', `received presentation status: ${status}`);
             setIsPresentationConnected(status === 'connected');
             setPresentationConnectionStatus(status as PresentationConnectionStatus);
         });
-        return unsubscribe;
     }, [hostSyncManager]);
 
     // Sync: Presentation video ready

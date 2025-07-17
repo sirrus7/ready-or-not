@@ -8,7 +8,7 @@ const NoTeamsMessage: React.FC<NoTeamsMessageProps> = ({sessionId, onRefresh}) =
     return (
         <div className="text-center">
             <p className="text-yellow-400 text-sm my-4">
-                No teams found for this session ID. Please ensure the Session ID in your URL is correct and that the
+                No teams found for this session ID {sessionId}. Please ensure the Session ID in your URL is correct and that the
                 facilitator has started the game.
             </p>
             <button

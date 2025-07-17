@@ -43,8 +43,6 @@ export const useInvestmentPricing = ({
         setError(null);
 
         try {
-            console.log(`[useInvestmentPricing] Loading pricing for team ${teamId}, round ${currentRound}`);
-
             const result = await ContinuationPricingEngine.calculateContinuationPricing(
                 sessionId,
                 teamId,
@@ -52,8 +50,6 @@ export const useInvestmentPricing = ({
             );
 
             setPricingData(result);
-            console.log(`[useInvestmentPricing] ✅ Loaded pricing data:`, result);
-
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to load pricing data';
             console.error(`[useInvestmentPricing] ❌ Error loading pricing:`, err);

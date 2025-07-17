@@ -89,9 +89,7 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
     // ✅ Process and combine investment data WITH CONTINUATION PRICING
     useEffect(() => {
         const processInvestments = async () => {
-            console.log('🔍 processInvestments called:', {regularDecisions, immediateDecisions});
             if (!gameStructure || (!regularDecisions && !immediateDecisions)) {
-                console.log('🔍 Early return - no data');
                 setInvestments([]);
                 setTotalSpent(0);
                 return;
@@ -201,7 +199,6 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
             finalInvestments.sort((a, b) => a.id.localeCompare(b.id));
 
             setInvestments(finalInvestments);
-            console.log('🔍 Final totalCost:', totalCost);
             setTotalSpent(totalCost);
         };
 

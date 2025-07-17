@@ -1,7 +1,8 @@
 // src/components/Game/TeamLogin/hooks/useTeamLogin.ts - Main login logic
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useMemo} from 'react';
 import {db} from '@shared/services/supabase';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
+import {Team} from "@shared/types";
 
 interface UseTeamLoginProps {
     sessionId: string;
@@ -40,7 +41,7 @@ export const useTeamLogin = ({sessionId, onLoginSuccess}: UseTeamLoginProps): Us
         error: teamsError,
         refresh: refetchTeams
     } = useSupabaseQuery(
-        () => db.teams.getBySession(sessionId),
+        (): Promise<Team[]> => db.teams.getBySession(sessionId),
         [sessionId],
         {
             cacheKey: `teams-${sessionId}`,
@@ -54,7 +55,7 @@ export const useTeamLogin = ({sessionId, onLoginSuccess}: UseTeamLoginProps): Us
     );
 
     // Safely handle teams data
-    const availableTeams = availableTeamsData || [];
+    const availableTeams: Team[] = useMemo(() => availableTeamsData || [], [availableTeamsData]);
 
     // Set initial team selection when teams load
     useEffect(() => {

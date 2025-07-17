@@ -53,11 +53,8 @@ const AlertModal: React.FC = () => {
      * - Logging helps debug if navigation isn't working
      */
     const handleNextClick = async () => {
-        console.log('[AlertModal] Next button clicked for alert:', state.currentHostAlert?.title);
-
         try {
             await clearHostAlert();
-            console.log('[AlertModal] clearHostAlert completed successfully');
         } catch (error) {
             console.error('[AlertModal] Error in clearHostAlert:', error);
         }
@@ -78,7 +75,6 @@ const AlertModal: React.FC = () => {
      * - GameContext handles dismissal tracking internally
      */
     const handleCloseClick = () => {
-        console.log('[AlertModal] Close button clicked');
         setCurrentHostAlertState(null);
     };
 
@@ -89,7 +85,6 @@ const AlertModal: React.FC = () => {
      * Same behavior as Close button
      */
     const handleOverlayClick = () => {
-        console.log('[AlertModal] Overlay clicked');
         setCurrentHostAlertState(null);
     };
 

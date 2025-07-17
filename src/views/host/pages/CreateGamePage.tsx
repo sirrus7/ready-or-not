@@ -133,7 +133,7 @@ const CreateGamePage: React.FC = () => {
                 try {
                     await sessionManager.deleteSession(draftSessionId);
                 } catch {
-                    console.debug('Draft session cleanup completed');
+                    console.warn('Draft session cleanup completed');
                 }
             }
         };
@@ -236,7 +236,6 @@ const CreateGamePage: React.FC = () => {
             }
             navigate('/dashboard', {replace: true});
         } catch {
-            console.debug('Cancel cleanup completed');
             navigate('/dashboard', {replace: true});
         } finally {
             setIsCancelling(false);
