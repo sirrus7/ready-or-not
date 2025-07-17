@@ -1,6 +1,5 @@
 // src/shared/components/DoubleDownDice/DoubleDownDiceDisplay.tsx
 import React, {useState, useEffect, useRef} from 'react';
-import {TrendingUp} from 'lucide-react';
 import {DoubleDownEffectsProcessor} from '@core/game/DoubleDownEffectsProcessor';
 import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
@@ -460,7 +459,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         payoffForOption.effects.forEach(effect => {
             const boostedValue = effect.change_value * boostMultiplier;
 
-            switch(effect.kpi) {
+            switch (effect.kpi) {
                 case 'capacity':
                     capacityChange = Math.ceil(Math.abs(boostedValue) / 250) * 250 * Math.sign(boostedValue);
                     break;
@@ -674,11 +673,11 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                     <div className="flex items-center justify-center min-h-[60vh]">
                         <div
                             className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
-                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
                                 DOWN</h1>
                             <div
                                 className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-                            <div className="text-white/80 text-center">Loading double down data...</div>
+                            <div className="text-white/80 md:text-lg lg:text-xl xl:text-2xl text-center">Loading double down data...</div>
                         </div>
                     </div>
                 );
@@ -688,24 +687,23 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                     <div className="flex items-center justify-center min-h-[60vh]">
                         <div
                             className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl max-w-lg">
-                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
                                 DOWN</h1>
-                            <h2 className="text-2xl font-bold text-game-orange-300 mb-6 text-center">
+                            <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-game-orange-300 mb-6 text-center">
                                 {investmentName}
                             </h2>
-                            <h3 className="text-lg font-semibold text-white mb-4 text-center">
-                                Teams Doubling Down:
+                            <h3 className="text-lg md:text-xl lg:text-2xl xl:text-3xl font-semibold text-white mb-4 text-center">
+                                Teams that doubled down are:
                             </h3>
-                            <div className="flex flex-wrap gap-2 justify-center mb-6">
+                            <div className="flex flex-wrap gap-2 justify-center">
                                 {affectedTeams.map((team, index) => (
-                                    <div key={index}
-                                         className="bg-game-orange-500/20 border border-game-orange-400/50 rounded-lg px-3 py-1">
-                                        <span className="text-white font-medium">{team}</span>
+                                    <div
+                                        key={index}
+                                        className="bg-game-orange-500 text-white px-3 py-1 rounded-full text-sm md:text-base lg:text-lg xl:text-xl font-medium"
+                                    >
+                                        {team}
                                     </div>
                                 ))}
-                            </div>
-                            <div className="text-white/80 text-center">
-                                Rolling dice automatically in 3... 2... 1...
                             </div>
                         </div>
                     </div>
@@ -716,19 +714,17 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                     <div className="flex items-center justify-center min-h-[60vh]">
                         <div
                             className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
-                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
                                 DOWN</h1>
-                            <h2 className="text-2xl font-bold text-game-orange-300 mb-6 text-center">
+                            <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-game-orange-300 mb-6 text-center">
                                 {investmentName}
                             </h2>
-                            <h3 className="text-lg font-semibold text-white mb-6 text-center">Rolling Dice...</h3>
-                            <div className="flex gap-6 justify-center">
-                                <div className="bg-transparent">
-                                    <Dice3D value={diceResult?.dice1_value || 1} isRolling={isRolling}/>
-                                </div>
-                                <div className="bg-transparent">
-                                    <Dice3D value={diceResult?.dice2_value || 1} isRolling={isRolling}/>
-                                </div>
+                            <div className="flex justify-center gap-4 md:gap-6 lg:gap-8 xl:gap-12 mb-8">
+                                <Dice3D value={diceResult?.dice1_value || 1} isRolling={isRolling}/>
+                                <Dice3D value={diceResult?.dice2_value || 1} isRolling={isRolling}/>
+                            </div>
+                            <div className="text-white/80 md:text-lg lg:text-xl xl:text-2xl text-center animate-pulse">
+                                Rolling the dice...
                             </div>
                         </div>
                     </div>
@@ -739,42 +735,35 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                     <div className="flex items-center justify-center min-h-[60vh]">
                         <div
                             className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
-                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
                                 DOWN</h1>
-                            <h2 className="text-2xl font-bold text-game-orange-300 mb-6 text-center">
+                            <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-game-orange-300 mb-6 text-center">
                                 {investmentName}
                             </h2>
-                            <h3 className="text-lg font-semibold text-white mb-6 text-center">Final Result:</h3>
-
-                            <div className="flex gap-6 justify-center mb-8">
-                                <div className="bg-transparent">
-                                    <Dice3D value={diceResult?.dice1_value || 1} isRolling={false}/>
-                                </div>
-                                <div className="bg-transparent">
-                                    <Dice3D value={diceResult?.dice2_value || 1} isRolling={false}/>
-                                </div>
+                            <div className="flex justify-center gap-4 md:gap-6 lg:gap-8 xl:gap-12 mb-8">
+                                <Dice3D value={diceResult?.dice1_value || 1} isRolling={false}/>
+                                <Dice3D value={diceResult?.dice2_value || 1} isRolling={false}/>
                             </div>
-
-                            <div className="text-center">
+                            <div className="text-center mb-6">
                                 {diceResult?.boost_percentage === 0 && (
-                                    <div className="text-3xl font-bold text-red-400 animate-pulse">
-                                        NO BONUS!
+                                    <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-red-400">
+                                        NO BONUS
                                     </div>
                                 )}
                                 {diceResult?.boost_percentage === 25 && (
-                                    <div className="text-3xl font-bold text-yellow-400">
+                                    <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-yellow-400">
                                         25% BONUS!
                                     </div>
                                 )}
                                 {diceResult?.boost_percentage === 75 && (
-                                    <div className="text-4xl font-bold text-green-400 animate-pulse">
+                                    <div className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-yellow-400 animate-pulse">
                                         75% BONUS!
                                     </div>
                                 )}
                                 {diceResult?.boost_percentage === 100 && (
-                                    <div className="text-5xl font-bold text-green-400 animate-bounce">
+                                    <div className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-green-400 animate-bounce">
                                         JACKPOT!
-                                        <div className="text-3xl mt-2">100% BONUS!</div>
+                                        <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl mt-2">100% BONUS!</div>
                                     </div>
                                 )}
                             </div>
@@ -787,11 +776,11 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                     <div className="flex items-center justify-center min-h-[60vh]">
                         <div
                             className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
-                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
                                 DOWN</h1>
                             <div
                                 className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-                            <div className="text-white text-center">Applying effects...</div>
+                            <div className="text-white md:text-lg lg:text-xl xl:text-2xl text-center">Applying effects...</div>
                         </div>
                     </div>
                 );
@@ -802,10 +791,10 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                         <div className="flex items-center justify-center min-h-[60vh]">
                             <div
                                 className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
-                                <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
                                     DOWN</h1>
-                                <div className="text-xl text-white/80 text-center">
-                                    No teams doubled down on this investment
+                                <div className="text-xl md:text-2xl lg:text-3xl xl:text-4xl text-white/80 text-center">
+                                    No teams doubled down on {investmentName}
                                 </div>
                             </div>
                         </div>
@@ -816,80 +805,72 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                     <div className="flex items-center justify-center min-h-[60vh]">
                         <div
                             className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl max-w-4xl">
-                            <h1 className="text-4xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
                                 DOWN</h1>
-                            <h2 className="text-2xl font-bold text-game-orange-300 mb-6 text-center">
+                            <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-game-orange-300 mb-6 text-center">
                                 {investmentName}
                             </h2>
-
                             {diceResult && (
                                 <>
-                                    <div className="flex gap-6 justify-center mb-8">
-                                        <div className="bg-transparent">
-                                            <Dice3D value={diceResult?.dice1_value || 1} isRolling={false}/>
-                                        </div>
-                                        <div className="bg-transparent">
-                                            <Dice3D value={diceResult?.dice2_value || 1} isRolling={false}/>
-                                        </div>
+                                    <div className="flex justify-center gap-4 md:gap-6 lg:gap-8 xl:gap-12 mb-8">
+                                        <Dice3D value={diceResult.dice1_value} isRolling={false}/>
+                                        <Dice3D value={diceResult.dice2_value} isRolling={false}/>
                                     </div>
-
                                     <div className="text-center mb-8">
                                         {diceResult.boost_percentage === 0 && (
-                                            <div className="text-3xl font-bold text-red-400">
-                                                NO BONUS!
+                                            <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-red-400">
+                                                NO BONUS
                                             </div>
                                         )}
                                         {diceResult.boost_percentage === 25 && (
-                                            <div className="text-3xl font-bold text-yellow-400">
+                                            <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-yellow-400">
                                                 25% BONUS!
                                             </div>
                                         )}
                                         {diceResult.boost_percentage === 75 && (
-                                            <div className="text-4xl font-bold text-green-400">
+                                            <div className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-yellow-400">
                                                 75% BONUS!
                                             </div>
                                         )}
                                         {diceResult.boost_percentage === 100 && (
-                                            <div className="text-5xl font-bold text-green-400">
+                                            <div className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-green-400">
                                                 JACKPOT!
-                                                <div className="text-3xl mt-2">100% BONUS!</div>
+                                                <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl mt-2">100% BONUS!</div>
                                             </div>
                                         )}
                                     </div>
-
-                                    {diceResult.boost_percentage > 0 && (
-                                        <div className="space-y-6">
-                                            {/* KPI Changes */}
-                                            <div className="bg-black/50 rounded-xl p-6 border border-white/20">
-                                                <h3 className="text-xl font-bold text-white mb-4 text-center flex items-center justify-center gap-2">
-                                                    <TrendingUp size={24}/>
-                                                    KPI Changes
-                                                </h3>
-
-                                                {kpiChanges.length > 0 && (
-                                                    <div className="grid grid-cols-2 gap-4 text-center">
-                                                        {kpiChanges[0]?.changes.map((change, changeIndex) => (
-                                                            <div key={changeIndex} className="text-lg font-bold">
+                                    {kpiChanges.length > 0 && (
+                                        <div className="bg-black/50 rounded-xl p-6 mb-8">
+                                            <h3 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-white mb-4 text-center">KPI Changes</h3>
+                                            <div className="grid gap-4">
+                                                {kpiChanges.map((teamChange, teamIndex) => (
+                                                    <div key={teamIndex} className="text-center">
+                                                        <div className="flex flex-wrap gap-2 justify-center">
+                                                            {teamChange.changes.map((change, changeIndex) => (
+                                                                <span key={changeIndex} className="text-base md:text-lg lg:text-xl xl:text-2xl">
                                                                 {formatKpiChange(change)}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Teams */}
-                                            <div className="bg-black/50 rounded-xl p-6 border border-white/20">
-                                                <h4 className="text-xl font-bold text-white mb-4 text-center">
-                                                    Teams that doubled down are:
-                                                </h4>
-                                                <div className="flex flex-wrap gap-3 justify-center">
-                                                    {affectedTeams.map((team, index) => (
-                                                        <div key={index}
-                                                             className="bg-game-orange-500/20 border border-game-orange-400/50 rounded-lg px-4 py-2">
-                                                            <span className="text-white font-medium">{team}</span>
+                                                            </span>
+                                                            ))}
                                                         </div>
-                                                    ))}
-                                                </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {affectedTeams.length > 0 && (
+                                        <div className="bg-black/50 rounded-xl p-6">
+                                            <h3 className="text-lg md:text-xl lg:text-2xl xl:text-3xl font-semibold text-white mb-4 text-center">
+                                                Teams that doubled down are:
+                                            </h3>
+                                            <div className="flex flex-wrap gap-2 justify-center">
+                                                {affectedTeams.map((team, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="bg-game-orange-500 text-white px-3 py-1 rounded-full text-sm md:text-base lg:text-lg xl:text-xl font-medium"
+                                                    >
+                                                        <span className="text-white font-medium">{team}</span>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     )}
