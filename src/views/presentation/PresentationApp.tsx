@@ -10,7 +10,9 @@ import {Team, TeamDecision, TeamRoundData} from "@shared/types";
  * Simplified presentation app that immediately displays content from the host.
  */
 const PresentationApp: React.FC = () => {
+    console.log('[PresentationApp] Component rendered');
     const {sessionId} = useParams<{ sessionId: string }>();
+    console.log('[PresentationApp] SessionId:', sessionId);
     const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
     const [isConnectedToHost, setIsConnectedToHost] = useState(false);
     const [statusMessage, setStatusMessage] = useState('Initializing display...');
@@ -27,7 +29,38 @@ const PresentationApp: React.FC = () => {
     } | null>(null);
 
     const syncManager = usePresentationSyncManager(sessionId || null);
+    console.log('[PresentationApp] SyncManager:', syncManager ? 'created' : 'null');
     const connectionTimeoutRef = useRef<NodeJS.Timeout>();
+    const isInitializedRef = useRef(false);
+    const previousConnectionStateRef = useRef<boolean>(false);
+
+    // Log state changes
+    useEffect(() => {
+        const currentState = { isConnectedToHost, currentSlide: !!currentSlide, connectionError };
+        const previousState = previousConnectionStateRef.current;
+        
+        if (previousState !== isConnectedToHost) {
+            console.log('[PresentationApp] Connection status changed:', {
+                from: previousState,
+                to: isConnectedToHost,
+                hasSlide: !!currentSlide,
+                hasError: connectionError
+            });
+            previousConnectionStateRef.current = isConnectedToHost;
+        }
+    }, [isConnectedToHost, currentSlide, connectionError]);
+
+    // Track component lifecycle
+    useEffect(() => {
+        console.log('[PresentationApp] Component mounted, isInitialized:', isInitializedRef.current);
+        if (!isInitializedRef.current) {
+            isInitializedRef.current = true;
+            console.log('[PresentationApp] First time initialization');
+        }
+        return () => {
+            console.log('[PresentationApp] Component unmounting');
+        };
+    }, []);
 
     useEffect(() => {
         document.title = "Ready or Not - Presentation";
@@ -35,20 +68,25 @@ const PresentationApp: React.FC = () => {
 
     useEffect(() => {
         if (!syncManager) return;
+        console.log('[PresentationApp] Setting up slide update listener');
         const unsub = syncManager.onSlideUpdate((slide, teamData) => {
+            console.log('[PresentationApp] Received slide update:', slide?.id, slide?.title);
             setCurrentSlide(slide);
+            console.log('[PresentationApp] Setting isConnectedToHost to true');
             setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
             setConnectionError(false);
             if (teamData) setBroadcastedTeamData(teamData);
             if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = setTimeout(() => {
+                console.log('[PresentationApp] Connection timeout - setting disconnected');
                 setIsConnectedToHost(false);
                 setStatusMessage('Connection lost - waiting for host...');
                 setConnectionError(true);
             }, 10000);
         });
         return () => {
+            console.log('[PresentationApp] Cleaning up slide update listener');
             unsub();
             if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
         };
@@ -74,8 +112,14 @@ const PresentationApp: React.FC = () => {
 
     useEffect(() => {
         if (!syncManager) return;
+        console.log('[PresentationApp] Setting up host command listener');
         const unsub = syncManager.onHostCommand((command) => {
-            if (!videoRef.current) return;
+            console.log('[PresentationApp] Received host command:', command.action, command.data);
+            if (!videoRef.current) {
+                console.log('[PresentationApp] No video ref available for command:', command.action);
+                return;
+            }
+            console.log('[PresentationApp] Executing command on video:', command.action);
             switch (command.action) {
                 case 'play':
                 case 'pause':
@@ -88,6 +132,22 @@ const PresentationApp: React.FC = () => {
                     window.close();
                     break;
             }
+            console.log('[PresentationApp] Setting isConnectedToHost to true (from command)');
+            setIsConnectedToHost(true);
+            if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = setTimeout(() => {
+                console.log('[PresentationApp] Command timeout - setting disconnected');
+                setIsConnectedToHost(false);
+                setStatusMessage('Connection lost - waiting for host...');
+                setConnectionError(true);
+            }, 10000);
+        });
+        return unsub;
+    }, [syncManager]);
+
+    useEffect(() => {
+        if (!syncManager) return;
+        const unsub = syncManager.onPing(() => {
             setIsConnectedToHost(true);
             if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = setTimeout(() => {
@@ -105,7 +165,9 @@ const PresentationApp: React.FC = () => {
         const interval = setInterval(() => {
             syncManager.sendStatus('pong');
         }, 3000);
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+        };
     }, [syncManager]);
 
     const handleConnectionStatusChange = (connected: boolean) => {
@@ -172,11 +234,19 @@ const PresentationApp: React.FC = () => {
                 teams={broadcastedTeamData?.teams || []}
                 teamRoundData={broadcastedTeamData?.teamRoundData || {}}
                 teamDecisions={broadcastedTeamData?.teamDecisions || []}
-                onVideoControl={api => { videoRef.current = api; }}
+                onVideoControl={api => { 
+                    console.log('[PresentationApp] Received video control API:', {
+                        hasSendCommand: !!api.sendCommand
+                    });
+                    videoRef.current = api; 
+                }}
             />
 
             {/* OVERLAYS for status messages */}
-            {(!isConnectedToHost || (!currentSlide && !connectionError)) && (
+            {(() => {
+                const shouldShowOverlay = (!isConnectedToHost || (!currentSlide && !connectionError));
+                return shouldShowOverlay;
+            })() && (
                 <div className="absolute inset-0 bg-gray-900 z-40 flex items-center justify-center">
                     <div className="text-center text-white p-8 max-w-md">
                         {connectionError ? (

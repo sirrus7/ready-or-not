@@ -139,15 +139,31 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
     const presentationVideo = usePresentationVideo({
         sessionId: sessionId || null,
         sourceUrl,
-        isEnabled: !isHost && isVideoSlide && !!sourceUrl
+        isEnabled: !isHost && isVideoSlide
     });
 
     // Use the same logic as before to select active video
     const activeVideo = isHost ? hostVideo : presentationVideo;
 
+    // Debug video rendering conditions
+    console.log('[SlideRenderer] Video rendering conditions:', {
+        slideId: slide?.id,
+        slideType: slide?.type,
+        isVideoSlide,
+        sourceUrl: !!sourceUrl,
+        activeVideo: !!activeVideo,
+        isHost,
+        slideSourcePath: slide?.source_path
+    });
+
     // Expose imperative video control API to parent if requested
     useEffect(() => {
         if (onVideoControl && isVideoSlide && activeVideo) {
+            console.log('[SlideRenderer] Exposing video control API:', {
+                hasActiveVideo: !!activeVideo,
+                hasSendCommand: !!activeVideo.sendCommand,
+                videoRef: activeVideo.videoRef?.current
+            });
             onVideoControl({ sendCommand: activeVideo.sendCommand });
         }
     }, [onVideoControl, isVideoSlide, activeVideo]);
@@ -201,7 +217,8 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
             {isUrlLoading && <MediaLoadingIndicator/>}
 
             {/* Video element for video slides */}
-            {isVideoSlide && sourceUrl && activeVideo && (() => {
+            {isVideoSlide && activeVideo && (() => {
+                console.log('[SlideRenderer] Rendering video element');
                 const videoProps = activeVideo.getVideoProps(onVideoEnd, () => setVideoError(true));
                 return (
                     <video

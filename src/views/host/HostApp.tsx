@@ -210,7 +210,18 @@ const HostApp: React.FC = () => {
         if (!presentationTabRef.current) return;
         const checkInterval = setInterval(() => {
             if (presentationTabRef.current?.closed) {
+                console.log('[HostApp] Presentation window closed - restoring audio dominance');
                 setPresentationConnectionStatus('disconnected');
+                
+                // Restore audio dominance to host
+                if (videoControlRef.current) {
+                    // Unmute the host video and set volume to normal
+                    videoControlRef.current.sendCommand('volume', {
+                        muted: false,
+                        volume: 1
+                    });
+                }
+                
                 presentationTabRef.current = null;
                 clearInterval(checkInterval);
             }

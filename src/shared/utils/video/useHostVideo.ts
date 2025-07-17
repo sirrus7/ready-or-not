@@ -24,6 +24,7 @@ interface UseHostVideoReturn {
     isConnectedToPresentation: boolean;
     presentationMuted: boolean;
     presentationVolume: number;
+    isPresentationVideoReady: boolean;
     getVideoProps: (onVideoEnd?: () => void, onError?: () => void) => VideoElementProps;
     sendCommand: (action: string, data?: any) => Promise<void>;
 }
@@ -39,6 +40,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const [presentationMuted, setPresentationMuted] = useState(false);
     const [presentationVolume, setPresentationVolume] = useState(1);
     const [localIsConnected, setLocalIsConnected] = useState(false);
+    const [isPresentationVideoReady, setIsPresentationVideoReady] = useState(false);
     const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const onEndedRef = useRef<(() => void) | undefined>();
     const onErrorRef = useRef<(() => void) | undefined>();
@@ -114,6 +116,15 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         return unsubscribe;
     }, [broadcastManager, presentationMuted, presentationVolume, startSyncInterval, stopSyncInterval]);
 
+    // Handle presentation video ready events
+    useEffect(() => {
+        if (!broadcastManager) return;
+        const unsubscribe = broadcastManager.onPresentationVideoReady(() => {
+            setIsPresentationVideoReady(true);
+        });
+        return unsubscribe;
+    }, [broadcastManager]);
+
     // Play command
     const play = useCallback(async (time?: number) => {
         const video = videoRef.current;
@@ -123,7 +134,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 video.currentTime = time;
             }
             await video.play();
-            if (localIsConnected && broadcastManager) {
+            if (localIsConnected && broadcastManager && isPresentationVideoReady) {
                 broadcastManager.sendCommand('play', {
                     time: video.currentTime,
                     playbackRate: video.playbackRate,
@@ -136,7 +147,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             console.error('[useHostVideo] Play failed:', error);
             throw error;
         }
-    }, [localIsConnected, broadcastManager, presentationMuted, presentationVolume, startSyncInterval]);
+    }, [localIsConnected, broadcastManager, presentationMuted, presentationVolume, startSyncInterval, isPresentationVideoReady]);
 
     // Pause command
     const pause = useCallback(async (time?: number) => {
@@ -147,7 +158,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             video.currentTime = time;
         }
         stopSyncInterval();
-        if (localIsConnected && broadcastManager) {
+        if (localIsConnected && broadcastManager && isPresentationVideoReady) {
             broadcastManager.sendCommand('pause', {
                 time: video.currentTime,
                 playbackRate: video.playbackRate,
@@ -155,14 +166,14 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 muted: presentationMuted,
             });
         }
-    }, [localIsConnected, broadcastManager, stopSyncInterval, presentationMuted, presentationVolume]);
+    }, [localIsConnected, broadcastManager, stopSyncInterval, presentationMuted, presentationVolume, isPresentationVideoReady]);
 
     // Seek command
     const seek = useCallback(async (time: number) => {
         const video = videoRef.current;
         if (!video) return;
         video.currentTime = time;
-        if (localIsConnected && broadcastManager) {
+        if (localIsConnected && broadcastManager && isPresentationVideoReady) {
             broadcastManager.sendCommand('seek', {
                 time: video.currentTime,
                 playbackRate: video.playbackRate,
@@ -170,14 +181,14 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 muted: presentationMuted,
             });
         }
-    }, [localIsConnected, broadcastManager, presentationMuted, presentationVolume]);
+    }, [localIsConnected, broadcastManager, presentationMuted, presentationVolume, isPresentationVideoReady]);
 
     // Volume control (for presentation when connected)
     const setVolume = useCallback((volume: number) => {
         const video = videoRef.current;
         if (!video) return;
         setPresentationVolume(volume);
-        if (localIsConnected && broadcastManager) {
+        if (localIsConnected && broadcastManager && isPresentationVideoReady) {
             broadcastManager.sendCommand('volume', {
                 time: video.currentTime,
                 volume,
@@ -187,13 +198,13 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         } else {
             video.volume = volume;
         }
-    }, [localIsConnected, broadcastManager, presentationMuted]);
+    }, [localIsConnected, broadcastManager, presentationMuted, isPresentationVideoReady]);
 
     // Mute control (for presentation when connected)
     const toggleMute = useCallback(() => {
         const video = videoRef.current;
         if (!video) return;
-        if (localIsConnected && broadcastManager) {
+        if (localIsConnected && broadcastManager && isPresentationVideoReady) {
             const newMuted = !presentationMuted;
             setPresentationMuted(newMuted);
             broadcastManager.sendCommand('volume', {
@@ -205,7 +216,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         } else {
             video.muted = !video.muted;
         }
-    }, [localIsConnected, broadcastManager, presentationMuted, presentationVolume]);
+    }, [localIsConnected, broadcastManager, presentationMuted, presentationVolume, isPresentationVideoReady]);
 
     // Keep host muted when connected
     useEffect(() => {
@@ -235,6 +246,9 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         if (isEnabled && sourceUrl) {
             const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
             if (video.currentSrc !== sourceUrl) {
+                // Reset presentation video ready state for new video
+                setIsPresentationVideoReady(false);
+                
                 if (isNewVideo) {
                     // Keep volume state
                 }
@@ -243,6 +257,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 const handleCanPlay = async () => {
                     try {
                         await play(0);
+                        // Don't send play command immediately - wait for presentation to be ready
                         if (localIsConnected && broadcastManager) {
                             broadcastManager.sendCommand('volume', {
                                 time: video.currentTime,
@@ -342,14 +357,15 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
 
     return {
         videoRef,
+        isConnectedToPresentation: localIsConnected,
+        presentationMuted,
+        presentationVolume,
         play,
         pause,
         seek,
         setVolume,
         toggleMute,
-        isConnectedToPresentation: localIsConnected,
-        presentationMuted,
-        presentationVolume,
+        isPresentationVideoReady,
         getVideoProps,
         sendCommand,
     };

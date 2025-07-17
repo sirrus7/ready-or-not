@@ -37,7 +37,6 @@ export class PresentationBroadcastManager {
     this.channel.onmessage = (event) => {
       if (this.isDestroyed) return;
       const message = event.data;
-      console.log('[PresentationBroadcastManager] Received message:', message.type);
       if (message.sessionId !== this.sessionId) return;
 
       switch (message.type) {
@@ -59,7 +58,6 @@ export class PresentationBroadcastManager {
           this.joinInfoHandlers.forEach(handler => handler('', ''));
           break;
         case BroadcastEventType.PING:
-          console.log('[PresentationBroadcastManager] Received ping, sending pong');
           this.sendStatus('pong');
           this.pingHandlers.forEach(handler => handler());
           break;
@@ -133,7 +131,6 @@ export class PresentationBroadcastManager {
    */
   sendStatus(status: 'ready' | 'pong'): void {
     if (this.isDestroyed) return;
-    console.log('[PresentationBroadcastManager] Sending status:', status, 'for sessionId:', this.sessionId);
     const statusMessage: PresentationStatus = {
       type: BroadcastEventType.PRESENTATION_STATUS,
       sessionId: this.sessionId,

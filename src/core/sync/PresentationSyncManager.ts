@@ -34,15 +34,11 @@ export class PresentationSyncManager {
     // Check if existing instance is destroyed and clean it up
     const existing = PresentationSyncManager.instances.get(key);
     if (existing && existing.isDestroyed) {
-      console.log('[PresentationSyncManager] Cleaning up destroyed instance for sessionId:', sessionId);
       PresentationSyncManager.instances.delete(key);
     }
 
     if (!PresentationSyncManager.instances.has(key)) {
-      console.log('[PresentationSyncManager] Creating new instance for sessionId:', sessionId);
       PresentationSyncManager.instances.set(key, new PresentationSyncManager(sessionId));
-    } else {
-      console.log('[PresentationSyncManager] Reusing existing instance for sessionId:', sessionId);
     }
     return PresentationSyncManager.instances.get(key)!;
   }
@@ -53,7 +49,6 @@ export class PresentationSyncManager {
    * @returns unsubscribe function
    */
   onSlideUpdate(callback: (slide: Slide, teamData?: any) => void): () => void {
-    console.log('[PresentationSyncManager] Setting up slide update listener');
     return this.broadcastManager.onSlideUpdate(callback);
   }
 
@@ -72,7 +67,6 @@ export class PresentationSyncManager {
    * @returns unsubscribe function
    */
   onHostCommand(callback: (command: HostCommand) => void): () => void {
-    console.log('[PresentationSyncManager] Setting up host command listener');
     return this.broadcastManager.onHostCommand(callback);
   }
 
@@ -82,7 +76,6 @@ export class PresentationSyncManager {
    * @returns unsubscribe function
    */
   onPing(callback: () => void): () => void {
-    console.log('[PresentationSyncManager] Setting up ping listener');
     return this.broadcastManager.onPing(callback);
   }
 
@@ -91,7 +84,6 @@ export class PresentationSyncManager {
    * @param status 'ready' | 'pong'
    */
   sendStatus(status: 'ready' | 'pong'): void {
-    console.log('[PresentationSyncManager] Sending status:', status);
     this.broadcastManager.sendStatus(status);
   }
 

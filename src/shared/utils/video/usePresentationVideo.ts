@@ -3,6 +3,7 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
 import { PresentationBroadcastManager } from '@core/sync/PresentationBroadcastManager';
 import { HostCommand } from '@core/sync/types';
+import { PresentationSyncManager } from '@core/sync/PresentationSyncManager';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -39,6 +40,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
     useChromeSupabaseOptimizations(videoRef, sourceUrl);
 
     const broadcastManager = sessionId && isEnabled ? PresentationBroadcastManager.getInstance(sessionId) : null;
+    const syncManager = sessionId && isEnabled ? PresentationSyncManager.getInstance(sessionId) : null;
 
     // Listen for commands from host
     const onCommand = useCallback((callback: (command: HostCommand) => void) => {
@@ -78,7 +80,38 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
     // Imperative video control API for parent components (used by SlideRenderer)
     const sendCommand = useCallback(async (action: string, data?: any) => {
         const video = videoRef.current;
-        if (!video || !isEnabled) return;
+        console.log('[usePresentationVideo] sendCommand called:', { 
+            action, 
+            data, 
+            hasVideo: !!video, 
+            isEnabled, 
+            videoRef: videoRef.current,
+            videoReadyState: video?.readyState,
+            videoSrc: video?.src,
+            videoCurrentSrc: video?.currentSrc
+        });
+        
+        if (!video || !isEnabled) {
+            console.log('[usePresentationVideo] sendCommand failed - no video or not enabled:', { 
+                hasVideo: !!video, 
+                isEnabled,
+                videoRef: videoRef.current,
+                videoReadyState: video?.readyState,
+                videoSrc: video?.src,
+                videoCurrentSrc: video?.currentSrc
+            });
+            return;
+        }
+
+        console.log('[usePresentationVideo] sendCommand', action, data, {
+            videoReadyState: video.readyState,
+            videoPaused: video.paused,
+            videoCurrentTime: video.currentTime,
+            videoDuration: video.duration,
+            videoSrc: video.src,
+            videoCurrentSrc: video.currentSrc
+        });
+        
         try {
             switch (action) {
                 case 'play':
@@ -91,15 +124,19 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
                     if (data?.volume !== undefined) video.volume = data.volume;
                     if (data?.muted !== undefined) video.muted = data.muted;
                     if (video.readyState < 2) {
+                        console.log('[usePresentationVideo] Video not ready, waiting for canplay...');
                         await new Promise<void>((resolve) => {
                             const onCanPlay = () => {
                                 video.removeEventListener('canplay', onCanPlay);
+                                console.log('[usePresentationVideo] Video ready, proceeding with play');
                                 resolve();
                             };
                             video.addEventListener('canplay', onCanPlay);
                         });
                     }
+                    console.log('[usePresentationVideo] Attempting to play video');
                     await video.play();
+                    console.log('[usePresentationVideo] Play command completed');
                     break;
                 case 'pause':
                     video.pause();
@@ -123,7 +160,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         } catch (error) {
             console.error('[usePresentationVideo] sendCommand failed:', error);
         }
-    }, [isEnabled]);
+    }, [isEnabled, videoRef]);
 
     // Video event listeners and props
     const getVideoProps = useCallback((onVideoEnd?: () => void, onError?: () => void): VideoElementProps => {
@@ -166,6 +203,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         };
 
         const handleCanPlay = () => {
+            console.log('[usePresentationVideo] handleCanPlay');
             isBufferingRef.current = false;
             logVideoState('CANPLAY (ready to play)');
         };
@@ -243,7 +281,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
             video.removeEventListener('progress', handleProgress);
             video.removeEventListener('waiting', handleWaiting);
         };
-    }, []);
+    }, [videoRef]);
 
     // Load video source
     useEffect(() => {
@@ -262,46 +300,28 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
             onErrorRef.current?.();
         };
 
-        if (isEnabled && sourceUrl) {
+        if (sourceUrl) {
             if (video.currentSrc !== sourceUrl) {
-                console.log('[Presentation] 📼 Loading new video source:', {
-                    newUrl: sourceUrl,
-                    oldUrl: video.currentSrc,
-                    previousSourceUrl: previousSourceUrl.current
-                });
-                
-                console.log('[Presentation] 📊 Video state before loading:', {
-                    currentTime: video.currentTime,
-                    paused: video.paused,
-                    muted: video.muted,
-                    volume: video.volume,
-                    readyState: video.readyState,
-                    networkState: video.networkState
-                });
-                
                 video.src = sourceUrl;
-                console.log('[Presentation] 📥 Set video.src, about to call video.load()...');
                 video.load();
-                console.log('[Presentation] 🔄 video.load() called');
                 
-                // Don't set default volume - let the host control it
-                console.log('[Presentation] 🔊 Waiting for volume settings from host');
+                // Listen for canplay event to notify host that video is ready
+                const handleCanPlay = () => {
+                    if (syncManager) {
+                        syncManager.sendPresentationVideoReady();
+                    }
+                    video.removeEventListener('canplay', handleCanPlay);
+                };
+                video.addEventListener('canplay', handleCanPlay);
                 
                 // Don't pause here - let the host control playback
                 // The host will send a play command when the slide changes
-            } else {
-                console.log('[Presentation] 🔄 Video source unchanged, skipping load');
             }
             previousSourceUrl.current = sourceUrl;
         } else {
-            console.log('[Presentation] 🚫 Video disabled or no source URL:', {
-                isEnabled,
-                sourceUrl
-            });
             previousSourceUrl.current = null;
-            // Not a video slide, ensure it's paused
+            // Not a video slide or URL is loading, ensure it's paused
             if (!video.paused) {
-                console.log('[Presentation] ⏸️ Pausing video for non-video slide');
                 video.pause();
             }
         }
@@ -313,7 +333,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
         };
-    }, [sourceUrl, isEnabled]);
+    }, [sourceUrl, syncManager]);
 
     return {
         videoRef,
