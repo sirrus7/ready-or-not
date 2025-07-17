@@ -6,10 +6,11 @@ export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 interface PresentationButtonProps {
   connectionStatus: ConnectionStatus;
+  isDisabled: boolean;
   onOpenDisplay: () => void;
 }
 
-const PresentationButton: React.FC<PresentationButtonProps> = ({ connectionStatus, onOpenDisplay }) => {
+const PresentationButton: React.FC<PresentationButtonProps> = ({ connectionStatus, onOpenDisplay, isDisabled }) => {
   const getButtonStyling = () => {
     switch (connectionStatus) {
       case 'connected':
@@ -43,10 +44,11 @@ const PresentationButton: React.FC<PresentationButtonProps> = ({ connectionStatu
 
   return (
     <button
+      disabled={isDisabled}
       onClick={onOpenDisplay}
       className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors shadow-md text-sm ${styling.bgClass} ${styling.textClass} hover:opacity-90`}
     >
-      <ExternalLink size={16} className={styling.iconClass}/>
+      {!isDisabled && <ExternalLink size={16} className={styling.iconClass}/>}
       <span>{styling.statusText}</span>
       {styling.statusIcon}
     </button>

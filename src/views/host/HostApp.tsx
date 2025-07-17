@@ -508,6 +508,7 @@ const HostApp: React.FC = () => {
                         {currentSlideData && (
                             <div className="absolute top-3 right-3 z-50 w-48">
                                 <PresentationButton
+                                    isDisabled={isPresentationConnected}
                                     connectionStatus={presentationConnectionStatus}
                                     onOpenDisplay={handleOpenDisplay}
                                 />
