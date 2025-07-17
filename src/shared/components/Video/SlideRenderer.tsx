@@ -222,9 +222,17 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                 const videoProps = activeVideo.getVideoProps(onVideoEnd, () => setVideoError(true));
                 return (
                     <video
+                        key={`video-${slide?.id}-${isHost ? 'host' : 'presentation'}`}
                         {...videoProps}
                         crossOrigin={videoProps.crossOrigin as "anonymous" | "use-credentials" | "" | undefined}
                         className={`w-full h-full ${videoError ? 'opacity-0' : 'opacity-100'}`}
+                        playsInline={true}
+                        {...{
+                            'webkit-playsinline': 'true',
+                            'x5-playsinline': 'true',
+                            'x5-video-player-type': 'h5',
+                            'x5-video-player-fullscreen': 'false'
+                        }}
                     />
                 );
             })()}

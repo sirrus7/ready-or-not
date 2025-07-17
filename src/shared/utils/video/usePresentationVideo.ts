@@ -109,7 +109,11 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
             videoCurrentTime: video.currentTime,
             videoDuration: video.duration,
             videoSrc: video.src,
-            videoCurrentSrc: video.currentSrc
+            videoCurrentSrc: video.currentSrc,
+            videoMuted: video.muted,
+            videoVolume: video.volume,
+            videoEnded: video.ended,
+            videoError: video.error
         });
         
         try {
@@ -135,8 +139,49 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
                         });
                     }
                     console.log('[usePresentationVideo] Attempting to play video');
-                    await video.play();
-                    console.log('[usePresentationVideo] Play command completed');
+                    try {
+                        await video.play();
+                        console.log('[usePresentationVideo] Play command completed');
+                    } catch (playError) {
+                        console.error('[usePresentationVideo] Play failed:', playError);
+                        // If autoplay is blocked, try to play with user interaction
+                        if (playError instanceof Error && playError.name === 'NotAllowedError') {
+                            console.log('[usePresentationVideo] Autoplay blocked, trying to play with user interaction');
+                            // This might need user interaction to work
+                            try {
+                                await video.play();
+                                console.log('[usePresentationVideo] Play succeeded after retry');
+                            } catch (retryError) {
+                                console.error('[usePresentationVideo] Play retry failed:', retryError);
+                            }
+                        }
+                    }
+                            console.log('[usePresentationVideo] Video state after play:', {
+            videoReadyState: video.readyState,
+            videoPaused: video.paused,
+            videoCurrentTime: video.currentTime,
+            videoDuration: video.duration,
+            videoMuted: video.muted,
+            videoVolume: video.volume,
+            videoEnded: video.ended,
+            videoError: video.error,
+            videoSrc: video.src,
+            videoCurrentSrc: video.currentSrc
+        });
+                    
+                    // Check if video is still playing after a short delay
+                    setTimeout(() => {
+                        console.log('[usePresentationVideo] Video state 1 second after play:', {
+                            videoReadyState: video.readyState,
+                            videoPaused: video.paused,
+                            videoCurrentTime: video.currentTime,
+                            videoDuration: video.duration,
+                            videoMuted: video.muted,
+                            videoVolume: video.volume,
+                            videoEnded: video.ended,
+                            videoError: video.error
+                        });
+                    }, 1000);
                     break;
                 case 'pause':
                     video.pause();
@@ -169,7 +214,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         return createVideoProps({
             videoRef,
             muted: false,
-            autoPlay: false,
+            autoPlay: true, // Enable autoplay for presentation video
             onVideoEnd,
             onError
         });
@@ -196,6 +241,10 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
                 error: video.error ? `${video.error.code}: ${video.error.message}` : null
             });
         };
+        
+        // Log initial state immediately
+        console.log('[usePresentationVideo] Setting up video event listeners');
+        logVideoState('INITIAL_STATE');
 
         const handleWaiting = () => {
             isBufferingRef.current = true;
@@ -215,11 +264,24 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         const handleCanPlayThrough = () => logVideoState('CANPLAYTHROUGH');
         const handlePlay = () => logVideoState('PLAY');
         const handlePlaying = () => logVideoState('PLAYING');
-        const handlePause = () => logVideoState('PAUSE');
+        const handlePause = () => {
+            logVideoState('PAUSE');
+            console.log('[usePresentationVideo] Video paused - this might be why audio stops');
+            // Log the call stack to see what caused the pause
+            console.log('[usePresentationVideo] Pause call stack:', new Error().stack);
+        };
+
+        const handleVolumeChange = () => {
+            logVideoState('VOLUME_CHANGE');
+            console.log('[usePresentationVideo] Video volume changed - this might be why audio stops');
+        };
         const handleSeeked = () => logVideoState('SEEKED');
         const handleSeeking = () => logVideoState('SEEKING');
         const handleTimeUpdate = () => logVideoState('TIMEUPDATE');
-        const handleEnded = () => logVideoState('ENDED');
+        const handleEnded = () => {
+            logVideoState('ENDED');
+            console.log('[usePresentationVideo] Video ended - this might be why audio stops');
+        };
         const handleError = (e: Event) => {
             logVideoState('ERROR');
             console.error('[Presentation] 🚨 VIDEO ERROR EVENT:', e);
@@ -228,7 +290,6 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         const handleEmptied = () => logVideoState('EMPTIED');
         const handleStalled = () => logVideoState('STALLED');
         const handleSuspend = () => logVideoState('SUSPEND');
-        const handleVolumeChange = () => logVideoState('VOLUMECHANGE');
         const handleRateChange = () => logVideoState('RATECHANGE');
         const handleProgress = () => logVideoState('PROGRESS');
 
