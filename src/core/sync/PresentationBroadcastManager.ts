@@ -12,6 +12,7 @@ export class PresentationBroadcastManager {
   private slideHandlers: Set<(slide: Slide, teamData?: any) => void> = new Set();
   private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
   private commandHandlers: Set<(command: HostCommand) => void> = new Set();
+  private pingHandlers: Set<() => void> = new Set();
   private isDestroyed: boolean = false;
   private closePresentationHandlers: Set<() => void> = new Set();
 
@@ -32,32 +33,42 @@ export class PresentationBroadcastManager {
   }
 
   private setupMessageHandling(): void {
+    console.log('[PresentationBroadcastManager] Setting up message handling');
     this.channel.onmessage = (event) => {
       if (this.isDestroyed) return;
       const message = event.data;
+      console.log('[PresentationBroadcastManager] Received message:', message.type);
       if (message.sessionId !== this.sessionId) return;
 
       switch (message.type) {
         case BroadcastEventType.HOST_COMMAND:
+          console.log('[PresentationBroadcastManager] Processing host command:', message.action);
           this.commandHandlers.forEach(handler => handler(message as HostCommand));
           // Send acknowledgment (optional, not used by presentation)
           break;
         case BroadcastEventType.SLIDE_UPDATE:
+          console.log('[PresentationBroadcastManager] Processing slide update:', message.slide?.id);
           this.slideHandlers.forEach(handler => handler(message.slide, message.teamData));
           break;
         case BroadcastEventType.JOIN_INFO:
+          console.log('[PresentationBroadcastManager] Processing join info');
           this.joinInfoHandlers.forEach(handler => handler(message.joinUrl, message.qrCodeDataUrl));
           break;
         case BroadcastEventType.JOIN_INFO_CLOSE:
+          console.log('[PresentationBroadcastManager] Processing join info close');
           this.joinInfoHandlers.forEach(handler => handler('', ''));
           break;
         case BroadcastEventType.PING:
+          console.log('[PresentationBroadcastManager] Received ping, sending pong');
           this.sendStatus('pong');
+          this.pingHandlers.forEach(handler => handler());
           break;
         case BroadcastEventType.CLOSE_PRESENTATION:
+          console.log('[PresentationBroadcastManager] Processing close presentation');
           this.closePresentationHandlers.forEach(handler => handler());
           break;
         default:
+          console.log('[PresentationBroadcastManager] Ignoring unknown message type:', message.type);
           // Ignore other message types
           break;
       }
@@ -104,11 +115,25 @@ export class PresentationBroadcastManager {
   }
 
   /**
+   * Listen for ping messages from the host
+   * @param callback () => void
+   * @returns unsubscribe function
+   */
+  onPing(callback: () => void): () => void {
+    if (this.isDestroyed) return () => {};
+    this.pingHandlers.add(callback);
+    return () => {
+      this.pingHandlers.delete(callback);
+    };
+  }
+
+  /**
    * Send status ("ready" or "pong") to the host
    * @param status 'ready' | 'pong'
    */
   sendStatus(status: 'ready' | 'pong'): void {
     if (this.isDestroyed) return;
+    console.log('[PresentationBroadcastManager] Sending status:', status, 'for sessionId:', this.sessionId);
     const statusMessage: PresentationStatus = {
       type: BroadcastEventType.PRESENTATION_STATUS,
       sessionId: this.sessionId,
@@ -153,6 +178,7 @@ export class PresentationBroadcastManager {
     this.slideHandlers.clear();
     this.joinInfoHandlers.clear();
     this.commandHandlers.clear();
+    this.pingHandlers.clear();
     const key = this.sessionId;
     PresentationBroadcastManager.instances.delete(key);
   }
