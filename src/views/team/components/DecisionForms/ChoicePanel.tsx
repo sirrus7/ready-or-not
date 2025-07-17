@@ -131,10 +131,11 @@ const ChoicePanel: React.FC<ChoicePanelProps> = ({
             )}
 
             {challengeOptions.map((opt) => {
-                const isSelected = selectedOptions.includes(opt.id);
-                const wouldBeValid = wouldBeValidCombination(opt.id);
-                const isDisabledByForced = forcedSelection && opt.id !== forcedSelection;
-                const isDisabled = Boolean(isSubmitting || (!isSelected && !wouldBeValid) || isDisabledByForced);
+                const isSelected: boolean = selectedOptions.includes(opt.id);
+                const wouldBeValid: boolean = wouldBeValidCombination(opt.id);
+                const isDisabledByForced: boolean = Boolean(forcedSelection && opt.id !== forcedSelection);
+                const isDisabledByNoERP: boolean = challengeId === 'ch9' && opt.id === 'C' && !forcedSelection;
+                const isDisabled: boolean = Boolean(isSubmitting || (!isSelected && !wouldBeValid) || isDisabledByForced || isDisabledByNoERP);
 
                 return (
                     <label

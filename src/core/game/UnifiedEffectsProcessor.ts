@@ -22,7 +22,7 @@ import {SLIDE_TO_CHALLENGE_MAP} from '@core/content/ChallengeRegistry';
 import {getInvestmentPhaseBySlideId, getRoundForInvestmentPhase} from '@core/content/InvestmentRegistry';
 
 // NEW: Team broadcaster interface
-interface TeamBroadcaster {
+export interface TeamBroadcaster {
     broadcastKpiUpdated: (slide: Slide, kpiData?: Record<string, any>) => void;
 }
 

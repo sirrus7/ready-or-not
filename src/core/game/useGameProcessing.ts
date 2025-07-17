@@ -1,6 +1,4 @@
 // src/core/game/useGameProcessing.ts
-// UPDATED: Replaces ConsequenceProcessor and InvestmentEngine with UnifiedEffectsProcessor
-
 import {useCallback, useMemo, useRef} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {db} from '@shared/services/supabase';
@@ -15,8 +13,9 @@ import {
 } from '@shared/types';
 import {ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
-import {UnifiedEffectsProcessor} from './UnifiedEffectsProcessor';
+import {TeamBroadcaster, UnifiedEffectsProcessor} from './UnifiedEffectsProcessor';
 import {SimpleRealtimeManager} from "@core/sync";
+import {ForcedSelectionTracker} from "@core/game/ForcedSelectionTracker";
 
 interface UseGameProcessingProps {
     currentDbSession: GameSession | null;
@@ -97,9 +96,9 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
 
     // Update processor props dynamically without recreation
     if (unifiedEffectsProcessor) {
-        const teamBroadcaster = currentDbSession ? {
-            broadcastKpiUpdated: (slide, kpiData) => {
-                const realtimeManager = SimpleRealtimeManager.getInstance(currentDbSession.id, 'host');
+        const teamBroadcaster: TeamBroadcaster | undefined = currentDbSession ? {
+            broadcastKpiUpdated: (slide: Slide, kpiData: Record<string, any> | undefined): void => {
+                const realtimeManager: SimpleRealtimeManager = SimpleRealtimeManager.getInstance(currentDbSession.id, 'host');
                 realtimeManager.sendKpiUpdated(slide, kpiData);
             }
         } : undefined;
@@ -122,25 +121,35 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         if (completedSlide.type !== 'interactive_choice') return;
 
         const decisionKey = completedSlide.interactive_data_key;
-        const challengeOptions = gameStructure.all_challenge_options[decisionKey] || [];
-        const defaultOption = challengeOptions.find(opt => opt.is_default_choice);
+        if (!decisionKey) return;
 
-        if (!defaultOption) {
-            console.warn(`[useGameProcessing] No default option found for ${decisionKey}`);
-            return;
-        }
+        const challengeOptions = gameStructure.all_challenge_options[decisionKey];
+        if (!challengeOptions) return;
+
+        const defaultOption = challengeOptions.find(option => option.is_default_choice);
+        if (!defaultOption) return;
 
         for (const team of teams) {
             const existingDecision = teamDecisions[team.id]?.[decisionKey];
 
             if (!existingDecision || !existingDecision.selected_challenge_option_id) {
                 try {
+                    // NEW: Check for forced selection first
+                    const forcedSelection: string | null = await ForcedSelectionTracker.getForcedSelection(
+                        currentDbSession.id,
+                        team.id,
+                        decisionKey
+                    );
+
+                    // Use forced selection if available, otherwise use default option
+                    const selectedOptionId: string = forcedSelection || defaultOption.id;
+
                     await db.decisions.upsert({
                         session_id: currentDbSession.id,
                         team_id: team.id,
                         phase_id: decisionKey,
                         round_number: completedSlide.round_number as (1 | 2 | 3),
-                        selected_challenge_option_id: defaultOption.id,
+                        selected_challenge_option_id: selectedOptionId, // FIXED: Now checks forced selection first
                         submitted_at: new Date().toISOString(),
                     });
                 } catch (error) {
@@ -241,7 +250,6 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                     await db.kpis.update(kpis.id, {
                         ...kpis,
                         ...financialMetrics,
-                        is_final: true
                     });
                 }
             }

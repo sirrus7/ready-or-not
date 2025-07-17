@@ -2,6 +2,7 @@
 // Handles challenges where certain teams are forced to select specific options
 
 import {db} from '@shared/services/supabase';
+import {TeamDecision} from "@shared/types";
 
 export interface ForcedSelectionRule {
     challengeId: string;
@@ -32,23 +33,20 @@ export class ForcedSelectionTracker {
         teamId: string,
         challengeId: string
     ): Promise<string | null> {
-        console.log(`[ForcedSelectionTracker] Checking forced selection for team ${teamId}, challenge ${challengeId}`);
-
-        const rule = this.FORCED_SELECTION_RULES.find(r => r.challengeId === challengeId);
+        const rule: ForcedSelectionRule | undefined = this.FORCED_SELECTION_RULES.find(r => r.challengeId === challengeId);
         if (!rule) return null;
 
         try {
-            const allDecisions = await db.decisions.getBySession(sessionId);
-            const teamDecisions = allDecisions.filter(d => d.team_id === teamId);
+            const allDecisions: TeamDecision[] = await db.decisions.getBySession(sessionId);
+            const teamDecisions: TeamDecision[] = allDecisions.filter(d => d.team_id === teamId);
 
             // Check if team made the required investment in the required round
-            const hasInvestment = teamDecisions.some(decision =>
+            const hasInvestment: boolean = teamDecisions.some(decision =>
                 decision.phase_id === `rd${rule.requiredRound}-invest` &&
                 decision.selected_investment_options?.includes(rule.requiredInvestment)
             );
 
             if (hasInvestment) {
-                console.log(`[ForcedSelectionTracker] Team ${teamId} forced to select option ${rule.forcedOption} for ${challengeId}`);
                 return rule.forcedOption;
             }
 
