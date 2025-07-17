@@ -241,7 +241,7 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         return createVideoProps({
             videoRef,
             muted: false,
-            autoPlay: true, // Enable autoplay for presentation video
+            autoPlay: false, // We control when to play, not the browser
             onVideoEnd,
             onError
         });

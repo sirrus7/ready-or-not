@@ -99,6 +99,7 @@ export class HostBroadcastManager {
     console.log('[HostBroadcastManager - updateConnectionStatus] updating connection status to', status);
     if (this.connectionStatus !== status) {
       this.connectionStatus = status;
+      console.log('[HostBroadcastManager] Calling', this.statusCallbacks.size, 'status callbacks');
       this.statusCallbacks.forEach(callback => {
         try {
           callback(status);
@@ -106,6 +107,8 @@ export class HostBroadcastManager {
           console.error('[HostBroadcastManager] Error in status callback:', error);
         }
       });
+    } else {
+      console.log('[HostBroadcastManager] Status unchanged, not calling callbacks');
     }
   }
 
@@ -120,6 +123,7 @@ export class HostBroadcastManager {
    * Force disconnect status (for when window is closed)
    */
   forceDisconnect(): void {
+    console.log('[HostBroadcastManager] Force disconnecting presentation');
     this.updateConnectionStatus('disconnected');
   }
 

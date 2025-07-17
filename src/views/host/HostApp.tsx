@@ -215,8 +215,11 @@ const HostApp: React.FC = () => {
                 
                 // Force sync manager to disconnect immediately
                 if (hostSyncManager) {
+                    console.log('[HostApp] Calling forceDisconnect on hostSyncManager');
                     // Force immediate disconnect status update
                     hostSyncManager.forceDisconnect();
+                } else {
+                    console.log('[HostApp] No hostSyncManager available for forceDisconnect');
                 }
                 
                 // Restore audio precedence to host

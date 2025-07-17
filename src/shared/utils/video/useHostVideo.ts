@@ -39,7 +39,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const videoRef = useRef<HTMLVideoElement>(null);
     const [presentationMuted, setPresentationMuted] = useState(false);
     const [presentationVolume, setPresentationVolume] = useState(1);
-    const [localIsConnected, setLocalIsConnected] = useState(false);
+    const [presentationIsConnected, setLocalIsConnected] = useState(false);
     const [isPresentationVideoReady, setIsPresentationVideoReady] = useState(false);
     const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const onEndedRef = useRef<(() => void) | undefined>();
@@ -55,7 +55,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         if (syncIntervalRef.current) return;
         syncIntervalRef.current = setInterval(() => {
             const video = videoRef.current;
-            if (video && !video.paused && localIsConnected && hostSyncManager) {
+            if (video && !video.paused && presentationIsConnected && hostSyncManager) {
                 hostSyncManager.sendCommand('sync', {
                     time: video.currentTime,
                     playbackRate: video.playbackRate,
@@ -64,7 +64,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 });
             }
         }, 1000);
-    }, [localIsConnected, hostSyncManager, presentationVolume, presentationMuted]);
+    }, [presentationIsConnected, hostSyncManager, presentationVolume, presentationMuted]);
 
     const stopSyncInterval = useCallback(() => {
         if (syncIntervalRef.current) {
@@ -80,26 +80,16 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             setLocalIsConnected(status === 'connected');
             const video = videoRef.current;
             if (!video) return;
+            
             if (status === 'connected') {
                 video.muted = true;
+                // Send initial volume settings
                 hostSyncManager.sendCommand('volume', {
                     time: video.currentTime,
                     volume: presentationVolume,
                     muted: presentationMuted,
                     playbackRate: video.playbackRate,
                 });
-                if (video.readyState >= 3) {
-                    if (video.paused) {
-                        video.play().catch(console.error);
-                    }
-                    hostSyncManager.sendCommand('play', {
-                        time: video.currentTime,
-                        playbackRate: video.playbackRate,
-                        volume: presentationVolume,
-                        muted: presentationMuted,
-                    });
-                    startSyncInterval();
-                }
             } else {
                 video.muted = false;
                 stopSyncInterval();
@@ -111,12 +101,13 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             }
         });
         return unsubscribe;
-    }, [hostSyncManager, presentationMuted, presentationVolume, startSyncInterval, stopSyncInterval]);
+    }, [hostSyncManager, presentationMuted, presentationVolume, stopSyncInterval]);
 
     // Handle presentation video ready events
     useEffect(() => {
         if (!hostSyncManager) return;
         hostSyncManager.onPresentationVideoReady(() => {
+            console.log('[useHostVideo] Presentation video ready event received');
             setIsPresentationVideoReady(true);
         });
     }, [hostSyncManager]);
@@ -125,12 +116,42 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const play = useCallback(async (time?: number) => {
         const video = videoRef.current;
         if (!video) return;
+        
+        // Prevent multiple simultaneous play attempts
+        if (!video.paused) {
+            console.log('[useHostVideo] Video already playing, skipping play command');
+            return;
+        }
+        
         try {
             if (time !== undefined) {
                 video.currentTime = time;
             }
+            
+            // If connected to presentation, wait for it to be ready
+            if (presentationIsConnected && hostSyncManager && !isPresentationVideoReady) {
+                console.log('[useHostVideo] Waiting for presentation to be ready...');
+                const maxWaitTime = 5000; // 5 seconds timeout
+                const startTime = Date.now();
+                
+                while (!isPresentationVideoReady && (Date.now() - startTime) < maxWaitTime) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                if (!isPresentationVideoReady) {
+                    console.warn('[useHostVideo] Presentation not ready after timeout, proceeding anyway');
+                } else {
+                    console.log('[useHostVideo] Presentation is ready');
+                }
+            }
+            
+            // Play the host video
+            console.log('[useHostVideo] Playing host video');
             await video.play();
-            if (localIsConnected && hostSyncManager && isPresentationVideoReady) {
+            
+            // Send play command to presentation if connected
+            if (presentationIsConnected && hostSyncManager) {
+                console.log('[useHostVideo] Sending play command to presentation');
                 hostSyncManager.sendCommand('play', {
                     time: video.currentTime,
                     playbackRate: video.playbackRate,
@@ -139,11 +160,15 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 });
                 startSyncInterval();
             }
+            
         } catch (error) {
             console.error('[useHostVideo] Play failed:', error);
-            throw error;
+            // Don't re-throw for auto-play scenarios, but do for manual play
+            if (time !== undefined) {
+                throw error;
+            }
         }
-    }, [localIsConnected, hostSyncManager, presentationMuted, presentationVolume, startSyncInterval, isPresentationVideoReady]);
+    }, [presentationIsConnected, hostSyncManager, presentationMuted, presentationVolume, startSyncInterval, isPresentationVideoReady]);
 
     // Pause command
     const pause = useCallback(async (time?: number) => {
@@ -154,7 +179,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             video.currentTime = time;
         }
         stopSyncInterval();
-        if (localIsConnected && hostSyncManager && isPresentationVideoReady) {
+        if (presentationIsConnected && hostSyncManager && isPresentationVideoReady) {
             hostSyncManager.sendCommand('pause', {
                 time: video.currentTime,
                 playbackRate: video.playbackRate,
@@ -162,14 +187,14 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 muted: presentationMuted,
             });
         }
-    }, [localIsConnected, hostSyncManager, stopSyncInterval, presentationMuted, presentationVolume, isPresentationVideoReady]);
+    }, [presentationIsConnected, hostSyncManager, stopSyncInterval, presentationMuted, presentationVolume, isPresentationVideoReady]);
 
     // Seek command
     const seek = useCallback(async (time: number) => {
         const video = videoRef.current;
         if (!video) return;
         video.currentTime = time;
-        if (localIsConnected && hostSyncManager && isPresentationVideoReady) {
+        if (presentationIsConnected && hostSyncManager && isPresentationVideoReady) {
             hostSyncManager.sendCommand('seek', {
                 time: video.currentTime,
                 playbackRate: video.playbackRate,
@@ -177,14 +202,14 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 muted: presentationMuted,
             });
         }
-    }, [localIsConnected, hostSyncManager, presentationMuted, presentationVolume, isPresentationVideoReady]);
+    }, [presentationIsConnected, hostSyncManager, presentationMuted, presentationVolume, isPresentationVideoReady]);
 
     // Volume control (for presentation when connected)
     const setVolume = useCallback((volume: number) => {
         const video = videoRef.current;
         if (!video) return;
         setPresentationVolume(volume);
-        if (localIsConnected && hostSyncManager && isPresentationVideoReady) {
+        if (presentationIsConnected && hostSyncManager && isPresentationVideoReady) {
             hostSyncManager.sendCommand('volume', {
                 time: video.currentTime,
                 volume,
@@ -194,13 +219,13 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         } else {
             video.volume = volume;
         }
-    }, [localIsConnected, hostSyncManager, presentationMuted, isPresentationVideoReady]);
+    }, [presentationIsConnected, hostSyncManager, presentationMuted, isPresentationVideoReady]);
 
     // Mute control (for presentation when connected)
     const toggleMute = useCallback(() => {
         const video = videoRef.current;
         if (!video) return;
-        if (localIsConnected && hostSyncManager && isPresentationVideoReady) {
+        if (presentationIsConnected && hostSyncManager && isPresentationVideoReady) {
             const newMuted = !presentationMuted;
             setPresentationMuted(newMuted);
             hostSyncManager.sendCommand('volume', {
@@ -212,11 +237,46 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         } else {
             video.muted = !video.muted;
         }
-    }, [localIsConnected, hostSyncManager, presentationMuted, presentationVolume, isPresentationVideoReady]);
+    }, [presentationIsConnected, hostSyncManager, presentationMuted, presentationVolume, isPresentationVideoReady]);
+
+    // Store current state in refs to avoid dependency issues
+    const stateRef = useRef({
+        presentationIsConnected,
+        hostSyncManager,
+        isPresentationVideoReady,
+        presentationVolume,
+        presentationMuted,
+        startSyncInterval
+    });
+    
+    // Update refs when state changes - use individual effects to avoid dependency issues
+    useEffect(() => {
+        stateRef.current.presentationIsConnected = presentationIsConnected;
+    }, [presentationIsConnected]);
+    
+    useEffect(() => {
+        stateRef.current.hostSyncManager = hostSyncManager;
+    }, [hostSyncManager]);
+    
+    useEffect(() => {
+        stateRef.current.isPresentationVideoReady = isPresentationVideoReady;
+    }, [isPresentationVideoReady]);
+    
+    useEffect(() => {
+        stateRef.current.presentationVolume = presentationVolume;
+    }, [presentationVolume]);
+    
+    useEffect(() => {
+        stateRef.current.presentationMuted = presentationMuted;
+    }, [presentationMuted]);
+    
+    useEffect(() => {
+        stateRef.current.startSyncInterval = startSyncInterval;
+    }, [startSyncInterval]);
 
     // Keep host muted when connected
     useEffect(() => {
-        if (!localIsConnected) return;
+        if (!presentationIsConnected) return;
         const video = videoRef.current;
         if (!video) return;
         video.muted = true;
@@ -226,12 +286,13 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             }
         }, 100);
         return () => clearInterval(interval);
-    }, [localIsConnected]);
+    }, [presentationIsConnected]);
 
     // Handle video source changes
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
+        
         const handleEnded = () => {
             stopSyncInterval();
             onEndedRef.current?.();
@@ -239,31 +300,77 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         const handleError = (e: Event) => {
             onErrorRef.current?.();
         };
+        
         if (isEnabled && sourceUrl) {
             const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
             if (video.currentSrc !== sourceUrl) {
-                // Reset presentation video ready state for new video
-                setIsPresentationVideoReady(false);
-                
+                // Only reset presentation video ready state if it's a completely new video
                 if (isNewVideo) {
-                    // Keep volume state
+                    console.log('[useHostVideo] New video detected, resetting presentation ready state');
+                    setIsPresentationVideoReady(false);
                 }
                 video.src = sourceUrl;
                 video.load();
+                
+                // Auto-play when video is ready (for slide advances)
                 const handleCanPlay = async () => {
+                    // Remove event listener immediately to prevent multiple calls
+                    video.removeEventListener('canplay', handleCanPlay);
+                    
+                    // Don't auto-play if video is already playing
+                    if (!video.paused) {
+                        console.log('[useHostVideo] Video already playing, skipping auto-play');
+                        return;
+                    }
+                    
+                    // Don't auto-play if video is not ready
+                    if (video.readyState < 2) {
+                        console.log('[useHostVideo] Video not ready, skipping auto-play');
+                        return;
+                    }
+                    
                     try {
-                        await play(0);
-                        // Send play command to presentation when host video starts
-                        if (localIsConnected && hostSyncManager) {
-                            hostSyncManager.sendCommand('play', {
+                        // Auto-play logic using current state from ref
+                        video.currentTime = 0; // Start from beginning
+                        
+                        const state = stateRef.current;
+                        
+                        // If connected to presentation, wait for it to be ready
+                        if (state.presentationIsConnected && state.hostSyncManager && !state.isPresentationVideoReady) {
+                            console.log('[useHostVideo] Waiting for presentation to be ready...');
+                            const maxWaitTime = 5000; // 5 seconds timeout
+                            const startTime = Date.now();
+                            
+                            while (!state.isPresentationVideoReady && (Date.now() - startTime) < maxWaitTime) {
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                            }
+                            
+                            if (!state.isPresentationVideoReady) {
+                                console.warn('[useHostVideo] Presentation not ready after timeout, proceeding anyway');
+                            } else {
+                                console.log('[useHostVideo] Presentation is ready');
+                            }
+                        }
+                        
+                        // Play the host video
+                        console.log('[useHostVideo] Playing host video');
+                        await video.play();
+                        
+                        // Send play command to presentation if connected
+                        if (state.presentationIsConnected && state.hostSyncManager) {
+                            console.log('[useHostVideo] Sending play command to presentation');
+                            state.hostSyncManager.sendCommand('play', {
                                 time: video.currentTime,
                                 playbackRate: video.playbackRate,
-                                volume: presentationVolume,
-                                muted: presentationMuted,
+                                volume: state.presentationVolume,
+                                muted: state.presentationMuted,
                             });
+                            state.startSyncInterval();
                         }
-                    } catch (error) {}
-                    video.removeEventListener('canplay', handleCanPlay);
+                    } catch (error) {
+                        console.error('[useHostVideo] Auto-play failed:', error);
+                        // Don't re-throw - just log the error
+                    }
                 };
                 video.addEventListener('canplay', handleCanPlay);
             }
@@ -275,13 +382,14 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             }
             previousSourceUrl.current = null;
         }
+        
         video.addEventListener('ended', handleEnded);
         video.addEventListener('error', handleError);
         return () => {
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
         };
-    }, [sourceUrl, isEnabled, stopSyncInterval, play, localIsConnected, hostSyncManager, presentationMuted, presentationVolume]);
+    }, [sourceUrl, isEnabled, stopSyncInterval]);
 
     useEffect(() => {
         return () => {
@@ -294,12 +402,12 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         onErrorRef.current = onError;
         return createVideoProps({
             videoRef,
-            muted: localIsConnected,
-            autoPlay: false,
+            muted: presentationIsConnected,
+            autoPlay: false, // We control when to play, not the browser
             onVideoEnd,
             onError
         });
-    }, [localIsConnected]);
+    }, [presentationIsConnected]);
 
     // Imperative video control API for parent components (used by SlideRenderer)
     const sendCommand = useCallback(async (action: string, data?: any) => {
@@ -353,7 +461,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
 
     return {
         videoRef,
-        isConnectedToPresentation: localIsConnected,
+        isConnectedToPresentation: presentationIsConnected,
         presentationMuted,
         presentationVolume,
         play,
