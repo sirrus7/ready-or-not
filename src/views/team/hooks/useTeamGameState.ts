@@ -1,6 +1,6 @@
 // src/views/team/hooks/useTeamGameState.ts
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {db, supabase} from '@shared/services/supabase';
+import {db, supabase, useRealtimeSubscription} from '@shared/services/supabase';
 import {InteractiveSlideData, TeamGameEvent, TeamGameEventType} from '@core/sync/SimpleRealtimeManager';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {GameSession, GameStructure, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
@@ -182,6 +182,17 @@ export const useTeamGameState = ({
     // ========================================================================
     // REAL-TIME EVENT HANDLERS - CLEAN
     // ========================================================================
+
+    useRealtimeSubscription(
+        `team-session-delete-${sessionId}`,
+        {
+            table: 'sessions',
+            event: 'DELETE',
+            filter: `id=eq.${sessionId}`,
+            onchange: handleSessionDelete
+        },
+        !!sessionId && !!loggedInTeamId
+    );
 
     // NEW: Team event handler
     const handleTeamEvent = useCallback((event: TeamGameEvent) => {
