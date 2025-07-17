@@ -103,6 +103,11 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             } else {
                 video.muted = false;
                 stopSyncInterval();
+                // Pause host video when presentation disconnects
+                if (!video.paused) {
+                    console.log('[useHostVideo] Presentation disconnected - pausing host video');
+                    video.pause();
+                }
             }
         });
         return unsubscribe;

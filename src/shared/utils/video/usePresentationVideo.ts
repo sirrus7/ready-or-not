@@ -77,6 +77,33 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
         return () => clearInterval(interval);
     }, [broadcastManager]);
 
+    // Handle connection status changes - pause video when disconnected
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        
+        if (!localIsConnected && !video.paused) {
+            console.log('[usePresentationVideo] Lost connection to host - pausing presentation video');
+            video.pause();
+        }
+    }, [localIsConnected]);
+
+    // Handle window close - pause video when presentation window is closed
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            const video = videoRef.current;
+            if (video && !video.paused) {
+                console.log('[usePresentationVideo] Presentation window closing - pausing video');
+                video.pause();
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, []);
+
     // Imperative video control API for parent components (used by SlideRenderer)
     const sendCommand = useCallback(async (action: string, data?: any) => {
         const video = videoRef.current;

@@ -213,8 +213,16 @@ const HostApp: React.FC = () => {
                 console.log('[HostApp] Presentation window closed - restoring audio dominance');
                 setPresentationConnectionStatus('disconnected');
                 
-                // Restore audio dominance to host
+                // Force sync manager to disconnect immediately
+                if (hostSyncManager) {
+                    // Force immediate disconnect status update
+                    hostSyncManager.forceDisconnect();
+                }
+                
+                // Restore audio precedence to host
                 if (videoControlRef.current) {
+                    // Pause the host video when presentation closes
+                    videoControlRef.current.sendCommand('pause');
                     // Unmute the host video and set volume to normal
                     videoControlRef.current.sendCommand('volume', {
                         muted: false,
@@ -227,7 +235,7 @@ const HostApp: React.FC = () => {
             }
         }, 2000);
         return () => clearInterval(checkInterval);
-    }, [presentationTabRef.current]);
+    }, [presentationTabRef.current, hostSyncManager]);
 
     // Prepare team data for broadcasting
     const teamData = {

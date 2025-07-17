@@ -44,6 +44,13 @@ export class HostSyncManager {
   }
 
   /**
+   * Force disconnect status (for when window is closed)
+   */
+  forceDisconnect(): void {
+    this.broadcastManager.forceDisconnect();
+  }
+
+  /**
    * Send join info (URL and QR code) to the presentation
    */
   sendJoinInfo(joinUrl: string, qrCodeDataUrl: string): void {
