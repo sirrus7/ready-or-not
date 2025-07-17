@@ -8,43 +8,43 @@ export interface DoubleDownAudioConfig {
 
 // Map investment IDs to their audio files (based on actual file structure)
 export const INVESTMENT_AUDIO_MAP: Record<string, DoubleDownAudioConfig> = {
-    'PE': {
+    'B': {  // Changed from 'PE' to 'B' (Production Efficiency)
         introAudio: 'double-down/DDProdEff.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     },
-    'ES': {
+    'C': {  // Changed from 'ES' to 'C' (Expanded 2nd Shift)
         introAudio: 'double-down/DD2ndShift.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     },
-    'SCO': {
+    'D': {  // Changed from 'SCO' to 'D' (Supply Chain Optimization)
         introAudio: 'double-down/DDSupChain.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     },
-    'ED': {
+    'E': {  // Changed from 'ED' to 'E' (Employee Development)
         introAudio: 'double-down/DDEmpDev.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     },
-    'MBS': {
+    'F': {  // Changed from 'MBS' to 'F' (Maximize Boutique Sales)
         introAudio: 'double-down/DDMaxBout.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     },
-    'EBB': {
+    'G': {  // Changed from 'EBB' to 'G' (Expand Distribution - Big Box)
         introAudio: 'double-down/DDBigBox.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     },
-    'ERP': {
+    'H': {  // Changed from 'ERP' to 'H' (Enterprise Resource Planning)
         introAudio: 'double-down/DDERP.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     },
-    'ITS': {
+    'I': {  // Changed from 'ITS' to 'I' (IT & Cybersecurity)
         introAudio: 'double-down/DDIT.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     },
-    'PLE': {
+    'J': {  // Changed from 'PLE' to 'J' (Product Line Expansion)
         introAudio: 'double-down/DDProdLineExp.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     },
-    'AC': {
+    'K': {  // Changed from 'AC' to 'K' (Automation & Co-Bots)
         introAudio: 'double-down/DDAutomation.mp4',
         resultAudioPrefix: 'double-down/results/DD'
     }

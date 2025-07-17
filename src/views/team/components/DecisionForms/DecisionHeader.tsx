@@ -28,11 +28,6 @@ const DecisionHeader: React.FC<DecisionHeaderProps> = ({
                     <Target size={24} className="text-blue-400"/>
                     {currentSlide.title || "Make Your Decision"}
                 </h3>
-                <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
-                    <p className="text-sm text-gray-300">
-                        <strong>Current Selection:</strong> {submissionSummary || 'No selection made'}
-                    </p>
-                </div>
             </div>
         );
     }

@@ -73,19 +73,6 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
         };
     }, [teams, teamDecisions]);
 
-    // ENHANCED: Helper function to check if ALL teams have submitted for a decision
-    const allTeamsSubmitted = useMemo(() => {
-        return (decisionKey: string): boolean => {
-            if (!decisionKey || teams.length === 0) return false;
-
-            // Check if ALL teams have submitted for this decision key
-            return teams.every(team => {
-                const decision = teamDecisions[team.id]?.[decisionKey];
-                return decision?.submitted_at; // Has a submission timestamp
-            });
-        };
-    }, [teams, teamDecisions]);
-
     useEffect(() => {
         if (currentRoundKey) {
             setExpandedRounds(prev => ({...prev, [currentRoundKey]: true}));

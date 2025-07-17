@@ -80,7 +80,6 @@ const HostApp: React.FC = () => {
         nextSlide,
         setCurrentHostAlertState,
         allTeamsSubmittedCurrentInteractivePhase,
-        permanentAdjustments,
     } = useGameContext();
 
     const {currentSessionId, gameStructure, current_slide_index} = state;
@@ -185,17 +184,17 @@ const HostApp: React.FC = () => {
             alert("No active session. Please create or select a game first.");
             return;
         }
-        
+
         // Pause the host video when opening presentation
         if (videoControlRef.current) {
             videoControlRef.current.sendCommand('pause');
         }
-        
+
         const url = `/display/${currentSessionId}`;
         const newTab = window.open(url, '_blank');
         if (newTab) {
-            // TODO - we should invert pass video to slide renderer rather than have it instantiate...honestly child component?? 
-            
+            // TODO - we should invert pass video to slide renderer rather than have it instantiate...honestly child component??
+
             presentationTabRef.current = newTab;
             videoDebug.videoLog('HostApp', 'setting presentationConnectionStatus to connecting');
             setPresentationConnectionStatus('connecting');
@@ -213,7 +212,7 @@ const HostApp: React.FC = () => {
             if (presentationTabRef.current?.closed) {
                 videoDebug.videoLog('HostApp', 'Presentation window closed - restoring audio dominance');
                 setPresentationConnectionStatus('disconnected');
-                
+
                 // Force sync manager to disconnect immediately
                 if (hostSyncManager) {
                     videoDebug.videoLog('HostApp', 'Calling forceDisconnect on hostSyncManager');
@@ -222,7 +221,7 @@ const HostApp: React.FC = () => {
                 } else {
                     videoDebug.videoLog('HostApp', 'No hostSyncManager available for forceDisconnect');
                 }
-                
+
                 // Restore audio precedence to host
                 if (videoControlRef.current) {
                     // Pause the host video when presentation closes
@@ -237,7 +236,7 @@ const HostApp: React.FC = () => {
                         videoControlRef.current.resetConnectionState();
                     }
                 }
-                
+
                 presentationTabRef.current = null;
                 clearInterval(checkInterval);
             }
@@ -397,7 +396,7 @@ const HostApp: React.FC = () => {
     return (
         <div
             className="h-screen w-screen bg-gradient-to-br from-gray-200 to-gray-400 p-4 flex flex-col overflow-hidden">
-            
+
             {/* Host Sync Component for presentation communication - REMOVED */}
             {/* Removed HostSyncComponent */}
 
@@ -459,7 +458,7 @@ const HostApp: React.FC = () => {
                                                        color="red"/>
                                     <TestingJumpButton slideId={164} label="⚠️ CH9 ERP: Consultant/Sheets/Immunity"
                                                        color="red"/>
-                                    <TestingJumpButton slideId={186} label="🎲 Double Down Roll: Expanded 2nd Shift"
+                                    <TestingJumpButton slideId={184} label="🎲 Double Down"
                                                        color="orange"/>
                                 </div>
                             </div>
@@ -490,7 +489,7 @@ const HostApp: React.FC = () => {
 
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
                 <div className="lg:col-span-4 xl:col-span-3 min-h-0">
-                    <GamePanel 
+                    <GamePanel
                         joinInfo={joinInfo}
                         setJoinInfo={setJoinInfo}
                         isJoinInfoOpen={isJoinInfoOpen}

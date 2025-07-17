@@ -11,6 +11,11 @@ CREATE TABLE public.double_down_results
     total_value      integer NOT NULL CHECK (total_value >= 2 AND total_value <= 12),
     boost_percentage integer NOT NULL CHECK (boost_percentage = ANY (ARRAY[0, 25, 75, 100])),
     affected_teams   text[] NOT NULL DEFAULT '{}'::text[],
+    -- Add the new KPI change columns
+    capacity_change  integer NOT NULL         DEFAULT 0,
+    orders_change    integer NOT NULL         DEFAULT 0,
+    asp_change       integer NOT NULL         DEFAULT 0,
+    cost_change      integer NOT NULL         DEFAULT 0,
     created_at       timestamp with time zone DEFAULT now(),
     CONSTRAINT double_down_results_pkey PRIMARY KEY (id),
     CONSTRAINT double_down_results_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.sessions (id) ON DELETE CASCADE

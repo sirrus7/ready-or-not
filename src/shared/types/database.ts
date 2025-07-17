@@ -94,6 +94,10 @@ export interface DoubleDownResult {
     boost_percentage: number;
     affected_teams: string[];
     created_at: string;
+    capacity_change: number;
+    orders_change: number;
+    asp_change: number;
+    cost_change: number;
 }
 
 export interface PayoffApplication {

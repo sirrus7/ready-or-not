@@ -78,6 +78,7 @@ const SlideContent: React.FC<{
             return (
                 <div className={`w-full h-full ${className}`}>
                     <DoubleDownDiceDisplay
+                        key={`double-down-${slide.id}-${investment.id}`}
                         sessionId={sessionId}
                         investmentId={investment.id}
                         investmentName={investment.name}

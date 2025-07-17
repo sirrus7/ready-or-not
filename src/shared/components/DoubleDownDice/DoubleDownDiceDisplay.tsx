@@ -1,14 +1,16 @@
 // src/shared/components/DoubleDownDice/DoubleDownDiceDisplay.tsx
 import React, {useState, useEffect, useRef} from 'react';
-import {Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Users, TrendingUp, CheckCircle, BarChart} from 'lucide-react';
-import {DoubleDownEffectsProcessor} from '@core/game/DoubleDownEffectsProcessor';
+import {DoubleDownEffectsProcessor, KpiChangeDetail} from '@core/game/DoubleDownEffectsProcessor';
 import {SimpleRealtimeManager} from '@core/sync/SimpleRealtimeManager';
 import {db} from '@shared/services/supabase';
-import {DoubleDownDecision, DoubleDownResult, KpiChange, Slide, TeamRoundData} from "@shared/types";
+import {DoubleDownDecision, DoubleDownResult, InvestmentPayoff, KpiChange, Slide, TeamRoundData} from "@shared/types";
 import {formatCurrency, formatNumber} from "@shared/utils/formatUtils";
 import {DoubleDownAudioManager} from '@shared/utils/audio';
+import Dice3D from "./Dice3D";
+import {allInvestmentPayoffsData} from "@core/content/InvestmentPayoffContent";
 
-type DiceResult = Omit<DoubleDownResult, 'id' | 'created_at' | 'session_id'>;
+type DiceResult = Omit<DoubleDownResult, 'id' | 'created_at' | 'session_id' | 'capacity_change' | 'orders_change' | 'asp_change' | 'cost_change'>;
+type KpiChanges = Pick<DoubleDownResult, 'capacity_change' | 'orders_change' | 'asp_change' | 'cost_change'>;
 
 interface DoubleDownDiceDisplayProps {
     sessionId: string;
@@ -33,39 +35,28 @@ const DICE_BOOSTS = {
     12: 100    // 100% boost (double)
 } as const;
 
-const DiceIcon: React.FC<{ value: number }> = ({value}) => {
-    const icons = {
-        1: Dice1,
-        2: Dice2,
-        3: Dice3,
-        4: Dice4,
-        5: Dice5,
-        6: Dice6
-    };
-    const Icon = icons[value as keyof typeof icons] || Dice6;
-    return <Icon className="w-20 h-20"/>;
-};
-
 const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                                                          sessionId,
                                                                          investmentId,
                                                                          investmentName,
                                                                          slideId,
                                                                          isHost = false
-                                                                     }) => {
+                                                                     }: DoubleDownDiceDisplayProps) => {
     const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
     const [kpiChanges, setKpiChanges] = useState<KpiChange[]>([]);
     const [hasRolled, setHasRolled] = useState(false);
     const [hasAppliedEffects, setHasAppliedEffects] = useState(false);
-    const [currentPhase, setCurrentPhase] = useState<'loading' | 'showing_teams' | 'rolling' | 'showing_results' | 'applying_effects' | 'complete'>('loading');
+    const [currentPhase, setCurrentPhase] = useState<'loading' | 'rolling' | 'showing_results' | 'complete'>('loading');
     const [affectedTeams, setAffectedTeams] = useState<string[]>([]);
+    const [isRolling, setIsRolling] = useState(false);
+    const processingRef = useRef(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const audioManager = DoubleDownAudioManager.getInstance();
+    const audioManager: DoubleDownAudioManager = DoubleDownAudioManager.getInstance();
 
-    useEffect(() => {
+    useEffect((): () => void => {
         initializeDoubleDownRoll();
 
-        return () => {
+        return (): void => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
             }
@@ -73,116 +64,102 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         };
     }, [slideId, investmentId, sessionId]);
 
-    useEffect(() => {
-        if (currentPhase === 'showing_teams' && affectedTeams.length > 0) {
-            audioManager.playIntroAudio(investmentId);
-        }
-    }, [currentPhase, affectedTeams.length]);
-
+    // PRESENTATION FUNCTION: Wait for host results, no audio
     const waitForHostResult = async (teamNames: string[]) => {
-        console.log('[DoubleDownDiceDisplay] PRESENTATION: Waiting for host result...');
-
         setCurrentPhase('rolling');
 
-        // Show rolling animation while waiting
-        const rollInterval = setInterval(() => {
-            const tempResult: DiceResult = {
-                investment_id: investmentId,
-                dice1_value: Math.floor(Math.random() * 6) + 1,
-                dice2_value: Math.floor(Math.random() * 6) + 1,
-                total_value: 0,
-                boost_percentage: 0,
-                affected_teams: teamNames
-            };
-            tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
-            tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
-            setDiceResult(tempResult);
-        }, 100);
+        // Start animation immediately while polling for results
+        setIsRolling(true);
 
-        // Poll for host result
+        // Poll for host result in background
         let attempts = 0;
-        const maxAttempts = 20; // 10 seconds total
+        const maxAttempts = 60;
+        let hostResult: DoubleDownResult | null = null;
 
-        while (attempts < maxAttempts && !hasRolled) {
-            const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+        // Start polling immediately
+        const pollForResult = async () => {
+            while (attempts < maxAttempts && !hostResult) {
+                hostResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
 
+                if (hostResult) {
+                    const finalResult: DiceResult = {
+                        investment_id: hostResult.investment_id,
+                        dice1_value: hostResult.dice1_value,
+                        dice2_value: hostResult.dice2_value,
+                        total_value: hostResult.total_value,
+                        boost_percentage: hostResult.boost_percentage,
+                        affected_teams: hostResult.affected_teams || teamNames
+                    };
+
+                    // Set the result so the animation can use it
+                    setDiceResult(finalResult);
+                    return finalResult;
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            return null;
+        };
+
+        // Run polling and animation in parallel
+        const [result] = await Promise.all([
+            pollForResult(),
+            simulateDiceAnimation(2500) // Slightly shorter than host animation
+        ]);
+
+        setIsRolling(false);
+
+        if (result) {
+            setHasRolled(true);
+            setCurrentPhase('showing_results');
+
+            await applyEffectsAsPresentation(result);
+            setHasAppliedEffects(true);
+            setCurrentPhase('complete');
+            return;
+        }
+
+        // Timeout fallback
+        setCurrentPhase('complete');
+        console.error('[DoubleDownDiceDisplay] Timeout waiting for host result');
+    };
+
+    const initializeDoubleDownRoll: () => Promise<void> = async (): Promise<void> => {
+        // CRITICAL: Prevent multiple simultaneous executions
+        if (processingRef.current) {
+            return;
+        }
+
+        processingRef.current = true;
+        setCurrentPhase('loading');
+
+        try {
+            // Check for existing result FIRST (your existing code)
+            const existingResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
             if (existingResult) {
-                clearInterval(rollInterval);
-
                 const finalResult: DiceResult = {
                     investment_id: existingResult.investment_id,
                     dice1_value: existingResult.dice1_value,
                     dice2_value: existingResult.dice2_value,
                     total_value: existingResult.total_value,
                     boost_percentage: existingResult.boost_percentage,
-                    affected_teams: existingResult.affected_teams || teamNames
+                    affected_teams: existingResult.affected_teams || []
                 };
 
                 setDiceResult(finalResult);
+                setAffectedTeams(finalResult.affected_teams);
                 setHasRolled(true);
-                setCurrentPhase('showing_results');
-
-                // FIX #3: Presentation should only get display changes, not apply effects
-                setTimeout(async () => {
-                    if (finalResult) {
-                        // Play result audio immediately when dice settle
-                        audioManager.playResultAudio(investmentId, finalResult.total_value);
-
-                        // Wait a bit for audio to start, then apply effects
-                        await applyEffectsAsPresentation(finalResult);
-                        setHasAppliedEffects(true);
-                        setCurrentPhase('complete');
-                    }
-                }, 3000);
-
-                return;
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-            attempts++;
-        }
-
-        clearInterval(rollInterval);
-        console.error('[DoubleDownDiceDisplay] PRESENTATION: Timeout waiting for host result');
-        setCurrentPhase('complete');
-    };
-
-    const initializeDoubleDownRoll = async () => {
-        try {
-            console.log(`[DoubleDownDiceDisplay] Initializing for slide ${slideId}, investment ${investmentId}`);
-
-            // RESET STATE when moving to new investment
-            setDiceResult(null);
-            setKpiChanges([]);
-            setHasRolled(false);
-            setHasAppliedEffects(false);
-            setCurrentPhase('loading');
-            setAffectedTeams([]);
-
-            // First, check if this investment has already been processed
-            const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
-            console.log(`[DoubleDownDiceDisplay] Existing result for ${investmentId}:`, existingResult);
-
-            if (existingResult) {
-                // Already processed - show the completed state
-                setDiceResult(existingResult);
-                setHasRolled(true);
-                setHasAppliedEffects(true);
                 setCurrentPhase('complete');
 
-                // FIXED: Set affected teams from existing result
-                setAffectedTeams(existingResult.affected_teams || []);
-
-                // Load KPI changes for display if teams were affected
-                if (existingResult.affected_teams && existingResult.affected_teams.length > 0) {
+                // Load existing KPI changes if available
+                if (finalResult.affected_teams && finalResult.affected_teams.length > 0) {
                     const displayChanges = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
                         sessionId,
-                        investmentId,
-                        existingResult.boost_percentage
+                        investmentId
                     );
 
-                    // Format for the component's KpiChange interface
-                    const formattedChanges: KpiChange[] = existingResult.affected_teams.map(teamName => ({
+                    const formattedChanges: KpiChange[] = finalResult.affected_teams.map(teamName => ({
                         team_name: teamName,
                         changes: displayChanges
                     }));
@@ -190,7 +167,7 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                     setKpiChanges(formattedChanges);
                 }
 
-                return;
+                return; // 🚨 EXIT EARLY - don't continue with the rest of the initialization
             }
 
             // Get teams that chose to double down on this investment
@@ -205,178 +182,147 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 return;
             }
 
-            // Show teams for 3 seconds, then proceed based on mode
-            setCurrentPhase('showing_teams');
-            audioManager.loadIntroAudio(investmentId);
+            // Go straight to rolling if teams exist
+            await audioManager.loadIntroAudio(investmentId);
 
-            timeoutRef.current = setTimeout(() => {
-                console.log('[DoubleDownDiceDisplay] setTimeout fired with captured teamNames:', teamNames);
-
-                if (isHost) {
-                    // HOST: Roll dice and save result
-                    if (!hasRolled && teamNames.length > 0) {
-                        rollDice(teamNames);
-                    }
-                } else {
-                    // PRESENTATION: Wait for host result (don't roll independently)
-                    waitForHostResult(teamNames);
-                }
-            }, 3000);
+            if (isHost) {
+                rollDice(teamNames);
+            } else {
+                waitForHostResult(teamNames);
+            }
 
         } catch (error) {
             console.error('Error initializing double down roll:', error);
             setCurrentPhase('complete');
+        } finally {
+            // Always clear the processing lock
+            processingRef.current = false;
         }
     };
 
-    const rollDice = async (teams?: string[]) => {
-        // Use parameter if provided, otherwise fall back to state
+    const simulateDiceAnimation = async (duration: number = 2000): Promise<void> => {
+        // Start CSS animation instead of state updates
+        setIsRolling(true);
+
+        // Wait for animation duration without constant state updates
+        await new Promise(resolve => setTimeout(resolve, duration));
+
+        // Stop animation
+        setIsRolling(false);
+    };
+
+    // HOST FUNCTION: Generate dice, play audio, save results
+    const rollDice = async (teams: string[]) => {
         const teamsToUse = teams || affectedTeams;
 
-        if (hasRolled || teamsToUse.length === 0) {
-            console.log('[DoubleDownDiceDisplay] BLOCKING roll - hasRolled:', hasRolled, 'teamsToUse.length:', teamsToUse.length);
-            return;
-        }
-
-        console.log('[DoubleDownDiceDisplay] ✅ Proceeding with dice roll for teams:', teamsToUse);
+        if (hasRolled || teamsToUse.length === 0) return;
 
         setCurrentPhase('rolling');
 
-        let finalDice1: number;
-        let finalDice2: number;
-        let finalTotal: number;
-        let finalBoost: number;
-
-        if (isHost) {
-            // HOST: Generate random dice results
-            console.log('[DoubleDownDiceDisplay] HOST: Generating random dice results');
-
-            // Simulate dice rolling animation
-            const rollDuration = 2000;
-            const rollInterval = 100;
-            const animationSteps = rollDuration / rollInterval;
-
-            for (let i = 0; i < animationSteps; i++) {
-                await new Promise(resolve => setTimeout(resolve, rollInterval));
-
-                // Show random dice values during rolling
-                const tempResult: DiceResult = {
-                    investment_id: investmentId,
-                    dice1_value: Math.floor(Math.random() * 6) + 1,
-                    dice2_value: Math.floor(Math.random() * 6) + 1,
-                    total_value: 0,
-                    boost_percentage: 0,
-                    affected_teams: teamsToUse
-                };
-                tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
-                tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
-                setDiceResult(tempResult);
-            }
-
-            // Generate final dice result
-            finalDice1 = Math.floor(Math.random() * 6) + 1;
-            finalDice2 = Math.floor(Math.random() * 6) + 1;
-            finalTotal = finalDice1 + finalDice2;
-            finalBoost = DICE_BOOSTS[finalTotal as keyof typeof DICE_BOOSTS];
-
-            console.log('[DoubleDownDiceDisplay] HOST: Generated dice results:', {
-                finalDice1,
-                finalDice2,
-                finalTotal,
-                finalBoost
-            });
-        } else {
-            // PRESENTATION: Fetch results from database
-            console.log('[DoubleDownDiceDisplay] PRESENTATION: Fetching dice results from database');
-
-            // Show rolling animation while fetching
-            const rollDuration = 2000;
-            const rollInterval = 100;
-            const animationSteps = rollDuration / rollInterval;
-
-            for (let i = 0; i < animationSteps; i++) {
-                await new Promise(resolve => setTimeout(resolve, rollInterval));
-
-                // Show random dice values during rolling (just for animation)
-                const tempResult: DiceResult = {
-                    investment_id: investmentId,
-                    dice1_value: Math.floor(Math.random() * 6) + 1,
-                    dice2_value: Math.floor(Math.random() * 6) + 1,
-                    total_value: 0,
-                    boost_percentage: 0,
-                    affected_teams: teamsToUse
-                };
-                tempResult.total_value = tempResult.dice1_value + tempResult.dice2_value;
-                tempResult.boost_percentage = DICE_BOOSTS[tempResult.total_value as keyof typeof DICE_BOOSTS];
-                setDiceResult(tempResult);
-            }
-
-            // Fetch results from database (retry until available)
-            let existingResult = null;
-            let attempts = 0;
-            const maxAttempts = 10;
-
-            while (!existingResult && attempts < maxAttempts) {
-                existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
-                if (!existingResult) {
-                    console.log('[DoubleDownDiceDisplay] PRESENTATION: No result found, retrying...');
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    attempts++;
-                }
-            }
-
-            if (!existingResult) {
-                console.error('[DoubleDownDiceDisplay] PRESENTATION: No dice result found after retries');
-                setCurrentPhase('complete');
-                return;
-            }
-
-            finalDice1 = existingResult.dice1_value;
-            finalDice2 = existingResult.dice2_value;
-            finalTotal = existingResult.total_value;
-            finalBoost = existingResult.boost_percentage;
-
-            console.log('[DoubleDownDiceDisplay] PRESENTATION: Using database results:', {
-                finalDice1,
-                finalDice2,
-                finalTotal,
-                finalBoost
-            });
-        }
+        // Generate dice results FIRST before animation
+        const dice1: number = Math.floor(Math.random() * 6) + 1;
+        const dice2: number = Math.floor(Math.random() * 6) + 1;
+        const total: number = dice1 + dice2;
+        const boost: 0 | 25 | 75 | 100 = DICE_BOOSTS[total as keyof typeof DICE_BOOSTS];
 
         const result: DiceResult = {
             investment_id: investmentId,
-            dice1_value: finalDice1,
-            dice2_value: finalDice2,
-            total_value: finalTotal,
-            boost_percentage: finalBoost,
+            dice1_value: dice1,
+            dice2_value: dice2,
+            total_value: total,
+            boost_percentage: boost,
             affected_teams: teamsToUse
         };
 
+        // Set the dice result immediately so the animation can use it
         setDiceResult(result);
+
+        // Start dice animation AND intro audio simultaneously
+        const diceAnimationPromise = simulateDiceAnimation(3000);
+        const audioPromise = audioManager.playIntroAudio(investmentId);
+
+        // Wait for both to complete
+        await Promise.all([diceAnimationPromise, audioPromise]);
+
+        // Animation is complete, now transition to results
         setHasRolled(true);
         setCurrentPhase('showing_results');
+        await saveResult(result);
 
-        // Only save if host
-        if (isHost) {
-            await saveResult(result);
+        // Play result audio and apply effects immediately
+        await audioManager.playResultAudio(investmentId, result.total_value);
+        await applyDoubleDownEffects(result);
+    };
+
+    const calculateFinalKpiChanges = (boostPercentage: number): KpiChanges => {
+        if (boostPercentage === 0) {
+            return {
+                capacity_change: 0,
+                orders_change: 0,
+                asp_change: 0,
+                cost_change: 0
+            };
         }
 
-        // Show results for 3 seconds, then apply effects
-        setTimeout(async () => {
-            await applyDoubleDownEffects(result);
-        }, 3000);
+        // Get the original investment payoffs
+        const rd3Payoffs: InvestmentPayoff[] = allInvestmentPayoffsData['rd3-payoff'] || [];
+        const payoffForOption: InvestmentPayoff | undefined = rd3Payoffs.find(p => p.id === investmentId);
+
+        if (!payoffForOption?.effects) {
+            return {
+                capacity_change: 0,
+                orders_change: 0,
+                asp_change: 0,
+                cost_change: 0
+            };
+        }
+
+        // Apply boost percentage as ADDITIONAL bonus
+        const boostMultiplier: number = boostPercentage / 100;
+        let capacityChange: number = 0;
+        let ordersChange: number = 0;
+        let aspChange: number = 0;
+        let costChange: number = 0;
+
+        // Find and boost the relevant KPI effects
+        payoffForOption.effects.forEach(effect => {
+            const boostedValue = effect.change_value * boostMultiplier;
+
+            switch (effect.kpi) {
+                case 'capacity':
+                    capacityChange = Math.ceil(Math.abs(boostedValue) / 250) * 250 * Math.sign(boostedValue);
+                    break;
+                case 'orders':
+                    ordersChange = Math.ceil(Math.abs(boostedValue) / 250) * 250 * Math.sign(boostedValue);
+                    break;
+                case 'asp':
+                    aspChange = Math.ceil(Math.abs(boostedValue) / 10) * 10 * Math.sign(boostedValue);
+                    break;
+                case 'cost':
+                    costChange = Math.ceil(Math.abs(boostedValue) / 25000) * 25000 * Math.sign(boostedValue);
+                    break;
+            }
+        });
+
+        return {
+            capacity_change: capacityChange,
+            orders_change: ordersChange,
+            asp_change: aspChange,
+            cost_change: costChange
+        };
     };
 
     const saveResult = async (result: DiceResult) => {
         try {
             // Check if result already exists before saving
-            const existingResult = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
+            const existingResult: DoubleDownResult | null = await db.doubleDown.getResultForInvestment(sessionId, investmentId);
 
             if (existingResult) {
-                console.log(`[DoubleDownDiceDisplay] Result already exists for investment ${investmentId}, skipping save`);
                 return;
             }
+
+            // Calculate final KPI changes once with proper rounding
+            const kpiChanges: KpiChanges = calculateFinalKpiChanges(result.boost_percentage);
 
             await db.doubleDown.saveResult({
                 session_id: sessionId,
@@ -385,57 +331,15 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 dice2_value: result.dice2_value,
                 total_value: result.total_value,
                 boost_percentage: result.boost_percentage,
-                affected_teams: result.affected_teams
+                affected_teams: result.affected_teams,
+                capacity_change: kpiChanges.capacity_change,
+                orders_change: kpiChanges.orders_change,
+                asp_change: kpiChanges.asp_change,
+                cost_change: kpiChanges.cost_change
             });
-
-            console.log(`[DoubleDownDiceDisplay] Successfully saved result for investment ${investmentId}`);
-
-            // REMOVED: No longer broadcasting dice-roll events - unnecessary complexity
-
         } catch (error) {
             console.error('Error saving dice result:', error);
         }
-    };
-
-    const getBeforeKpiValues = async (teamDecisions: DoubleDownDecision[]): Promise<Record<string, TeamRoundData | null>> => {
-        const beforeValues: Record<string, TeamRoundData | null> = {};
-        for (const decision of teamDecisions) {
-            beforeValues[decision.team_id] = await db.kpis.getForTeamRound(sessionId, decision.team_id, 3);
-        }
-        return beforeValues;
-    };
-
-    const calculateActualChanges = async (teamDecisions: DoubleDownDecision[], beforeValues: Record<string, TeamRoundData | null>): Promise<KpiChange[]> => {
-        const actualChanges: KpiChange[] = [];
-
-        for (const decision of teamDecisions) {
-            const teamId = decision.team_id;
-            const teamName = decision.team_name;
-            const beforeKpis = beforeValues[teamId];
-            const afterKpis = await db.kpis.getForTeamRound(sessionId, teamId, 3);
-
-            if (beforeKpis && afterKpis) {
-                const changes = [
-                    {
-                        kpi: 'capacity',
-                        change_value: afterKpis.current_capacity - beforeKpis.current_capacity,
-                        display_value: `${afterKpis.current_capacity - beforeKpis.current_capacity}`
-                    },
-                    {
-                        kpi: 'cost',
-                        change_value: afterKpis.current_cost - beforeKpis.current_cost,
-                        display_value: `$${(afterKpis.current_cost - beforeKpis.current_cost).toLocaleString()}`
-                    }
-                ].filter(change => change.change_value !== 0);
-
-                actualChanges.push({
-                    team_name: teamName,
-                    changes
-                });
-            }
-        }
-
-        return actualChanges;
     };
 
     const getUpdatedKpisForBroadcast = async (teamDecisions: DoubleDownDecision[]): Promise<Record<string, TeamRoundData | null>> => {
@@ -470,16 +374,11 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             boostPercentage: result.boost_percentage,
             message: `Double Down bonus applied: ${result.boost_percentage}% boost from ${investmentName}`
         });
-
-        console.log(`[DoubleDownDiceDisplay] Broadcasted KPI data to teams`);
     };
 
     const applyEffectsAsHost = async (result: DiceResult) => {
-        console.log(`[DoubleDownDiceDisplay] HOST: Applying effects to database`);
-
         // Get team data and before values
         const teamDecisions: DoubleDownDecision[] = await db.decisions.getTeamsDoubledDownOnInvestment(sessionId, investmentId);
-        const beforeValues: Record<string, TeamRoundData | null> = await getBeforeKpiValues(teamDecisions);
 
         // Apply effects to database
         await DoubleDownEffectsProcessor.processDoubleDownForInvestment(
@@ -488,23 +387,10 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             result.boost_percentage
         );
 
-        // Calculate actual changes and broadcast
-        const actualChanges: KpiChange[] = await calculateActualChanges(teamDecisions, beforeValues);
-        const updatedKpis: Record<string, TeamRoundData | null> = await getUpdatedKpisForBroadcast(teamDecisions);
-
-        setKpiChanges(actualChanges);
-        await broadcastKpiUpdatesToTeams(updatedKpis, result);
-
-        console.log(`[DoubleDownDiceDisplay] HOST: Applied effects and broadcasted to teams`);
-    };
-
-    const applyEffectsAsPresentation = async (result: DiceResult) => {
-        console.log(`[DoubleDownDiceDisplay] PRESENTATION: Getting display changes only`);
-
+        // HOST DISPLAY: Use stored KPI changes (same as presentation)
         const displayChanges = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
             sessionId,
-            investmentId,
-            result.boost_percentage
+            investmentId
         );
 
         const formattedChanges: KpiChange[] = result.affected_teams.map(teamName => ({
@@ -513,41 +399,37 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         }));
 
         setKpiChanges(formattedChanges);
-        console.log(`[DoubleDownDiceDisplay] PRESENTATION: Set display changes`);
+
+        // Still broadcast the actual database changes to teams
+        const updatedKpis: Record<string, TeamRoundData | null> = await getUpdatedKpisForBroadcast(teamDecisions);
+        await broadcastKpiUpdatesToTeams(updatedKpis, result);
     };
 
-    const applyDoubleDownEffects = async (result: DiceResult) => {
-        if (hasAppliedEffects || result.affected_teams.length === 0) {
-            console.log(`[DoubleDownDiceDisplay] Skipping effects application - already applied: ${hasAppliedEffects}, teams: ${result.affected_teams.length}`);
-            return;
-        }
+    const applyEffectsAsPresentation = async (result: DiceResult) => {
+        const displayChanges: KpiChangeDetail[] = await DoubleDownEffectsProcessor.getKpiChangesForDisplay(
+            sessionId,
+            investmentId
+        );
 
-        setCurrentPhase('applying_effects');
+        const formattedChanges: KpiChange[] = result.affected_teams.map(teamName => ({
+            team_name: teamName,
+            changes: displayChanges
+        }));
+
+        setKpiChanges(formattedChanges);
+    };
+
+    // HOST-ONLY EFFECTS FUNCTION
+    const applyDoubleDownEffects = async (result: DiceResult) => {
+        if (hasAppliedEffects || result.affected_teams.length === 0) return;
 
         try {
-            console.log(`[DoubleDownDiceDisplay] Applying effects for investment ${investmentId} with ${result.boost_percentage}% boost`);
-
-            if (isHost) {
-                await applyEffectsAsHost(result);
-            } else {
-                await applyEffectsAsPresentation(result);
-            }
-
+            await applyEffectsAsHost(result);
             setHasAppliedEffects(true);
             setCurrentPhase('complete');
-            console.log(`[DoubleDownDiceDisplay] Successfully completed effects application for investment ${investmentId}`);
-
         } catch (error) {
-            console.error('[DoubleDownDiceDisplay] Error applying double down effects:', error);
-            setCurrentPhase('complete');
+            console.error('[DoubleDownDiceDisplay] Error applying host effects:', error);
         }
-    };
-
-    const getBoostColor = (boost: number) => {
-        if (boost === 100) return 'text-green-400';
-        if (boost === 75) return 'text-blue-400';
-        if (boost === 25) return 'text-yellow-400';
-        return 'text-gray-400';
     };
 
     const formatKpiChange = (change: { kpi: string; change_value: number; display_value: string }) => {
@@ -582,50 +464,36 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         switch (currentPhase) {
             case 'loading':
                 return (
-                    <div className="text-center text-gray-400">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                        Loading double down data...
-                    </div>
-                );
-
-            case 'showing_teams':
-                return (
-                    <div className="text-center">
-                        <h2 className="text-4xl font-bold text-white mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            {investmentName}
-                        </h2>
-                        <h3 className="text-2xl font-bold text-white mb-6">
-                            Teams Doubling Down:
-                        </h3>
-                        <div className="space-y-3 mb-6">
-                            {affectedTeams.map((team, index) => (
-                                <div key={index}
-                                     className="bg-game-orange-600/20 border border-game-orange-500/30 rounded-lg px-6 py-3">
-                                    <span className="text-xl font-medium text-white">{team}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="text-gray-300 text-lg">
-                            Rolling dice automatically in 3... 2... 1...
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <div
+                                className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+                            <div className="text-white/80 md:text-lg lg:text-xl xl:text-2xl text-center">Loading double
+                                down data...
+                            </div>
                         </div>
                     </div>
                 );
 
             case 'rolling':
                 return (
-                    <div className="text-center">
-                        <h2 className="text-4xl font-bold text-white mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            {investmentName}
-                        </h2>
-                        <h3 className="text-2xl font-bold text-white mb-8">Rolling Dice...</h3>
-                        <div className="animate-bounce">
-                            <div className="flex gap-4 justify-center mb-6">
-                                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-inner">
-                                    <DiceIcon value={diceResult?.dice1_value || 1}/>
-                                </div>
-                                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-inner">
-                                    <DiceIcon value={diceResult?.dice2_value || 1}/>
-                                </div>
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-game-orange-300 mb-6 text-center">
+                                {investmentName}
+                            </h2>
+                            <div className="flex justify-center gap-4 md:gap-6 lg:gap-8 xl:gap-12 mb-8">
+                                <Dice3D value={diceResult?.dice1_value || 1} isRolling={isRolling}/>
+                                <Dice3D value={diceResult?.dice2_value || 1} isRolling={isRolling}/>
+                            </div>
+                            <div className="text-white/80 md:text-lg lg:text-xl xl:text-2xl text-center animate-pulse">
+                                Rolling the dice...
                             </div>
                         </div>
                     </div>
@@ -633,42 +501,45 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
             case 'showing_results':
                 return (
-                    <div className="text-center">
-                        <h2 className="text-4xl font-bold text-white mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            {investmentName}
-                        </h2>
-                        <h3 className="text-2xl font-bold text-white mb-4">Final Result:</h3>
-                        <div className="flex gap-4 justify-center mb-6">
-                            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-inner">
-                                <DiceIcon value={diceResult?.dice1_value || 1}/>
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-game-orange-300 mb-6 text-center">
+                                {investmentName}
+                            </h2>
+                            <div className="flex justify-center gap-4 md:gap-6 lg:gap-8 xl:gap-12 mb-8">
+                                <Dice3D value={diceResult?.dice1_value || 1} isRolling={false}/>
+                                <Dice3D value={diceResult?.dice2_value || 1} isRolling={false}/>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-inner">
-                                <DiceIcon value={diceResult?.dice2_value || 1}/>
-                            </div>
-                        </div>
-                        <div className="text-5xl font-bold text-white mb-4">
-                            Total: {diceResult?.total_value}
-                        </div>
-                        <div className={`text-3xl font-bold mb-6 ${getBoostColor(diceResult?.boost_percentage || 0)}`}>
-                            {diceResult?.boost_percentage}%
-                            Boost {diceResult?.boost_percentage === 100 ? 'Applied' : 'Applied'}
-                        </div>
-                        <div className="text-gray-300">
-                            Applying effects to team KPIs...
-                        </div>
-                    </div>
-                );
-
-            case 'applying_effects':
-                return (
-                    <div className="text-center">
-                        <h2 className="text-4xl font-bold text-white mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            {investmentName}
-                        </h2>
-                        <div className="animate-pulse">
-                            <TrendingUp className="mx-auto mb-4 text-green-400" size={64}/>
-                            <div className="text-2xl font-bold text-white mb-4">
-                                Applying effects to team KPIs...
+                            <div className="text-center mb-6">
+                                {diceResult?.boost_percentage === 0 && (
+                                    <div
+                                        className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-red-400">
+                                        NO BONUS
+                                    </div>
+                                )}
+                                {diceResult?.boost_percentage === 25 && (
+                                    <div
+                                        className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-yellow-400">
+                                        25% BONUS!
+                                    </div>
+                                )}
+                                {diceResult?.boost_percentage === 75 && (
+                                    <div
+                                        className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-yellow-400 animate-pulse">
+                                        75% BONUS!
+                                    </div>
+                                )}
+                                {diceResult?.boost_percentage === 100 && (
+                                    <div
+                                        className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-green-400 animate-bounce">
+                                        JACKPOT!
+                                        <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl mt-2">100%
+                                            BONUS!</div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -677,89 +548,101 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             case 'complete':
                 if (affectedTeams.length === 0) {
                     return (
-                        <div className="text-center">
-                            <h2 className="text-4xl font-bold text-white mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                                {investmentName}
-                            </h2>
-                            <Users className="mx-auto mb-4 text-gray-400" size={64}/>
-                            <div className="text-2xl text-gray-400">
-                                No teams doubled down on this investment
+                        <div className="flex items-center justify-center min-h-[60vh]">
+                            <div
+                                className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl">
+                                <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                    DOWN</h1>
+                                <div className="text-xl md:text-2xl lg:text-3xl xl:text-4xl text-white/80 text-center">
+                                    No teams doubled down on {investmentName}
+                                </div>
                             </div>
                         </div>
                     );
                 }
 
                 return (
-                    <div className="text-center">
-                        <h2 className="text-4xl font-bold text-white mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            {investmentName}
-                        </h2>
-
-                        {diceResult && (
-                            <>
-                                <div className="flex gap-4 justify-center mb-6">
-                                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 shadow-inner">
-                                        <DiceIcon value={diceResult.dice1_value}/>
+                    <div className="flex items-center justify-center min-h-[60vh]">
+                        <div
+                            className="bg-black/70 backdrop-blur-md rounded-2xl p-8 border border-game-orange-400/30 shadow-2xl max-w-4xl">
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-4 tracking-wider text-center">DOUBLE
+                                DOWN</h1>
+                            <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-game-orange-300 mb-6 text-center">
+                                {investmentName}
+                            </h2>
+                            {diceResult && (
+                                <>
+                                    <div className="flex justify-center gap-4 md:gap-6 lg:gap-8 xl:gap-12 mb-8">
+                                        <Dice3D value={diceResult.dice1_value} isRolling={false}/>
+                                        <Dice3D value={diceResult.dice2_value} isRolling={false}/>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 shadow-inner">
-                                        <DiceIcon value={diceResult.dice2_value}/>
+                                    <div className="text-center mb-8">
+                                        {diceResult.boost_percentage === 0 && (
+                                            <div
+                                                className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-red-400">
+                                                NO BONUS
+                                            </div>
+                                        )}
+                                        {diceResult.boost_percentage === 25 && (
+                                            <div
+                                                className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-yellow-400">
+                                                25% BONUS!
+                                            </div>
+                                        )}
+                                        {diceResult.boost_percentage === 75 && (
+                                            <div
+                                                className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-yellow-400">
+                                                75% BONUS!
+                                            </div>
+                                        )}
+                                        {diceResult.boost_percentage === 100 && (
+                                            <div
+                                                className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-green-400">
+                                                JACKPOT!
+                                                <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl mt-2">100%
+                                                    BONUS!</div>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="text-3xl font-bold text-white mb-2">
-                                    Total: {diceResult.total_value}
-                                </div>
-                                <div
-                                    className={`text-2xl font-bold mb-6 ${getBoostColor(diceResult.boost_percentage)}`}>
-                                    {diceResult.boost_percentage}% Boost Applied
-                                </div>
-
-                                {diceResult.boost_percentage > 0 && (
-                                    <div className="mb-6">
-                                        <h3 className="text-xl font-bold text-white mb-4 flex items-center justify-center gap-2">
-                                            <TrendingUp size={24}/>
-                                            Teams Receiving {diceResult.boost_percentage}% Bonus
-                                        </h3>
-                                        <div className="flex flex-wrap gap-2 justify-center">
-                                            {affectedTeams.map((team, index) => (
-                                                <div key={index}
-                                                     className="bg-game-orange-600/30 border border-game-orange-500/50 rounded-lg px-4 py-2">
-                                                    <span className="text-lg font-medium text-white">{team}</span>
-                                                </div>
-                                            ))}
+                                    {kpiChanges.length > 0 && (
+                                        <div className="bg-black/50 rounded-xl p-6 mb-8">
+                                            <h3 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-white mb-4 text-center">KPI
+                                                Changes</h3>
+                                            <div className="grid gap-4">
+                                                {kpiChanges.map((teamChange, teamIndex) => (
+                                                    <div key={teamIndex} className="text-center">
+                                                        <div className="flex flex-wrap gap-2 justify-center">
+                                                            {teamChange.changes.map((change, changeIndex) => (
+                                                                <span key={changeIndex}
+                                                                      className="text-base md:text-lg lg:text-xl xl:text-2xl">
+                                                                {formatKpiChange(change)}
+                                                            </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
-
-                        {/* KPI Changes Display */}
-                        {kpiChanges.length > 0 && (
-                            <div className="mt-8 p-6 bg-slate-800/50 rounded-lg border border-slate-700">
-                                <div className="flex items-center justify-center mb-4">
-                                    <BarChart className="w-5 h-5 text-blue-400 mr-2"/>
-                                    <h3 className="text-lg font-semibold text-white">KPI Changes - Update Your Physical
-                                        Boards!</h3>
-                                </div>
-
-                                <div className="bg-slate-700/30 rounded-lg p-4">
-                                    <div className="text-center">
-                                        <div className="flex flex-col items-center gap-2">
-                                            {kpiChanges[0]?.changes.map((change, changeIndex) => (
-                                                <div key={changeIndex} className="text-lg font-bold">
-                                                    {formatKpiChange(change)}
-                                                </div>
-                                            ))}
+                                    )}
+                                    {affectedTeams.length > 0 && (
+                                        <div className="bg-black/50 rounded-xl p-6">
+                                            <h3 className="text-lg md:text-xl lg:text-2xl xl:text-3xl font-semibold text-white mb-4 text-center">
+                                                Teams that doubled down:
+                                            </h3>
+                                            <div className="flex flex-wrap gap-2 justify-center">
+                                                {affectedTeams.map((team, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="bg-game-orange-500 text-white px-3 py-1 rounded-full text-sm md:text-base lg:text-lg xl:text-xl font-medium"
+                                                    >
+                                                        <span className="text-white font-medium">{team}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="mt-6">
-                            <CheckCircle className="mx-auto text-green-400" size={32}/>
-                            <div className="text-green-400 font-semibold mt-2">
-                                Double Down Complete!
-                            </div>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
                 );
@@ -771,12 +654,21 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
 
     return (
         <div
-            className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-8">
-            <div className="max-w-4xl mx-auto">
+            className="w-full h-full flex items-center justify-center p-8"
+            style={{
+                backgroundImage: `url("/images/craps-table-bg.webp")`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                backgroundColor: '#006D32' // Fallback color if image fails to load
+            }}
+        >
+            <div className="max-w-sm sm:max-w-2xl md:max-w-4xl mx-auto px-4">
                 {getPhaseDisplay()}
             </div>
         </div>
-    );
+    )
+        ;
 };
 
 export default DoubleDownDiceDisplay;
