@@ -142,7 +142,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
             teams: teamDataManager.teams,
             teamDecisions: teamDataManager.teamDecisions,
             teamRoundData: teamDataManager.teamRoundData,
-            isPlayerWindowOpen: false,
             isLoading: teamDataManager.isLoadingTeams ||
                 teamDataManager.isLoadingDecisions ||
                 teamDataManager.isLoadingRoundData ||
@@ -153,9 +152,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     }, [
         currentSessionId,
         sessionIsPlaying,
-        gameController.currentSlideIndex,  // ← Add this missing dependency!
-        gameController.hostNotes,          // ← Add this too since it's used
-        gameController.currentHostAlert,   // ← And this
+        gameController.currentSlideIndex,
+        gameController.hostNotes,
+        gameController.currentHostAlert,
         teamDataManager.teams,
         teamDataManager.teamDecisions,
         teamDataManager.teamRoundData,

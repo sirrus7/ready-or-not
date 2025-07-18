@@ -1,8 +1,8 @@
 // src/shared/utils/video/useHostVideo.ts
-import { useRef, useCallback, useState, useEffect } from 'react';
-import { createVideoProps, useChromeSupabaseOptimizations } from '@shared/utils/video/videoProps';
-import { HostSyncManager } from '@core/sync/HostSyncManager';
-import { videoDebug } from './debug';
+import {useRef, useCallback, useState, useEffect} from 'react';
+import {createVideoProps, useChromeSupabaseOptimizations} from '@shared/utils/video/videoProps';
+import {HostSyncManager} from '@core/sync/HostSyncManager';
+import {videoDebug} from './debug';
 
 interface VideoElementProps {
     ref: React.RefObject<HTMLVideoElement>;
@@ -37,7 +37,7 @@ interface UseHostVideoProps {
     isEnabled: boolean;
 }
 
-export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoProps): UseHostVideoReturn => {
+export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProps): UseHostVideoReturn => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [presentationMuted, setPresentationMuted] = useState(false);
     const [presentationVolume, setPresentationVolume] = useState(1);
@@ -76,21 +76,21 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         }
     }, []);
 
-        // Handle connection changes
+    // Handle connection changes
     useEffect(() => {
         if (!hostSyncManager) return;
         const unsubscribe = hostSyncManager.onPresentationStatus((status) => {
             const wasConnected = presentationIsConnected && !shouldResetConnection;
             setLocalIsConnected(status === 'connected');
-            
+
             // Reset the reset flag when we get a new connection status
             if (shouldResetConnection) {
                 setShouldResetConnection(false);
             }
-            
+
             const video = videoRef.current;
             if (!video) return;
-            
+
             if (status === 'connected') {
                 video.muted = true;
                 // Send initial volume settings
@@ -127,7 +127,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     const play = useCallback(async (time?: number) => {
         const video = videoRef.current;
         if (!video) return;
-        
+
         // If video is already playing, just send command to presentation
         if (!video.paused) {
             videoDebug.videoLog('useHostVideo', 'Video already playing, sending command to presentation only');
@@ -143,43 +143,43 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             // video.dispatchEvent(new Event('play'));
             return;
         }
-        
+
         try {
             if (time !== undefined) {
                 video.currentTime = time;
             }
-            
+
             // If connected to presentation but not ready, poll for status
             if (presentationIsConnected && hostSyncManager && !isPresentationVideoReady) {
                 videoDebug.videoLog('useHostVideo', 'Polling presentation for video status...');
-                
+
                 // Keep polling up to 5000ms
                 const maxWaitTime = 5000;
                 const pollInterval = 200; // Poll every 200ms
                 const startTime = Date.now();
-                
+
                 while (!isPresentationVideoReady && (Date.now() - startTime) < maxWaitTime) {
                     // Send poll
                     hostSyncManager.sendVideoStatusPoll();
-                    
+
                     // Wait for response or next poll interval
                     await new Promise(resolve => setTimeout(resolve, pollInterval));
                 }
-                
+
                 if (!isPresentationVideoReady) {
                     videoDebug.videoLog('useHostVideo', 'Presentation not ready after 5 seconds, proceeding anyway');
                 } else {
                     videoDebug.videoLog('useHostVideo', 'Presentation is ready');
                 }
             }
-            
+
             // Play the host video
             videoDebug.videoLog('useHostVideo', 'Playing host video');
             await video.play();
-            
+
             // Manually dispatch play event to update UI
             video.dispatchEvent(new Event('play'));
-            
+
             // Send play command to presentation if connected
             if (presentationIsConnected && hostSyncManager) {
                 videoDebug.videoLog('useHostVideo', 'Sending play command to presentation');
@@ -191,7 +191,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 });
                 startSyncInterval();
             }
-            
+
         } catch (error) {
             console.error('[useHostVideo] Play failed:', error);
             // Don't re-throw for auto-play scenarios, but do for manual play
@@ -279,28 +279,28 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
         presentationMuted,
         startSyncInterval
     });
-    
+
     // Update refs when state changes - use individual effects to avoid dependency issues
     useEffect(() => {
         stateRef.current.presentationIsConnected = presentationIsConnected;
     }, [presentationIsConnected]);
-    
+
     useEffect(() => {
         stateRef.current.hostSyncManager = hostSyncManager;
     }, [hostSyncManager]);
-    
+
     useEffect(() => {
         stateRef.current.isPresentationVideoReady = isPresentationVideoReady;
     }, [isPresentationVideoReady]);
-    
+
     useEffect(() => {
         stateRef.current.presentationVolume = presentationVolume;
     }, [presentationVolume]);
-    
+
     useEffect(() => {
         stateRef.current.presentationMuted = presentationMuted;
     }, [presentationMuted]);
-    
+
     useEffect(() => {
         stateRef.current.startSyncInterval = startSyncInterval;
     }, [startSyncInterval]);
@@ -323,15 +323,15 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
-        
+
         const handleEnded = () => {
             stopSyncInterval();
             onEndedRef.current?.();
         };
-        const handleError = (e: Event) => {
+        const handleError = (_e: Event) => {
             onErrorRef.current?.();
         };
-        
+
         if (isEnabled && sourceUrl) {
             const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
             if (video.currentSrc !== sourceUrl) {
@@ -342,61 +342,61 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
                 }
                 video.src = sourceUrl;
                 video.load();
-                
+
                 // Auto-play when video is ready (for slide advances)
                 const handleCanPlay = async () => {
                     // Remove event listener immediately to prevent multiple calls
                     video.removeEventListener('canplay', handleCanPlay);
-                    
+
                     // Don't auto-play if video is already playing
                     if (!video.paused) {
                         videoDebug.videoLog('useHostVideo', 'Video already playing, skipping auto-play');
                         return;
                     }
-                    
+
                     // Don't auto-play if video is not ready
                     if (video.readyState < 2) {
                         videoDebug.videoLog('useHostVideo', 'Video not ready, skipping auto-play');
                         return;
                     }
-                    
+
                     try {
                         // Auto-play logic using current state from ref
                         video.currentTime = 0; // Start from beginning
-                        
+
                         const state = stateRef.current;
-                        
+
                         // If connected to presentation but not ready, poll for status
                         if (state.presentationIsConnected && state.hostSyncManager && !state.isPresentationVideoReady) {
                             videoDebug.videoLog('useHostVideo', 'Auto-play: Polling presentation for video status...');
-                            
+
                             // Keep polling up to 5000ms
                             const maxWaitTime = 5000;
                             const pollInterval = 200; // Poll every 200ms
                             const startTime = Date.now();
-                            
+
                             while (!state.isPresentationVideoReady && (Date.now() - startTime) < maxWaitTime) {
                                 // Send poll
                                 state.hostSyncManager.sendVideoStatusPoll();
-                                
+
                                 // Wait for response or next poll interval
                                 await new Promise(resolve => setTimeout(resolve, pollInterval));
                             }
-                            
+
                             if (!state.isPresentationVideoReady) {
                                 videoDebug.videoLog('useHostVideo', 'Auto-play: Presentation not ready after 5 seconds, proceeding anyway');
                             } else {
                                 videoDebug.videoLog('useHostVideo', 'Auto-play: Presentation is ready');
                             }
                         }
-                        
+
                         // Play the host video
                         videoDebug.videoLog('useHostVideo', 'Auto-playing host video');
                         await video.play();
-                        
+
                         // Manually dispatch play event to update UI
                         video.dispatchEvent(new Event('play'));
-                        
+
                         // Send play command to presentation if connected
                         if (state.presentationIsConnected && state.hostSyncManager) {
                             videoDebug.videoLog('useHostVideo', 'Auto-play: Sending play command to presentation');
@@ -423,7 +423,7 @@ export const useHostVideo = ({ sessionId, sourceUrl, isEnabled }: UseHostVideoPr
             }
             previousSourceUrl.current = null;
         }
-        
+
         video.addEventListener('ended', handleEnded);
         video.addEventListener('error', handleError);
         return () => {

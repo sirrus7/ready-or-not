@@ -140,7 +140,8 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                 </div>
 
                 {/* Leaderboard with bottom-up reveal */}
-                <div className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
+                <div
+                    className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
                     {sortedData.map((team, index) => {
                         const width = (team.value / maxPrimary) * 100;
                         const isLeader = isTopTied(team);
@@ -186,7 +187,8 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                 >
                                                     {/* Value inside colored bar */}
                                                     {width > 30 && (
-                                                        <div className="absolute inset-0 flex items-center justify-end px-6">
+                                                        <div
+                                                            className="absolute inset-0 flex items-center justify-end px-6">
                                                         <span className="text-2xl font-black text-white drop-shadow-md">
                                                             {team.formattedValue}
                                                         </span>
@@ -202,8 +204,10 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
 
                                                 {/* Value outside bar for short bars */}
                                                 {width <= 30 && (
-                                                    <div className="absolute inset-0 flex items-center justify-end px-6">
-                                                    <span className="text-xl font-black text-white drop-shadow-md bg-gray-800/90 px-3 py-1 rounded">
+                                                    <div
+                                                        className="absolute inset-0 flex items-center justify-end px-6">
+                                                    <span
+                                                        className="text-xl font-black text-white drop-shadow-md bg-gray-800/90 px-3 py-1 rounded">
                                                         {team.formattedValue}
                                                     </span>
                                                     </div>
@@ -275,7 +279,8 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
             </div>
 
             {/* Leaderboard with responsive sizing */}
-            <div className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
+            <div
+                className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
                 {sortedData.map((team, index) => {
                     const isLeader: boolean = isTopTied(team);
 
@@ -316,14 +321,18 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     style={{width: `${Math.max(capWidth, 15)}%`}}
                                                 >
                                                     {capWidth > 40 && (
-                                                        <div className="absolute inset-0 flex items-center justify-end px-3">
-                                                            <span className="text-xs font-bold text-white drop-shadow-md">{kpiLabel}: {team.formattedValue}</span>
+                                                        <div
+                                                            className="absolute inset-0 flex items-center justify-end px-3">
+                                                            <span
+                                                                className="text-xs font-bold text-white drop-shadow-md">{kpiLabel}: {team.formattedValue}</span>
                                                         </div>
                                                     )}
                                                 </div>
                                                 {capWidth <= 40 && (
-                                                    <div className="absolute inset-0 flex items-center justify-end px-3">
-                                                        <span className="text-xs font-bold text-white drop-shadow-md bg-gray-800/90 px-2 py-1 rounded">
+                                                    <div
+                                                        className="absolute inset-0 flex items-center justify-end px-3">
+                                                        <span
+                                                            className="text-xs font-bold text-white drop-shadow-md bg-gray-800/90 px-2 py-1 rounded">
                                                             {kpiLabel}: {team.formattedValue}
                                                         </span>
                                                     </div>
@@ -337,14 +346,18 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     style={{width: `${Math.max(ordWidth, 15)}%`}}
                                                 >
                                                     {ordWidth > 40 && (
-                                                        <div className="absolute inset-0 flex items-center justify-end px-3">
-                                                            <span className="text-xs font-bold text-black">{secondaryKpiLabel}: {team.secondaryValue}</span>
+                                                        <div
+                                                            className="absolute inset-0 flex items-center justify-end px-3">
+                                                            <span
+                                                                className="text-xs font-bold text-black">{secondaryKpiLabel}: {team.secondaryValue}</span>
                                                         </div>
                                                     )}
                                                 </div>
                                                 {ordWidth <= 40 && (
-                                                    <div className="absolute inset-0 flex items-center justify-end px-3">
-                                                        <span className="text-xs font-bold text-white drop-shadow-md bg-gray-800/90 px-2 py-1 rounded">
+                                                    <div
+                                                        className="absolute inset-0 flex items-center justify-end px-3">
+                                                        <span
+                                                            className="text-xs font-bold text-white drop-shadow-md bg-gray-800/90 px-2 py-1 rounded">
                                                             {secondaryKpiLabel}: {team.secondaryValue}
                                                         </span>
                                                     </div>
@@ -412,8 +425,10 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                 >
                                                     {/* Value inside colored bar */}
                                                     {width > 30 && (
-                                                        <div className="absolute inset-0 flex items-center justify-end px-6">
-                                                            <span className="text-2xl font-black text-white drop-shadow-md">
+                                                        <div
+                                                            className="absolute inset-0 flex items-center justify-end px-6">
+                                                            <span
+                                                                className="text-2xl font-black text-white drop-shadow-md">
                                                                 {team.formattedValue}
                                                             </span>
                                                         </div>
@@ -428,8 +443,10 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
 
                                                 {/* Value outside bar for short bars */}
                                                 {width <= 30 && (
-                                                    <div className="absolute inset-0 flex items-center justify-end px-6">
-                                                        <span className="text-xl font-black text-white drop-shadow-md bg-gray-800/90 px-3 py-1 rounded">
+                                                    <div
+                                                        className="absolute inset-0 flex items-center justify-end px-6">
+                                                        <span
+                                                            className="text-xl font-black text-white drop-shadow-md bg-gray-800/90 px-3 py-1 rounded">
                                                             {team.formattedValue}
                                                         </span>
                                                     </div>
