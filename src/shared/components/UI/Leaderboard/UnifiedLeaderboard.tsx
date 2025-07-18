@@ -28,7 +28,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
 
     // Calculate responsive sizing based on team count
     const teamCount = leaderboardData.length;
-    const barSpacing = teamCount > 5 ? '2' : '4';
+    const barSpacing = teamCount > 5 ? '6' : '8';
 
     useEffect(() => {
         // Don't set visible immediately for Net Income reveal
@@ -48,15 +48,30 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
         ));
     }, [leaderboardData, isDualBar]);
 
-    // Sort data appropriately
+    // Sort data appropriately - sort by actual values, not pre-calculated ranks
     const sortedData = useMemo(() => {
-        return [...leaderboardData].sort((a, b) => a.rank - b.rank);
+        return [...leaderboardData].sort((a, b) => {
+            const aValue = a.effectiveValue ?? a.value;
+            const bValue = b.effectiveValue ?? b.value;
+            return bValue - aValue; // Descending order (highest first)
+        });
     }, [leaderboardData]);
 
     // Calculate max values for bar scaling
     const maxPrimary = useMemo(() =>
         Math.max(...sortedData.map(item => item.value)), [sortedData]
     );
+
+    // Calculate which teams are tied for the top position
+    const topValue = useMemo(() => {
+        if (sortedData.length === 0) return 0;
+        return Math.max(...sortedData.map(item => item.effectiveValue ?? item.value));
+    }, [sortedData]);
+
+    // Helper function to check if a team is tied for the lead
+    const isTopTied = (team: LeaderboardItem): boolean => {
+        return (team.effectiveValue ?? team.value) === topValue;
+    };
 
     const getGradientScheme = () => {
         if (dataKey.includes('revenue')) return 'from-purple-500 to-purple-600';
@@ -97,13 +112,12 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
     }, [isNetIncomeReveal]);
 
     useEffect(() => {
-        if (isNetIncomeReveal && revealStage < sortedData.length) {
-            const timer = setTimeout(() => {
-                setRevealStage(prev => prev + 1);
-            }, 1000);
-            return () => clearTimeout(timer);
+        if (isNetIncomeReveal) {
+            // Show all teams immediately for now - will be replaced with click-to-reveal
+            setRevealStage(sortedData.length);
+            setIsVisible(true);
         }
-    }, [isNetIncomeReveal, revealStage, sortedData.length]);
+    }, [isNetIncomeReveal, sortedData.length]);
 
     // Special rendering for Net Income (bottom-up reveal)
     if (isNetIncomeReveal) {
@@ -113,7 +127,6 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                 {/* Header with icon */}
                 <div className={`text-center mb-10 transform transition-all duration-700 opacity-100 translate-y-0`}>
                     <div className="flex items-center justify-center gap-3 mb-2">
-                        {/* FIXED: Remove gradient background from icon */}
                         <div className={`p-3 bg-gradient-to-r ${getGradientScheme()} rounded-lg text-white`}>
                             {getMetricIcon()}
                         </div>
@@ -121,17 +134,16 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                             {roundDisplay.toUpperCase()}
                         </h1>
                     </div>
-                    {/* FIXED: Use solid color instead of gradient text */}
                     <p className={`text-3xl font-bold ${getTextColor()}`}>
                         {kpiLabel.toUpperCase()}
                     </p>
                 </div>
 
                 {/* Leaderboard with bottom-up reveal */}
-                <div className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing}`}>
+                <div className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
                     {sortedData.map((team, index) => {
                         const width = (team.value / maxPrimary) * 100;
-                        const isLeader = team.rank === 1;
+                        const isLeader = isTopTied(team);
 
                         // Reverse reveal order: show last place first, first place last
                         const revealIndex = sortedData.length - index - 1;
@@ -140,7 +152,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                         return (
                             <div
                                 key={team.teamName}
-                                className={`transform hover:scale-[1.02] ${
+                                className={`transform hover:scale-[1.02] mb-2 ${
                                     shouldShow
                                         ? 'translate-x-0 opacity-100 transition-all duration-700'
                                         : 'translate-x-[-100%] opacity-0'
@@ -173,12 +185,13 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     style={{width: `${Math.max(width, 15)}%`}}
                                                 >
                                                     {/* Value inside colored bar */}
-                                                    <div
-                                                        className="absolute inset-0 flex items-center justify-end px-6">
+                                                    {width > 30 && (
+                                                        <div className="absolute inset-0 flex items-center justify-end px-6">
                                                         <span className="text-2xl font-black text-white drop-shadow-md">
                                                             {team.formattedValue}
                                                         </span>
-                                                    </div>
+                                                        </div>
+                                                    )}
 
                                                     {/* Shimmer effect on hover */}
                                                     {hoveredTeam === team.teamName && (
@@ -187,16 +200,25 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     )}
                                                 </div>
 
+                                                {/* Value outside bar for short bars */}
+                                                {width <= 30 && (
+                                                    <div className="absolute inset-0 flex items-center justify-end px-6">
+                                                    <span className="text-xl font-black text-white drop-shadow-md bg-gray-800/90 px-3 py-1 rounded">
+                                                        {team.formattedValue}
+                                                    </span>
+                                                    </div>
+                                                )}
+
                                                 {/* Team name overlay */}
                                                 <div className="absolute inset-0 flex items-center px-6">
-                                                    <span className={`text-xl font-bold ${
-                                                        hoveredTeam === team.teamName ? 'text-white' : 'text-gray-200'
-                                                    } transition-colors drop-shadow-md`}>
-                                                        {team.teamName}
-                                                        {isLeader &&
-                                                            <Trophy
-                                                                className="inline-block ml-2 w-6 h-6 text-yellow-900 drop-shadow-lg"/>}
-                                                    </span>
+                                                <span className={`text-xl font-bold ${
+                                                    hoveredTeam === team.teamName ? 'text-white' : 'text-gray-200'
+                                                } transition-colors drop-shadow-md`}>
+                                                    {team.teamName}
+                                                    {isLeader &&
+                                                        <Trophy
+                                                            className="inline-block ml-2 w-5 h-5 text-yellow-400"/>}
+                                                </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -206,6 +228,17 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                         );
                     })}
                 </div>
+
+                {/* Footer with leader info */}
+                {sortedData[0] && (
+                    <div className={`mt-8 text-center transform transition-all duration-1000 ${
+                        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+                    }`} style={{transitionDelay: '600ms'}}>
+                        <p className="text-xl text-gray-400">
+                            Current Leader: <span className="text-yellow-400 font-bold">{sortedData[0].teamName}</span>
+                        </p>
+                    </div>
+                )}
             </div>
         );
     }
@@ -242,14 +275,14 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
             </div>
 
             {/* Leaderboard with responsive sizing */}
-            <div className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing}`}>
+            <div className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
                 {sortedData.map((team, index) => {
-                    const isLeader = team.rank === 1;
+                    const isLeader: boolean = isTopTied(team);
 
                     if (isDualBar) {
                         // Dual bar mode for Capacity & Orders - compact stacked layout
-                        const capWidth = (team.value / maxCombinedValue) * 100;
-                        const ordWidth = (parseFloat(team.secondaryValue?.replace(/,/g, '') || '0') / maxCombinedValue) * 100;
+                        const capWidth: number = (team.value / maxCombinedValue) * 100;
+                        const ordWidth: number = (parseFloat(team.secondaryValue?.replace(/,/g, '') || '0') / maxCombinedValue) * 100;
 
                         return (
                             <div
@@ -282,12 +315,19 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-1000 ease-out relative overflow-hidden"
                                                     style={{width: `${Math.max(capWidth, 15)}%`}}
                                                 >
-                                                    <div
-                                                        className="absolute inset-0 flex items-center justify-end px-3">
-                                                        <span
-                                                            className="text-xs font-bold text-white drop-shadow-md">{kpiLabel}: {team.formattedValue}</span>
-                                                    </div>
+                                                    {capWidth > 40 && (
+                                                        <div className="absolute inset-0 flex items-center justify-end px-3">
+                                                            <span className="text-xs font-bold text-white drop-shadow-md">{kpiLabel}: {team.formattedValue}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
+                                                {capWidth <= 40 && (
+                                                    <div className="absolute inset-0 flex items-center justify-end px-3">
+                                                        <span className="text-xs font-bold text-white drop-shadow-md bg-gray-800/90 px-2 py-1 rounded">
+                                                            {kpiLabel}: {team.formattedValue}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Orders bar (bottom half) */}
@@ -296,12 +336,19 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     className="h-full bg-gradient-to-r from-yellow-400 to-yellow-600 transition-all duration-1000 ease-out relative overflow-hidden"
                                                     style={{width: `${Math.max(ordWidth, 15)}%`}}
                                                 >
-                                                    <div
-                                                        className="absolute inset-0 flex items-center justify-end px-3">
-                                                        <span
-                                                            className="text-xs font-bold text-gray-900">{secondaryKpiLabel}: {team.secondaryValue}</span>
-                                                    </div>
+                                                    {ordWidth > 40 && (
+                                                        <div className="absolute inset-0 flex items-center justify-end px-3">
+                                                            <span className="text-xs font-bold text-black">{secondaryKpiLabel}: {team.secondaryValue}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
+                                                {ordWidth <= 40 && (
+                                                    <div className="absolute inset-0 flex items-center justify-end px-3">
+                                                        <span className="text-xs font-bold text-white drop-shadow-md bg-gray-800/90 px-2 py-1 rounded">
+                                                            {secondaryKpiLabel}: {team.secondaryValue}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Team name overlay - positioned within the shorter bar */}
@@ -335,7 +382,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                         return (
                             <div
                                 key={team.teamName}
-                                className={`transform transition-all duration-700 hover:scale-[1.02] ${
+                                className={`transform transition-all duration-700 hover:scale-[1.02] mb-2 ${
                                     isVisible ? 'translate-x-0 opacity-100' : '-translate-x-20 opacity-0'
                                 }`}
                                 style={{transitionDelay: `${index * 100}ms`}}
@@ -364,12 +411,13 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     style={{width: `${Math.max(width, 15)}%`}}
                                                 >
                                                     {/* Value inside colored bar */}
-                                                    <div
-                                                        className="absolute inset-0 flex items-center justify-end px-6">
-                                                        <span className="text-2xl font-black text-white drop-shadow-md">
-                                                            {team.formattedValue}
-                                                        </span>
-                                                    </div>
+                                                    {width > 30 && (
+                                                        <div className="absolute inset-0 flex items-center justify-end px-6">
+                                                            <span className="text-2xl font-black text-white drop-shadow-md">
+                                                                {team.formattedValue}
+                                                            </span>
+                                                        </div>
+                                                    )}
 
                                                     {/* Shimmer effect on hover */}
                                                     {hoveredTeam === team.teamName && (
@@ -378,15 +426,23 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
                                                     )}
                                                 </div>
 
+                                                {/* Value outside bar for short bars */}
+                                                {width <= 30 && (
+                                                    <div className="absolute inset-0 flex items-center justify-end px-6">
+                                                        <span className="text-xl font-black text-white drop-shadow-md bg-gray-800/90 px-3 py-1 rounded">
+                                                            {team.formattedValue}
+                                                        </span>
+                                                    </div>
+                                                )}
+
                                                 {/* Team name overlay */}
                                                 <div className="absolute inset-0 flex items-center px-6">
                                                     <span className={`text-xl font-bold ${
                                                         hoveredTeam === team.teamName ? 'text-white' : 'text-gray-200'
                                                     } transition-colors drop-shadow-md`}>
                                                         {team.teamName}
-                                                        {isLeader &&
-                                                            <Trophy
-                                                                className="inline-block ml-2 w-5 h-5 text-yellow-400"/>}
+                                                        {isLeader && <Trophy
+                                                            className="inline-block ml-2 w-4 h-4 text-yellow-400"/>}
                                                     </span>
                                                 </div>
                                             </div>
