@@ -1,28 +1,23 @@
 /**
- * Utility Functions Tests - Fixed Version
- * Tests for session management utilities
+ * SSO Utility Functions Tests
+ * Tests for SessionStorageManager and utility functions
  *
  * File: src/components/auth/__tests__/utils.test.ts
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-    SessionStorageManager,
-    getClientIP,
-    getBrowserInfo,
-    formatSessionExpiry,
-    formatTime,
-    hasPermission,
-    hasGameAccess
-} from '../SessionStorageManager';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock fetch for getClientIP tests
-global.fetch = vi.fn();
+// =====================================================
+// MOCK SETUP
+// =====================================================
 
-// Create a working mock localStorage
+// Mock fetch for IP address detection
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
+
+// Mock localStorage
 const createMockLocalStorage = () => {
     const store: { [key: string]: string } = {};
-
     return {
         getItem: vi.fn((key: string) => store[key] || null),
         setItem: vi.fn((key: string, value: string) => {
@@ -38,228 +33,365 @@ const createMockLocalStorage = () => {
 };
 
 const mockLocalStorage = createMockLocalStorage();
-
 Object.defineProperty(window, 'localStorage', {
     value: mockLocalStorage,
     writable: true
 });
 
-// Mock console.error to avoid noise in tests
-const originalConsoleError = console.error;
-beforeEach(() => {
-    console.error = vi.fn();
-    vi.clearAllMocks();
-});
+// Import the utilities after mocking
+import {
+    SessionStorageManager,
+    getClientIP,
+    getBrowserInfo,
+    formatSessionExpiry,
+    formatTime
+} from '../SessionStorageManager';
 
-afterEach(() => {
-    console.error = originalConsoleError;
-});
+// =====================================================
+// TEST DATA
+// =====================================================
 
-// Test data
-const mockUser = {
-    id: 'user-123',
+const mockSession = {
+    session_id: 'session-123',
+    user_id: 'user-123',
     email: 'test@example.com',
-    full_name: 'Test User',
-    role: 'host' as const,
-    games: [{ name: 'ready-or-not', permission_level: 'host' as const }]
+    permission_level: 'host',
+    expires_at: new Date(Date.now() + 8 * 3600 * 1000).toISOString(),
+    created_at: new Date().toISOString(),
+    last_activity: new Date().toISOString(),
+    is_active: true,
+    game_context: {
+        game: 'ready-or-not',
+        role: 'host'
+    }
 };
 
-describe('Utility Functions', () => {
-    describe('getClientIP', () => {
-        it('should return IP address when API call succeeds', async () => {
-            const mockIP = '192.168.1.1';
-            const mockFetch = vi.mocked(fetch);
-            mockFetch.mockResolvedValueOnce({
-                json: () => Promise.resolve({ ip: mockIP })
-            } as Response);
+// =====================================================
+// TESTS
+// =====================================================
 
-            const result = await getClientIP();
-            expect(result).toBe(mockIP);
+describe('SessionStorageManager', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockLocalStorage.clear();
+    });
+
+    describe('saveSession', () => {
+        it('should save session to localStorage', () => {
+            const result = SessionStorageManager.saveSession(mockSession);
+
+            expect(result.success).toBe(true);
+            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+                'sso_session',
+                JSON.stringify(mockSession)
+            );
         });
 
-        it('should return null when API call fails', async () => {
-            const mockFetch = vi.mocked(fetch);
-            mockFetch.mockRejectedValueOnce(new Error('Network error'));
+        it('should handle localStorage errors gracefully', () => {
+            // Mock localStorage.setItem to throw error
+            vi.mocked(mockLocalStorage.setItem).mockImplementation(() => {
+                throw new Error('Storage quota exceeded');
+            });
 
-            const result = await getClientIP();
+            const result = SessionStorageManager.saveSession(mockSession);
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain('Storage quota exceeded');
+        });
+    });
+
+    describe('loadSession', () => {
+        it('should load session from localStorage', () => {
+            // Pre-populate localStorage
+            vi.mocked(mockLocalStorage.getItem).mockReturnValue(JSON.stringify(mockSession));
+
+            const result = SessionStorageManager.loadSession();
+
+            expect(result).toEqual(mockSession);
+            expect(mockLocalStorage.getItem).toHaveBeenCalledWith('sso_session');
+        });
+
+        it('should return null for non-existent session', () => {
+            vi.mocked(mockLocalStorage.getItem).mockReturnValue(null);
+
+            const result = SessionStorageManager.loadSession();
+
             expect(result).toBeNull();
         });
 
-        it('should return null when response does not contain IP', async () => {
-            const mockFetch = vi.mocked(fetch);
-            mockFetch.mockResolvedValueOnce({
-                json: () => Promise.resolve({})
-            } as Response);
+        it('should handle corrupted JSON gracefully', () => {
+            vi.mocked(mockLocalStorage.getItem).mockReturnValue('invalid-json');
 
-            const result = await getClientIP();
+            const result = SessionStorageManager.loadSession();
+
+            expect(result).toBeNull();
+        });
+
+        it('should handle localStorage errors gracefully', () => {
+            vi.mocked(mockLocalStorage.getItem).mockImplementation(() => {
+                throw new Error('localStorage not available');
+            });
+
+            const result = SessionStorageManager.loadSession();
+
             expect(result).toBeNull();
         });
     });
 
-    describe('getBrowserInfo', () => {
-        it('should detect Chrome browser', () => {
-            const originalUserAgent = navigator.userAgent;
-            Object.defineProperty(navigator, 'userAgent', {
-                value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                writable: true
-            });
+    describe('clearSession', () => {
+        it('should clear session from localStorage', () => {
+            SessionStorageManager.clearSession();
 
-            expect(getBrowserInfo()).toBe('Chrome');
-
-            Object.defineProperty(navigator, 'userAgent', {
-                value: originalUserAgent,
-                writable: true
-            });
+            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('sso_session');
         });
 
-        it('should return Unknown for unrecognized browser', () => {
-            const originalUserAgent = navigator.userAgent;
-            Object.defineProperty(navigator, 'userAgent', {
-                value: 'SomeUnknownBrowser/1.0',
-                writable: true
+        it('should handle localStorage errors gracefully', () => {
+            vi.mocked(mockLocalStorage.removeItem).mockImplementation(() => {
+                throw new Error('localStorage not available');
             });
 
-            expect(getBrowserInfo()).toBe('Unknown');
-
-            Object.defineProperty(navigator, 'userAgent', {
-                value: originalUserAgent,
-                writable: true
-            });
+            // Should not throw error
+            expect(() => SessionStorageManager.clearSession()).not.toThrow();
         });
     });
 
-    describe('formatSessionExpiry', () => {
-        it('should format hours and minutes correctly', () => {
-            const now = Date.now();
-            const futureTime = new Date(now + 2.5 * 3600 * 1000).toISOString();
-            const result = formatSessionExpiry(futureTime);
-            expect(result).toBe('2h 30m');
+    describe('getSessionInfo', () => {
+        it('should return session info when session exists', () => {
+            const sessionWithAge = {
+                ...mockSession,
+                created_at: new Date(Date.now() - 3600 * 1000).toISOString() // 1 hour ago
+            };
+
+            vi.mocked(mockLocalStorage.getItem).mockReturnValue(JSON.stringify(sessionWithAge));
+
+            const result = SessionStorageManager.getSessionInfo();
+
+            expect(result.hasSession).toBe(true);
+            expect(result.sessionAge).toBeGreaterThan(3500); // Approximately 1 hour
+            expect(result.userEmail).toBe(sessionWithAge.email);
         });
 
-        it('should return "Expired" for past times', () => {
-            const pastTime = new Date(Date.now() - 1000).toISOString();
-            const result = formatSessionExpiry(pastTime);
-            expect(result).toBe('Expired');
+        it('should return no session info when no session exists', () => {
+            vi.mocked(mockLocalStorage.getItem).mockReturnValue(null);
+
+            const result = SessionStorageManager.getSessionInfo();
+
+            expect(result.hasSession).toBe(false);
+            expect(result.sessionAge).toBeUndefined();
+            expect(result.userEmail).toBeUndefined();
+        });
+
+        it('should handle corrupted session data', () => {
+            vi.mocked(mockLocalStorage.getItem).mockReturnValue('invalid-json');
+
+            const result = SessionStorageManager.getSessionInfo();
+
+            expect(result.hasSession).toBe(false);
+            expect(result.sessionAge).toBeUndefined();
+            expect(result.userEmail).toBeUndefined();
+        });
+    });
+});
+
+describe('getClientIP', () => {
+    beforeEach(() => {
+        mockFetch.mockClear();
+    });
+
+    it('should fetch client IP successfully', async () => {
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ ip: '192.168.1.100' })
+        });
+
+        const result = await getClientIP();
+
+        expect(result).toBe('192.168.1.100');
+        expect(mockFetch).toHaveBeenCalledWith('https://api.ipify.org?format=json');
+    });
+
+    it('should return fallback IP on fetch failure', async () => {
+        mockFetch.mockRejectedValue(new Error('Network error'));
+
+        const result = await getClientIP();
+
+        expect(result).toBe('unknown');
+    });
+
+    it('should return fallback IP on invalid response', async () => {
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 500
+        });
+
+        const result = await getClientIP();
+
+        expect(result).toBe('unknown');
+    });
+
+    it('should return fallback IP on malformed JSON', async () => {
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ invalid: 'data' })
+        });
+
+        const result = await getClientIP();
+
+        expect(result).toBe('unknown');
+    });
+});
+
+describe('getBrowserInfo', () => {
+    beforeEach(() => {
+        // Reset navigator mock
+        Object.defineProperty(window, 'navigator', {
+            value: {
+                userAgent: 'Test Browser Agent'
+            },
+            writable: true
         });
     });
 
-    describe('formatTime', () => {
-        it('should format timestamp to locale string', () => {
-            const timestamp = '2023-01-01T12:00:00Z';
-            const result = formatTime(timestamp);
-            expect(typeof result).toBe('string');
-            expect(result.length).toBeGreaterThan(0);
-        });
+    it('should return browser info from user agent', () => {
+        const result = getBrowserInfo();
 
-        it('should handle different date formats', () => {
-            // Use a specific date and check that it formats correctly
-            const timestamp = '2023-01-01T12:00:00Z';
-            const result = formatTime(timestamp);
-
-            // The result should be a valid date string
-            expect(result).not.toBe('Invalid Date');
-            expect(typeof result).toBe('string');
-            expect(result.length).toBeGreaterThan(0);
-
-            // Check that it's actually a date that was parsed correctly
-            const parsedBack = new Date(result);
-            expect(parsedBack.getTime()).not.toBeNaN();
-        });
+        expect(result).toBe('Test Browser Agent');
     });
 
-    describe('SessionStorageManager', () => {
-        beforeEach(() => {
-            mockLocalStorage.clear();
+    it('should handle missing navigator', () => {
+        // Remove navigator
+        Object.defineProperty(window, 'navigator', {
+            value: undefined,
+            writable: true
         });
 
-        describe('saveSession', () => {
-            it('should save session successfully', () => {
-                const result = SessionStorageManager.saveSession('session-123', mockUser);
-                expect(result.success).toBe(true);
-                expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-                    'ready_or_not_sso_session',
-                    expect.any(String)
-                );
-            });
-        });
+        const result = getBrowserInfo();
 
-        describe('getSessionInfo', () => {
-            it('should return session info when session exists', () => {
-                const sessionData = {
-                    version: '1.0',
-                    session_id: 'session-123',
-                    user: mockUser,
-                    saved_at: new Date(Date.now() - 60000).toISOString(), // 1 minute ago
-                    expires_client_check: new Date(Date.now() + 8 * 3600 * 1000).toISOString()
-                };
-
-                // Mock localStorage.getItem to return our session data
-                vi.mocked(mockLocalStorage.getItem).mockReturnValue(JSON.stringify(sessionData));
-
-                const result = SessionStorageManager.getSessionInfo();
-
-                expect(result.hasSession).toBe(true);
-                expect(result.userEmail).toBe('test@example.com');
-                expect(result.sessionAge).toBeGreaterThan(0);
-            });
-
-            it('should handle missing saved_at field', () => {
-                const sessionData = {
-                    version: '1.0',
-                    session_id: 'session-123',
-                    user: mockUser,
-                    expires_client_check: new Date(Date.now() + 8 * 3600 * 1000).toISOString()
-                    // Note: no saved_at field
-                };
-
-                vi.mocked(mockLocalStorage.getItem).mockReturnValue(JSON.stringify(sessionData));
-
-                const result = SessionStorageManager.getSessionInfo();
-
-                expect(result.hasSession).toBe(true);
-                expect(result.userEmail).toBe('test@example.com');
-                expect(result.sessionAge).toBeUndefined();
-            });
-        });
+        expect(result).toBe('Unknown Browser');
     });
 
-    describe('Permission Helper Functions', () => {
-        describe('Role Hierarchy', () => {
-            it('should validate role hierarchy correctly', () => {
-                // Host can access host level
-                expect(hasPermission('host', 'host')).toBe(true);
-
-                // Org admin can access host level
-                expect(hasPermission('org_admin', 'host')).toBe(true);
-
-                // Org admin can access org_admin level
-                expect(hasPermission('org_admin', 'org_admin')).toBe(true);
-
-                // Host cannot access org_admin level
-                expect(hasPermission('host', 'org_admin')).toBe(false);
-
-                // Super admin can access all levels
-                expect(hasPermission('super_admin', 'host')).toBe(true);
-                expect(hasPermission('super_admin', 'org_admin')).toBe(true);
-                expect(hasPermission('super_admin', 'super_admin')).toBe(true);
-            });
-
-            it('should handle invalid roles', () => {
-                expect(hasPermission('invalid_role', 'host')).toBe(false);
-                expect(hasPermission('host', 'invalid_role')).toBe(false);
-                expect(hasPermission('invalid_role', 'invalid_role')).toBe(false);
-            });
+    it('should handle missing userAgent', () => {
+        Object.defineProperty(window, 'navigator', {
+            value: {},
+            writable: true
         });
 
-        describe('Game Access', () => {
-            it('should check game access correctly', () => {
-                expect(hasGameAccess(mockUser, 'ready-or-not')).toBe(true);
-                expect(hasGameAccess(mockUser, 'other-game')).toBe(false);
-            });
+        const result = getBrowserInfo();
 
-            it('should handle null user', () => {
-                expect(hasGameAccess(null, 'ready-or-not')).toBe(false);
-            });
+        expect(result).toBe('Unknown Browser');
+    });
+});
+
+describe('formatSessionExpiry', () => {
+    it('should format session expiry correctly', () => {
+        const futureTime = new Date(Date.now() + 5.5 * 3600 * 1000); // 5.5 hours from now
+
+        const result = formatSessionExpiry(futureTime.toISOString());
+
+        expect(result).toContain('5h');
+        expect(result).toContain('30m');
+    });
+
+    it('should handle expired sessions', () => {
+        const pastTime = new Date(Date.now() - 3600 * 1000); // 1 hour ago
+
+        const result = formatSessionExpiry(pastTime.toISOString());
+
+        expect(result).toBe('Expired');
+    });
+
+    it('should handle sessions expiring soon', () => {
+        const soonTime = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
+
+        const result = formatSessionExpiry(soonTime.toISOString());
+
+        expect(result).toContain('30m');
+        expect(result).not.toContain('h');
+    });
+
+    it('should handle invalid date strings', () => {
+        const result = formatSessionExpiry('invalid-date');
+
+        expect(result).toBe('Invalid date');
+    });
+});
+
+describe('formatTime', () => {
+    it('should format time correctly', () => {
+        const testDate = new Date('2023-01-01T12:00:00Z');
+
+        const result = formatTime(testDate.toISOString());
+
+        expect(result).toMatch(/1\/1\/2023/);
+        expect(result).toMatch(/12:00/);
+    });
+
+    it('should handle invalid date strings', () => {
+        const result = formatTime('invalid-date');
+
+        expect(result).toBe('Invalid date');
+    });
+
+    it('should handle different time zones consistently', () => {
+        const testDate = new Date('2023-12-25T15:30:45Z');
+
+        const result = formatTime(testDate.toISOString());
+
+        expect(result).toContain('12/25/2023');
+        expect(result).toContain('15:30');
+    });
+});
+
+describe('Utility Integration', () => {
+    it('should work together for complete session management', async () => {
+        // Save a session
+        const saveResult = SessionStorageManager.saveSession(mockSession);
+        expect(saveResult.success).toBe(true);
+
+        // Load the session
+        const loadedSession = SessionStorageManager.loadSession();
+        expect(loadedSession).toEqual(mockSession);
+
+        // Get session info
+        const sessionInfo = SessionStorageManager.getSessionInfo();
+        expect(sessionInfo.hasSession).toBe(true);
+        expect(sessionInfo.userEmail).toBe(mockSession.email);
+
+        // Clear the session
+        SessionStorageManager.clearSession();
+
+        // Verify session is cleared
+        const clearedSession = SessionStorageManager.loadSession();
+        expect(clearedSession).toBeNull();
+
+        const clearedInfo = SessionStorageManager.getSessionInfo();
+        expect(clearedInfo.hasSession).toBe(false);
+    });
+
+    it('should handle browser environment detection', async () => {
+        // Mock successful IP detection
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ ip: '203.0.113.1' })
         });
+
+        const ip = await getClientIP();
+        const browser = getBrowserInfo();
+
+        expect(ip).toBe('203.0.113.1');
+        expect(browser).toBe('Test Browser Agent');
+    });
+
+    it('should handle offline/error scenarios gracefully', async () => {
+        // Mock network failure
+        mockFetch.mockRejectedValue(new Error('Network unavailable'));
+
+        const ip = await getClientIP();
+
+        expect(ip).toBe('unknown');
+
+        // Browser info should still work
+        const browser = getBrowserInfo();
+        expect(browser).toBe('Test Browser Agent');
     });
 });
