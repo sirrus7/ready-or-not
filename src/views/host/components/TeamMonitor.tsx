@@ -254,6 +254,15 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                     // Single selection (existing logic)
                     const selectedOption = challengeOptions.find(opt => opt.id === selectedOptionId);
 
+                    // Special handling for ch5 - null selection means no choice made yet
+                    if (!selectedOption && !selectedOptionId && decisionKey === 'ch5') {
+                        return {
+                            type: 'choice',
+                            choiceText: 'Option D',
+                            hasSubmission: !!decision
+                        };
+                    }
+
                     return {
                         type: 'choice',
                         choiceText: selectedOption ? `Option ${selectedOption.id}` : 'Invalid selection',

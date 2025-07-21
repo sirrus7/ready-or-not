@@ -80,6 +80,10 @@ export const useDecisionMaking = ({
             case 'interactive_invest':
                 return state.selectedInvestmentOptions.length > 0 || state.immediatePurchases.length > 0;
             case 'interactive_choice':
+                // Special case for ch5 - allow empty selection (will use existing fallback logic)
+                if (currentSlide?.interactive_data_key === 'ch5') {
+                    return true;
+                }
                 return !!state.selectedChallengeOptionId || !!state.forcedSelection;
             case 'interactive_double_down_select':
                 // FIXED: Different validation based on the choice
@@ -222,9 +226,16 @@ export const useDecisionMaking = ({
         };
 
         // Set default challenge option if applicable
+        // Set default challenge option if applicable
         if (currentSlide?.type === 'interactive_choice' && challengeOptions.length > 0) {
             const defaultChoice: ChallengeOption | undefined = challengeOptions.find(opt => opt.is_default_choice);
-            newState.selectedChallengeOptionId = defaultChoice?.id || challengeOptions[challengeOptions.length - 1].id;
+
+            // Special handling for ch5 - no initial selection
+            if (currentSlide.interactive_data_key === 'ch5') {
+                newState.selectedChallengeOptionId = defaultChoice?.id || null;
+            } else {
+                newState.selectedChallengeOptionId = defaultChoice?.id || challengeOptions[challengeOptions.length - 1].id;
+            }
         } else if (currentSlide?.type === 'interactive_double_down_select' && challengeOptions.length > 0) {
             const defaultOptOut: ChallengeOption | undefined = challengeOptions.find(opt => opt.id === 'no_dd') || challengeOptions.find(opt => opt.is_default_choice);
             newState.selectedChallengeOptionId = defaultOptOut?.id || null;
