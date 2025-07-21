@@ -3,6 +3,8 @@
 
 import {supabase} from '@shared/services/supabase';
 import {Slide} from '@shared/types/game';
+import {UserType} from '@shared/constants/formOptions';
+import {hasBusinessVersion} from '@shared/constants/businessSlides';
 
 interface CachedUrl {
     url: string;
@@ -47,7 +49,7 @@ class MediaManager {
      */
     public async getSignedUrl(fileName: string): Promise<string> {
         // Check if this is a video file
-        const isVideoFile = /\.(mp4|webm|mov|avi|mkv)$/i.test(fileName);
+        const isVideoFile: boolean = /\.(mp4|webm|mov|avi|mkv)$/i.test(fileName);
 
         if (isVideoFile) {
             // For video files, use blob cache
@@ -57,7 +59,7 @@ class MediaManager {
             }
         } else {
             // For non-video files, use regular URL cache
-            const cached = this.urlCache.get(fileName);
+            const cached: CachedUrl | undefined = this.urlCache.get(fileName);
             if (cached && cached.expiresAt > Date.now()) {
                 return cached.url;
             }
@@ -80,30 +82,45 @@ class MediaManager {
             throw new Error(`No signed URL returned for ${fileName}`);
         }
 
-        const expiresAt = Date.now() + (this.SIGNED_URL_EXPIRY_SECONDS * 1000) - this.REFRESH_BUFFER_MS;
+        const expiresAt: number = Date.now() + (this.SIGNED_URL_EXPIRY_SECONDS * 1000) - this.REFRESH_BUFFER_MS;
 
         if (isVideoFile) {
             // For video files, fetch and cache as blob
             try {
-                const response = await fetch(data.signedUrl);
+                const response: Response = await fetch(data.signedUrl);
                 if (!response.ok) throw new Error(`Failed to fetch video: ${response.status}`);
 
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
+                const blob: Blob = await response.blob();
+                const blobUrl: string = URL.createObjectURL(blob);
 
-                MediaManager.blobCache.set(fileName, { blobUrl, expiresAt });
+                MediaManager.blobCache.set(fileName, {blobUrl, expiresAt});
                 return blobUrl;
             } catch (error) {
                 console.error('[MediaManager] Failed to cache video blob:', error);
                 // Fallback to signed URL
-                this.urlCache.set(fileName, { url: data.signedUrl, expiresAt });
+                this.urlCache.set(fileName, {url: data.signedUrl, expiresAt});
                 return data.signedUrl;
             }
         } else {
             // For non-video files, cache the signed URL
-            this.urlCache.set(fileName, { url: data.signedUrl, expiresAt });
+            this.urlCache.set(fileName, {url: data.signedUrl, expiresAt});
             return data.signedUrl;
         }
+    }
+
+    /**
+     * Gets signed URL with business/academic fallback logic
+     * Only tries business version for slides that actually have business variants
+     */
+    public async getSignedUrlWithFallback(fileName: string, userType: UserType): Promise<string> {
+        // For academic users or slides without business versions, use original path
+        if (userType === 'academic' || !hasBusinessVersion(fileName)) {
+            return await this.getSignedUrl(fileName);
+        }
+
+        // For business users with slides that have business versions, use business path
+        const businessPath = `business/${fileName}`;
+        return await this.getSignedUrl(businessPath);
     }
 
     /**

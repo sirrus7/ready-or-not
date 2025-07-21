@@ -1,5 +1,6 @@
 // src/views/host/components/CreateGame/types.ts
 import {NewGameData, TeamConfig} from '@shared/types';
+import {UserType} from '@shared/constants/formOptions';
 
 // Base interface that all wizard steps share
 export interface BaseWizardStepProps {
@@ -15,6 +16,7 @@ export interface BaseWizardStepProps {
 export interface GameDetailsStepProps extends BaseWizardStepProps {
     onDataChange: (field: keyof NewGameData, value: any) => void; // Required for this step
     onNext: (dataFromStep: Partial<NewGameData>) => void;
+    userType?: UserType;
 }
 
 export interface TeamSetupStepProps extends BaseWizardStepProps {

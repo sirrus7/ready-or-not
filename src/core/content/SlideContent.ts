@@ -236,7 +236,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 24,
         round_number: 1,
-        title: "CH1 Career Insight - CNC Operator",
+        title: "CH1 Insights",
         type: 'video',
         source_path: 'Slide_025.mp4',
         auto_advance_after_video: true
@@ -376,7 +376,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 39,
         round_number: 1,
-        title: "CH2 Career Insight - Finance",
+        title: "CH2 Insights",
         type: 'video',
         source_path: 'Slide_040.mp4',
         auto_advance_after_video: true,
@@ -520,7 +520,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 54,
         round_number: 1,
-        title: "CH3 Career Insight - HR Manager",
+        title: "CH3 Insights",
         type: 'video',
         source_path: 'Slide_055.mp4',
         auto_advance_after_video: true
@@ -879,7 +879,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 85,
         round_number: 2,
-        title: "CH4 Career Insight",
+        title: "CH4 Insights",
         type: 'video',
         source_path: 'Slide_086.mp4',
         auto_advance_after_video: true
@@ -995,7 +995,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 97,
         round_number: 2,
-        title: "CH5 Career Insight",
+        title: "CH5 Insights",
         type: 'video',
         source_path: 'Slide_098.mp4',
         auto_advance_after_video: true
@@ -1135,7 +1135,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 112,
         round_number: 2,
-        title: "CH6 Career Insight",
+        title: "CH6 Insights",
         type: 'video',
         source_path: 'Slide_113.mp4',
         auto_advance_after_video: true
@@ -1251,7 +1251,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 124,
         round_number: 2,
-        title: "CH7 Career Insight",
+        title: "CH7 Insights",
         type: 'video',
         source_path: 'Slide_125.mp4',
         auto_advance_after_video: true
@@ -1657,7 +1657,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 158,
         round_number: 3,
-        title: "CH8 Career Insight - IT Manager",
+        title: "CH8 Insights",
         type: 'video',
         source_path: 'Slide_159.mp4',
         auto_advance_after_video: true
@@ -1765,7 +1765,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 169,
         round_number: 3,
-        title: "CH9 Career Insight - Warehouse Manager",
+        title: "CH9 Insights",
         type: 'video',
         source_path: 'Slide_170.mp4',
         auto_advance_after_video: true

@@ -1,25 +1,32 @@
 // src/views/host/components/CreateGame/GameDetailsForm.tsx - Fixed input handling with improved styling
 import React, {useState, useEffect} from 'react';
 import {NewGameData} from '@shared/types/ui';
+import {
+    ACADEMIC_OPTIONS,
+    AcademicFormOptions,
+    BUSINESS_OPTIONS,
+    BusinessFormOptions,
+    UserType
+} from '@shared/constants/formOptions';
 
 interface GameDetailsFormProps {
     gameData: NewGameData;
     onFieldChange: (field: keyof NewGameData, value: any) => void;
     onPlayersChange: (playersStr: string) => void;
     onTeamsChange: (teamsStr: string) => void;
+    userType?: UserType;
 }
 
 const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                                                                         gameData,
                                                                         onFieldChange,
                                                                         onPlayersChange,
-                                                                        onTeamsChange
+                                                                        onTeamsChange,
+                                                                        userType = 'academic'
                                                                     }) => {
-    const gradeLevels = [
-        "Freshman", "Sophomore", "Junior", "Senior",
-        "College Freshman", "College Sophomore", "College Junior", "College Senior",
-        "Professional Development", "Other"
-    ];
+    // Instead of creating a union type, just get what we need directly
+    const formLabels: BusinessFormOptions | AcademicFormOptions = userType === 'business' ? BUSINESS_OPTIONS : ACADEMIC_OPTIONS;
+    const levelOptions = userType === 'business' ? BUSINESS_OPTIONS.playerTypes : ACADEMIC_OPTIONS.gradeLevels;
 
     // Use local state for the input values to prevent external interference
     const [playersInput, setPlayersInput] = useState(gameData.num_players > 0 ? gameData.num_players.toString() : '');
@@ -128,22 +135,37 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                     <label htmlFor="class_name" className="block text-sm font-medium text-gray-700 mb-2">
-                        Class / Group Name
+                        {formLabels.classLabel}
                     </label>
-                    <input
-                        type="text"
-                        id="class_name"
-                        name="class_name"
-                        value={gameData.class_name}
-                        onChange={(e) => onFieldChange('class_name', e.target.value)}
-                        placeholder="e.g., Business 101, Math Club"
-                        maxLength={30}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 text-base"
-                    />
+                    {userType === 'business' ? (
+                        <select
+                            id="class_name"
+                            name="class_name"
+                            value={gameData.class_name}
+                            onChange={(e) => onFieldChange('class_name', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 bg-white text-base"
+                        >
+                            <option value="">Select an event type...</option>
+                            {BUSINESS_OPTIONS.eventTypes.map(type => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
+                        </select>
+                    ) : (
+                        <input
+                            type="text"
+                            id="class_name"
+                            name="class_name"
+                            value={gameData.class_name}
+                            onChange={(e) => onFieldChange('class_name', e.target.value)}
+                            placeholder={formLabels.classPlaceholder}
+                            maxLength={30}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 text-base"
+                        />
+                    )}
                 </div>
                 <div>
                     <label htmlFor="grade_level" className="block text-sm font-medium text-gray-700 mb-2">
-                        Grade Level / Audience
+                        {formLabels.gradeLabel}
                     </label>
                     <select
                         id="grade_level"
@@ -152,7 +174,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                         onChange={(e) => onFieldChange('grade_level', e.target.value)}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 bg-white text-base"
                     >
-                        {gradeLevels.map(level => (
+                        {levelOptions.map(level => (
                             <option key={level} value={level}>{level}</option>
                         ))}
                     </select>

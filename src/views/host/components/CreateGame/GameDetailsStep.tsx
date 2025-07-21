@@ -10,7 +10,8 @@ import {GameDetailsStepProps} from './types';
 const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
                                                              gameData,
                                                              onDataChange,
-                                                             onNext
+                                                             onNext,
+                                                             userType = 'academic'
                                                          }) => {
     const [error, setError] = useState<string | null>(null);
     const formRef = useRef<HTMLFormElement>(null);
@@ -107,6 +108,7 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
                     onFieldChange={handleFieldChange}
                     onPlayersChange={teamRecommendations.handlePlayersChange}
                     onTeamsChange={teamRecommendations.handleTeamsChange}
+                    userType={userType}
                 />
             </form>
 

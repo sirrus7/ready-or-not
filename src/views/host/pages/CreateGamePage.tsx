@@ -13,6 +13,7 @@ import {
 } from '@views/host/components/CreateGame/index';
 import {ArrowLeft, Settings, Printer, Users, ListOrdered, Rocket, Zap, CheckCircle, AlertTriangle} from 'lucide-react';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
+import {UserType, getUserType} from '@shared/constants/formOptions';
 
 const initialNewGameData: NewGameData = {
     game_version: '2.0_dd',
@@ -53,6 +54,7 @@ const CreateGamePage: React.FC = () => {
     const sessionInitialized = useRef(false);
     const isNavigatingAway = useRef(false);
     const sessionManager: GameSessionManager = useMemo(() => GameSessionManager.getInstance(), []);
+    const [userType, setUserType] = useState<UserType>('academic');
 
     useEffect(() => {
         document.title = "Ready or Not - Create Game";
@@ -65,11 +67,14 @@ const CreateGamePage: React.FC = () => {
             return;
         }
 
+        const type: UserType = getUserType(user);
+        setUserType(type);
+
         // Prevent double initialization
         if (sessionInitialized.current) return;
         sessionInitialized.current = true; // Set flag immediately
 
-        const initializeDraftSession = async () => {
+        const initializeDraftSession = async (): Promise<void> => {
             setIsLoading(true);
             setError(null);
 
@@ -371,6 +376,7 @@ const CreateGamePage: React.FC = () => {
                             onNext={handleNextStep}
                             onPrevious={handlePreviousStep}
                             draftSessionId={draftSessionId}
+                            userType={userType}
                         />
                     )}
                     {currentStep === 2 && (
