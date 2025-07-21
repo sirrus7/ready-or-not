@@ -1,29 +1,24 @@
 /**
- * SSO Provider - HOISTING ISSUE FIXED
- * Fixed version that resolves "cannot access before initialization" errors
+ * SSO Provider - Complete Implementation with SessionStorageManager Alignment
+ * Ready-or-Not SSO Authentication Provider
  *
  * File: src/components/auth/SSOProvider.tsx
+ *
+ * ✅ ALIGNED: Updated to work with new SessionStorageManager interface
+ * ✅ Method signatures match aligned utility layer
+ * ✅ Proper LocalSession handling throughout
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { ssoService, SSOUser, ValidationResponse } from '../../services/sso-service';
-import { SessionStorageManager, getClientIP, getBrowserInfo } from './SessionStorageManager';
+import { SessionStorageManager, getClientIP, getBrowserInfo, LocalSession } from './SessionStorageManager';
 
 // =====================================================
 // INTERFACES
 // =====================================================
 
-interface SSOSession {
-    session_id: string;
-    user_id: string;
-    email: string;
-    permission_level: string;
-    expires_at: string;
-    created_at: string;
-    last_activity: string;
-    is_active: boolean;
-    game_context: Record<string, unknown>;
-}
+// ✅ ALIGNED: Use LocalSession type from SessionStorageManager
+type SSOSession = LocalSession;
 
 interface SSOContextType {
     user: SSOUser | null;
@@ -70,8 +65,12 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return SessionStorageManager.getSessionInfo();
     }, []);
 
+    // =====================================================
+    // PERMISSION CHECKING
+    // =====================================================
+
     const hasPermission = useCallback((requiredRole: 'super_admin' | 'org_admin' | 'host'): boolean => {
-        if (!user?.role) return false;
+        if (!user || !user.role) return false;
 
         const roleHierarchy = ['host', 'org_admin', 'super_admin'];
         const userRoleIndex = roleHierarchy.indexOf(user.role);
@@ -81,104 +80,104 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [user]);
 
     const hasGameAccess = useCallback((gameName: string): boolean => {
-        if (!user?.games) return false;
+        if (!user || !user.games) return false;
         return user.games.some(game => game.name === gameName);
     }, [user]);
 
     // =====================================================
-    // CORE AUTHENTICATION FUNCTIONS (FIXED ORDER)
+    // SESSION MANAGEMENT UTILITIES
     // =====================================================
-
-    const performAuthentication = useCallback(async (token: string): Promise<ValidationResponse> => {
-        try {
-            const ip = await getClientIP();
-            const userAgent = getBrowserInfo();
-
-            const result = await ssoService.authenticateWithSSO(token, {
-                ip_address: ip,
-                user_agent: userAgent,
-                game_context: {
-                    game: 'ready-or-not',
-                    test_mode: true
-                }
-            });
-
-            if (result.valid && result.user && result.session) {
-                // Save session to localStorage
-                SessionStorageManager.saveSession(result.session);
-
-                // Set up session refresh timer
-                setupSessionRefresh();
-
-                return {
-                    valid: true,
-                    user: result.user,
-                    session: result.session,
-                    message: result.message || 'Authentication successful'
-                };
-            } else {
-                return {
-                    valid: false,
-                    error: result.error || 'authentication_failed',
-                    message: result.message || 'Authentication failed'
-                };
-            }
-        } catch (err) {
-            console.error('Authentication error:', err);
-            const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
-            return {
-                valid: false,
-                error: 'authentication_error',
-                message: errorMessage
-            };
-        }
-    }, []); // No dependencies to avoid circular references
 
     const setupSessionRefresh = useCallback(() => {
         if (sessionExtensionTimer.current) {
             clearInterval(sessionExtensionTimer.current);
         }
 
+        // Set up automatic session refresh every 30 minutes
         sessionExtensionTimer.current = setInterval(async () => {
             if (session?.session_id) {
                 try {
-                    const result = await ssoService.extendLocalSession(session.session_id, 4);
-                    if (result.valid && result.session) {
-                        setSession(result.session);
-                        SessionStorageManager.saveSession(result.session);
+                    const validation = await ssoService.validateLocalSession(session.session_id);
+                    if (validation.valid && validation.user && validation.session) {
+                        setUser(validation.user);
+                        setSession(validation.session);
+                        // ✅ ALIGNED: Use new method signature
+                        SessionStorageManager.saveSession(validation.session);
+                    } else {
+                        // Session is no longer valid, logout
+                        await logout();
                     }
                 } catch (err) {
-                    console.error('Session extension failed:', err);
+                    console.error('Automatic session refresh failed:', err);
                 }
             }
         }, 30 * 60 * 1000); // 30 minutes
-    }, [session]);
+    }, [session?.session_id]);
+
+    // =====================================================
+    // URL TOKEN PROCESSING
+    // =====================================================
+
+    const processURLToken = useCallback(async () => {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('sso_token');
+
+            if (token && token.trim() !== '') {
+                console.log('Processing URL token...');
+
+                // Clear the token from URL immediately
+                urlParams.delete('sso_token');
+                const newUrl = `${window.location.pathname}${urlParams.toString() ? '?' + urlParams.toString() : ''}`;
+                window.history.replaceState({}, '', newUrl);
+
+                // Authenticate with the token
+                const result = await login(token);
+                return result;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('URL token processing error:', error);
+            return null;
+        }
+    }, []);
+
+    // =====================================================
+    // AUTHENTICATION METHODS
+    // =====================================================
 
     const login = useCallback(async (token: string): Promise<ValidationResponse> => {
         try {
             setIsLoading(true);
             setError(null);
 
-            const result = await performAuthentication(token);
+            const response = await ssoService.authenticateWithSSO(token, {
+                ip_address: await getClientIP(),
+                user_agent: getBrowserInfo(),
+                game_context: {
+                    game: 'ready-or-not',
+                    source: 'browser',
+                    timestamp: new Date().toISOString()
+                }
+            });
 
-            // Update state based on result
-            if (result.valid && result.user && result.session) {
-                setUser(result.user);
-                setSession(result.session);
-                setError(null);
+            if (response.valid && response.user && response.session) {
+                setUser(response.user);
+                setSession(response.session);
+
+                // ✅ ALIGNED: Use new method signature - pass session object directly
+                SessionStorageManager.saveSession(response.session);
+
+                setupSessionRefresh();
+                return response;
             } else {
-                setError(result.message || 'Authentication failed');
-                setUser(null);
-                setSession(null);
+                setError(response.message || 'Authentication failed');
+                return response;
             }
-
-            return result;
-        } catch (err) {
-            console.error('Login error:', err);
-            const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
             setError(errorMessage);
-            setUser(null);
-            setSession(null);
             return {
                 valid: false,
                 error: 'authentication_error',
@@ -187,7 +186,7 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } finally {
             setIsLoading(false);
         }
-    }, [performAuthentication]);
+    }, [setupSessionRefresh]);
 
     const logout = useCallback(async (): Promise<void> => {
         try {
@@ -223,7 +222,7 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } finally {
             setIsLoading(false);
         }
-    }, [session]); // Only depends on session, not on other functions
+    }, [session]);
 
     const refreshSession = useCallback(async (): Promise<void> => {
         if (!session?.session_id) return;
@@ -233,6 +232,7 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (validation.valid && validation.user && validation.session) {
                 setUser(validation.user);
                 setSession(validation.session);
+                // ✅ ALIGNED: Use new method signature
                 SessionStorageManager.saveSession(validation.session);
                 setError(null);
             } else {
@@ -254,7 +254,10 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             if (result.valid && result.session) {
                 setSession(result.session);
+
+                // ✅ ALIGNED: Use new method signature - pass session object directly
                 SessionStorageManager.saveSession(result.session);
+
                 return { success: true };
             }
 
@@ -295,27 +298,20 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
 
             // Check for URL token
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('sso_token');
-
-            if (token) {
-                try {
-                    const result = await login(token);
-                    if (result.valid && window.history?.replaceState) {
-                        window.history.replaceState({}, document.title, window.location.pathname);
-                    }
-                } catch (err) {
-                    console.error('URL token authentication error:', err);
-                }
+            const urlTokenResult = await processURLToken();
+            if (urlTokenResult?.valid) {
+                setIsLoading(false);
+                return;
             }
 
+            // If we get here, no saved session and no URL token
             setIsLoading(false);
-        } catch (err) {
-            console.error('SSO initialization error:', err);
-            setError('Failed to initialize authentication');
+        } catch (error) {
+            console.error('SSO initialization error:', error);
+            setError('Failed to initialize SSO');
             setIsLoading(false);
         }
-    }, [login, setupSessionRefresh]);
+    }, [setupSessionRefresh, processURLToken]);
 
     // =====================================================
     // EFFECTS
@@ -337,10 +333,14 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [initializeSSO]);
 
     // =====================================================
-    // CONTEXT VALUE
+    // COMPUTED VALUES
     // =====================================================
 
     const isAuthenticated = Boolean(user && session);
+
+    // =====================================================
+    // CONTEXT VALUE
+    // =====================================================
 
     const contextValue: SSOContextType = {
         user,
@@ -369,10 +369,10 @@ export const SSOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 // HOOK
 // =====================================================
 
-export const useSSO = (): SSOContextType => {
+export function useSSO(): SSOContextType {
     const context = useContext(SSOContext);
     if (context === undefined) {
-        throw new Error('useSSO must be used within an SSOProvider'); // Fixed typo: Error not error
+        throw new Error('useSSO must be used within an SSOProvider');
     }
     return context;
-};
+}

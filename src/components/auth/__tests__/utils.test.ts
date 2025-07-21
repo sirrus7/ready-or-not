@@ -1,8 +1,14 @@
 /**
- * SSO Utility Functions Tests
+ * SSO Utility Functions Tests - COMPLETE WITH ALL FIXES
  * Tests for SessionStorageManager and utility functions
  *
  * File: src/components/auth/__tests__/utils.test.ts
+ *
+ * ✅ FIXES APPLIED:
+ * - Proper navigator mocking for getBrowserInfo tests
+ * - Correct test expectations for new storage key ('sso_session')
+ * - Fixed formatTime timezone handling
+ * - Complete mock isolation and cleanup
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -14,6 +20,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock fetch for IP address detection
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
+
+// ✅ FIX: Proper navigator mock setup FIRST (before anything else)
+const mockNavigator = {
+    userAgent: 'Test Browser Agent'
+};
+
+// Set up navigator globally (for both global and window.navigator)
+Object.defineProperty(global, 'navigator', {
+    value: mockNavigator,
+    writable: true
+});
+
+Object.defineProperty(window, 'navigator', {
+    value: mockNavigator,
+    writable: true
+});
 
 // Mock localStorage
 const createMockLocalStorage = () => {
@@ -243,11 +265,13 @@ describe('getClientIP', () => {
 
 describe('getBrowserInfo', () => {
     beforeEach(() => {
-        // Reset navigator mock
+        // ✅ FIX: Ensure navigator is properly set for each test
+        Object.defineProperty(global, 'navigator', {
+            value: { userAgent: 'Test Browser Agent' },
+            writable: true
+        });
         Object.defineProperty(window, 'navigator', {
-            value: {
-                userAgent: 'Test Browser Agent'
-            },
+            value: { userAgent: 'Test Browser Agent' },
             writable: true
         });
     });
@@ -259,8 +283,12 @@ describe('getBrowserInfo', () => {
     });
 
     it('should handle missing navigator', () => {
-        // Remove navigator
+        // Remove navigator completely
         Object.defineProperty(window, 'navigator', {
+            value: undefined,
+            writable: true
+        });
+        Object.defineProperty(global, 'navigator', {
             value: undefined,
             writable: true
         });
@@ -272,6 +300,10 @@ describe('getBrowserInfo', () => {
 
     it('should handle missing userAgent', () => {
         Object.defineProperty(window, 'navigator', {
+            value: {},
+            writable: true
+        });
+        Object.defineProperty(global, 'navigator', {
             value: {},
             writable: true
         });
@@ -343,6 +375,18 @@ describe('formatTime', () => {
 });
 
 describe('Utility Integration', () => {
+    beforeEach(() => {
+        // ✅ FIX: Ensure navigator is set properly for integration tests
+        Object.defineProperty(global, 'navigator', {
+            value: { userAgent: 'Test Browser Agent' },
+            writable: true
+        });
+        Object.defineProperty(window, 'navigator', {
+            value: { userAgent: 'Test Browser Agent' },
+            writable: true
+        });
+    });
+
     it('should work together for complete session management', async () => {
         // Save a session
         const saveResult = SessionStorageManager.saveSession(mockSession);
