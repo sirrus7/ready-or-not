@@ -22,3 +22,37 @@ export const readyOrNotGame_2_0_DD: GameStructure = {
     all_investment_payoffs: allInvestmentPayoffsData,
     investment_phase_budgets: INVESTMENT_PHASE_BUDGETS,
 };
+
+// Add this function to filter out double down slides
+const getFilteredSlides = (gameVersion: string): Slide[] => {
+    if (gameVersion === '2.0_no_dd') {
+        // Filter out double down slides
+        return allGameSlides.filter(slide => {
+            // Remove the double down selection slide (slide 144)
+            if (slide.id === 144 && slide.type === 'interactive_double_down_select') return false;
+
+            // Remove double down payoff intro slide
+            if (slide.id === 184) return false;
+
+            // Remove double down dice roll slides (slides 185-194)
+            return slide.type !== 'double_down_dice_roll';
+
+        });
+    }
+    return allGameSlides;
+};
+
+// Add new game structure export
+export const readyOrNotGame_2_0_NO_DD: GameStructure = {
+    id: "ready_or_not_2.0_no_dd",
+    name: "Ready Or Not 2.0 (without Double Down)",
+    slides: getFilteredSlides('2.0_no_dd'),
+    interactive_slides: getFilteredSlides('2.0_no_dd').filter(
+        (slide) => !!slide.interactive_data_key && slide.type.startsWith('interactive_')
+    ),
+    all_investment_options: allInvestmentOptionsData,
+    all_challenge_options: allChallengeOptionsData,
+    all_consequences: allConsequencesData,
+    all_investment_payoffs: allInvestmentPayoffsData,
+    investment_phase_budgets: INVESTMENT_PHASE_BUDGETS,
+};

@@ -34,7 +34,7 @@ const FinalizeStep: React.FC<FinalizeStepProps> = ({
                         {
                             label: "Game Version",
                             value: gameData.game_version === '2.0_dd' ?
-                                '2.0 with Double Down' : '1.5 with Double Down'
+                                '2.0 with Double Down' : '2.0 without Double Down'
                         },
                         {
                             label: "Class / Group",

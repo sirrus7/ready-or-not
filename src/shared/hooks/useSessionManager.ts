@@ -1,7 +1,7 @@
 // src/shared/hooks/useSessionManager.ts
 import {useState, useEffect, useCallback, useMemo} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {GameSession, GameSessionInsert, GameStructure, NewGameData} from '@shared/types';
+import {GameSession, GameSessionInsert} from '@shared/types';
 import {User} from '@shared/services/supabase'
 import {GameSessionManager} from '@core/game/GameSessionManager';
 
@@ -22,8 +22,7 @@ interface SessionManagerOutput {
 export const useSessionManager = (
     passedSessionId: string | null | undefined,
     user: User | null,
-    authLoading: boolean,
-    gameStructure: GameStructure | null
+    authLoading: boolean
 ): SessionManagerOutput => {
     const [session, setSession] = useState<GameSession | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -54,40 +53,12 @@ export const useSessionManager = (
                 let currentSession: GameSession;
 
                 if (sessionIdToProcess === 'new') {
-                    if (!user) {
-                        console.warn("useSessionManager: [NEW] User not authenticated. Cannot create session.");
-                        setError("Authentication is required to create a new game.");
-                        setIsLoading(false);
-                        navigate('/login', {replace: true});
-                        return;
-                    }
-                    if (!gameStructure) {
-                        console.error("useSessionManager: [NEW] Game structure not available for new session.");
-                        setError("Game configuration error: Game structure not loaded.");
-                        setIsLoading(false);
-                        return;
-                    }
-                    // Construct NewGameData payload for GameSessionManager.createSession
-                    // This is a minimal payload for initial creation via the game route
-                    const newGameDataPayload: NewGameData = {
-                        game_version: gameStructure.id as '2.0_dd' | '1.5_dd',
-                        name: `New Game - ${new Date().toLocaleDateString()}`,
-                        class_name: '', // Will be updated via the create-game wizard
-                        grade_level: 'Freshman',
-                        num_players: 0,
-                        num_teams: 0,
-                        teams_config: []
-                    };
-
-                    currentSession = await sessionManager.createSession(
-                        newGameDataPayload,
-                        user.id,
-                        gameStructure
-                    );
-                    navigate(`/game/${currentSession.id}`, {replace: true});
-
+                    // For new sessions, redirect to create-game wizard
+                    navigate('/create-game', {replace: true});
+                    setIsLoading(false);
+                    return;
                 } else {
-                    // Existing session ID (UUID)
+                    // Load existing session from database
                     currentSession = await sessionManager.loadSession(sessionIdToProcess);
                 }
 
@@ -111,7 +82,7 @@ export const useSessionManager = (
 
         initializeOrLoadSession(passedSessionId);
 
-    }, [passedSessionId, user, authLoading, navigate, gameStructure, sessionManager]);
+    }, [passedSessionId, user, authLoading, navigate, sessionManager]);
 
     const updateSessionInDb = useCallback(async (updates: Partial<GameSessionInsert>) => {
         if (!session?.id || session.id === 'new') {

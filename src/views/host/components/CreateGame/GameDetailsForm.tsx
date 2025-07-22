@@ -110,7 +110,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 bg-white text-base"
                 >
                     <option value="2.0_dd">2.0 with Double Down</option>
-                    <option value="1.5_dd">1.5 with Double Down</option>
+                    <option value="2.0_no_dd">2.0 without Double Down</option>
                 </select>
             </div>
 

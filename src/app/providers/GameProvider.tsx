@@ -3,7 +3,7 @@
 
 import React, {createContext, useContext, useCallback, useMemo, useRef} from 'react';
 import {useParams} from 'react-router-dom';
-import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
+import {readyOrNotGame_2_0_DD, readyOrNotGame_2_0_NO_DD} from '@core/content/GameStructure';
 import {useGameController} from '@core/game/useGameController';
 import {useGameProcessing} from '@core/game/useGameProcessing';
 import {useTeamDataManager} from '@shared/hooks/useTeamDataManager';
@@ -64,8 +64,18 @@ export const useGameContext = (): GameContextType => {
 export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(({children}) => {
     const {sessionId} = useParams<{ sessionId: string }>();
     const {user, loading: authLoading} = useAuth();
-    const gameStructure: GameStructure = readyOrNotGame_2_0_DD;
-    const {session, updateSessionInDb} = useSessionManager(sessionId, user, authLoading, gameStructure);
+    const {session, updateSessionInDb} = useSessionManager(sessionId, user, authLoading);
+
+    // Select gameStructure based on the loaded session's game_version from database
+    const gameStructure: GameStructure = useMemo(() => {
+        if (!session?.game_version) {
+            return readyOrNotGame_2_0_DD; // Fallback only
+        }
+
+        return session.game_version === '2.0_no_dd'
+            ? readyOrNotGame_2_0_NO_DD
+            : readyOrNotGame_2_0_DD;
+    }, [session?.game_version]);
     const teamDataManager = useTeamDataManager(session?.id || null);
     const {
         teams,

@@ -10,7 +10,7 @@ export interface TeamConfig {
 }
 
 export interface NewGameData {
-    game_version: '2.0_dd' | '1.5_dd'; // Direct literal type as seen in GameStructure.ts
+    game_version: '2.0_dd' | '2.0_no_dd';
     name: string;
     class_name: string;
     grade_level: string;

@@ -334,7 +334,9 @@ const DashboardPage: React.FC = () => {
                                                                     <div>
                                                                         <span className="font-medium text-gray-700">Version:</span>
                                                                         <div className="text-gray-500">
-                                                                            v{game.game_version.startsWith('2') ? '2.0' : '1.5'}
+                                                                            v{game.game_version === '2.0_dd' ? '2.0 DD' :
+                                                                            game.game_version === '2.0_no_dd' ? '2.0' :
+                                                                                game.game_version}
                                                                         </div>
                                                                     </div>
                                                                 </div>
