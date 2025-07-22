@@ -265,7 +265,7 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
 
                     return {
                         type: 'choice',
-                        choiceText: selectedOption ? `Option ${selectedOption.id}` : 'Invalid selection',
+                        choiceText: selectedOption ? `Option ${selectedOption.id}` : 'Nothing Submitted',
                         hasSubmission: !!decision
                     };
                 }
