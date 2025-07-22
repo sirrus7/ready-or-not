@@ -14,10 +14,11 @@ import {
 import {GameSession} from '@shared/types';
 import {GameSessionManager} from '@core/game/GameSessionManager';
 import {useTeamDataManager} from '@shared/hooks/useTeamDataManager';
-import {calculateKpiValue} from '@shared/components/UI/Leaderboard/utils';
+import {calculateConsolidatedNetIncome, calculateKpiValue} from '@shared/components/UI/Leaderboard/utils';
 import GameResultsCharts from '../components/GameResultsCharts';
 import KPITrendCharts from '../components/KPITrendCharts';
 import OperationalKPITrends from '../components/OperationalKPITrends';
+import {TeamStanding, GameStatistics} from '@shared/types/results';
 
 const GameResultsPage: React.FC = () => {
     const {sessionId} = useParams<{ sessionId: string }>();
@@ -61,10 +62,9 @@ const GameResultsPage: React.FC = () => {
     }, [sessionId]);
 
     // Calculate final standings and stats
-    const finalStandings = useMemo(() => {
-        if (!teams || !teamRoundData) return [];
+    const finalStandings = useMemo((): TeamStanding[] => {
+        if (!teams.length || !teamRoundData) return [];
 
-        // Convert teamDecisions to flat array for calculateKpiValue
         const allTeamDecisions = teamDecisions ?
             Object.values(teamDecisions).flatMap(teamDecisionsByPhase =>
                 Object.values(teamDecisionsByPhase)
@@ -74,50 +74,55 @@ const GameResultsPage: React.FC = () => {
             const round3Data = teamRoundData[team.id]?.[3];
             if (!round3Data) return null;
 
-            // CHANGE THESE 3 LINES - add allTeamDecisions and team.id:
-            const netIncome = calculateKpiValue(round3Data, 'net_income', allTeamDecisions, team.id);
+            const consolidatedNetIncome = calculateConsolidatedNetIncome(teamRoundData, team.id, allTeamDecisions);
             const revenue = calculateKpiValue(round3Data, 'revenue', allTeamDecisions, team.id);
             const netMargin = calculateKpiValue(round3Data, 'net_margin', allTeamDecisions, team.id);
 
             return {
                 team,
                 round3Data,
-                netIncome,
+                consolidatedNetIncome,
                 revenue,
                 netMargin,
                 capacity: round3Data.current_capacity,
                 orders: round3Data.current_orders,
                 asp: round3Data.current_asp,
                 costs: round3Data.current_cost
-            };
-        }).filter((item): item is NonNullable<typeof item> => item !== null);
+            } satisfies TeamStanding;
+        }).filter((item): item is TeamStanding => item !== null);
 
-        return standings.sort((a, b) => b.netIncome - a.netIncome);
+        return standings.sort((a, b) => b.consolidatedNetIncome - a.consolidatedNetIncome);
     }, [teams, teamRoundData, teamDecisions]);
 
     // Calculate game statistics
-    const gameStats = useMemo(() => {
+    const gameStats = useMemo((): GameStatistics | null => {
         if (finalStandings.length === 0) return null;
 
         const totalRevenue = finalStandings.reduce((sum, team) => sum + team.revenue, 0);
-        const avgNetIncome = finalStandings.reduce((sum, team) => sum + team.netIncome, 0) / finalStandings.length;
-        const highestNetIncome = Math.max(...finalStandings.map(team => team.netIncome));
-        const lowestNetIncome = Math.min(...finalStandings.map(team => team.netIncome));
+        const avgConsolidatedNetIncome = finalStandings.reduce((sum, team) => sum + team.consolidatedNetIncome, 0) / finalStandings.length;
+        const highestConsolidatedNetIncome = Math.max(...finalStandings.map(team => team.consolidatedNetIncome));
+        const lowestConsolidatedNetIncome = Math.min(...finalStandings.map(team => team.consolidatedNetIncome));
 
         return {
             totalRevenue,
-            avgNetIncome,
-            highestNetIncome,
-            lowestNetIncome,
+            avgConsolidatedNetIncome,
+            highestConsolidatedNetIncome,
+            lowestConsolidatedNetIncome,
             totalTeams: finalStandings.length
         };
     }, [finalStandings]);
 
+    const winner = useMemo((): TeamStanding | null => {
+        return finalStandings.length > 0 ? finalStandings[0] : null;
+    }, [finalStandings]);
+
     if (loading || isLoadingTeams || isLoadingRoundData) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100 flex items-center justify-center">
+            <div
+                className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-game-orange-600 mx-auto"></div>
+                    <div
+                        className="animate-spin rounded-full h-12 w-12 border-b-4 border-game-orange-600 mx-auto"></div>
                     <p className="mt-4 text-gray-600">Loading game results...</p>
                 </div>
             </div>
@@ -126,7 +131,8 @@ const GameResultsPage: React.FC = () => {
 
     if (error || teamDataError || !session) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100 flex items-center justify-center">
+            <div
+                className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100 flex items-center justify-center">
                 <div className="text-center">
                     <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                         <Trophy size={32} className="text-red-600"/>
@@ -143,8 +149,6 @@ const GameResultsPage: React.FC = () => {
             </div>
         );
     }
-
-    const winner = finalStandings[0];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100">
@@ -191,7 +195,7 @@ const GameResultsPage: React.FC = () => {
                                     </div>
                                     <div className="text-2xl font-bold text-gray-900">{winner.team.name}</div>
                                     <div className="text-lg text-green-600">
-                                        ${winner.netIncome.toLocaleString()} Net Income
+                                        ${winner.consolidatedNetIncome.toLocaleString()} Consolidated Net Income
                                     </div>
                                 </div>
                             )}
@@ -222,9 +226,9 @@ const GameResultsPage: React.FC = () => {
                                     <TrendingUp size={24} className="text-game-orange-600"/>
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-gray-900">Avg Net Income</h3>
+                                    <h3 className="font-semibold text-gray-900">Avg Consolidated Net Income</h3>
                                     <p className="text-2xl font-bold text-game-orange-600">
-                                        ${Math.round(gameStats.avgNetIncome).toLocaleString()}
+                                        ${Math.round(gameStats.avgConsolidatedNetIncome).toLocaleString()}
                                     </p>
                                 </div>
                             </div>
@@ -238,7 +242,7 @@ const GameResultsPage: React.FC = () => {
                                 <div>
                                     <h3 className="font-semibold text-gray-900">Highest Score</h3>
                                     <p className="text-2xl font-bold text-yellow-600">
-                                        ${gameStats.highestNetIncome.toLocaleString()}
+                                        ${gameStats.highestConsolidatedNetIncome.toLocaleString()}
                                     </p>
                                 </div>
                             </div>
@@ -274,7 +278,7 @@ const GameResultsPage: React.FC = () => {
                             <tr>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Rank</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Team</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Net Income</th>
+                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Consolidated Net Income</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Revenue</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Net Margin</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Capacity</th>
@@ -300,10 +304,10 @@ const GameResultsPage: React.FC = () => {
                                             </span>
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-sm">
-                                            <span
-                                                className={index === 0 ? 'text-yellow-600 font-bold' : 'text-gray-900'}>
-                                                ${team.netIncome.toLocaleString()}
-                                            </span>
+                                        <span
+                                            className={index === 0 ? 'text-yellow-600 font-bold' : 'text-gray-900'}>
+                                            ${team.consolidatedNetIncome.toLocaleString()}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
                                         ${team.revenue.toLocaleString()}
