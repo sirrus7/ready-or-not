@@ -1084,9 +1084,14 @@ export const allGameSlides: Slide[] = [
         id: 107,
         round_number: 2,
         title: "CH6 Immunity Check",
-        type: 'video',
+        type: 'consequence_reveal', // Changed from 'video'
         source_path: 'Slide_108.mp4',
-        auto_advance_after_video: true
+        main_text: "CH6 Immunity Check",
+        sub_text: "Teams with Production Efficiency investment are protected",
+        details: ["-$75K Costs", "+$10 ASP", "+250 Orders"],
+        background_css: 'bg-gray-700',
+        auto_advance_after_video: true,
+        immunity_bonus: true
     },
     {
         id: 108,

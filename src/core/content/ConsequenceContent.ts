@@ -695,8 +695,8 @@ export const allConsequencesData: Record<string, Consequence[]> = {
     ],
     'ch6-immunity': [ // Special immunity consequences for CH6
         {
-            id: 'ch6_immunity_a',
-            challenge_option_id: 'A',
+            id: 'ch6_immunity_bonus',
+            challenge_option_id: 'immunity', // Special key - not tied to any specific choice
             narrative_text: "Your Production Efficiency investment provided excellent quality control. You avoided the crisis and gained competitive advantages.",
             effects: [
                 {
@@ -704,105 +704,21 @@ export const allConsequencesData: Record<string, Consequence[]> = {
                     change_value: -75000, // SUBTRACT $75K costs (savings)
                     timing: 'immediate',
                     challenge_id: 'ch6',
-                    option_id: 'A_immunity'
+                    option_id: 'immunity_bonus'
                 },
                 {
                     kpi: 'asp',
                     change_value: 10, // ADD $10 ASP
                     timing: 'immediate',
                     challenge_id: 'ch6',
-                    option_id: 'A_immunity'
+                    option_id: 'immunity_bonus'
                 },
                 {
                     kpi: 'orders',
                     change_value: 250, // ADD 250 orders
                     timing: 'immediate',
                     challenge_id: 'ch6',
-                    option_id: 'A_immunity'
-                }
-            ]
-        },
-        {
-            id: 'ch6_immunity_b',
-            challenge_option_id: 'B',
-            narrative_text: "Your Production Efficiency investment provided excellent quality control. You avoided the crisis and gained competitive advantages.",
-            effects: [
-                {
-                    kpi: 'cost',
-                    change_value: -75000,
-                    timing: 'immediate',
-                    challenge_id: 'ch6',
-                    option_id: 'B_immunity'
-                },
-                {
-                    kpi: 'asp',
-                    change_value: 10,
-                    timing: 'immediate',
-                    challenge_id: 'ch6',
-                    option_id: 'B_immunity'
-                },
-                {
-                    kpi: 'orders',
-                    change_value: 250,
-                    timing: 'immediate',
-                    challenge_id: 'ch6',
-                    option_id: 'B_immunity'
-                }
-            ]
-        },
-        {
-            id: 'ch6_immunity_c',
-            challenge_option_id: 'C',
-            narrative_text: "Your Production Efficiency investment provided excellent quality control. You avoided the crisis and gained competitive advantages.",
-            effects: [
-                {
-                    kpi: 'cost',
-                    change_value: -75000,
-                    timing: 'immediate',
-                    challenge_id: 'ch6',
-                    option_id: 'C_immunity'
-                },
-                {
-                    kpi: 'asp',
-                    change_value: 10,
-                    timing: 'immediate',
-                    challenge_id: 'ch6',
-                    option_id: 'C_immunity'
-                },
-                {
-                    kpi: 'orders',
-                    change_value: 250,
-                    timing: 'immediate',
-                    challenge_id: 'ch6',
-                    option_id: 'C_immunity'
-                }
-            ]
-        },
-        {
-            id: 'ch6_immunity_d',
-            challenge_option_id: 'D',
-            narrative_text: "Your Production Efficiency investment provided excellent quality control. You avoided the crisis and gained competitive advantages.",
-            effects: [
-                {
-                    kpi: 'cost',
-                    change_value: -75000,
-                    timing: 'immediate',
-                    challenge_id: 'ch6',
-                    option_id: 'D_immunity'
-                },
-                {
-                    kpi: 'asp',
-                    change_value: 10,
-                    timing: 'immediate',
-                    challenge_id: 'ch6',
-                    option_id: 'D_immunity'
-                },
-                {
-                    kpi: 'orders',
-                    change_value: 250,
-                    timing: 'immediate',
-                    challenge_id: 'ch6',
-                    option_id: 'D_immunity'
+                    option_id: 'immunity_bonus'
                 }
             ]
         }

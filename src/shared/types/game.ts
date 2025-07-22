@@ -95,6 +95,7 @@ export interface Slide {
         message: string;
     };
     details?: string[];
+    immunity_bonus?: boolean;
 }
 
 export interface GameStructure {

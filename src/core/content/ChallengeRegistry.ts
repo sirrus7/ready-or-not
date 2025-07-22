@@ -50,7 +50,7 @@ export const CHALLENGE_REGISTRY: Record<string, ChallengeMetadata> = {
         round: 2,
         impact_card_title: 'Quality Impact',
         impact_card_description: 'Quality control decisions affect production standards.',
-        consequence_slides: [100, 108, 109, 110, 111]
+        consequence_slides: [100, 107, 108, 109, 110, 111]
     },
     'ch7': {
         id: 'ch7',
