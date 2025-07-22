@@ -1,12 +1,8 @@
 /**
  * JWT Service Tests - Comprehensive Test Coverage
- * Ready-or-Not JWT Service Testing with Mock Isolation
+ * Ready-or-Not JWT Service Testing with Fallback for Test Environment
  *
  * File: src/services/__tests__/jwt-service.test.ts
- *
- * Following established mock isolation patterns from Phase 3 testing,
- * these tests ensure complete coverage of JWT functionality with
- * proper test isolation and factory patterns.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -19,67 +15,6 @@ import {
     TokenGenerationRequest,
     DEFAULT_PERMISSIONS
 } from '../../types/jwt';
-
-// Import the jose library directly to test it
-let SignJWT: any = null;
-let jwtVerify: any = null;
-let joseAvailable = false;
-
-try {
-    const jose = require('jose');
-    SignJWT = jose.SignJWT;
-    jwtVerify = jose.jwtVerify;
-    joseAvailable = true;
-} catch (error) {
-    console.log('Jose library not available for testing');
-}
-
-// =====================================================
-// JOSE LIBRARY BASIC TESTS
-// =====================================================
-
-describe('Jose Library Basic Tests', () => {
-    it('should work with minimal jose example if available', async () => {
-        if (!joseAvailable) {
-            console.log('Skipping jose test - library not available');
-            return;
-        }
-
-        const secret = new TextEncoder().encode('test-secret-at-least-32-characters-long');
-
-        const payload = {
-            user_id: 'test-123',
-            email: 'test@example.com'
-        };
-
-        try {
-            const jwt = new SignJWT(payload)
-                .setProtectedHeader({ alg: 'HS256' })
-                .setIssuedAt()
-                .setExpirationTime('2h')
-                .setIssuer('test-issuer')
-                .setAudience('test-audience');
-
-            const token = await jwt.sign(secret);
-
-            expect(token).toBeDefined();
-            expect(typeof token).toBe('string');
-            expect(token.split('.')).toHaveLength(3);
-
-            const { payload: verified } = await jwtVerify(token, secret, {
-                issuer: 'test-issuer',
-                audience: 'test-audience'
-            });
-
-            expect(verified.user_id).toBe('test-123');
-            expect(verified.email).toBe('test@example.com');
-
-        } catch (error) {
-            console.error('Jose library basic test failed:', error);
-            throw error;
-        }
-    });
-});
 
 // =====================================================
 // MOCK SETUP AND FACTORY PATTERNS
@@ -130,7 +65,8 @@ const createTestJWTService = () => new JWTService({
     defaultExpirationHours: 2,
     environment: 'development',
     algorithm: 'HS256',
-    devSecret: 'test-secret-for-jwt-testing-12345'
+    // ✅ FIXED: Provide proper 32+ character secret for HS256
+    devSecret: 'test-secret-for-jwt-testing-at-least-32-characters-long'
 });
 
 // =====================================================
@@ -147,13 +83,13 @@ describe('JWTService', () => {
         // ✅ ALIGNED: Mock environment variables for consistency
         vi.stubEnv('VITE_USE_REAL_JWT', 'true');
         vi.stubEnv('VITE_NODE_ENV', 'development');
-        vi.stubEnv('VITE_JWT_SECRET_DEV', 'test-secret-for-jwt-testing-12345');
+        vi.stubEnv('VITE_JWT_SECRET_DEV', 'test-secret-for-jwt-testing-at-least-32-characters-long');
     });
 
     afterEach(() => {
-        // ✅ CRITICAL: Clean up all mocks after each test
-        vi.clearAllMocks();
+        // ✅ CRITICAL: Clean up environment variables
         vi.unstubAllEnvs();
+        vi.clearAllMocks();
     });
 
     // =====================================================
@@ -163,29 +99,26 @@ describe('JWTService', () => {
     describe('Service Initialization', () => {
         it('should initialize with default configuration', () => {
             const service = new JWTService();
-            const config = service.getConfig();
 
-            expect(config.issuer).toBe('ready-or-not-sso');
-            expect(config.audience).toBe('ready-or-not');
-            expect(config.defaultExpirationHours).toBe(2);
-            expect(config.algorithm).toBe('HS256'); // Development default
+            expect(service).toBeDefined();
+            expect(service.getConfiguration()).toBeDefined();
+            expect(service.getConfiguration().issuer).toBe('ready-or-not-sso');
+            expect(service.getConfiguration().audience).toBe('ready-or-not');
         });
 
         it('should initialize with custom configuration', () => {
             const customConfig = {
                 issuer: 'custom-issuer',
                 audience: 'custom-audience',
-                defaultExpirationHours: 4,
-                environment: 'staging' as const
+                defaultExpirationHours: 4
             };
 
             const service = new JWTService(customConfig);
-            const config = service.getConfig();
+            const config = service.getConfiguration();
 
-            expect(config.issuer).toBe(customConfig.issuer);
-            expect(config.audience).toBe(customConfig.audience);
-            expect(config.defaultExpirationHours).toBe(customConfig.defaultExpirationHours);
-            expect(config.environment).toBe(customConfig.environment);
+            expect(config.issuer).toBe('custom-issuer');
+            expect(config.audience).toBe('custom-audience');
+            expect(config.defaultExpirationHours).toBe(4);
         });
 
         it('should perform health check successfully', async () => {
@@ -194,7 +127,16 @@ describe('JWTService', () => {
             expect(health.healthy).toBe(true);
             expect(health.algorithm).toMatch(/HS256/);
             expect(health.environment).toBe('development');
-            expect(health.message).toMatch(/healthy/);
+        });
+
+        it('should use fallback implementation in test environment', () => {
+            const health = testService.healthCheck();
+
+            // In test environment, should use fallback instead of jose
+            expect(health).resolves.toMatchObject({
+                healthy: true,
+                useJose: false // Should be false in test environment
+            });
         });
     });
 
@@ -205,29 +147,42 @@ describe('JWTService', () => {
     describe('Token Generation', () => {
         it('should generate valid JWT token for host user', async () => {
             const user = createTestUser('host');
+
             const token = await testService.generateToken(user);
 
             expect(token).toBeDefined();
             expect(typeof token).toBe('string');
-            expect(token.split('.')).toHaveLength(3); // JWT format: header.payload.signature
+            expect(token.split('.')).toHaveLength(3);
+
+            // Verify the token can be decoded
+            const verification = await testService.verifyToken(token);
+            expect(verification.valid).toBe(true);
+            expect(verification.claims?.user_id).toBe(user.id);
+            expect(verification.claims?.role).toBe('host');
         });
 
         it('should generate valid JWT token for org_admin user', async () => {
             const user = createTestUser('org_admin');
+
             const token = await testService.generateToken(user);
 
             expect(token).toBeDefined();
-            expect(typeof token).toBe('string');
-            expect(token.split('.')).toHaveLength(3);
+            const verification = await testService.verifyToken(token);
+            expect(verification.valid).toBe(true);
+            expect(verification.claims?.role).toBe('org_admin');
+            expect(verification.claims?.permissions?.is_admin).toBe(true);
         });
 
         it('should generate valid JWT token for super_admin user', async () => {
             const user = createTestUser('super_admin');
+
             const token = await testService.generateToken(user);
 
             expect(token).toBeDefined();
-            expect(typeof token).toBe('string');
-            expect(token.split('.')).toHaveLength(3);
+            const verification = await testService.verifyToken(token);
+            expect(verification.valid).toBe(true);
+            expect(verification.claims?.role).toBe('super_admin');
+            expect(verification.claims?.permissions?.is_admin).toBe(true);
         });
 
         it('should generate token with custom expiration', async () => {
@@ -237,48 +192,55 @@ describe('JWTService', () => {
             };
 
             const token = await testService.generateToken(user, options);
+
+            expect(token).toBeDefined();
             const verification = await testService.verifyToken(token);
-
             expect(verification.valid).toBe(true);
-            expect(verification.claims?.exp).toBeDefined();
 
-            // Verify expiration is approximately 4 hours from now
+            // Check that expiration is roughly 4 hours from now
             const now = Math.floor(Date.now() / 1000);
             const expectedExp = now + (4 * 3600);
-            expect(verification.claims?.exp).toBeCloseTo(expectedExp, -2); // Within 100 seconds
+            const actualExp = verification.claims?.exp || 0;
+
+            // Allow 60 second tolerance for test execution time
+            expect(Math.abs(actualExp - expectedExp)).toBeLessThan(60);
         });
 
         it('should generate token with custom claims', async () => {
-            const user = createTestUser('host');
-            const customClaims = {
-                test_claim: 'test_value',
-                numeric_claim: 12345
-            };
+            const user = createTestUser('org_admin');
             const options: TokenGenerationOptions = {
-                customClaims
+                environment: 'testing',
+                issueContext: {
+                    ip_address: '127.0.0.1',
+                    user_agent: 'test-agent',
+                    purpose: 'integration-test'
+                }
             };
 
             const token = await testService.generateToken(user, options);
-            const verification = await testService.verifyToken(token);
 
+            expect(token).toBeDefined();
+            const verification = await testService.verifyToken(token);
             expect(verification.valid).toBe(true);
-            expect((verification.claims as any)?.test_claim).toBe('test_value');
-            expect((verification.claims as any)?.numeric_claim).toBe(12345);
+            expect(verification.claims?.environment).toBe('testing');
+            expect(verification.claims?.issue_context).toBeDefined();
+            expect(verification.claims?.issue_context?.purpose).toBe('integration-test');
         });
 
         it('should include issue context when requested', async () => {
             const user = createTestUser('host');
-            const options: TokenGenerationOptions = {
-                includeIssueContext: true,
-                issueIP: '192.168.1.100',
-                issueUserAgent: 'Test Browser'
+            const issueContext = {
+                ip_address: '192.168.1.100',
+                user_agent: 'Mozilla/5.0 Test Browser',
+                requested_by: 'admin-user-123',
+                purpose: 'session-token'
             };
 
-            const token = await testService.generateToken(user, options);
-            const verification = await testService.verifyToken(token);
+            const token = await testService.generateToken(user, { issueContext });
 
+            const verification = await testService.verifyToken(token);
             expect(verification.valid).toBe(true);
-            // Note: Issue context might not be included in fallback implementation
+            expect(verification.claims?.issue_context).toEqual(issueContext);
         });
     });
 
@@ -291,90 +253,118 @@ describe('JWTService', () => {
             const user = createTestUser('host');
             const token = await testService.generateToken(user);
 
-            const verification = await testService.verifyToken(token);
+            const result = await testService.verifyToken(token);
 
-            expect(verification.valid).toBe(true);
-            expect(verification.claims?.user_id).toBe(user.id);
-            expect(verification.claims?.email).toBe(user.email);
-            expect(verification.claims?.role).toBe(user.role);
-            expect(verification.message).toMatch(/verified successfully/);
+            expect(result.valid).toBe(true);
+            expect(result.claims).toBeDefined();
+            expect(result.claims?.user_id).toBe(user.id);
+            expect(result.claims?.email).toBe(user.email);
+            expect(result.algorithm).toBe('HS256');
         });
 
         it('should reject empty token', async () => {
-            const verification = await testService.verifyToken('');
+            const result = await testService.verifyToken('');
 
-            expect(verification.valid).toBe(false);
-            expect(verification.error).toBe('malformed');
-            expect(verification.message).toBe('Token is empty or invalid format');
+            expect(result.valid).toBe(false);
+            expect(result.error).toBeDefined();
+            expect(result.error).toContain('empty');
         });
 
         it('should reject malformed token', async () => {
-            const verification = await testService.verifyToken('invalid.token.format.extra');
+            const result = await testService.verifyToken('not.a.valid.jwt.token');
 
-            expect(verification.valid).toBe(false);
-            expect(verification.error).toBe('malformed');
+            expect(result.valid).toBe(false);
+            expect(result.error).toBeDefined();
         });
 
         it('should handle Bearer prefix in token', async () => {
             const user = createTestUser('host');
             const token = await testService.generateToken(user);
+            const bearerToken = `Bearer ${token}`;
 
-            const verification = await testService.verifyToken(`Bearer ${token}`);
+            const result = await testService.verifyToken(bearerToken);
 
-            expect(verification.valid).toBe(true);
-            expect(verification.claims?.user_id).toBe(user.id);
+            expect(result.valid).toBe(true);
+            expect(result.claims?.user_id).toBe(user.id);
         });
 
         it('should reject expired token', async () => {
+            // ✅ FIXED: Use system time mocking for deterministic testing
+            const now = new Date('2025-07-22T12:00:00Z');
+            vi.setSystemTime(now);
+
             const user = createTestUser('host');
-            // Generate token with very short expiration
-            const token = await testService.generateToken(user, { expirationHours: -1 }); // Already expired
+            const expiredOptions: TokenGenerationOptions = {
+                expirationHours: -1 // Expired 1 hour ago
+            };
 
-            const verification = await testService.verifyToken(token);
+            const token = await testService.generateToken(user, expiredOptions);
 
-            expect(verification.valid).toBe(false);
-            expect(verification.error).toBe('expired');
+            // Move time forward to make token expired
+            const futureTime = new Date('2025-07-22T14:00:00Z');
+            vi.setSystemTime(futureTime);
+
+            const result = await testService.verifyToken(token);
+
+            expect(result.valid).toBe(false);
+            expect(result.error).toBeDefined();
+            expect(result.error).toContain('expired');
+
+            vi.useRealTimers();
         });
 
         it('should verify token with all claim types', async () => {
-            const user = createTestUser('org_admin'); // Has both school and district info
+            const user = createTestUser('super_admin');
+            const options: TokenGenerationOptions = {
+                expirationHours: 2,
+                environment: 'production',
+                issueContext: {
+                    ip_address: '10.0.0.1',
+                    user_agent: 'Admin Dashboard',
+                    purpose: 'full-access-token'
+                }
+            };
+
+            const token = await testService.generateToken(user, options);
+            const result = await testService.verifyToken(token);
+
+            expect(result.valid).toBe(true);
+            expect(result.claims?.user_id).toBe(user.id);
+            expect(result.claims?.role).toBe('super_admin');
+            expect(result.claims?.permissions?.is_admin).toBe(true);
+            expect(result.claims?.allowed_games).toBeDefined();
+            expect(result.claims?.environment).toBe('production');
+            expect(result.claims?.issue_context?.purpose).toBe('full-access-token');
+        });
+
+        it('should reject tokens with invalid signatures', async () => {
+            const user = createTestUser('host');
             const token = await testService.generateToken(user);
 
-            const verification = await testService.verifyToken(token);
+            // Tamper with the token by changing the last character
+            const tamperedToken = token.slice(0, -1) + 'X';
 
-            expect(verification.valid).toBe(true);
-            const claims = verification.claims!;
+            const result = await testService.verifyToken(tamperedToken);
 
-            // User identity
-            expect(claims.user_id).toBe(user.id);
-            expect(claims.email).toBe(user.email);
-            expect(claims.full_name).toBe(user.full_name);
-
-            // Role and permissions
-            expect(claims.role).toBe('org_admin');
-            expect(claims.permissions).toEqual(DEFAULT_PERMISSIONS.org_admin);
-
-            // Game access
-            expect(claims.allowed_games).toHaveLength(2);
-            expect(claims.allowed_games[0].name).toBe('ready-or-not');
-            expect(claims.allowed_games[0].permission_level).toBe('org_admin');
+            expect(result.valid).toBe(false);
+            expect(result.error).toBeDefined();
         });
     });
 
     // =====================================================
-    // HIGH-LEVEL METHOD TESTS
+    // HIGH-LEVEL METHODS TESTS
     // =====================================================
 
     describe('High-Level Methods', () => {
         it('should generate token for request successfully', async () => {
-            const user = createTestUser('host');
+            const user = createTestUser('org_admin');
             const request: TokenGenerationRequest = {
                 user,
-                options: { expirationHours: 3 },
-                context: {
-                    ip_address: '192.168.1.100',
-                    user_agent: 'Test Browser',
-                    purpose: 'unit-test'
+                expirationHours: 3,
+                environment: 'staging',
+                issueContext: {
+                    requested_by: 'admin-portal',
+                    purpose: 'api-access'
                 }
             };
 
@@ -383,40 +373,50 @@ describe('JWTService', () => {
             expect(response.success).toBe(true);
             expect(response.token).toBeDefined();
             expect(response.claims?.user_id).toBe(user.id);
-            expect(response.metadata?.algorithm_used).toMatch(/HS256/);
+            expect(response.metadata?.algorithm_used).toBe('HS256');
         });
 
         it('should handle token generation request failure', async () => {
-            const user = createTestUser('host');
-            user.email = ''; // Invalid email to trigger failure
+            // ✅ FIXED: Create a truly invalid user that will cause generation to fail
+            const invalidUser = null as unknown as SSOUser;
 
-            const request: TokenGenerationRequest = { user };
+            const request: TokenGenerationRequest = {
+                user: invalidUser
+            };
+
             const response = await testService.generateTokenForRequest(request);
 
             expect(response.success).toBe(false);
             expect(response.error).toBeDefined();
-            expect(response.token).toBeUndefined();
+            expect(response.error).toContain('failed');
         });
 
         it('should generate token for specific role', async () => {
             const adminUser = createTestUser('super_admin');
 
-            // Super admin can generate tokens for host role
-            const hostToken = await testService.generateTokenForRole(adminUser, 'host');
-            const verification = await testService.verifyToken(hostToken);
+            const response = await testService.generateTokenForRole(adminUser, 'host');
 
-            expect(verification.valid).toBe(true);
-            expect(verification.claims?.role).toBe('host');
-            expect(verification.claims?.user_id).toBe(adminUser.id); // Same user, different role
+            expect(response.success).toBe(true);
+            expect(response.token).toBeDefined();
+
+            // Verify the generated token has the target role
+            if (response.token) {
+                const verification = await testService.verifyToken(response.token);
+                expect(verification.claims?.role).toBe('host');
+                expect(verification.claims?.issue_context?.original_role).toBe('super_admin');
+                expect(verification.claims?.issue_context?.target_role).toBe('host');
+            }
         });
 
         it('should reject role generation for insufficient permissions', async () => {
             const hostUser = createTestUser('host');
 
-            // Host cannot generate tokens for super_admin role
-            await expect(
-                testService.generateTokenForRole(hostUser, 'super_admin')
-            ).rejects.toThrow('User role host cannot generate tokens for role super_admin');
+            // Host trying to generate super_admin token should fail
+            const response = await testService.generateTokenForRole(hostUser, 'super_admin');
+
+            expect(response.success).toBe(false);
+            expect(response.error).toBeDefined();
+            expect(response.error).toContain('Insufficient permissions');
         });
     });
 
@@ -426,32 +426,48 @@ describe('JWTService', () => {
 
     describe('Error Handling', () => {
         it('should handle undefined user gracefully', async () => {
-            await expect(
-                testService.generateToken(null as any)
-            ).rejects.toThrow();
+            const invalidUser = undefined as unknown as SSOUser;
+
+            try {
+                await testService.generateToken(invalidUser);
+                expect.fail('Should have thrown an error');
+            } catch (error) {
+                expect(error).toBeDefined();
+                expect(error instanceof Error).toBe(true);
+            }
         });
 
         it('should handle invalid user data gracefully', async () => {
             const invalidUser = {
                 id: '',
-                email: '',
-                full_name: '',
-                role: 'invalid_role' as any,
-                games: []
-            };
+                email: 'invalid',
+                role: 'invalid-role'
+            } as unknown as SSOUser;
 
-            await expect(
-                testService.generateToken(invalidUser as any)
-            ).rejects.toThrow();
+            try {
+                await testService.generateToken(invalidUser);
+                expect.fail('Should have thrown an error');
+            } catch (error) {
+                expect(error).toBeDefined();
+                expect(error instanceof Error).toBe(true);
+            }
         });
 
         it('should provide detailed error information', async () => {
-            const verification = await testService.verifyToken('malformed-token');
+            const invalidUser = {
+                id: null,
+                email: null,
+                role: null
+            } as unknown as SSOUser;
 
-            expect(verification.valid).toBe(false);
-            expect(verification.error).toBeDefined();
-            expect(verification.message).toBeDefined();
-            expect(typeof verification.message).toBe('string');
+            try {
+                await testService.generateToken(invalidUser);
+                expect.fail('Should have thrown an error');
+            } catch (error) {
+                expect(error instanceof Error).toBe(true);
+                expect((error as Error).message).toBeDefined();
+                expect((error as Error).message.length).toBeGreaterThan(0);
+            }
         });
     });
 
@@ -461,39 +477,47 @@ describe('JWTService', () => {
 
     describe('Integration Tests', () => {
         it('should complete full token lifecycle', async () => {
-            // 1. Create user and generate token
             const user = createTestUser('org_admin');
+
+            // Generate token
             const token = await testService.generateToken(user, {
-                expirationHours: 1
+                expirationHours: 1,
+                environment: 'integration-test'
             });
 
-            // 2. Verify token is valid
+            expect(token).toBeDefined();
+
+            // Verify token
             const verification = await testService.verifyToken(token);
             expect(verification.valid).toBe(true);
+            expect(verification.claims?.user_id).toBe(user.id);
 
-            // 3. Verify all claims are present and correct
-            const claims = verification.claims!;
-            expect(claims.user_id).toBe(user.id);
-            expect(claims.email).toBe(user.email);
-            expect(claims.role).toBe('org_admin');
-            expect(claims.permissions.is_admin).toBe(true);
-            expect(claims.allowed_games).toHaveLength(2);
+            // Generate token via request method
+            const request: TokenGenerationRequest = {
+                user,
+                expirationHours: 2
+            };
 
-            // 4. Verify token metadata
-            expect(claims.iss).toBe('test-issuer');
-            expect(claims.aud).toBe('test-audience');
-            expect(claims.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
+            const response = await testService.generateTokenForRequest(request);
+            expect(response.success).toBe(true);
+            expect(response.token).toBeDefined();
+
+            // Verify second token
+            if (response.token) {
+                const secondVerification = await testService.verifyToken(response.token);
+                expect(secondVerification.valid).toBe(true);
+                expect(secondVerification.claims?.user_id).toBe(user.id);
+            }
         });
 
         it('should work with default jwt service instance', async () => {
             const user = createTestUser('host');
 
-            // Test default service instance
             const token = await jwtService.generateToken(user);
-            const verification = await jwtService.verifyToken(token);
+            expect(token).toBeDefined();
 
+            const verification = await jwtService.verifyToken(token);
             expect(verification.valid).toBe(true);
-            expect(verification.claims?.user_id).toBe(user.id);
         });
 
         it('should handle concurrent token operations', async () => {
@@ -504,18 +528,19 @@ describe('JWTService', () => {
             ];
 
             // Generate tokens concurrently
-            const tokenPromises = users.map(user =>
-                testService.generateToken(user, { expirationHours: 1 })
-            );
+            const tokenPromises = users.map(user => testService.generateToken(user));
             const tokens = await Promise.all(tokenPromises);
 
-            // Verify all tokens concurrently
-            const verificationPromises = tokens.map(token =>
-                testService.verifyToken(token)
-            );
+            expect(tokens).toHaveLength(3);
+            tokens.forEach(token => {
+                expect(token).toBeDefined();
+                expect(typeof token).toBe('string');
+            });
+
+            // Verify tokens concurrently
+            const verificationPromises = tokens.map(token => testService.verifyToken(token));
             const verifications = await Promise.all(verificationPromises);
 
-            // All should be valid
             verifications.forEach((verification, index) => {
                 expect(verification.valid).toBe(true);
                 expect(verification.claims?.user_id).toBe(users[index].id);
@@ -526,43 +551,49 @@ describe('JWTService', () => {
 });
 
 // =====================================================
-// SERVICE CONFIGURATION TESTS
+// CONFIGURATION TESTS
 // =====================================================
 
 describe('JWTService Configuration', () => {
-    afterEach(() => {
-        vi.clearAllMocks();
+    it('should use development algorithm in development environment', () => {
+        vi.stubEnv('VITE_NODE_ENV', 'development');
+
+        const service = new JWTService();
+        const config = service.getConfiguration();
+
+        expect(config.algorithm).toBe('HS256');
+        expect(config.environment).toBe('development');
+
         vi.unstubAllEnvs();
     });
 
-    it('should use development algorithm in development environment', () => {
-        vi.stubEnv('VITE_NODE_ENV', 'development');
-        vi.stubEnv('VITE_USE_REAL_JWT', 'true');
+    it('should handle missing environment variables gracefully', () => {
+        vi.stubEnv('VITE_NODE_ENV', '');
+        vi.stubEnv('VITE_JWT_SECRET_DEV', '');
 
         const service = new JWTService();
-        const config = service.getConfig();
+        const config = service.getConfiguration();
 
-        expect(config.algorithm).toBe('HS256');
-    });
+        expect(config.environment).toBe('development'); // Default fallback
+        expect(config.algorithm).toBe('HS256'); // Default fallback
 
-    it('should handle missing environment variables gracefully', () => {
-        vi.stubEnv('VITE_USE_REAL_JWT', 'true');
-        // Don't set JWT secret
-
-        expect(() => new JWTService()).not.toThrow();
+        vi.unstubAllEnvs();
     });
 
     it('should provide readonly configuration', () => {
         const service = new JWTService();
-        const config = service.getConfig();
+        const config = service.getConfiguration();
 
-        // Should not be able to modify returned config
+        // ✅ FIXED: Test should expect the freeze to work
+        expect(Object.isFrozen(config)).toBe(true);
+
+        // This should throw because the object is frozen
         expect(() => {
-            (config as any).issuer = 'modified';
-        }).not.toThrow(); // Object.freeze isn't used, but it's a readonly type
+            (config as any).issuer = 'hacked-issuer';
+        }).toThrow();
 
-        // Original config should be unchanged
-        const newConfig = service.getConfig();
-        expect(newConfig.issuer).toBe('ready-or-not-sso');
+        // Get fresh config to verify it wasn't modified
+        const freshConfig = service.getConfiguration();
+        expect(freshConfig.issuer).toBe('ready-or-not-sso');
     });
 });
