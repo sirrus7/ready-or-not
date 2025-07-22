@@ -46,7 +46,7 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
             num_teams: teamsInput?.value ? parseInt(teamsInput.value, 10) || 0 : gameData.num_teams,
             class_name: classInput?.value || gameData.class_name || '',
             grade_level: gradeSelect?.value || gameData.grade_level || 'Freshman',
-            game_version: (versionSelect?.value as '2.0_dd' | '1.5_dd') || gameData.game_version || '2.0_dd',
+            game_version: (versionSelect?.value as '2.0_dd' | '2.0_no_dd') || gameData.game_version || '2.0_dd',
             teams_config: gameData.teams_config || []
         };
     };
@@ -69,8 +69,8 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
             return {isValid: false, error: 'Number of players must be at least 2.'};
         }
 
-        if (data.num_players > 100) {
-            return {isValid: false, error: 'Number of players cannot exceed 100.'};
+        if (data.num_players > 300) {
+            return {isValid: false, error: 'Number of players cannot exceed 300.'};
         }
 
         if (!data.num_teams || data.num_teams < 1) {

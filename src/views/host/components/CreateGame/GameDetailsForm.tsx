@@ -194,7 +194,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                         value={playersInput}
                         onChange={handlePlayersChange}
                         min="0"
-                        max={100}
+                        max={300}
                         placeholder="e.g., 15"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 text-base"
                     />
