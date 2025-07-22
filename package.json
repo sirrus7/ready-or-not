@@ -17,6 +17,7 @@
     "test:auth": "vitest run src/components/auth/__tests__/",
     "test:utils": "vitest run src/components/auth/__tests__/utils.test.ts",
     "test:jwt": "vitest run src/services/__tests__/jwt-service.test.ts",
+    "test:sso-enhanced": "vitest run src/services/__tests__/sso-service.test.ts",
     "test:debug": "vitest run --reporter=verbose"
   },
   "dependencies": {
