@@ -2,8 +2,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {db, supabase, useRealtimeSubscription} from '@shared/services/supabase';
 import {InteractiveSlideData, TeamGameEvent, TeamGameEventType} from '@core/sync/SimpleRealtimeManager';
-import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
-import {GameSession, GameStructure, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
+import {GameSession, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
 import {useTeamGameContext} from "@app/providers/TeamGameProvider";
 
 interface UseTeamGameStateProps {
@@ -18,7 +17,6 @@ interface UseTeamGameStateReturn {
     isDecisionTime: boolean;
     currentTeamKpis: TeamRoundData | null;
     permanentAdjustments: PermanentKpiAdjustment[];
-    gameStructure: GameStructure | null;
     isLoadingKpis: boolean;
     isLoadingAdjustments: boolean;
     connectionStatus: 'connected' | 'connecting' | 'disconnected';
@@ -33,13 +31,6 @@ interface PayloadData {
     new?: TeamRoundData | Record<string, unknown>;
     old?: TeamRoundData | Record<string, unknown>;
     eventType?: string;
-}
-
-interface SessionPayload {
-    new?: {
-        current_slide_index?: number;
-        id?: string;
-    };
 }
 
 export const useTeamGameState = ({
@@ -66,12 +57,10 @@ export const useTeamGameState = ({
     const stableTeamId = useRef<string | null>(null);
     const resetDebounceRef = useRef<NodeJS.Timeout | null>(null);
     const fetchDebounceRef = useRef<NodeJS.Timeout | null>(null);
-    const teamGameContext = useTeamGameContext();
     const isSlideAfterKpiReset: (slide: Slide) => boolean = (slide: Slide): boolean => {
         // Slide 143 follows 142 (KPI reset), Slide 68 follows 67 (KPI reset)
         return slide.id === 143 || slide.id === 68;
     };
-    const gameStructure: GameStructure = readyOrNotGame_2_0_DD;
 
     // Update stable refs
     if (sessionId !== stableSessionId.current) {
@@ -138,26 +127,7 @@ export const useTeamGameState = ({
         }
     }, [sessionId, loggedInTeamId, currentActiveSlide]);
 
-    const handleSlideUpdate = useCallback((payload: SessionPayload) => {
-        const updatedSession = payload.new;
-
-        if (updatedSession?.current_slide_index !== undefined && gameStructure) {
-            const newSlide = gameStructure.slides[updatedSession.current_slide_index];
-            if (newSlide) {
-                setCurrentActiveSlide(newSlide);
-
-                // Auto-refresh KPIs on slide changes
-                if (fetchDebounceRef.current) {
-                    clearTimeout(fetchDebounceRef.current);
-                }
-                fetchDebounceRef.current = setTimeout(() => {
-                    fetchCurrentKpis();
-                }, 500);
-            }
-        }
-    }, [gameStructure, fetchCurrentKpis]);
-
-    const handleDecisionDelete = useCallback((_payload: PayloadData) => {
+    const handleDecisionDelete = useCallback(() => {
         if (resetDebounceRef.current) {
             clearTimeout(resetDebounceRef.current);
         }
@@ -186,7 +156,7 @@ export const useTeamGameState = ({
         !!sessionId && !!loggedInTeamId
     );
 
-    // NEW: Team event handler
+    // ✅ ONLY this - no database subscriptions for decisions
     const handleTeamEvent = useCallback((event: TeamGameEvent) => {
         if (event.data?.teamId && event.data.teamId !== loggedInTeamId) {
             return;
@@ -194,58 +164,54 @@ export const useTeamGameState = ({
 
         switch (event.type) {
             case TeamGameEventType.INTERACTIVE_SLIDE_DATA:
-                // Set the interactive data
                 setInteractiveData(event.data);
+                if (event.data?.slide) {
+                    const slide: Slide = event.data.slide;
+                    setCurrentActiveSlide(slide);
 
-                if (event.data?.slideId && gameStructure) {
-                    const slide: Slide | undefined = gameStructure.slides.find(s => s.id === event.data.slideId);
+                    // Auto-refresh KPIs on slide changes
+                    if (fetchDebounceRef.current) {
+                        clearTimeout(fetchDebounceRef.current);
+                    }
+                    fetchDebounceRef.current = setTimeout(() => {
+                        fetchCurrentKpis();
+                    }, 500);
 
-                    if (slide) {
-                        // FIX: Find the INDEX of the slide, not the ID
-                        const slideIndex: number = gameStructure.slides.findIndex(s => s.id === event.data.slideId);
-
-                        // Pass the INDEX, not the ID
-                        handleSlideUpdate({new: {current_slide_index: slideIndex}});
-
-                        // Reopen the decision when host navigates back
-                        if (slide.interactive_data_key) {
-                            setClosedDecisionKeys(prev => {
-                                const newSet = new Set(prev);
-                                newSet.delete(slide.interactive_data_key!);
-                                return newSet;
-                            });
-                        }
-                    } else {
-                        console.error('🔍 Slide not found! slideId:', event.data.slideId);
+                    // Reopen the decision when host navigates back
+                    if (slide.interactive_data_key) {
+                        setClosedDecisionKeys(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(slide.interactive_data_key!);
+                            return newSet;
+                        });
                     }
                 }
                 break;
-            case TeamGameEventType.KPI_UPDATED:
-                // Fix: Use flat structure, not nested
-                if (loggedInTeamId && event.data?.updatedKpis?.[loggedInTeamId]) {
-                    setCurrentTeamKpis(event.data.updatedKpis[loggedInTeamId]);
-                } else {
-                    fetchCurrentKpis();
-                }
 
-                // Update permanent adjustments from realtime data if available
-                if (event.data?.permanentAdjustments && teamGameContext) {
-                    teamGameContext.updatePermanentAdjustments(event.data.permanentAdjustments);
-                }
-                break;
             case TeamGameEventType.DECISION_RESET:
-                handleDecisionDelete({});
+                handleDecisionDelete();
                 break;
-            case TeamGameEventType.GAME_ENDED:
-                handleSessionDelete({});
+
+            case TeamGameEventType.KPI_UPDATED:
+                if (fetchDebounceRef.current) {
+                    clearTimeout(fetchDebounceRef.current);
+                }
+                fetchDebounceRef.current = setTimeout(() => {
+                    fetchCurrentKpis();
+                }, 100);
                 break;
+
             case TeamGameEventType.DECISION_CLOSED:
                 if (event.data?.decisionKey) {
-                    setClosedDecisionKeys(prev => new Set([...prev, event.data.decisionKey]));
+                    setClosedDecisionKeys(prev => new Set(prev).add(event.data.decisionKey));
                 }
                 break;
+
+            case TeamGameEventType.GAME_ENDED:
+                setSessionStatus('deleted');
+                break;
         }
-    }, [loggedInTeamId, gameStructure, handleSlideUpdate, handleDecisionDelete, handleSessionDelete, fetchCurrentKpis]);
+    }, [loggedInTeamId, fetchCurrentKpis]);
 
     // NEW: Custom channel subscription - replaces all database subscriptions
     useEffect(() => {
@@ -361,7 +327,6 @@ export const useTeamGameState = ({
         isDecisionTime,
         currentTeamKpis,
         permanentAdjustments: teamAdjustments, // Filtered for this team
-        gameStructure,
         isLoadingKpis,
         isLoadingAdjustments, // From centralized system
         connectionStatus,

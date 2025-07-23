@@ -14,6 +14,7 @@ import {ChallengeOption, GameStructure, InvestmentOption, Slide} from "@shared/t
 import {shouldAutoAdvance} from '@shared/utils/versionUtils';
 import {TeamGameEventType} from '@core/sync/SimpleRealtimeManager';
 import {videoDebug} from '@shared/utils/video/debug';
+import {GameSessionManager} from "@core/game/GameSessionManager";
 
 const broadcastInteractiveSlideData = (
     realtimeManager: SimpleRealtimeManager,
@@ -90,7 +91,11 @@ const HostApp: React.FC = () => {
     const [presentationConnectionStatus, setPresentationConnectionStatus] = useState<PresentationConnectionStatus>('disconnected');
     const presentationTabRef = useRef<Window | null>(null);
     // TODO - unfortunate this needs to be here, but it's a hack to get the video control API to the slide renderer
-    const videoControlRef = useRef<{ sendCommand: (action: string, data?: any) => void; resetConnectionState?: () => void } | null>(null);
+    const videoControlRef = useRef<{
+        sendCommand: (action: string, data?: any) => void;
+        resetConnectionState?: () => void
+    } | null>(null);
+    const sessionManager = useMemo(() => GameSessionManager.getInstance(), []);
 
     const handleVideoEnd = useCallback(() => {
         if (!currentSlideData) return;
@@ -123,7 +128,10 @@ const HostApp: React.FC = () => {
             teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
                 Object.values(teamDecisionsByPhase)
             ),
-            onVideoControl: (api: { sendCommand: (action: string, data?: any) => void; resetConnectionState?: () => void }) => {
+            onVideoControl: (api: {
+                sendCommand: (action: string, data?: any) => void;
+                resetConnectionState?: () => void
+            }) => {
                 videoControlRef.current = api;
             }
         };
@@ -145,7 +153,6 @@ const HostApp: React.FC = () => {
 
         const realtimeManager = SimpleRealtimeManager.getInstance(currentSessionId, 'host');
 
-        // 🆕 NEW: Check if we're leaving an interactive slide (decision defaulting)
         if (previousSlideData?.interactive_data_key &&
             previousSlideData.type.startsWith('interactive_') &&
             currentSlideData?.id !== previousSlideData.id) {
@@ -167,7 +174,47 @@ const HostApp: React.FC = () => {
         const isInteractiveSlide = currentSlideData.interactive_data_key &&
             currentSlideData.type.startsWith('interactive_');
         if (isInteractiveSlide && gameStructure) {
+            // 🔥 FIX: Extract the key first to avoid TypeScript errors
+            const dataKey: string = currentSlideData.interactive_data_key!; // We know it exists because of isInteractiveSlide check
+
             broadcastInteractiveSlideData(realtimeManager, currentSlideData, gameStructure);
+
+            // Update session with interactive data for team fallback
+            const interactiveData = {
+                slideId: currentSlideData.id,
+                slide: currentSlideData,
+                decisionType: currentSlideData.type,
+                decisionKey: dataKey, // ✅ Use the extracted key
+                roundNumber: currentSlideData.round_number || 1,
+                title: currentSlideData.title || '',
+                isDecisionTime: true,
+                investmentOptions: currentSlideData.type === 'interactive_invest'
+                    ? gameStructure.all_investment_options[dataKey] || [] // ✅ Use dataKey
+                    : gameStructure.all_investment_options['rd3-invest'] || [],
+                budgetForPhase: currentSlideData.type === 'interactive_invest'
+                    ? gameStructure.investment_phase_budgets[dataKey] || 0  // ✅ Use dataKey
+                    : 0,
+                challengeOptions: (currentSlideData.type === 'interactive_choice' || currentSlideData.type === 'interactive_double_down_select')
+                    ? gameStructure.all_challenge_options[dataKey] || [] // ✅ Use dataKey
+                    : [],
+                rd3Investments: currentSlideData.type === 'interactive_double_down_select'
+                    ? gameStructure.all_investment_options['rd3-invest'] || []
+                    : []
+            };
+
+            // Store in session for team fallback
+            sessionManager.updateSession(currentSessionId, {
+                current_interactive_data: interactiveData
+            }).catch(error => {
+                console.error('Failed to update session interactive data:', error);
+            });
+        } else {
+            // Clear interactive data for non-interactive slides
+            sessionManager.updateSession(currentSessionId, {
+                current_interactive_data: null
+            }).catch(error => {
+                console.error('Failed to clear session interactive data:', error);
+            });
         }
     }, [currentSessionId, currentSlideData, gameStructure]);
 

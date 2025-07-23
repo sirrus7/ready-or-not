@@ -1,4 +1,6 @@
 // src/shared/types/database.ts
+import {InteractiveSlideData} from "@core/sync/SimpleRealtimeManager";
+
 export interface PermanentKpiAdjustment {
     id: string;
     session_id: string;
@@ -45,6 +47,7 @@ export interface GameSession {
     status: 'draft' | 'active' | 'completed';
     wizard_state: Record<string, any> | null;
     current_slide_index: number | null;
+    current_interactive_data?: InteractiveSlideData | null;
 }
 
 export type GameSessionInsert = Omit<GameSession, 'id' | 'created_at' | 'updated_at'>;
