@@ -3,7 +3,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {db, supabase, useRealtimeSubscription} from '@shared/services/supabase';
 import {InteractiveSlideData, TeamGameEvent, TeamGameEventType} from '@core/sync/SimpleRealtimeManager';
 import {GameSession, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
-import {useTeamGameContext} from "@app/providers/TeamGameProvider";
+import {getGameStructure} from '@core/content/GameStructure';
 
 interface UseTeamGameStateProps {
     sessionId: string | null;
@@ -239,11 +239,28 @@ export const useTeamGameState = ({
                                 const session: GameSession = await db.sessions.getById(sessionId);
                                 if (!session) return;
 
-                                const slideIndex: number = session.current_slide_index || 0;
-                                const initialSlide: Slide = readyOrNotGame_2_0_DD.slides[slideIndex];
-                                if (initialSlide) {
-                                    setCurrentActiveSlide(initialSlide);
-                                    const targetRound: 1 | 2 | 3 = (initialSlide.round_number as 1 | 2 | 3) || 1;
+                                let slideToSet: Slide | null = null;
+
+                                // 1. Use interactiveData from realtime if available
+                                if (interactiveData && interactiveData.slide) {
+                                    slideToSet = interactiveData.slide;
+                                }
+                                // 2. Fallback: use session.current_interactive_data from DB if available
+                                else if (session.current_interactive_data && session.current_interactive_data.slide) {
+                                    slideToSet = session.current_interactive_data.slide;
+                                    setInteractiveData(session.current_interactive_data); // keep state in sync
+                                }
+                                // 3. Last resort: reconstruct from game structure (if you have to)
+                                else {
+                                    // Use session.user_type if available, otherwise fallback to 'academic'
+                                    const userType = session.user_type || 'academic';
+                                    const gameStructure = getGameStructure(session.game_version, userType);
+                                    slideToSet = gameStructure.slides[session.current_slide_index || 0] || null;
+                                }
+
+                                if (slideToSet) {
+                                    setCurrentActiveSlide(slideToSet);
+                                    const targetRound: 1 | 2 | 3 = (slideToSet.round_number as 1 | 2 | 3) || 1;
                                     const kpis: TeamRoundData | null = await db.kpis.getForTeamRound(sessionId, loggedInTeamId, targetRound);
                                     setCurrentTeamKpis(kpis);
                                 }

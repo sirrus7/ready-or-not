@@ -1,7 +1,15 @@
 // src/core/game/GameSessionManager.ts - COMPLETE VERSION
-import {GameSession, GameSessionInsert, GameStructure, NewGameData, TeamRoundData} from '@shared/types';
+import {
+    GameSession,
+    GameSessionInsert,
+    GameStructure,
+    NewGameData,
+    Slide, Team,
+    TeamConfig,
+    TeamRoundData
+} from '@shared/types';
 import {db, formatSupabaseError} from '@shared/services/supabase';
-import {ScoringEngine} from './ScoringEngine';
+import {FinancialMetrics, ScoringEngine} from './ScoringEngine';
 
 export class GameSessionManager {
     private static instance: GameSessionManager;
@@ -18,9 +26,10 @@ export class GameSessionManager {
 
     async createDraftSession(
         hostId: string,
-        fullGameStructure: GameStructure
+        fullGameStructure: GameStructure,
+        userType: 'business' | 'academic'
     ): Promise<GameSession> {
-        const firstSlide = fullGameStructure.slides[0];
+        const firstSlide: Slide = fullGameStructure.slides[0];
         if (!firstSlide) {
             throw new Error("Game structure is missing slides, cannot create draft session.");
         }
@@ -37,16 +46,17 @@ export class GameSessionManager {
             wizard_state: {},
             class_name: null,
             grade_level: null,
+            user_type: userType,
         };
 
         try {
-            const newDraftSession = await db.sessions.create(draftSessionToInsert);
+            const newDraftSession: GameSession = await db.sessions.create(draftSessionToInsert);
             if (!newDraftSession || !newDraftSession.id) {
                 throw new Error("Failed to create draft session record or retrieve its ID.");
             }
             return newDraftSession as GameSession;
         } catch (error) {
-            const errorMessage = formatSupabaseError(error);
+            const errorMessage: string = formatSupabaseError(error);
             console.error("[GameSessionManager] Error creating draft session:", error);
             throw new Error(`Failed to create draft session: ${errorMessage}`);
         }
@@ -66,19 +76,20 @@ export class GameSessionManager {
         finalGameData: NewGameData
     ): Promise<GameSession> {
         try {
-            const updatedSession = await this.updateSession(sessionId, {
+            const updatedSession: GameSession = await this.updateSession(sessionId, {
                 status: 'active',
                 name: finalGameData.name.trim() || `Game Session - ${new Date().toLocaleDateString()}`,
                 class_name: finalGameData.class_name?.trim() || null,
                 grade_level: finalGameData.grade_level || null,
                 game_version: finalGameData.game_version,
                 wizard_state: null,
+                user_type: finalGameData.user_type,
             });
 
-            const teamsToCreate = finalGameData.teams_config || [];
+            const teamsToCreate: TeamConfig[] = finalGameData.teams_config || [];
             if (teamsToCreate.length > 0) {
                 // Create teams first
-                const createdTeams = await Promise.all(teamsToCreate.map(teamConfig =>
+                const createdTeams: Team[] = await Promise.all(teamsToCreate.map(teamConfig =>
                     db.teams.create({
                         session_id: sessionId,
                         name: teamConfig.name,
@@ -87,9 +98,9 @@ export class GameSessionManager {
                 ));
 
                 // Initialize KPI data for all teams in Round 1
-                await Promise.all(createdTeams.map(async (team) => {
+                await Promise.all(createdTeams.map(async (team): Promise<void> => {
                     // Create baseline Round 1 KPI data using existing utility
-                    const baselineKpis = ScoringEngine.createNewRoundData(
+                    const baselineKpis: Omit<TeamRoundData, 'id'> = ScoringEngine.createNewRoundData(
                         sessionId,
                         team.id,
                         1 // Start with Round 1
@@ -97,7 +108,7 @@ export class GameSessionManager {
 
                     // Create temporary object with id for financial metrics calculation
                     const kpiWithId = {...baselineKpis, id: 'temp'} as TeamRoundData;
-                    const financialMetrics = ScoringEngine.calculateFinancialMetrics(kpiWithId);
+                    const financialMetrics: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(kpiWithId);
 
                     // Insert initial KPI data into database
                     await db.kpis.create({
@@ -164,7 +175,7 @@ export class GameSessionManager {
         hostId: string,
         fullGameStructure: GameStructure
     ): Promise<GameSession> {
-        const firstSlide = fullGameStructure.slides[0];
+        const firstSlide: Slide = fullGameStructure.slides[0];
         if (!firstSlide) {
             throw new Error("Game structure is missing slides, cannot create session.");
         }
@@ -184,17 +195,17 @@ export class GameSessionManager {
         };
 
         try {
-            const newSession = await db.sessions.create(sessionToInsert);
+            const newSession: GameSession = await db.sessions.create(sessionToInsert);
             if (!newSession || !newSession.id) {
                 throw new Error("Failed to create game session record or retrieve its ID.");
             }
-            const teamsToCreate = gameCreationData.teams_config || [];
+            const teamsToCreate: TeamConfig[] = gameCreationData.teams_config || [];
             if (teamsToCreate.length > 0) {
                 await Promise.all(teamsToCreate.map(teamConfig =>
                     db.teams.create({session_id: newSession.id, name: teamConfig.name, passcode: teamConfig.passcode})
                 ));
             } else if (gameCreationData.num_teams > 0) {
-                const defaultTeamsPromises = Array.from({length: gameCreationData.num_teams}).map((_, i) =>
+                const defaultTeamsPromises: Promise<Team>[] = Array.from({length: gameCreationData.num_teams}).map((_, i) =>
                     db.teams.create({
                         session_id: newSession.id,
                         name: `Team ${String.fromCharCode(65 + i)}`,
@@ -226,7 +237,7 @@ export class GameSessionManager {
             throw new Error('Cannot update session: Invalid session ID');
         }
         try {
-            const updatedSession = await db.sessions.update(sessionId, updates);
+            const updatedSession: GameSession = await db.sessions.update(sessionId, updates);
             if (!updatedSession) throw new Error(`Failed to update session with ID '${sessionId}'.`);
             return updatedSession as GameSession;
         } catch (error) {
@@ -240,7 +251,7 @@ export class GameSessionManager {
             await db.sessions.delete(sessionId);
         } catch (error) {
             // Session might not exist - that's fine for deletion
-            const errorMessage = formatSupabaseError(error);
+            const errorMessage: string = formatSupabaseError(error);
             if (errorMessage.includes('No data found') || errorMessage.includes('not found')) {
                 // Session already deleted - this is fine
                 return;

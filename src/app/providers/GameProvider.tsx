@@ -16,6 +16,8 @@ import {
     PermanentKpiAdjustment // ADDED: For centralized adjustments
 } from '@shared/types';
 import {SimpleRealtimeManager} from "@core/sync";
+import { getGameStructure } from '@core/content/GameStructure';
+import { getUserType } from '@shared/constants/formOptions';
 
 /**
  * GameContextType Interface
@@ -68,14 +70,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
 
     // Select gameStructure based on the loaded session's game_version from database
     const gameStructure: GameStructure = useMemo(() => {
-        if (!session?.game_version) {
-            return readyOrNotGame_2_0_DD; // Fallback only
+        if (!session?.game_version || !user) {
+            return getGameStructure('2.0_dd', 'business'); // fallback
         }
-
-        return session.game_version === '2.0_no_dd'
-            ? readyOrNotGame_2_0_NO_DD
-            : readyOrNotGame_2_0_DD;
-    }, [session?.game_version]);
+        return getGameStructure(session.game_version, getUserType(user));
+    }, [session?.game_version, user]);
     const teamDataManager = useTeamDataManager(session?.id || null);
     const {
         teams,

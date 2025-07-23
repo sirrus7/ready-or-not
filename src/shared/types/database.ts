@@ -37,6 +37,7 @@ export interface GameSession {
     host_id: string;
     name: string;
     game_version: string;
+    user_type?: 'business' | 'academic';
     class_name: string | null;
     grade_level: string | null;
     is_playing: boolean;

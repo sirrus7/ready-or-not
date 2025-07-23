@@ -115,7 +115,7 @@ const CreateGamePage: React.FC = () => {
                     }
 
                     // Create new draft
-                    draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD);
+                    draftSession = await sessionManager.createDraftSession(user.id, readyOrNotGame_2_0_DD, userType);
                 }
 
                 setDraftSessionId(draftSession.id);
@@ -218,7 +218,7 @@ const CreateGamePage: React.FC = () => {
 
         try {
             // Finalize the draft session
-            const finalizedSession = await sessionManager.finalizeDraftSession(draftSessionId, gameData);
+            const finalizedSession = await sessionManager.finalizeDraftSession(draftSessionId, { ...gameData, user_type: userType });
             navigate(`/host/${finalizedSession.id}`);
         } catch (error) {
             console.error("CreateGamePage: Error finalizing game:", error);

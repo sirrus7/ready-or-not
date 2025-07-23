@@ -7,6 +7,7 @@ CREATE TABLE public.sessions
     host_id                  uuid NOT NULL,
     name                     text NOT NULL,
     game_version             text NOT NULL,
+    user_type                text DEFAULT 'academic', -- 'business' or 'academic', defaults to 'academic'
     class_name               text,
     grade_level              text,
     is_playing               boolean                  DEFAULT false,

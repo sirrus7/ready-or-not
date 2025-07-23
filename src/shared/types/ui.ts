@@ -17,4 +17,5 @@ export interface NewGameData {
     num_players: number;
     num_teams: number;
     teams_config?: TeamConfig[];
+    user_type?: 'business' | 'academic';
 }
