@@ -1,27 +1,28 @@
 /**
- * Enhanced SSO Service - Real JWT Integration (Phase 4B)
- * Ready-or-Not SSO Service with JWT Service Integration
+ * Streamlined SSO Service - Phase 4B Complete
+ * Pure JWT integration with all dual-mode complexity removed
  *
  * File: src/services/sso-service.ts
- *
- * ✅ PHASE 4B: Replaced mock JWT with real JWT service integration
- * ✅ Maintains all existing API methods for backward compatibility
- * ✅ Uses JWTService for real token generation and validation
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { jwtService } from './jwt-service';
 
 // =====================================================
-// INTERFACES
+// TYPE DEFINITIONS
 // =====================================================
+
+export interface GamePermission {
+    name: string;
+    permission_level: 'host' | 'org_admin' | 'super_admin';
+}
 
 export interface SSOUser {
     id: string;
     email: string;
     full_name: string;
-    first_name?: string;
-    last_name?: string;
+    first_name: string;
+    last_name: string;
     role: 'host' | 'org_admin' | 'super_admin';
     games: GamePermission[];
     organization_type: 'school' | 'district';
@@ -40,33 +41,6 @@ export interface SSOUser {
     metadata?: Record<string, any>;
 }
 
-export interface GamePermission {
-    name: string;
-    permission_level: 'host' | 'org_admin' | 'super_admin';
-}
-
-export interface LocalSession {
-    session_id: string;
-    user_id: string;
-    created_at: string;
-    expires_at: string;
-    last_extended_at: string;
-    extension_count: number;
-    ip_address: string;
-    user_agent: string;
-    game_context: any;
-    session_data: any;
-}
-
-export interface ValidationResponse {
-    valid: boolean;
-    user?: SSOUser;
-    session?: LocalSession;
-    error?: 'expired' | 'invalid_token' | 'missing_token' | 'server_error';
-    message?: string;
-    debug?: any;
-}
-
 export interface SSOToken {
     user_id: string;
     email: string;
@@ -75,23 +49,52 @@ export interface SSOToken {
     organization_id: string;
     organization_type: 'school' | 'district';
     games: GamePermission[];
-    district_info?: any;
-    school_info?: any;
     exp: number;
     iat: number;
     iss: string;
     aud: string;
-    [key: string]: any;
+    district_info?: {
+        id: string;
+        name: string;
+        state: string;
+    };
+    school_info?: {
+        id: string;
+        name: string;
+        district_id: string;
+        district_name: string;
+    };
 }
 
-export interface AuthenticationContext {
-    ip_address?: string;
-    user_agent?: string;
+export interface ValidationResponse {
+    valid: boolean;
+    user?: SSOUser;
+    error?: string;
+    message?: string;
+}
+
+export interface LocalSession {
+    session_id: string;
+    user_id: string;
+    email: string;
+    permission_level: string;
+    expires_at: string;
+    created_at: string;
+    last_activity: string;
+    is_active: boolean;
     game_context?: {
         game: string;
         source: string;
         timestamp: string;
     };
+}
+
+export interface AuthenticationResponse {
+    valid: boolean;
+    user?: SSOUser;
+    session?: LocalSession;
+    error?: string;
+    message?: string;
 }
 
 // =====================================================
@@ -117,77 +120,35 @@ export class SSOService {
     }
 
     // =====================================================
-    // JWT TOKEN PARSING (Phase 4B: Real JWT Integration)
+    // JWT TOKEN PARSING - STREAMLINED (Phase 4B)
     // =====================================================
 
     /**
-     * Parse and validate JWT token - handles both real JWT and legacy mock tokens
-     * ✅ PHASE 4B: Smart parsing that works with tests and production
+     * Parse and validate JWT token using JWT service
+     * ✅ STREAMLINED: Pure JWT service integration, no fallback complexity
      */
     async parseJWT(token: string): Promise<{ valid: boolean; payload?: SSOToken; error?: string }> {
         try {
             // Remove 'Bearer ' prefix if present
             const cleanToken = token.replace(/^Bearer\s+/, '');
 
-            // First, try real JWT verification
+            // Use JWT service for validation
             const jwtResult = await jwtService.verifyToken(cleanToken);
 
-            if (jwtResult.valid && jwtResult.claims) {
-                // Convert JWT claims to SSOToken format for backward compatibility
-                const ssoToken: SSOToken = {
-                    user_id: jwtResult.claims.user_id,
-                    email: jwtResult.claims.email,
-                    full_name: jwtResult.claims.full_name,
-                    role: jwtResult.claims.role,
-                    organization_id: jwtResult.claims.organization_id || '',
-                    organization_type: this.inferOrganizationType(jwtResult.claims.role),
-                    games: this.convertGameAccess(jwtResult.claims.allowed_games || []),
-                    exp: jwtResult.claims.exp,
-                    iat: jwtResult.claims.iat,
-                    iss: jwtResult.claims.iss,
-                    aud: jwtResult.claims.aud,
-                    // Optional fields
-                    ...(jwtResult.claims.school_id && { school_info: { id: jwtResult.claims.school_id } }),
-                };
-
-                return {
-                    valid: true,
-                    payload: ssoToken
-                };
-            }
-
-            // Fallback: Parse legacy mock tokens (for test compatibility)
-            const parts = cleanToken.split('.');
-            if (parts.length !== 3) {
+            if (!jwtResult.valid || !jwtResult.claims) {
                 return {
                     valid: false,
-                    error: 'Invalid JWT format'
+                    error: jwtResult.message || 'Token validation failed'
                 };
             }
 
-            try {
-                const payload = JSON.parse(atob(parts[1]));
-                const now = Math.floor(Date.now() / 1000);
+            // Convert JWT claims to SSOToken format
+            const ssoToken: SSOToken = this.claimsToSSOToken(jwtResult.claims);
 
-                // Check expiration
-                if (payload.exp && payload.exp < now) {
-                    return {
-                        valid: false,
-                        error: 'Token expired'
-                    };
-                }
-
-                return {
-                    valid: true,
-                    payload: payload as SSOToken
-                };
-
-            } catch (parseError) {
-                return {
-                    valid: false,
-                    error: 'Invalid JWT format'
-                };
-            }
+            return {
+                valid: true,
+                payload: ssoToken
+            };
 
         } catch (error) {
             console.error('[SSOService] JWT parsing error:', error);
@@ -196,6 +157,33 @@ export class SSOService {
                 error: error instanceof Error ? error.message : 'Token parsing failed'
             };
         }
+    }
+
+    // =====================================================
+    // JWT CLAIMS CONVERSION - STREAMLINED
+    // =====================================================
+
+    /**
+     * Convert JWT claims to SSOToken format
+     * ✅ STREAMLINED: Single conversion point, no dual-mode complexity
+     */
+    private claimsToSSOToken(claims: any): SSOToken {
+        return {
+            user_id: claims.user_id,
+            email: claims.email,
+            full_name: claims.full_name,
+            role: claims.role,
+            organization_id: claims.organization_id || '',
+            organization_type: this.inferOrganizationType(claims.role),
+            games: this.convertGameAccess(claims.allowed_games || []),
+            exp: claims.exp,
+            iat: claims.iat,
+            iss: claims.iss,
+            aud: claims.aud,
+            // Optional fields
+            ...(claims.district_info && { district_info: claims.district_info }),
+            ...(claims.school_info && { school_info: claims.school_info }),
+        };
     }
 
     /**
@@ -216,12 +204,12 @@ export class SSOService {
     }
 
     // =====================================================
-    // SSO TOKEN VALIDATION (Phase 4B: Real JWT Integration)
+    // SSO TOKEN VALIDATION - STREAMLINED (Phase 4B)
     // =====================================================
 
     /**
      * Validate SSO token and return user information
-     * ✅ PHASE 4B: Now uses real JWT verification
+     * ✅ STREAMLINED: Pure JWT flow, no dual-mode complexity
      */
     async validateSSOToken(token: string): Promise<ValidationResponse> {
         try {
@@ -270,7 +258,7 @@ export class SSOService {
             return {
                 valid: true,
                 user,
-                message: `Mock token validated successfully for ${user.email} (${user.role})`
+                message: `Token validated successfully for ${user.email} (${user.role})`
             };
 
         } catch (error) {
@@ -278,89 +266,51 @@ export class SSOService {
             return {
                 valid: false,
                 error: 'server_error',
-                message: error instanceof Error ? error.message : 'Server error during validation'
+                message: error instanceof Error ? error.message : 'Token validation failed'
             };
         }
     }
 
     // =====================================================
-    // AUTHENTICATION METHOD
+    // AUTHENTICATION WORKFLOW - STREAMLINED
     // =====================================================
 
     /**
-     * Authenticate with SSO token and create local session
+     * Authenticate user with SSO token and create local session
+     * ✅ STREAMLINED: Pure JWT authentication workflow
      */
-    async authenticateWithSSO(token: string, context: AuthenticationContext = {}): Promise<ValidationResponse> {
+    async authenticateWithSSO(token: string, gameContext?: { game: string; source: string }): Promise<AuthenticationResponse> {
         try {
-            // First validate the token
-            const tokenValidation = await this.validateSSOToken(token);
+            // Validate the token
+            const validationResult = await this.validateSSOToken(token);
 
-            if (!tokenValidation.valid || !tokenValidation.user) {
-                return tokenValidation;
+            if (!validationResult.valid || !validationResult.user) {
+                return {
+                    valid: false,
+                    error: validationResult.error || 'authentication_failed',
+                    message: validationResult.message || 'Authentication failed'
+                };
             }
 
-            const user = tokenValidation.user;
+            const user = validationResult.user;
 
-            // Create local session in database
-            try {
-                const sessionResult = await this.supabase.rpc('create_sso_session', {
-                    p_user_id: user.id,
-                    p_user_email: user.email,
-                    p_user_role: user.role,
-                    p_ip_address: context.ip_address || 'unknown',
-                    p_user_agent: context.user_agent || 'unknown',
-                    p_session_data: {
-                        full_name: user.full_name,
-                        organization_type: user.organization_type,
-                        organization_id: user.organization_id,
-                        games: user.games,
-                        district_info: user.district_info,
-                        school_info: user.school_info
-                    },
-                    p_game_context: context.game_context || {}
-                });
+            // Create local session
+            const sessionResult = await this.createLocalSession(user, gameContext);
 
-                if (sessionResult.error) {
-                    throw new Error(`Session creation failed: ${sessionResult.error.message}`);
-                }
-
-                const sessionId = sessionResult.data;
-
-                // Create LocalSession object
-                const session: LocalSession = {
-                    session_id: sessionId,
-                    user_id: user.id,
-                    created_at: new Date().toISOString(),
-                    expires_at: new Date(Date.now() + (8 * 60 * 60 * 1000)).toISOString(), // 8 hours
-                    last_extended_at: new Date().toISOString(),
-                    extension_count: 0,
-                    ip_address: context.ip_address || 'unknown',
-                    user_agent: context.user_agent || 'unknown',
-                    game_context: context.game_context || {},
-                    session_data: {
-                        full_name: user.full_name,
-                        organization_type: user.organization_type,
-                        organization_id: user.organization_id,
-                        games: user.games
-                    }
-                };
-
+            if (!sessionResult.success || !sessionResult.session) {
                 return {
-                    valid: true,
-                    user,
-                    session,
-                    message: `Authentication successful for ${user.email}`
-                };
-
-            } catch (dbError) {
-                console.error('[SSOService] Database session creation error:', dbError);
-                // Return successful token validation even if session creation fails
-                return {
-                    valid: true,
-                    user,
-                    message: `Token valid but session creation failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`
+                    valid: false,
+                    error: 'session_creation_failed',
+                    message: sessionResult.error || 'Failed to create local session'
                 };
             }
+
+            return {
+                valid: true,
+                user,
+                session: sessionResult.session,
+                message: `Authentication successful for ${user.email}`
+            };
 
         } catch (error) {
             console.error('[SSOService] Authentication error:', error);
@@ -373,52 +323,62 @@ export class SSOService {
     }
 
     // =====================================================
-    // TOKEN GENERATION (Phase 4B: Real JWT Integration)
+    // LOCAL SESSION MANAGEMENT
     // =====================================================
 
     /**
-     * Generate real JWT token for user
-     * ✅ PHASE 4B: Now generates real JWT instead of mock token
+     * Create local session in Supabase
      */
-    async generateToken(user: SSOUser, expirationHours: number = 8): Promise<string> {
+    async createLocalSession(user: SSOUser, gameContext?: { game: string; source: string }): Promise<{
+        success: boolean;
+        session?: LocalSession;
+        error?: string;
+    }> {
         try {
-            // Use JWT service to generate real token
-            const token = await jwtService.generateToken(user, {
-                expirationHours,
-                environment: import.meta.env.VITE_NODE_ENV || 'development',
-                issueContext: {
-                    requested_by: 'sso-service',
-                    purpose: 'authentication',
-                    ip_address: 'server-generated'
-                }
-            });
+            const sessionData = {
+                user_id: user.id,
+                email: user.email,
+                permission_level: user.role,
+                game_context: gameContext ? {
+                    game: gameContext.game,
+                    source: gameContext.source,
+                    timestamp: new Date().toISOString()
+                } : null
+            };
 
-            console.log(`[SSOService] Generated real JWT token for user: ${user.email} (${user.role})`);
-            return token;
+            const { data, error } = await this.supabase
+                .rpc('create_sso_session', sessionData);
+
+            if (error) {
+                console.error('[SSOService] Session creation error:', error);
+                return {
+                    success: false,
+                    error: error.message || 'Failed to create session'
+                };
+            }
+
+            return {
+                success: true,
+                session: data
+            };
 
         } catch (error) {
-            console.error('[SSOService] Real token generation error:', error);
-            throw error;
+            console.error('[SSOService] Session creation error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to create session'
+            };
         }
     }
 
     /**
-     * Generate mock JWT token for testing (deprecated but kept for backward compatibility)
-     * ✅ PHASE 4B: Replaced with real JWT generation
+     * Validate local session
      */
-    async generateMockToken(user: SSOUser): Promise<string> {
-        // Redirect to real token generation
-        return this.generateToken(user, 8);
-    }
-
-    // =====================================================
-    // SESSION MANAGEMENT
-    // =====================================================
-
-    /**
-     * Validate local session in database
-     */
-    async validateLocalSession(sessionId: string): Promise<{ valid: boolean; user?: SSOUser; error?: string }> {
+    async validateLocalSession(sessionId: string): Promise<{
+        valid: boolean;
+        session?: LocalSession;
+        error?: string;
+    }> {
         try {
             const { data, error } = await this.supabase
                 .from('sso_sessions')
@@ -430,45 +390,31 @@ export class SSOService {
             if (error || !data) {
                 return {
                     valid: false,
-                    error: error ? 'context_error' : 'Session not found or inactive'
+                    error: 'Session not found'
                 };
             }
 
             // Check if session is expired
-            const expiresAt = new Date(data.expires_at);
-            const now = new Date();
+            const expiresAt = new Date(data.expires_at).getTime();
+            const now = Date.now();
 
-            if (now > expiresAt) {
+            if (expiresAt <= now) {
                 return {
                     valid: false,
                     error: 'Session expired'
                 };
             }
 
-            // Convert session data to user format
-            const user: SSOUser = {
-                id: data.user_id,
-                email: data.user_email,
-                full_name: data.session_data?.full_name || 'Unknown User',
-                role: data.user_role,
-                games: data.session_data?.games || [],
-                organization_type: data.session_data?.organization_type || 'school',
-                organization_id: data.session_data?.organization_id || '',
-                district_info: data.session_data?.district_info,
-                school_info: data.session_data?.school_info,
-                metadata: { session_validated: true }
-            };
-
             return {
                 valid: true,
-                user
+                session: data
             };
 
         } catch (error) {
             console.error('[SSOService] Session validation error:', error);
             return {
                 valid: false,
-                error: 'context_error'
+                error: error instanceof Error ? error.message : 'Session validation failed'
             };
         }
     }
@@ -476,56 +422,54 @@ export class SSOService {
     /**
      * Extend local session
      */
-    async extendLocalSession(sessionId: string, extensionHours: number = 4): Promise<{ valid: boolean; session?: LocalSession; error?: string }> {
+    async extendLocalSession(sessionId: string, extensionHours: number = 8): Promise<{
+        success: boolean;
+        session?: LocalSession;
+        error?: string;
+    }> {
         try {
-            const { error } = await this.supabase.rpc('extend_sso_session', {
-                p_session_id: sessionId,
-                p_extension_hours: extensionHours
-            });
+            const { data, error } = await this.supabase
+                .rpc('extend_sso_session', {
+                    p_session_id: sessionId,
+                    p_extension_hours: extensionHours
+                });
 
             if (error) {
-                throw new Error(`Session extension failed: ${error.message}`);
+                return {
+                    success: false,
+                    error: error.message || 'Failed to extend session'
+                };
             }
 
-            // Return updated session info
-            const session: LocalSession = {
-                session_id: sessionId,
-                user_id: 'updated',
-                created_at: new Date().toISOString(),
-                expires_at: new Date(Date.now() + (extensionHours * 60 * 60 * 1000)).toISOString(),
-                last_extended_at: new Date().toISOString(),
-                extension_count: 1,
-                ip_address: 'unknown',
-                user_agent: 'unknown',
-                game_context: {},
-                session_data: {}
-            };
-
             return {
-                valid: true,
-                session
+                success: true,
+                session: data
             };
 
         } catch (error) {
             console.error('[SSOService] Session extension error:', error);
             return {
-                valid: false,
-                error: 'session_extension_failed'
+                success: false,
+                error: error instanceof Error ? error.message : 'Session extension failed'
             };
         }
     }
 
     /**
-     * Cleanup/invalidate session
+     * Cleanup session
      */
     async cleanupSession(sessionId: string): Promise<{ success: boolean; error?: string }> {
         try {
-            const { error } = await this.supabase.rpc('revoke_sso_session', {
-                p_session_id: sessionId
-            });
+            const { error } = await this.supabase
+                .rpc('revoke_sso_session', {
+                    p_session_id: sessionId
+                });
 
             if (error) {
-                throw new Error(`Session cleanup failed: ${error.message}`);
+                return {
+                    success: false,
+                    error: error.message || 'Failed to cleanup session'
+                };
             }
 
             return { success: true };
@@ -534,7 +478,7 @@ export class SSOService {
             console.error('[SSOService] Session cleanup error:', error);
             return {
                 success: false,
-                error: error instanceof Error ? error.message.replace('Session cleanup failed: ', '') : 'Cleanup failed'
+                error: error instanceof Error ? error.message : 'Session cleanup failed'
             };
         }
     }
@@ -544,277 +488,94 @@ export class SSOService {
     // =====================================================
 
     /**
-     * Health check for service
+     * Generate mock users for testing
      */
-    async healthCheck(): Promise<{ healthy: boolean; message: string; jwtServiceHealth?: any; database?: boolean; functions?: boolean; timestamp?: string }> {
-        try {
-            // Check JWT service health
-            const jwtHealth = await jwtService.healthCheck();
-
-            // Test database connection
-            const { error } = await this.supabase.rpc('get_current_sso_user_id');
-
-            const healthy = !error && jwtHealth.healthy;
-
-            return {
-                healthy,
-                message: healthy ? 'SSO Service healthy with real JWT integration' : 'SSO Service experiencing issues',
-                jwtServiceHealth: jwtHealth,
-                database: !error,
-                functions: !error,
-                timestamp: new Date().toISOString()
-            };
-
-        } catch (error) {
-            console.error('[SSOService] Health check error:', error);
-            return {
-                healthy: false,
-                message: error instanceof Error ? error.message : 'Health check failed',
-                database: false,
-                functions: false,
-                timestamp: new Date().toISOString()
-            };
-        }
-    }
-
-    /**
-     * Get active sessions (admin function)
-     */
-    async getActiveSessions(): Promise<{ sessions: any[]; success: boolean }> {
-        try {
-            const { data, error } = await this.supabase
-                .from('active_sso_sessions')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                throw new Error(`Failed to get active sessions: ${error.message}`);
-            }
-
-            return {
-                sessions: data || [],
-                success: true
-            };
-
-        } catch (error) {
-            console.error('[SSOService] Get active sessions error:', error);
-            return {
-                sessions: [],
-                success: false
-            };
-        }
-    }
-
-    /**
-     * Generate mock users for testing (kept for test compatibility)
-     */
-    generateMockUsers(): SSOUser[] {
+    generateMockUsers() {
         return [
             {
-                id: '550e8400-e29b-41d4-a716-446655440002',
-                email: 'superadmin@district.edu',
-                full_name: 'Super Admin',
-                first_name: 'Super',
-                last_name: 'Admin',
-                role: 'super_admin',
-                games: [{ name: 'ready-or-not', permission_level: 'super_admin' }],
-                organization_type: 'district',
-                organization_id: '550e8400-e29b-41d4-a716-446655440001',
-                district_info: {
-                    id: '550e8400-e29b-41d4-a716-446655440001',
-                    name: 'Springfield Public Schools',
-                    state: 'IL'
-                },
-                metadata: { mock: true, created_for: 'testing' }
+                id: 'host-user-123',
+                email: 'host@school.edu',
+                full_name: 'Host Teacher',
+                role: 'host' as const,
+                games: [{ name: 'ready-or-not', permission_level: 'host' as const }]
             },
             {
-                id: '550e8400-e29b-41d4-a716-446655440003',
-                email: 'orgadmin@district.edu',
-                full_name: 'Org Admin',
-                first_name: 'Org',
-                last_name: 'Admin',
-                role: 'org_admin',
-                games: [{ name: 'ready-or-not', permission_level: 'org_admin' }],
-                organization_type: 'district',
-                organization_id: '550e8400-e29b-41d4-a716-446655440001',
-                district_info: {
-                    id: '550e8400-e29b-41d4-a716-446655440001',
-                    name: 'Springfield Public Schools',
-                    state: 'IL'
-                },
-                metadata: { mock: true, created_for: 'testing' }
-            },
-            {
-                id: '550e8400-e29b-41d4-a716-446655440000',
-                email: 'teacher@springfield.edu',
-                full_name: 'Sarah Johnson',
-                first_name: 'Sarah',
-                last_name: 'Johnson',
-                role: 'host',
-                games: [{ name: 'ready-or-not', permission_level: 'host' }],
-                organization_type: 'school',
-                organization_id: '660e8400-e29b-41d4-a716-446655440001',
-                district_info: {
-                    id: '550e8400-e29b-41d4-a716-446655440001',
-                    name: 'Springfield Public Schools',
-                    state: 'IL'
-                },
-                school_info: {
-                    id: '660e8400-e29b-41d4-a716-446655440001',
-                    name: 'Lincoln Elementary School',
-                    district_id: '550e8400-e29b-41d4-a716-446655440001',
-                    district_name: 'Springfield Public Schools'
-                },
-                metadata: { mock: true, created_for: 'testing' }
+                id: 'admin-user-456',
+                email: 'admin@district.org',
+                full_name: 'District Administrator',
+                role: 'org_admin' as const,
+                games: [{ name: 'ready-or-not', permission_level: 'org_admin' as const }]
             }
         ];
     }
 
-    // =====================================================
-    // LEGACY METHODS FOR TEST COMPATIBILITY
-    // =====================================================
+    /**
+     * Generate mock token using JWT service
+     */
+    async generateMockToken(user: Partial<SSOUser>): Promise<string> {
+        const fullUser: SSOUser = {
+            id: user.id || 'mock-user-123',
+            email: user.email || 'mock@example.com',
+            full_name: user.full_name || 'Mock User',
+            first_name: user.first_name || 'Mock',
+            last_name: user.last_name || 'User',
+            role: user.role || 'host',
+            games: user.games || [{ name: 'ready-or-not', permission_level: 'host' }],
+            organization_type: user.organization_type || 'school',
+            organization_id: user.organization_id || 'org-123',
+            metadata: { mock: true }
+        };
+
+        return await jwtService.generateToken(fullUser);
+    }
 
     /**
-     * Create local session (legacy method for test compatibility)
+     * Health check
      */
-    async createLocalSession(user: SSOUser, context: AuthenticationContext = {}): Promise<ValidationResponse> {
+    async healthCheck(): Promise<{ healthy: boolean; service: string; timestamp: string }> {
         try {
-            // Mock successful session creation for tests
-            const sessionResult = await this.supabase.rpc('create_sso_session', {
-                p_user_id: user.id,
-                p_user_email: user.email,
-                p_user_role: user.role,
-                p_ip_address: context.ip_address || 'unknown',
-                p_user_agent: context.user_agent || 'unknown',
-                p_session_data: {
-                    full_name: user.full_name,
-                    organization_type: user.organization_type,
-                    organization_id: user.organization_id,
-                    games: user.games
-                },
-                p_game_context: context.game_context || {}
-            });
-
-            if (sessionResult.error) {
-                return {
-                    valid: false,
-                    error: 'session_creation_failed',
-                    message: `Database error: ${sessionResult.error.message}`
-                };
-            }
-
-            const sessionId = sessionResult.data || 'session-123';
-
-            // Create LocalSession object
-            const session: LocalSession = {
-                session_id: sessionId,
-                user_id: user.id,
-                created_at: new Date().toISOString(),
-                expires_at: new Date(Date.now() + (8 * 60 * 60 * 1000)).toISOString(),
-                last_extended_at: new Date().toISOString(),
-                extension_count: 0,
-                ip_address: context.ip_address || 'unknown',
-                user_agent: context.user_agent || 'unknown',
-                game_context: context.game_context || {},
-                session_data: {
-                    full_name: user.full_name,
-                    organization_type: user.organization_type,
-                    organization_id: user.organization_id,
-                    games: user.games
-                }
-            };
+            const jwtHealth = await jwtService.healthCheck();
 
             return {
-                valid: true,
-                user,
-                session,
-                message: `Session created for ${user.email}`
+                healthy: jwtHealth.healthy,
+                service: 'SSO Service',
+                timestamp: new Date().toISOString()
             };
-
         } catch (error) {
             return {
-                valid: false,
-                error: 'session_creation_failed',
-                message: `Database error: ${error instanceof Error ? error.message : 'Unknown error'}`
+                healthy: false,
+                service: 'SSO Service',
+                timestamp: new Date().toISOString()
             };
         }
     }
 
     /**
-     * Save session to localStorage (legacy method for test compatibility)
+     * Get active sessions
      */
-    saveSessionToStorage(sessionId: string, user: SSOUser, expiresAt: string = ''): void {
-        const sessionData = {
-            session_id: sessionId,
-            user,
-            expires_at: expiresAt || new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
-            saved_at: new Date().toISOString()
-        };
-        localStorage.setItem('sso_session', JSON.stringify(sessionData));
-    }
-
-    /**
-     * Load session from localStorage (legacy method for test compatibility)
-     */
-    loadSessionFromStorage(): { session_id: string; user: SSOUser; expires_at: string; saved_at: string } | null {
+    async getActiveSessions(): Promise<LocalSession[]> {
         try {
-            const stored = localStorage.getItem('sso_session');
-            if (!stored) return null;
-            return JSON.parse(stored);
-        } catch {
-            return null;
-        }
-    }
-
-    /**
-     * Clear session from localStorage (legacy method for test compatibility)
-     */
-    clearSessionFromStorage(): void {
-        localStorage.removeItem('sso_session');
-    }
-
-    /**
-     * Cleanup expired sessions (legacy method for test compatibility)
-     */
-    async cleanupExpiredSessions(): Promise<{ count: number; success: boolean }> {
-        try {
-            const { data, error } = await this.supabase.rpc('cleanup_expired_sso_sessions');
+            const { data, error } = await this.supabase
+                .from('active_sso_sessions')
+                .select('*')
+                .order('last_activity', { ascending: false });
 
             if (error) {
-                throw new Error(`Cleanup failed: ${error.message}`);
+                console.error('[SSOService] Error fetching active sessions:', error);
+                return [];
             }
 
-            return {
-                count: data || 0,
-                success: true
-            };
+            return data || [];
 
         } catch (error) {
-            console.error('[SSOService] Cleanup expired sessions error:', error);
-            return {
-                count: 0,
-                success: false
-            };
+            console.error('[SSOService] Error fetching active sessions:', error);
+            return [];
         }
     }
 }
 
 // =====================================================
-// EXPORT CLASS AND SINGLETON INSTANCE
+// EXPORT SINGLETON INSTANCE
 // =====================================================
 
-// Create singleton instance only when needed
-let ssoServiceInstance: SSOService | null = null;
-
-export function getSSOService(): SSOService {
-    if (!ssoServiceInstance) {
-        ssoServiceInstance = new SSOService();
-    }
-    return ssoServiceInstance;
-}
-
-// Export direct singleton instance for React components
-export const ssoService = getSSOService();
-
-// Export the class for custom instances
-export default SSOService;
+export const ssoService = new SSOService();
