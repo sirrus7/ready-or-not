@@ -1,6 +1,6 @@
 // Video debug utility for controlling video-related logging
 // Set this to true to enable all video debug logs
-const VIDEO_DEBUG_ENABLED = false;
+const VIDEO_DEBUG_ENABLED = true;
 
 export const videoDebug = {
     log: (...args: any[]) => {
