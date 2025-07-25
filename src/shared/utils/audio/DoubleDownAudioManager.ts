@@ -13,7 +13,7 @@ interface AudioInstance {
  */
 class DoubleDownAudioManager {
     private static instance: DoubleDownAudioManager;
-    private audioInstances = new Map<string, AudioInstance>();
+    private audioInstances: Map<string, AudioInstance> = new Map<string, AudioInstance>();
 
     private constructor() {
     }
@@ -27,26 +27,25 @@ class DoubleDownAudioManager {
 
     /**
      * Load and cache intro audio for a specific investment
-     * @param investmentId - The investment ID (e.g., 'PE', 'ERP', etc.)
+     * @param investmentId - The investment ID (e.g., 'B', 'C', etc.)
      * @returns Promise<boolean> - Success status
      */
     public async loadIntroAudio(investmentId: string): Promise<boolean> {
         try {
-            const introPath = getIntroAudioPath(investmentId);
+            const introPath: string | null = getIntroAudioPath(investmentId);
             if (!introPath) {
                 console.warn(`[DoubleDownAudioManager] No intro audio path found for investment: ${investmentId}`);
                 return false;
             }
 
-            const mediaManagerInstance = mediaManager;
-            const introUrl = await mediaManagerInstance.getSignedUrl(introPath);
+            const introUrl: string = await mediaManager.getSignedUrl(introPath);
 
             // Get or create audio instance for this investment
             if (!this.audioInstances.has(investmentId)) {
                 this.audioInstances.set(investmentId, {intro: null, result: null});
             }
 
-            const audioInstance = this.audioInstances.get(investmentId)!;
+            const audioInstance: AudioInstance = this.audioInstances.get(investmentId)!;
 
             // Clean up existing intro audio
             if (audioInstance.intro) {
@@ -55,12 +54,46 @@ class DoubleDownAudioManager {
             }
 
             // Create new audio instance
-            audioInstance.intro = new Audio(introUrl);
-            audioInstance.intro.preload = 'auto';
+            const audioElement: HTMLAudioElement = new Audio(introUrl);
+            audioElement.preload = 'auto';
 
-            console.log(`[DoubleDownAudioManager] Loaded intro audio for ${investmentId}`);
-            return true;
-        } catch (error) {
+            // Wait for the audio to be ready to play
+            return new Promise<boolean>((resolve) => {
+                const handleSuccess = (): void => {
+                    audioInstance.intro = audioElement;
+                    console.log(`[DoubleDownAudioManager] Loaded intro audio for ${investmentId}`);
+                    cleanup();
+                    resolve(true);
+                };
+
+                const handleError = (error: Event): void => {
+                    console.error(`[DoubleDownAudioManager] Failed to load audio for ${investmentId}:`, error);
+                    cleanup();
+                    resolve(false);
+                };
+
+                const cleanup = (): void => {
+                    audioElement.removeEventListener('canplaythrough', handleSuccess);
+                    audioElement.removeEventListener('error', handleError);
+                };
+
+                audioElement.addEventListener('canplaythrough', handleSuccess, { once: true });
+                audioElement.addEventListener('error', handleError, { once: true });
+
+                // Fallback timeout in case the events don't fire
+                setTimeout(() => {
+                    if (audioElement.readyState >= 3) { // HAVE_FUTURE_DATA or better
+                        handleSuccess();
+                    } else {
+                        console.warn(`[DoubleDownAudioManager] Timeout loading audio for ${investmentId}, but continuing anyway`);
+                        audioInstance.intro = audioElement;
+                        cleanup();
+                        resolve(true);
+                    }
+                }, 5000); // 5 second timeout
+            });
+
+        } catch (error: unknown) {
             console.error(`[DoubleDownAudioManager] Failed to load intro audio for ${investmentId}:`, error);
             return false;
         }
@@ -73,7 +106,7 @@ class DoubleDownAudioManager {
      */
     public async playIntroAudio(investmentId: string): Promise<boolean> {
         try {
-            const audioInstance = this.audioInstances.get(investmentId);
+            const audioInstance: AudioInstance | undefined = this.audioInstances.get(investmentId);
             if (!audioInstance?.intro) {
                 console.warn(`[DoubleDownAudioManager] No intro audio loaded for investment: ${investmentId}`);
                 return false;
@@ -96,21 +129,20 @@ class DoubleDownAudioManager {
      */
     public async playResultAudio(investmentId: string, diceTotal: number): Promise<boolean> {
         try {
-            const resultPath = getResultAudioPath(investmentId, diceTotal);
+            const resultPath: string | null = getResultAudioPath(investmentId, diceTotal);
             if (!resultPath) {
                 console.warn(`[DoubleDownAudioManager] No result audio path found for total: ${diceTotal}`);
                 return false;
             }
 
-            const mediaManagerInstance = mediaManager;
-            const resultUrl = await mediaManagerInstance.getSignedUrl(resultPath);
+            const resultUrl: string = await mediaManager.getSignedUrl(resultPath);
 
             // Get or create audio instance for this investment
             if (!this.audioInstances.has(investmentId)) {
                 this.audioInstances.set(investmentId, {intro: null, result: null});
             }
 
-            const audioInstance = this.audioInstances.get(investmentId)!;
+            const audioInstance: AudioInstance = this.audioInstances.get(investmentId)!;
 
             // Clean up existing result audio
             if (audioInstance.result) {
@@ -135,7 +167,7 @@ class DoubleDownAudioManager {
      * @param investmentId - The investment ID
      */
     public cleanupAudio(investmentId: string): void {
-        const audioInstance = this.audioInstances.get(investmentId);
+        const audioInstance: AudioInstance | undefined = this.audioInstances.get(investmentId);
         if (audioInstance) {
             if (audioInstance.intro) {
                 audioInstance.intro.pause();

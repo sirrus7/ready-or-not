@@ -254,4 +254,4 @@ class MediaManager {
     }
 }
 
-export const mediaManager = MediaManager.getInstance();
+export const mediaManager: MediaManager = MediaManager.getInstance();
