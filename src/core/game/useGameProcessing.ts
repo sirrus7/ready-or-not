@@ -9,7 +9,7 @@ import {
     TeamRoundData,
     GameStructure,
     GameSession,
-    Slide
+    Slide, ChallengeOption
 } from '@shared/types';
 import {ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
@@ -120,21 +120,26 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
         if (!currentDbSession?.id || !gameStructure || !completedSlide.interactive_data_key) return;
         if (completedSlide.type !== 'interactive_choice') return;
 
-        const decisionKey = completedSlide.interactive_data_key;
+        const decisionKey: string = completedSlide.interactive_data_key;
         if (!decisionKey) return;
 
-        const challengeOptions = gameStructure.all_challenge_options[decisionKey];
+        const challengeOptions: ChallengeOption[] = gameStructure.all_challenge_options[decisionKey];
         if (!challengeOptions) return;
 
-        const defaultOption = challengeOptions.find(option => option.is_default_choice);
+        const defaultOption: ChallengeOption | undefined = challengeOptions.find(option => option.is_default_choice);
         if (!defaultOption) return;
 
+        // Collect all teams that need default decisions
+        const decisionsToInsert: Partial<TeamDecision>[] = [];
+        const submittedAt: string = new Date().toISOString();
+
+        // Prepare batch data for teams missing decisions
         for (const team of teams) {
             const existingDecision = teamDecisions[team.id]?.[decisionKey];
 
             if (!existingDecision || !existingDecision.selected_challenge_option_id) {
                 try {
-                    // NEW: Check for forced selection first
+                    // Check for forced selection first
                     const forcedSelection: string | null = await ForcedSelectionTracker.getForcedSelection(
                         currentDbSession.id,
                         team.id,
@@ -144,17 +149,27 @@ export const useGameProcessing = (props: UseGameProcessingProps): UseGameProcess
                     // Use forced selection if available, otherwise use default option
                     const selectedOptionId: string = forcedSelection || defaultOption.id;
 
-                    await db.decisions.upsert({
+                    decisionsToInsert.push({
                         session_id: currentDbSession.id,
                         team_id: team.id,
                         phase_id: decisionKey,
                         round_number: completedSlide.round_number as (1 | 2 | 3),
-                        selected_challenge_option_id: selectedOptionId, // FIXED: Now checks forced selection first
-                        submitted_at: new Date().toISOString(),
+                        selected_challenge_option_id: selectedOptionId,
+                        submitted_at: submittedAt,
                     });
                 } catch (error) {
-                    console.error(`[useGameProcessing] Failed to create default decision for team ${team.name}:`, error);
+                    console.error(`[useGameProcessing] Failed to prepare default decision for team ${team.name}:`, error);
                 }
+            }
+        }
+
+        // Execute single batch insert instead of individual calls
+        if (decisionsToInsert.length > 0) {
+            try {
+                console.log(`[useGameProcessing] Batch defaulting ${decisionsToInsert.length} team decisions`);
+                await db.decisions.batchUpsert(decisionsToInsert);
+            } catch (error) {
+                console.error(`[useGameProcessing] Batch upsert failed:`, error);
             }
         }
     }, [currentDbSession, gameStructure, teamDecisions, teams]);

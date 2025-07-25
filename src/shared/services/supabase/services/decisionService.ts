@@ -173,6 +173,31 @@ export const decisionService = {
         }, 2, 1000, `Upsert decision for team ${decisionData.team_id?.substring(0, 8)}`, 10000);
     },
 
+    /**
+     * Batch upsert multiple team decisions in a single database call
+     * Optimized for defaulting large numbers of teams when host advances
+     * @param decisionData - Array of partial decision objects to upsert
+     * @returns Promise<number> - Number of decisions processed
+     */
+    async batchUpsert(decisionData: Partial<TeamDecision>[]): Promise<void> {
+        if (decisionData.length === 0) return;
+
+        return withRetry(async () => {
+            const {error} = await supabase
+                .from(TEAM_DECISIONS_TABLE)
+                .upsert(decisionData, {
+                    onConflict: 'session_id,team_id,phase_id',
+                    ignoreDuplicates: false
+                })
+                .select('id');
+
+            if (error) {
+                console.error(`[decisionService.batchUpsert(${decisionData.length} decisions)] failed with error: ${error}`);
+                throw error;
+            }
+        }, 3, 1500, `Batch upsert ${decisionData.length} team decisions`, 30000);
+    },
+
     async getTeamsDoubledDownOnInvestment(sessionId: string, investmentId: string): Promise<DoubleDownDecision[]> {
         return withRetry(async () => {
             // Fetch with join to get all needed data
