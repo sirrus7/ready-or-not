@@ -1,7 +1,7 @@
 // src/shared/components/Video/HostVideoControls.tsx
-import React, { useRef, useEffect, useState } from 'react';
-import { ChevronUp, ChevronDown, Play, Pause, RotateCcw, Volume2, VolumeX } from 'lucide-react';
-import { formatTime } from '@shared/utils/video/helpers';
+import React, {useRef, useEffect, useState} from 'react';
+import {ChevronUp, ChevronDown, Play, Pause, RotateCcw, Volume2, VolumeX} from 'lucide-react';
+import {formatTime} from '@shared/utils/video/helpers';
 
 interface HostVideoControlsProps {
     videoRef: React.RefObject<HTMLVideoElement>;
@@ -32,24 +32,23 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
-    const progressBarRef = useRef<HTMLDivElement>(null);
     const seekBarRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
 
     useEffect(() => {
-        const video = videoRef.current;
+        const video: HTMLVideoElement | null = videoRef.current;
         if (!video) return;
 
-        const updateTime = () => {
+        const updateTime = (): void => {
             setCurrentTime(video.currentTime);
             setDuration(video.duration || 0);
         };
 
-        const updatePlayState = () => {
+        const updatePlayState = (): void => {
             setIsPlaying(!video.paused);
         };
 
-        const updateVolumeState = () => {
+        const updateVolumeState = (): void => {
             if (isConnectedToPresentation) {
                 // When connected, show presentation state
                 setIsMuted(presentationMuted);
@@ -73,12 +72,26 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
         updatePlayState();
         updateVolumeState();
 
+        // ADD THIS: Sync state on a short interval to catch any missed events
+        // This ensures UI stays in sync even if we miss play/pause events due to timing
+        const syncInterval = setInterval(() => {
+            const videoIsPlaying = !video.paused;
+            setIsPlaying(prevIsPlaying => {
+                if (prevIsPlaying !== videoIsPlaying) {
+                    console.log(`[HostVideoControls] State sync correction: ${prevIsPlaying} -> ${videoIsPlaying}`);
+                    return videoIsPlaying;
+                }
+                return prevIsPlaying;
+            });
+        }, 100); // Check every 100ms
+
         return () => {
             video.removeEventListener('timeupdate', updateTime);
             video.removeEventListener('loadedmetadata', updateTime);
             video.removeEventListener('play', updatePlayState);
             video.removeEventListener('pause', updatePlayState);
             video.removeEventListener('volumechange', updateVolumeState);
+            clearInterval(syncInterval)
         };
     }, [videoRef, isConnectedToPresentation, presentationMuted]);
 
@@ -154,11 +167,11 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
         const handleMouseMove = (e: MouseEvent) => {
             const rect = seekBarRef.current?.getBoundingClientRect();
             if (!rect || !duration) return;
-            
+
             // Only handle mouse events if they're within the seek bar bounds
             const clickX = e.clientX - rect.left;
             if (clickX < 0 || clickX > rect.width) return;
-            
+
             console.log('[HostVideoControls] Seek bar dragging:', clickX, rect.width);
             const newTime = (clickX / rect.width) * duration;
             onSeek(newTime);
@@ -188,7 +201,8 @@ const HostVideoControls: React.FC<HostVideoControlsProps> = ({
                     {isMinimized ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
                 </button>
 
-                <div className={`transition-all duration-300 ${isMinimized ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'}`}>
+                <div
+                    className={`transition-all duration-300 ${isMinimized ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'}`}>
                     <div className="mb-3">
                         <div
                             ref={seekBarRef}

@@ -1,7 +1,6 @@
 // 1. FIXED: src/shared/services/supabase/services/kpiService.ts
 import {supabase} from '../client';
 import {withRetry} from '../database';
-import * as console from "node:console";
 import {TeamRoundData} from "@shared/types";
 
 const TEAM_ROUND_DATA_TABLE = 'team_round_data';
@@ -56,6 +55,27 @@ export const kpiService = {
             }
             return data as TeamRoundData;
         }, 2, 1000, `Create KPI data for team ${kpiData.team_id?.substring(0, 8)} round ${kpiData.round_number}`);
+    },
+
+    async createBatch(kpiDataArray: Omit<TeamRoundData, 'id' | 'created_at'>[]): Promise<TeamRoundData[]> {
+        return withRetry(async () => {
+            if (kpiDataArray.length === 0) return [];
+
+            console.log(`[kpiService.createBatch] Inserting ${kpiDataArray.length} KPI records in single batch`);
+
+            const {data, error} = await supabase
+                .from(TEAM_ROUND_DATA_TABLE)
+                .insert(kpiDataArray)
+                .select();
+
+            if (error) {
+                console.error(`[kpiService.createBatch] Batch insert of ${kpiDataArray.length} records failed:`, error);
+                throw error;
+            }
+
+            console.log(`[kpiService.createBatch] ✅ Successfully inserted ${data?.length || 0} KPI records`);
+            return data as TeamRoundData[];
+        }, 2, 1000, `Batch create ${kpiDataArray.length} KPI records`);
     },
 
     async update(kpiId: string, updates: Partial<TeamRoundData>): Promise<TeamRoundData> {

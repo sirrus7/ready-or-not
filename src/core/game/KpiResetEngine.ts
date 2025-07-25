@@ -150,33 +150,137 @@ export class KpiResetEngine {
         }
     }
 
-    /**
-     * BATCH OPERATION: Execute reset sequence for all teams in a session
-     * Useful for advancing all teams to the next round simultaneously
-     */
     static async executeResetSequenceForAllTeams(
         sessionId: string,
         targetRound: 2 | 3
     ): Promise<Record<string, KpiResetResult>> {
-        console.log(`[KpiResetEngine] 🔄 Starting batch reset for all teams → Round ${targetRound}`);
+        console.log(`[KpiResetEngine] 🔄 Starting BATCH reset for all teams → Round ${targetRound}`);
 
-        // Get all teams in session
-        const teams = await db.teams.getBySession(sessionId);
+        try {
+            // Get all teams in session
+            const teams = await db.teams.getBySession(sessionId);
+            console.log(`[KpiResetEngine] Processing ${teams.length} teams in batch operation`);
 
-        const results: Record<string, KpiResetResult> = {};
+            // CRITICAL: Check which teams already have data for this round
+            const existingKpiData = await db.kpis.getBySession(sessionId);
+            const existingTeamIds = new Set(
+                existingKpiData
+                    .filter(kpi => kpi.round_number === targetRound)
+                    .map(kpi => kpi.team_id)
+            );
 
-        // Execute reset for each team
-        for (const team of teams) {
-            try {
-                results[team.id] = await this.executeResetSequence(sessionId, team.id, targetRound);
-                console.log(`[KpiResetEngine] ✅ Reset complete for team: ${team.name}`);
-            } catch (error) {
-                console.error(`[KpiResetEngine] ❌ Reset failed for team ${team.name}:`, error);
-                throw error;
+            // Filter out teams that already have data
+            const teamsNeedingReset = teams.filter(team => !existingTeamIds.has(team.id));
+
+            console.log(`[KpiResetEngine] ${existingTeamIds.size} teams already have Round ${targetRound} data`);
+            console.log(`[KpiResetEngine] ${teamsNeedingReset.length} teams need new Round ${targetRound} data`);
+
+            // If no teams need reset, return early
+            if (teamsNeedingReset.length === 0) {
+                console.log(`[KpiResetEngine] ✅ All teams already have Round ${targetRound} data, skipping batch operation`);
+
+                // Still return results for existing teams
+                const results: Record<string, KpiResetResult> = {};
+                existingKpiData.forEach(kpiData => {
+                    if (kpiData.round_number === targetRound) {
+                        results[kpiData.team_id] = {
+                            resetKpis: kpiData,
+                            permanentEffectsApplied: [],
+                            continuedInvestmentsApplied: [],
+                            finalKpis: kpiData
+                        };
+                    }
+                });
+                return results;
             }
-        }
 
-        console.log(`[KpiResetEngine] ✅ Batch reset complete for ${teams.length} teams`);
-        return results;
+            // Get permanent adjustments once for all teams
+            const allAdjustments = await db.adjustments.getBySession(sessionId);
+            console.log(`[KpiResetEngine] Loaded ${allAdjustments.length} permanent adjustments`);
+
+            // Calculate reset data ONLY for teams that need it
+            const batchKpiData: Omit<TeamRoundData, 'id' | 'created_at'>[] = [];
+            const results: Record<string, KpiResetResult> = {};
+
+            for (const team of teamsNeedingReset) {
+                try {
+                    // Calculate reset data (same logic as before)
+                    const resetKpis = this.resetToBaseline(sessionId, team.id, targetRound);
+                    const teamAdjustments = allAdjustments.filter(adj => adj.team_id === team.id);
+                    const updatedKpis = {...resetKpis};
+                    const effectsApplied: KpiEffect[] = [];
+
+                    const permanentAdjustments = teamAdjustments.filter(adj =>
+                        adj.applies_to_round_start === targetRound
+                    );
+
+                    permanentAdjustments.forEach(adj => {
+                        const effect: KpiEffect = {
+                            kpi: adj.kpi_key as any,
+                            change_value: adj.change_value,
+                            timing: 'immediate',
+                            description: adj.description || 'Permanent Effect'
+                        };
+
+                        (updatedKpis as any)[`current_${adj.kpi_key}`] += adj.change_value;
+                        effectsApplied.push(effect);
+                    });
+
+                    const finalKpis = this.calculateFinalKpis(updatedKpis);
+
+                    // Add to batch for database insert
+                    batchKpiData.push(finalKpis);
+
+                    // Store result for return
+                    results[team.id] = {
+                        resetKpis: resetKpis as TeamRoundData,
+                        permanentEffectsApplied: effectsApplied,
+                        continuedInvestmentsApplied: [],
+                        finalKpis: finalKpis as TeamRoundData
+                    };
+
+                    console.log(`[KpiResetEngine] ✅ Calculated reset data for team: ${team.name}`);
+
+                } catch (error) {
+                    console.error(`[KpiResetEngine] ❌ Failed to calculate reset for team ${team.name}:`, error);
+                    throw error;
+                }
+            }
+
+            // BATCH DATABASE WRITE (only for teams that need it)
+            if (batchKpiData.length > 0) {
+                console.log(`[KpiResetEngine] 💾 Executing batch write for ${batchKpiData.length} records...`);
+                const insertedRecords = await db.kpis.createBatch(batchKpiData);
+                console.log(`[KpiResetEngine] ✅ Batch write complete: ${insertedRecords.length} records inserted`);
+
+                // Update results with actual database IDs
+                insertedRecords.forEach((record, index) => {
+                    const team = teamsNeedingReset[index];
+                    if (results[team.id]) {
+                        results[team.id].resetKpis.id = record.id;
+                        results[team.id].finalKpis.id = record.id;
+                    }
+                });
+            }
+
+            // Add existing records to results
+            existingKpiData.forEach(kpiData => {
+                if (kpiData.round_number === targetRound && !results[kpiData.team_id]) {
+                    results[kpiData.team_id] = {
+                        resetKpis: kpiData,
+                        permanentEffectsApplied: [],
+                        continuedInvestmentsApplied: [],
+                        finalKpis: kpiData
+                    };
+                }
+            });
+
+            console.log(`[KpiResetEngine] ✅ BATCH reset complete: ${Object.keys(results).length} teams processed`);
+            return results;
+
+        } catch (error) {
+            console.error(`[KpiResetEngine] ❌ Batch reset failed:`, error);
+            throw error;
+        }
     }
 }

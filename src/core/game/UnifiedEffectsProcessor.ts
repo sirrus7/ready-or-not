@@ -12,7 +12,7 @@ import {
 import {db} from '@shared/services/supabase';
 import {FinancialMetrics, ScoringEngine} from './ScoringEngine';
 import {KpiDataUtils} from './KpiDataUtils';
-import {KpiResetEngine} from './KpiResetEngine';
+import {KpiResetEngine, KpiResetResult} from './KpiResetEngine';
 import {ImmunityTracker} from './ImmunityTracker';
 import {MultiSelectChallengeTracker} from './MultiSelectChallengeTracker';
 import {EmployeeDevelopmentTracker} from './EmployeeDevelopmentTracker';
@@ -151,8 +151,7 @@ export class UnifiedEffectsProcessor {
     }
 
     /**
-     * NEW: Process KPI reset slides - handles round transitions automatically
-     * FIXED: Now actually saves the computed KPIs to database for real-time updates
+     * Process KPI reset slides - Uses batch for actual reset slides, individual for others
      */
     private async processKpiResetSlide(slide: Slide): Promise<void> {
         const {
@@ -161,7 +160,7 @@ export class UnifiedEffectsProcessor {
             fetchTeamRoundDataFromHook
         } = this.props;
 
-        // Validate required data (same pattern as other processors)
+        // Validate required data
         if (!currentDbSession?.id || !teams.length) {
             console.warn('[UnifiedEffectsProcessor] ⚠️ Missing required data for KPI reset processing');
             return;
@@ -170,39 +169,55 @@ export class UnifiedEffectsProcessor {
         // Determine target round based on slide round_number
         const targetRound = slide.round_number as 2 | 3;
 
-        // Process each team individually (following existing team iteration pattern)
-        for (const team of teams) {
+        // KEY DECISION: Use batch for actual KPI reset slides, individual for others
+        const isActualKpiResetSlide = slide.type === 'kpi_reset';
+
+        if (isActualKpiResetSlide) {
+            // USE BATCH OPERATION for mass KPI reset slides (67, 142)
+            console.log(`[UnifiedEffectsProcessor] 🚀 BATCH KPI reset for ${teams.length} teams → Round ${targetRound}`);
+
             try {
-                // STEP 1: Check if Round data already exists (shouldn't during normal gameplay)
-                const existingRoundData = await db.kpis.getForTeamRound(
+                await KpiResetEngine.executeResetSequenceForAllTeams(
                     currentDbSession.id,
-                    team.id,
                     targetRound
                 );
+                console.log(`[UnifiedEffectsProcessor] ✅ Batch KPI reset complete`);
+            } catch (error) {
+                console.error(`[UnifiedEffectsProcessor] ❌ Batch KPI reset failed:`, error);
+                throw error;
+            }
+        } else {
+            // USE INDIVIDUAL PROCESSING for other effect slides (preserves real-time)
+            console.log(`[UnifiedEffectsProcessor] 🔄 Individual processing for ${teams.length} teams`);
 
-                // STEP 2: Execute KPI reset calculations (preserves all existing logic)
-                const resetResult = await KpiResetEngine.executeResetSequence(
-                    currentDbSession.id,
-                    team.id,
-                    targetRound
-                );
+            for (const team of teams) {
+                try {
+                    const existingRoundData: TeamRoundData | null = await db.kpis.getForTeamRound(
+                        currentDbSession.id,
+                        team.id,
+                        targetRound
+                    );
 
-                // STEP 3: Save computed KPIs to database (CRITICAL FIX)
-                if (existingRoundData) {
-                    await db.kpis.update(existingRoundData.id, resetResult.finalKpis);
-                } else {
-                    // Create new Round data
-                    await db.kpis.create(resetResult.finalKpis);
+                    const resetResult: KpiResetResult = await KpiResetEngine.executeResetSequence(
+                        currentDbSession.id,
+                        team.id,
+                        targetRound
+                    );
+
+                    if (existingRoundData) {
+                        await db.kpis.update(existingRoundData.id, resetResult.finalKpis);
+                    } else {
+                        await db.kpis.create(resetResult.finalKpis);
+                    }
+
+                } catch (teamError) {
+                    console.error(`[UnifiedEffectsProcessor] ❌ Individual processing failed for team ${team.name}:`, teamError);
+                    // Continue with other teams
                 }
-
-            } catch (teamError) {
-                console.error(`[UnifiedEffectsProcessor] ❌ KPI reset failed for team ${team.name}:`, teamError);
-                // Continue with other teams - don't let one team failure break the entire process
-                // This follows existing error handling patterns
             }
         }
 
-        // STEP 4: Refresh UI data (triggers real-time updates to team apps)
+        // Refresh UI data
         await fetchTeamRoundDataFromHook(currentDbSession.id);
     }
 
