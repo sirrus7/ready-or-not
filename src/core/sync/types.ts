@@ -21,14 +21,23 @@ export interface HostCommand {
     type: BroadcastEventType.HOST_COMMAND;
     sessionId: string;
     id: string;
-    action: 'play' | 'pause' | 'seek' | 'reset' | 'close_presentation' | 'decision_reset' | 'sync' | 'volume' | 'video_status_poll';
+    action: 'play'
+        | 'pause'
+        | 'seek'
+        | 'reset'
+        | 'close_presentation'
+        | 'decision_reset'
+        | 'sync'
+        | 'volume'
+        | 'video_status_poll'
+        | 'scroll';
     data?: {
         time: number;
         volume: number;
         muted: boolean;
         playbackRate?: number;
-        // [key: string]: any;
-    }; // ✅ NEW: Added data field for custom command data
+        scrollTop?: number;
+    };
     timestamp: number;
 }
 
@@ -36,7 +45,7 @@ export interface SlideUpdate {
     type: BroadcastEventType.SLIDE_UPDATE;
     sessionId: string;
     slide: Slide;
-    teamData?: { // NEW: Add optional team data
+    teamData?: {
         teams: Team[];
         teamRoundData: Record<string, Record<number, TeamRoundData>>;
         teamDecisions: TeamDecision[];

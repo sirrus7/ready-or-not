@@ -90,7 +90,10 @@ const HostApp: React.FC = () => {
     const [presentationConnectionStatus, setPresentationConnectionStatus] = useState<PresentationConnectionStatus>('disconnected');
     const presentationTabRef = useRef<Window | null>(null);
     // TODO - unfortunate this needs to be here, but it's a hack to get the video control API to the slide renderer
-    const videoControlRef = useRef<{ sendCommand: (action: string, data?: any) => void; resetConnectionState?: () => void } | null>(null);
+    const videoControlRef = useRef<{
+        sendCommand: (action: string, data?: any) => void;
+        resetConnectionState?: () => void
+    } | null>(null);
 
     const handleVideoEnd = useCallback(() => {
         if (!currentSlideData) return;
@@ -123,7 +126,10 @@ const HostApp: React.FC = () => {
             teamDecisions: Object.values(state.teamDecisions).flatMap(teamDecisionsByPhase =>
                 Object.values(teamDecisionsByPhase)
             ),
-            onVideoControl: (api: { sendCommand: (action: string, data?: any) => void; resetConnectionState?: () => void }) => {
+            onVideoControl: (api: {
+                sendCommand: (action: string, data?: any) => void;
+                resetConnectionState?: () => void
+            }) => {
                 videoControlRef.current = api;
             }
         };
@@ -329,6 +335,19 @@ const HostApp: React.FC = () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [nextSlide, previousSlide, isFirstSlideOverall, isLastSlideOverall]);
+
+    // Simple scroll sync for leaderboards
+    useEffect(() => {
+        const handleScroll = (event: Event) => {
+            const target = event.target as HTMLElement;
+            if (target.classList.contains('leaderboard-scroll') && hostSyncManager) {
+                hostSyncManager.sendCommand('scroll', {scrollTop: target.scrollTop});
+            }
+        };
+
+        document.addEventListener('scroll', handleScroll, true);
+        return () => document.removeEventListener('scroll', handleScroll, true);
+    }, [hostSyncManager]);
 
     // TODO: Remove this for production
     // Updated TestingJumpButton component with all colors

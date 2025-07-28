@@ -148,7 +148,16 @@ export class HostBroadcastManager {
     /**
      * Send a host command (play, pause, seek, etc.) to the presentation
      */
-    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'decision_reset' | 'sync' | 'volume' | 'close_presentation' | 'video_status_poll', data?: any): void {
+    sendCommand(action: 'play'
+        | 'pause'
+        | 'seek'
+        | 'reset'
+        | 'decision_reset'
+        | 'sync'
+        | 'volume'
+        | 'close_presentation'
+        | 'video_status_poll'
+        | 'scroll', data?: any): void {
         if (this.isDestroyed) return;
         const command: HostCommand = {
             type: BroadcastEventType.HOST_COMMAND,
