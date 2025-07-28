@@ -89,16 +89,13 @@ class MediaManager {
         if (isVideoFile && !skipBlobCache) {
             // Try to cache as blob (only if not skipping)
             try {
-                console.log(`[MediaManager] Attempting to fetch video: ${data.signedUrl}`);
                 const response: Response = await fetch(data.signedUrl);
-                console.log(`[MediaManager] Fetch response status: ${response.status} for ${fileName}`);
-
                 if (!response.ok) {
                     let errorBody = '';
                     try {
                         errorBody = await response.text();
-                    } catch (_error) {
-                        errorBody = 'Could not read error response';
+                    } catch (error) {
+                        errorBody = 'Could not read error response' + error;
                     }
 
                     console.error(`[MediaManager] Fetch failed with status ${response.status} for ${fileName}:`, {
