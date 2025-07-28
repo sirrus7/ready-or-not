@@ -94,19 +94,22 @@ export const kpiService = {
         }, 2, 1000, `Update KPI data ${kpiId}`);
     },
 
-    async upsert(kpiData: Partial<TeamRoundData>): Promise<TeamRoundData> {
+    async bulkUpsert(kpiDataArray: Partial<TeamRoundData>[]): Promise<void> {
         return withRetry(async () => {
-            const {data, error} = await supabase
+            if (kpiDataArray.length === 0) return;
+
+            const {error} = await supabase
                 .from(TEAM_ROUND_DATA_TABLE)
-                .upsert(kpiData, {onConflict: 'id'})
-                .select()
-                .single();
+                .upsert(kpiDataArray, {
+                    onConflict: 'id',
+                    ignoreDuplicates: false
+                });
+
             if (error) {
-                console.error(`[kpiService.upsert(kpiData:${kpiData})] failed with error: ${error}`)
+                console.error(`[kpiService.bulkUpsert(${kpiDataArray.length} items)] failed with error: ${error}`)
                 throw error;
             }
-            return data as TeamRoundData;
-        }, 2, 1000, `Upsert KPI data for team ${kpiData.team_id?.substring(0, 8)}`);
+        }, 2, 1000, `Bulk upsert ${kpiDataArray.length} KPI records`);
     },
 
     async deleteBySession(sessionId: string): Promise<void> {

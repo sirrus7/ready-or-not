@@ -2,6 +2,8 @@
 import {useEffect} from 'react';
 import {mediaManager} from '@shared/services/MediaManager';
 import {Slide} from '@shared/types/game';
+import {getUserType, UserType} from '@shared/constants/formOptions';
+import {useAuth} from '@app/providers/AuthProvider';
 
 interface UseSlidePreCachingOptions {
     /** Number of slides ahead to precache (default: 3) */
@@ -28,6 +30,9 @@ export const useSlidePreCaching = (
         enabled = true
     } = options;
 
+    const {user} = useAuth();
+    const userType: UserType = getUserType(user);
+
     useEffect(() => {
         // Skip if precaching is disabled
         if (!enabled) return;
@@ -39,9 +44,9 @@ export const useSlidePreCaching = (
         if (currentSlideIndex < 0 || currentSlideIndex >= slides.length) return;
 
         // Trigger precaching for upcoming slides
-        mediaManager.precacheUpcomingSlides(slides, currentSlideIndex, precacheCount);
+        mediaManager.precacheUpcomingSlides(slides, currentSlideIndex, userType, precacheCount);
 
-    }, [slides, currentSlideIndex, precacheCount, enabled]);
+    }, [slides, currentSlideIndex, precacheCount, enabled, userType]);
 };
 
 /**

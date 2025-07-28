@@ -18,15 +18,15 @@ interface CachedUrl {
  */
 class MediaManager {
     private static instance: MediaManager;
-    private urlCache = new Map<string, CachedUrl>();
+    private urlCache: Map<string, CachedUrl> = new Map<string, CachedUrl>();
     private static blobCache = new Map<string, {
         blobUrl: string;
         expiresAt: number;
     }>();
     private readonly BUCKET_NAME = 'slide-content';
-    private readonly SIGNED_URL_EXPIRY_SECONDS = 3600; // 1 hour
-    private readonly REFRESH_BUFFER_MS = 60 * 1000; // 1 minute buffer
-    private readonly DEFAULT_PRECACHE_COUNT = 3; // Default number of slides to precache ahead
+    private readonly SIGNED_URL_EXPIRY_SECONDS: number = 3600; // 1 hour
+    private readonly REFRESH_BUFFER_MS: number = 60 * 1000; // 1 minute buffer
+    private readonly DEFAULT_PRECACHE_COUNT: number = 3; // Default number of slides to precache ahead
 
     // Track precaching operations to avoid duplicates
     private precachingInProgress = new Set<string>();
@@ -46,19 +46,21 @@ class MediaManager {
      * Asynchronously gets a valid signed URL for a given media file.
      * For video files, returns a cached blob URL to reduce bandwidth.
      * For other files, returns the regular signed URL.
+     * @param fileName The file name
+     * @param skipBlobCache Skip blob caching (useful for precaching to avoid JWT timing issues)
      */
-    public async getSignedUrl(fileName: string): Promise<string> {
+    public async getSignedUrl(fileName: string, skipBlobCache: boolean = false): Promise<string> {
         // Check if this is a video file
         const isVideoFile: boolean = /\.(mp4|webm|mov|avi|mkv)$/i.test(fileName);
 
-        if (isVideoFile) {
-            // For video files, use blob cache
+        if (isVideoFile && !skipBlobCache) {
+            // For video files, use blob cache (only if not skipping)
             const cached = MediaManager.blobCache.get(fileName);
             if (cached && cached.expiresAt > Date.now()) {
                 return cached.blobUrl;
             }
         } else {
-            // For non-video files, use regular URL cache
+            // For non-video files, or when skipping blob cache, use regular URL cache
             const cached: CachedUrl | undefined = this.urlCache.get(fileName);
             if (cached && cached.expiresAt > Date.now()) {
                 return cached.url;
@@ -84,11 +86,29 @@ class MediaManager {
 
         const expiresAt: number = Date.now() + (this.SIGNED_URL_EXPIRY_SECONDS * 1000) - this.REFRESH_BUFFER_MS;
 
-        if (isVideoFile) {
-            // For video files, fetch and cache as blob
+        if (isVideoFile && !skipBlobCache) {
+            // Try to cache as blob (only if not skipping)
             try {
+                console.log(`[MediaManager] Attempting to fetch video: ${data.signedUrl}`);
                 const response: Response = await fetch(data.signedUrl);
-                if (!response.ok) throw new Error(`Failed to fetch video: ${response.status}`);
+                console.log(`[MediaManager] Fetch response status: ${response.status} for ${fileName}`);
+
+                if (!response.ok) {
+                    let errorBody = '';
+                    try {
+                        errorBody = await response.text();
+                    } catch (_error) {
+                        errorBody = 'Could not read error response';
+                    }
+
+                    console.error(`[MediaManager] Fetch failed with status ${response.status} for ${fileName}:`, {
+                        statusText: response.statusText,
+                        headers: Object.fromEntries(response.headers.entries()),
+                        url: data.signedUrl,
+                        errorBody: errorBody
+                    });
+                    throw new Error(`Failed to fetch video: ${response.status} ${response.statusText}`);
+                }
 
                 const blob: Blob = await response.blob();
                 const blobUrl: string = URL.createObjectURL(blob);
@@ -102,7 +122,7 @@ class MediaManager {
                 return data.signedUrl;
             }
         } else {
-            // For non-video files, cache the signed URL
+            // For non-video files or when skipping blob cache, cache the signed URL
             this.urlCache.set(fileName, {url: data.signedUrl, expiresAt});
             return data.signedUrl;
         }
@@ -112,27 +132,29 @@ class MediaManager {
      * Gets signed URL with business/academic fallback logic
      * Only tries business version for slides that actually have business variants
      */
-    public async getSignedUrlWithFallback(fileName: string, userType: UserType): Promise<string> {
+    public async getSignedUrlWithFallback(fileName: string, userType: UserType, skipBlobCache: boolean = false): Promise<string> {
         // For academic users or slides without business versions, use original path
         if (userType === 'academic' || !hasBusinessVersion(fileName)) {
-            return await this.getSignedUrl(fileName);
+            return await this.getSignedUrl(fileName, skipBlobCache);
         }
 
         // For business users with slides that have business versions, use business path
         const businessPath = `business/${fileName}`;
-        return await this.getSignedUrl(businessPath);
+        return await this.getSignedUrl(businessPath, skipBlobCache);
     }
 
     /**
      * Precaches signed URLs for current and upcoming slides to improve loading performance.
      * @param slides Array of all slides in the presentation
      * @param currentSlideIndex The current slide index
+     * @param userType Business or Academic
      * @param precacheCount Number of slides ahead to precache (default: 3)
      * @param includeCurrent Whether to precache the current slide (default: true)
      */
     public precacheUpcomingSlides(
         slides: Slide[],
         currentSlideIndex: number,
+        userType: UserType,
         precacheCount: number = this.DEFAULT_PRECACHE_COUNT,
         includeCurrent: boolean = true
     ): void {
@@ -155,7 +177,7 @@ class MediaManager {
                     const cached = this.urlCache.get(sourcePath);
                     if (!cached || cached.expiresAt <= Date.now()) {
                         this.precachingInProgress.add(sourcePath);
-                        this.precacheSingleSlide(sourcePath)
+                        this.precacheSingleSlide(sourcePath, userType)
                             .finally(() => {
                                 this.precachingInProgress.delete(sourcePath);
                             });
@@ -186,7 +208,7 @@ class MediaManager {
             // Start precaching this slide
             this.precachingInProgress.add(sourcePath);
 
-            this.precacheSingleSlide(sourcePath)
+            this.precacheSingleSlide(sourcePath, userType)
                 .finally(() => {
                     this.precachingInProgress.delete(sourcePath);
                 });
@@ -197,10 +219,12 @@ class MediaManager {
      * Precaches a single slide's media file immediately.
      * This is useful for precaching the current slide when navigating.
      * @param fileName The source path of the slide media
+     * @param userType The user type for business/academic path resolution
      */
-    public async precacheSingleSlide(fileName: string): Promise<void> {
+    public async precacheSingleSlide(fileName: string, userType: UserType): Promise<void> {
         try {
-            await this.getSignedUrl(fileName);
+            // Skip blob caching for precaching to avoid JWT timing issues
+            await this.getSignedUrlWithFallback(fileName, userType, true);
         } catch (error) {
             console.warn(`[MediaManager] Failed to precache ${fileName}:`,
                 error instanceof Error ? error.message : 'Unknown error');

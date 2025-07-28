@@ -37,6 +37,18 @@ interface UnifiedEffectsProcessorProps {
     teamBroadcaster?: TeamBroadcaster;
 }
 
+interface TeamKpiUpdateParams {
+    readonly team: Team;
+    readonly currentRound: 1 | 2 | 3;
+    readonly effects: KpiEffect[];
+    readonly sessionId: string;
+}
+
+interface UpdateFinalizationParams {
+    readonly slide: Slide;
+    readonly sessionId: string;
+}
+
 export class UnifiedEffectsProcessor {
     private props: UnifiedEffectsProcessorProps;
     private processedSlides = new Set<string>();
@@ -151,6 +163,88 @@ export class UnifiedEffectsProcessor {
     }
 
     /**
+     * Calculate KPI effects for a single team and collect for bulk update
+     */
+    private async calculateTeamKpiChanges(params: TeamKpiUpdateParams): Promise<TeamRoundData> {
+        const {team, currentRound, effects, sessionId} = params;
+        const {teamRoundData, setTeamRoundDataDirectly} = this.props;
+
+        // Get current KPIs
+        const currentKpis: TeamRoundData = await KpiDataUtils.ensureTeamRoundData(
+            sessionId,
+            team.id,
+            currentRound,
+            teamRoundData,
+            setTeamRoundDataDirectly
+        );
+
+        // Apply effects and calculate metrics
+        const updatedKpis: TeamRoundData = ScoringEngine.applyKpiEffects(currentKpis, effects);
+        const finalMetrics: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
+        const finalKpis = {...updatedKpis, ...finalMetrics};
+
+        // Store for bulk operations (don't save to DB yet)
+        this.updatedKpisForBroadcast[team.id] = finalKpis;
+
+        return finalKpis;
+    }
+
+    /**
+     * Apply bulk KPI updates to database and local state in a single call
+     */
+    private async applyBulkKpiUpdates(kpiUpdates: Array<{
+        teamId: string;
+        kpis: TeamRoundData
+    }>, currentRound: 1 | 2 | 3): Promise<void> {
+        const {setTeamRoundDataDirectly} = this.props;
+
+        if (kpiUpdates.length === 0) return;
+
+        // Prepare data for bulk upsert
+        const kpiDataArray: TeamRoundData[] = kpiUpdates.map(({kpis}) => kpis);
+
+        // Single bulk database operation
+        await db.kpis.bulkUpsert(kpiDataArray);
+
+        // Update local state in single operation
+        setTeamRoundDataDirectly(prev => {
+            const updated = {...prev};
+            kpiUpdates.forEach(({teamId, kpis}) => {
+                if (!updated[teamId]) updated[teamId] = {};
+                updated[teamId][currentRound] = kpis;
+            });
+            return updated;
+        });
+
+        console.log(`[UnifiedEffectsProcessor] ✅ Bulk updated ${kpiUpdates.length} teams in single database call`);
+    }
+
+    /**
+     * Apply bulk updates and finalize by broadcasting to teams and refreshing data
+     */
+    private async finalizeUpdates(params: UpdateFinalizationParams, kpiUpdates?: Array<{
+        teamId: string;
+        kpis: TeamRoundData
+    }>): Promise<void> {
+        const {slide, sessionId} = params;
+        const {teamBroadcaster, fetchTeamRoundDataFromHook} = this.props;
+
+        // Apply bulk KPI updates if provided
+        if (kpiUpdates && kpiUpdates.length > 0) {
+            await this.applyBulkKpiUpdates(kpiUpdates, slide.round_number as 1 | 2 | 3);
+        }
+
+        // Broadcast updates to teams
+        if (teamBroadcaster) {
+            teamBroadcaster.broadcastKpiUpdated(slide, this.updatedKpisForBroadcast);
+            this.updatedKpisForBroadcast = {};
+        }
+
+        // Refresh data from database
+        await fetchTeamRoundDataFromHook(sessionId);
+    }
+
+    /**
      * Process KPI reset slides - Uses batch for actual reset slides, individual for others
      */
     private async processKpiResetSlide(slide: Slide): Promise<void> {
@@ -260,13 +354,7 @@ export class UnifiedEffectsProcessor {
     }
 
     private async processSetupSlide(slide: Slide, challengeId: string): Promise<void> {
-        const {
-            currentDbSession,
-            teams,
-            teamRoundData,
-            setTeamRoundDataDirectly,
-            fetchTeamRoundDataFromHook
-        } = this.props;
+        const {currentDbSession, teams} = this.props;
 
         // Get setup consequence from existing challenge consequences
         const consequenceKey: string = `${challengeId}-conseq`;
@@ -279,47 +367,24 @@ export class UnifiedEffectsProcessor {
         }
 
         console.log(`[UnifiedEffectsProcessor] 🌍 Applying setup to ALL teams: ${setupConsequence.id}`);
-
-        // Apply to ALL teams (skip decision checking)
+        const kpiUpdates: Array<{ teamId: string; kpis: TeamRoundData }> = [];
+        // Process each team
         for (const team of teams) {
-            const currentRound = slide.round_number as 1 | 2 | 3;
-            const currentKpis: TeamRoundData = await KpiDataUtils.ensureTeamRoundData(
-                currentDbSession!.id,
-                team.id,
-                currentRound,
-                teamRoundData,
-                setTeamRoundDataDirectly
-            );
+            const finalKpis: TeamRoundData = await this.calculateTeamKpiChanges({
+                team,
+                currentRound: slide.round_number as 1 | 2 | 3,
+                effects: setupConsequence.effects,
+                sessionId: currentDbSession!.id
+            });
 
-            // Apply effects using existing engine
-            const updatedKpis: TeamRoundData = ScoringEngine.applyKpiEffects(currentKpis, setupConsequence.effects);
-            const finalMetrics: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
-            const finalKpis = {...updatedKpis, ...finalMetrics};
-
-            // Save using existing method
-            await db.kpis.update(currentKpis.id, finalKpis);
-
-            // Update local state using existing pattern
-            setTeamRoundDataDirectly(prev => ({
-                ...prev,
-                [team.id]: {
-                    ...prev[team.id],
-                    [currentRound]: finalKpis
-                }
-            }));
-
-            this.updatedKpisForBroadcast[team.id] = finalKpis;
+            // Collect for bulk update
+            kpiUpdates.push({teamId: team.id, kpis: finalKpis});
         }
 
-        // Broadcast using existing method
-        if (this.props.teamBroadcaster) {
-            this.props.teamBroadcaster.broadcastKpiUpdated(slide, this.updatedKpisForBroadcast);
-            this.updatedKpisForBroadcast = {};
-        }
-
-        // Refresh using existing method
-        await fetchTeamRoundDataFromHook(currentDbSession!.id);
-
+        await this.finalizeUpdates({
+            slide,
+            sessionId: currentDbSession!.id
+        }, kpiUpdates);
         console.log(`[UnifiedEffectsProcessor] ✅ Setup slide ${slide.id} complete`);
     }
 
@@ -327,13 +392,7 @@ export class UnifiedEffectsProcessor {
      * Process immunity slides - apply immunity benefits to qualifying teams
      */
     private async processImmunityBonusSlide(immunitySlide: Slide, challengeId: string): Promise<void> {
-        const {
-            currentDbSession,
-            teams,
-            teamRoundData,
-            setTeamRoundDataDirectly,
-            fetchTeamRoundDataFromHook
-        } = this.props;
+        const {currentDbSession, teams} = this.props;
 
         console.log(`[UnifiedEffectsProcessor] 🛡️ Processing immunity slide for challenge ${challengeId}`);
 
@@ -356,6 +415,8 @@ export class UnifiedEffectsProcessor {
             return;
         }
 
+        console.log(`[UnifiedEffectsProcessor] 🛡️ Processing immunity slide for challenge ${challengeId}`);
+        const kpiUpdates: Array<{ teamId: string; kpis: TeamRoundData }> = [];
         // Process each team
         for (const team of teams) {
             // Check if team has immunity for this challenge
@@ -368,32 +429,25 @@ export class UnifiedEffectsProcessor {
 
             console.log(`[UnifiedEffectsProcessor] 🛡️ Applying immunity benefits for team ${team.name}`);
 
-            // Apply immunity effects (positive benefits)
-            const currentRound = immunitySlide.round_number as 1 | 2 | 3;
-            const currentKpis: TeamRoundData = await KpiDataUtils.ensureTeamRoundData(
-                currentDbSession!.id,
-                team.id,
-                currentRound,
-                teamRoundData,
-                setTeamRoundDataDirectly
-            );
-
-            const updatedKpis: TeamRoundData = ScoringEngine.applyKpiEffects(currentKpis, immunityConsequence.effects);
-            const finalKpis: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
-
-            // Save to database
-            await db.kpis.update(currentKpis.id, {
-                ...updatedKpis,
-                ...finalKpis
+            // Calculate immunity KPI changes (don't save yet)
+            const finalKpis = await this.calculateTeamKpiChanges({
+                team,
+                currentRound: immunitySlide.round_number as 1 | 2 | 3,
+                effects: immunityConsequence.effects,
+                sessionId: currentDbSession!.id
             });
 
-            this.updatedKpisForBroadcast[team.id] = {...updatedKpis, ...finalKpis};
+            // Collect for bulk update
+            kpiUpdates.push({teamId: team.id, kpis: finalKpis});
 
             console.log(`[UnifiedEffectsProcessor] ✅ Applied immunity benefits for team ${team.name}`);
         }
 
-        // Refresh data
-        await fetchTeamRoundDataFromHook(currentDbSession!.id);
+        // Apply bulk updates and finalize
+        await this.finalizeUpdates({
+            slide: immunitySlide,
+            sessionId: currentDbSession!.id
+        }, kpiUpdates);
     }
 
     /**
@@ -406,9 +460,6 @@ export class UnifiedEffectsProcessor {
             gameStructure,
             teams,
             teamDecisions,
-            teamRoundData,
-            setTeamRoundDataDirectly,
-            fetchTeamRoundDataFromHook
         } = this.props;
 
         // Validate required data
@@ -451,6 +502,7 @@ export class UnifiedEffectsProcessor {
         }
 
         console.log(`[UnifiedEffectsProcessor] 👥 Processing ${teams.length} teams`);
+        const kpiUpdates: Array<{ teamId: string; kpis: TeamRoundData }> = [];
         // Process each team
         for (const team of teams) {
             console.log(`[UnifiedEffectsProcessor] 🏢 Processing team: ${team.name} (${team.id})`);
@@ -523,16 +575,6 @@ export class UnifiedEffectsProcessor {
 
             console.log(`[UnifiedEffectsProcessor] ⚙️ Applying ${consequenceForTeamSelection.effects.length} effects to team ${team.name}`);
 
-            // Apply effects to team round data
-            const currentRound = consequenceSlide.round_number as 1 | 2 | 3;
-            const currentKpis: TeamRoundData = await KpiDataUtils.ensureTeamRoundData(
-                currentDbSession.id,
-                team.id,
-                currentRound,
-                teamRoundData,
-                setTeamRoundDataDirectly
-            );
-
             // SPECIAL HANDLING: CH7 Option C customization needs automation capability check
             let effectsToApply: KpiEffect[] = consequenceForTeamSelection.effects;
             if (challengeId === 'ch7' && teamSelection === 'C') {
@@ -561,16 +603,16 @@ export class UnifiedEffectsProcessor {
                 console.log(`[UnifiedEffectsProcessor] CH7 customization for team ${team.name}: ${capacityImpact} (automation: ${hasAutomationCapability})`);
             }
 
-            const updatedKpis: TeamRoundData = ScoringEngine.applyKpiEffects(currentKpis, effectsToApply);
-            const finalKpis: FinancialMetrics = ScoringEngine.calculateFinancialMetrics(updatedKpis);
-
-            // Save to database
-            await db.kpis.update(currentKpis.id, {
-                ...updatedKpis,
-                ...finalKpis
+            // Calculate KPI changes (don't save yet)
+            const finalKpis = await this.calculateTeamKpiChanges({
+                team,
+                currentRound: consequenceSlide.round_number as 1 | 2 | 3,
+                effects: effectsToApply,
+                sessionId: currentDbSession.id
             });
 
-            this.updatedKpisForBroadcast[team.id] = {...updatedKpis, ...finalKpis};
+            // Collect for bulk update
+            kpiUpdates.push({teamId: team.id, kpis: finalKpis});
 
             // ========================================================================
             // MINIMAL CHANGE: Handle permanent effects with Employee Development check
@@ -629,8 +671,11 @@ export class UnifiedEffectsProcessor {
             console.log(`[UnifiedEffectsProcessor] Applied effects for team ${team.name}, selection "${teamSelection}"`);
         }
 
-        // Refresh data
-        await fetchTeamRoundDataFromHook(currentDbSession.id);
+        // Apply bulk updates and finalize
+        await this.finalizeUpdates({
+            slide: consequenceSlide,
+            sessionId: currentDbSession.id
+        }, kpiUpdates);
     }
 
     /**
