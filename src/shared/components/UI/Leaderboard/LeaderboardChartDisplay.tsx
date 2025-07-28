@@ -134,7 +134,7 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
         if (!currentRoundForDisplay) return 'RD';
 
         if (dataKey.includes('rd3_leaderboard')) {
-            return 'FINAL RD-3';
+            return 'FINAL RDS 1-3';
         }
 
         return `RD-${currentRoundForDisplay}`;
