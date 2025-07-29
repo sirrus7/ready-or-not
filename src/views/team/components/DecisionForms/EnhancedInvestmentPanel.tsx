@@ -234,7 +234,9 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                                         ? 'text-green-400'
                                         : isUnaffordable
                                             ? 'text-gray-500'
-                                            : 'text-yellow-400'
+                                            : pricing && group === 'reinvest'
+                                                ? 'text-green-400'
+                                                : 'text-yellow-400'
                                 }`}>
                                     {formatCurrency(effectivePrice)}
                                 </span>
