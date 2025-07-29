@@ -287,7 +287,7 @@ const EnhancedInvestmentPanel: React.FC<EnhancedInvestmentPanelProps> = ({
                         {/* Price Display */}
                         <div className="text-center py-2">
                             <div className="text-2xl font-bold text-yellow-400">
-                                ${formatCurrency(effectivePrice)}
+                                {formatCurrency(effectivePrice)}
                             </div>
                         </div>
 

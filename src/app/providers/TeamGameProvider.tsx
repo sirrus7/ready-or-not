@@ -6,7 +6,7 @@ import {useParams} from 'react-router-dom';
 import {useTeamDataManager} from '@shared/hooks/useTeamDataManager';
 import {PermanentKpiAdjustment} from '@shared/types';
 
-interface TeamGameContextType {
+export interface TeamGameContextType {
     sessionId: string | null;
     permanentAdjustments: PermanentKpiAdjustment[];
     isLoadingAdjustments: boolean;
@@ -17,7 +17,7 @@ const TeamGameContext = createContext<TeamGameContextType | null>(null);
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useTeamGameContext = (): TeamGameContextType => {
-    const context = useContext(TeamGameContext);
+    const context: TeamGameContextType | null = useContext(TeamGameContext);
     if (!context) {
         throw new Error('useTeamGameContext must be used within a TeamGameProvider');
     }

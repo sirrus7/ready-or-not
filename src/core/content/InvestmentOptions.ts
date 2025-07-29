@@ -53,7 +53,7 @@ export const allInvestmentOptionsData: Record<string, InvestmentOption[]> = {
             cost: 75000,
             description: "Decide quickly on this investment! Strategic planning provided insight into opportunities to improve day-to-day operations including rethinking the $1,000 price point assumption, allowing for increased margins and more cash for further expansion.",
             is_immediate_purchase: true,
-            immediate_purchase_type: 'strategic_plan',
+            immediate_purchase_type: 'business_growth_strategy',
             immediate_purchase_message: "You'll receive a Strategic Planning Document from your host with detailed KPI analysis and recommendations.",
             host_notification_message: "Team needs Strategic Planning Document delivered.",
             report_name: "Strategic Planning Document"

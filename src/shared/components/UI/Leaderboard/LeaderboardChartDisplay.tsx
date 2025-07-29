@@ -130,19 +130,19 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
     }, [teams, teamRoundData, teamDecisions, currentRoundForDisplay, metric, secondaryMetric, higherIsBetter]); // NEW: Add teamDecisions dependency
 
     // Determine round display text
-    const roundDisplay = useMemo(() => {
+    const roundDisplay: string = useMemo(() => {
         if (!currentRoundForDisplay) return 'RD';
 
-        if (dataKey.includes('rd3_leaderboard')) {
-            return 'FINAL RDS 1-3';
+        if (dataKey === 'rd3_leaderboard_consolidated_income') {
+            return 'RDS 1-3';
         }
 
         return `RD-${currentRoundForDisplay}`;
     }, [currentRoundForDisplay, dataKey]);
 
     // Check leaderboard type
-    const isCapacityOrdersLeaderboard = dataKey.includes('capord');
-    const isNetIncomeLeaderboard = dataKey.includes('income');
+    const isCapacityOrdersLeaderboard: boolean = dataKey.includes('capord');
+    const isNetIncomeLeaderboard: boolean = dataKey.includes('income');
 
     if (leaderboardData.length === 0) {
         return (

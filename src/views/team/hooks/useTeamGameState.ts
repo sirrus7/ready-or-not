@@ -13,7 +13,7 @@ interface UseTeamGameStateProps {
     isLoadingAdjustments?: boolean;
 }
 
-interface UseTeamGameStateReturn {
+export interface UseTeamGameStateReturn {
     currentActiveSlide: Slide | null;
     isDecisionTime: boolean;
     currentTeamKpis: TeamRoundData | null;
