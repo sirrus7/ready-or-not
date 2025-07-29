@@ -60,9 +60,12 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
             }
-            audioManager.cleanupAudio(investmentId);
         };
     }, [slideId, investmentId, sessionId]);
+
+    useEffect(() => {
+        audioManager.loadAllDoubleDownAudio();
+    }, []); // No dependencies - runs once
 
     // PRESENTATION FUNCTION: Wait for host results, no audio
     const waitForHostResult = async (teamNames: string[]) => {
@@ -181,9 +184,6 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                 setCurrentPhase('complete');
                 return;
             }
-
-            // Go straight to rolling if teams exist
-            await audioManager.loadIntroAudio(investmentId);
 
             if (isHost) {
                 rollDice(teamNames);
