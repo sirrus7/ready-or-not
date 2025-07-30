@@ -1,4 +1,4 @@
-// src/utils/supabase/auth.ts - Authentication utilities (for future use)
+// src/shared/services/supabase/auth.ts - UPDATED WITH setSession METHOD
 import { supabase } from './client';
 import { User } from '@supabase/supabase-js';
 export type { User };
@@ -31,6 +31,16 @@ export const auth = {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
         return data.session;
+    },
+
+    // 🔧 NEW: Add setSession method for magic link support
+    async setSession({ access_token, refresh_token }: { access_token: string; refresh_token: string }) {
+        const { data, error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token
+        });
+        if (error) throw error;
+        return data;
     },
 
     onAuthStateChange(callback: (event: string, session: any) => void) {

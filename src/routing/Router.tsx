@@ -1,4 +1,4 @@
-// src/routing/Router.tsx - RESTORED your original routes, only removed conflicting /game route
+// src/routing/Router.tsx - UPDATED WITH MAGIC LINK HANDLING
 import React, {Suspense} from 'react';
 import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import {AuthProvider} from '@app/providers/AuthProvider';
@@ -18,6 +18,7 @@ import {
     AuthenticatedPage,
     DisplayWrapper
 } from '@routing/routes';
+import MagicLinkHandler from '@routing/components/MagicLinkHandler';
 
 const Router: React.FC = React.memo(() => {
     return (
@@ -26,10 +27,20 @@ const Router: React.FC = React.memo(() => {
             <AuthProvider>
                 <Routes>
                     {/* ============================================================ */}
+                    {/* ROOT ROUTE - HANDLES MAGIC LINKS AND NORMAL ROUTING */}
+                    {/* ============================================================ */}
+
+                    {/* 🔗 Magic Link Handler - Processes authentication before routing */}
+                    <Route
+                        path="/"
+                        element={<MagicLinkHandler />}
+                    />
+
+                    {/* ============================================================ */}
                     {/* PUBLIC ROUTES (No Authentication Required) */}
                     {/* ============================================================ */}
 
-                    {/* Login Route */}
+                    {/* Login Route - No magic link redirect logic needed anymore */}
                     <Route
                         path="/login"
                         element={
@@ -51,7 +62,7 @@ const Router: React.FC = React.memo(() => {
                         }
                     />
 
-                    {/* Display Routes - Public access */}
+                    {/* Display Routes - Public access for presentation mode */}
                     <Route
                         path="/display/:sessionId"
                         element={<DisplayWrapper/>}
@@ -61,7 +72,7 @@ const Router: React.FC = React.memo(() => {
                     {/* PROTECTED ROUTES (Authentication Required) */}
                     {/* ============================================================ */}
 
-                    {/* Dashboard - Protected */}
+                    {/* Dashboard Route - Main authenticated entry point */}
                     <Route
                         path="/dashboard"
                         element={
@@ -73,7 +84,7 @@ const Router: React.FC = React.memo(() => {
                         }
                     />
 
-                    {/* Create Game - Protected */}
+                    {/* Create Game Route */}
                     <Route
                         path="/create"
                         element={
@@ -85,7 +96,7 @@ const Router: React.FC = React.memo(() => {
                         }
                     />
 
-                    {/* ✅ RESTORED: Your original Host Game route */}
+                    {/* Host Game Routes */}
                     <Route
                         path="/host/:sessionId/*"
                         element={
@@ -99,7 +110,7 @@ const Router: React.FC = React.memo(() => {
                         }
                     />
 
-                    {/* ✅ RESTORED: Your original Game Results route */}
+                    {/* Game Results Route */}
                     <Route
                         path="/results/:sessionId"
                         element={
@@ -113,10 +124,11 @@ const Router: React.FC = React.memo(() => {
                         }
                     />
 
-                    {/* Root redirect */}
-                    <Route path="/" element={<Navigate to="/dashboard" replace/>}/>
+                    {/* ============================================================ */}
+                    {/* FALLBACK ROUTES */}
+                    {/* ============================================================ */}
 
-                    {/* 404 catch-all */}
+                    {/* 404 catch-all - Redirect to dashboard for authenticated users */}
                     <Route path="*" element={<Navigate to="/dashboard" replace/>}/>
                 </Routes>
             </AuthProvider>

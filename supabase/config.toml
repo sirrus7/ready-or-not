@@ -1,5 +1,6 @@
-# Ready or Not - Corrected config.toml for Supabase CLI 2.31.8
-# A string used to distinguish different Supabase projects on the same host
+# supabase/config.toml - FIXED VERSION WITH PROPER MAGIC LINK SETTINGS
+# Ready or Not - Fixed config.toml for proper magic link authentication
+
 project_id = "ready-or-not"
 
 [api]
@@ -46,21 +47,32 @@ port = 54334
 
 [auth]
 enabled = true
-# Site URL for redirects (corrected port for Vite dev server)
+# FIXED: Site URL for redirects (corrected port for Vite dev server)
 site_url = "http://localhost:5173"
-# Additional redirect URLs (corrected port)
+
+# FIXED: Additional redirect URLs with better patterns
 additional_redirect_urls = [
+    "http://localhost:5173",
+    "http://localhost:5173/",
     "http://localhost:5173/**",
     "http://localhost:5173/dashboard",
     "http://localhost:5173/dashboard/**",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5173/",
+    "http://127.0.0.1:5173/**",
     "https://ready-or-not.pages.dev/**"
 ]
-# JWT settings
+
+# IMPROVED: JWT settings for better magic link compatibility
 jwt_expiry = 3600
-# Enable refresh token rotation
 enable_refresh_token_rotation = true
-# Refresh token reuse interval
 refresh_token_reuse_interval = 10
+
+# FIXED: Security settings for magic links
+# Allow longer sessions to prevent premature expiration
+# This is important for magic links that may take time to process
+security_update_password_require_reauthentication = false
+security_manual_linking_enabled = true
 
 [auth.email]
 # Allow/disallow new user signups via email to your project
@@ -68,7 +80,7 @@ enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = false
-# If enabled, users need to confirm their email address before signing in.
+# FIXED: Disable confirmations for magic link users created by Global Game Loader
 enable_confirmations = false
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
@@ -76,8 +88,9 @@ secure_password_change = false
 max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# IMPROVED: Longer OTP expiry to handle processing delays from Global Game Loader
+# This helps prevent the "otp_expired" error
+otp_expiry = 7200  # 2 hours instead of 1 hour
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
@@ -90,6 +103,9 @@ template = "Your code is {{ .Code }}"
 max_frequency = "5s"
 
 [auth.rate_limit]
+# IMPROVED: Higher rate limits for magic link processing
+# This prevents rate limiting issues during the handoff from Global Game Loader
+
 # Number of emails that can be sent per hour.
 email_sent = 100
 # Number of SMS messages that can be sent per hour.
@@ -97,11 +113,11 @@ sms_sent = 100
 # Number of anonymous sign-ins that can be made per hour per IP address.
 anonymous_users = 100
 # Number of sessions that can be refreshed in a 5 minute interval per IP address.
-token_refresh = 150
+token_refresh = 300  # Increased from 150
 # Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address.
-sign_in_sign_ups = 100
-# Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
-token_verifications = 100
+sign_in_sign_ups = 200  # Increased from 100
+# CRITICAL: Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
+token_verifications = 300  # Increased from 100 to handle Global Game Loader traffic
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.
 web3 = 100
 
@@ -114,3 +130,8 @@ port = 54337
 
 [edge_runtime]
 enabled = true
+
+# OPTIONAL: Add custom access token hook for enhanced user data
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_hook"
