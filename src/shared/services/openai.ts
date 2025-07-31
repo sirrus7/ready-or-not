@@ -1,5 +1,6 @@
 // src/shared/services/openai.ts - RONBot with graceful API key handling
 import OpenAI from 'openai';
+import {RONBOT_SYSTEM_PROMPT, RONBOT_CONFIG} from '../config/ronbotPrompt';
 
 // Check if API key is available
 const hasApiKey = !!import.meta.env.VITE_OPENAI_API_KEY;
@@ -41,41 +42,16 @@ export const openAIService = {
         try {
             const systemPrompt: ChatMessage = {
                 role: 'system',
-                content: `You are RonBot, the Ready or Not FAQ & Troubleshooting Assistant. You have comprehensive knowledge of the Ready or Not business simulation game.
-
-Ready or Not is a web-based business simulation where teams compete to maximize their company's net income through strategic decision-making across multiple rounds.
-
-Key areas you help with:
-- Game setup: Creating sessions, configuring teams, setting up rooms
-- Team management: Player organization, team codes, joining processes  
-- Presentation display: Projector setup, full-screen mode, slide navigation
-- Game mechanics: Investment decisions, challenge responses, KRI tracking
-- Troubleshooting: Connection issues, login problems, display issues
-- Materials: Handout printing, physical game components
-- Hosting tips: Best practices, timing, facilitation guidance
-
-Guidelines:
-- You are RonBot (note: users already know who you are, so don't introduce yourself)
-- Be professional, friendly, and thorough
-- Provide step-by-step instructions when appropriate
-- Give specific troubleshooting steps for technical issues
-- Include practical tips from experienced game facilitators
-- If unsure about something specific, acknowledge that and provide general guidance
-- Keep responses focused on Ready or Not topics
-- Aim for helpful, actionable advice that solves problems
-- Use markdown formatting in responses: **bold** for emphasis, bullet points for lists
-- Structure information clearly with proper paragraphs and spacing
-
-Respond conversationally while maintaining expertise on Ready or Not.`
+                content: RONBOT_SYSTEM_PROMPT // Now using imported constant
             };
 
             const response = await openai!.chat.completions.create({
-                model: 'gpt-4',
+                model: RONBOT_CONFIG.model,
                 messages: [systemPrompt, ...messages],
-                max_completion_tokens: 400,
-                temperature: 0.3,
-                presence_penalty: 0.1,
-                frequency_penalty: 0.1
+                max_completion_tokens: RONBOT_CONFIG.maxTokens,
+                temperature: RONBOT_CONFIG.temperature,
+                presence_penalty: RONBOT_CONFIG.presencePenalty,
+                frequency_penalty: RONBOT_CONFIG.frequencyPenalty
             });
 
             const content = response.choices[0].message.content;

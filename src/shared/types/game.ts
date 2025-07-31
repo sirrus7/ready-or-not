@@ -128,3 +128,9 @@ export interface KpiChange {
         display_value: string;
     }[];
 }
+
+export interface StrategyInvestmentDetails {
+    hasStrategy: boolean;
+    purchaseRound: number | null;
+    purchasePhaseId: string | null;
+}

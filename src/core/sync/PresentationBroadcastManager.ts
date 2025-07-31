@@ -16,7 +16,7 @@ export class PresentationBroadcastManager {
     private static instances: Map<string, PresentationBroadcastManager> = new Map();
     private channel: BroadcastChannel;
     private sessionId: string;
-    private slideHandlers: Set<(slide: Slide, teamData?: any) => void> = new Set();
+    private slideHandlers: Set<(slide: Slide, teamData?: any, gameVersion?: string) => void> = new Set();
     private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
     private pingHandlers: Set<() => void> = new Set();
@@ -55,7 +55,7 @@ export class PresentationBroadcastManager {
                     break;
                 case BroadcastEventType.SLIDE_UPDATE:
                     videoDebug.syncLog('PresentationBroadcastManager', `Processing slide update: ${message.slide?.id}`);
-                    this.slideHandlers.forEach(handler => handler(message.slide, message.teamData));
+                    this.slideHandlers.forEach(handler => handler(message.slide, message.teamData, message.gameVersion));
                     break;
                 case BroadcastEventType.JOIN_INFO:
                     videoDebug.syncLog('PresentationBroadcastManager', 'Processing join info');
@@ -90,7 +90,7 @@ export class PresentationBroadcastManager {
      * @param callback (slide, teamData) => void
      * @returns unsubscribe function
      */
-    onSlideUpdate(callback: (slide: Slide, teamData?: any) => void): () => void {
+    onSlideUpdate(callback: (slide: Slide, teamData?: any, gameVersion?: string) => void): () => void {
         if (this.isDestroyed) return () => {
         };
         this.slideHandlers.add(callback);

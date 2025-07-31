@@ -3,7 +3,7 @@
 
 import {supabase} from '../client';
 import {withRetry} from '../database';
-import {DoubleDownDecision, TeamDecision} from '@shared/types';
+import {DoubleDownDecision, StrategyInvestmentDetails, TeamDecision} from '@shared/types';
 
 const TEAM_DECISIONS_TABLE = 'team_decisions';
 
@@ -122,7 +122,7 @@ export const decisionService = {
                 .eq('session_id', sessionId)
                 .eq('team_id', teamId)
                 .eq('is_immediate_purchase', true)
-                .in('immediate_purchase_type', ['business_growth_strategy', 'strategic_plan']);
+                .in('immediate_purchase_type', ['business_growth_strategy']);
 
             if (error) {
                 console.error(`[decisionService.hasStrategyInvestment] failed:`, error);
@@ -131,6 +131,47 @@ export const decisionService = {
 
             return (data || []).length > 0;
         }, 2, 1000, `Check strategy investment for team ${teamId.substring(0, 8)}`, 8000);
+    },
+
+    // Add this new method after the existing hasStrategyInvestment method:
+
+    async getStrategyInvestmentDetails(sessionId: string, teamId: string): Promise<StrategyInvestmentDetails | null> {
+        return withRetry(async () => {
+            const {data, error} = await supabase
+                .from(TEAM_DECISIONS_TABLE)
+                .select('phase_id, submitted_at')
+                .eq('session_id', sessionId)
+                .eq('team_id', teamId)
+                .eq('is_immediate_purchase', true)
+                .eq('immediate_purchase_type', 'business_growth_strategy')
+                .order('submitted_at', {ascending: true})
+                .limit(1);
+
+            if (error) {
+                console.error(`[decisionService.getStrategyInvestmentDetails] Error:`, error);
+                throw error;
+            }
+
+            if (!data || data.length === 0) {
+                return {hasStrategy: false, purchaseRound: null, purchasePhaseId: null};
+            }
+
+            const purchase = data[0];
+            let purchaseRound: number | null = null;
+
+            // Extract round number from phase_id
+            if (purchase.phase_id?.includes('rd1')) {
+                purchaseRound = 1;
+            } else if (purchase.phase_id?.includes('rd2')) {
+                purchaseRound = 2;
+            }
+
+            return {
+                hasStrategy: true,
+                purchaseRound,
+                purchasePhaseId: purchase.phase_id
+            };
+        }, 2, 1000, `Get strategy investment details for team ${teamId.substring(0, 8)}`, 8000);
     },
 
     // ENHANCED: Create with longer timeout for submissions

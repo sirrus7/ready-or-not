@@ -3,7 +3,7 @@
 
 import React, {createContext, useContext, useCallback, useMemo, useRef} from 'react';
 import {useParams} from 'react-router-dom';
-import {readyOrNotGame_2_0_DD, readyOrNotGame_2_0_NO_DD} from '@core/content/GameStructure';
+import {readyOrNotGame_1_5, readyOrNotGame_2_0_DD, readyOrNotGame_2_0_NO_DD} from '@core/content/GameStructure';
 import {useGameController} from '@core/game/useGameController';
 import {useGameProcessing} from '@core/game/useGameProcessing';
 import {useTeamDataManager} from '@shared/hooks/useTeamDataManager';
@@ -29,7 +29,7 @@ import {SimpleRealtimeManager} from "@core/sync";
  * - Added permanentAdjustments and isLoadingAdjustments to context
  * - These are now available globally, same as teamRoundData
  */
-interface GameContextType {
+export interface GameContextType {
     state: AppState;
     currentSlideData: Slide | null;
     gameVersion: string; // ADDED: Game version for version-dependent features
@@ -72,9 +72,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
             return readyOrNotGame_2_0_DD; // Fallback only
         }
 
-        return session.game_version === '2.0_no_dd'
-            ? readyOrNotGame_2_0_NO_DD
-            : readyOrNotGame_2_0_DD;
+        switch (session.game_version) {
+            case '1.5':
+                return readyOrNotGame_1_5;
+            case '2.0_no_dd':
+                return readyOrNotGame_2_0_NO_DD;
+            default:
+                return readyOrNotGame_2_0_DD;
+        }
     }, [session?.game_version]);
     const teamDataManager = useTeamDataManager(session?.id || null);
     const {
@@ -101,6 +106,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     const gameController = useGameController(
         session,
         gameStructure,
+        session?.game_version,
         gameProcessing.processInteractiveSlide,
         gameProcessing.processConsequenceSlide,
         gameProcessing.processPayoffSlide,

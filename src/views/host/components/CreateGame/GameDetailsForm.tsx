@@ -25,8 +25,8 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                                                                         userType = 'academic'
                                                                     }) => {
     // Instead of creating a union type, just get what we need directly
-    const formLabels: BusinessFormOptions | AcademicFormOptions = userType === 'business' ? BUSINESS_OPTIONS : ACADEMIC_OPTIONS;
-    const levelOptions = userType === 'business' ? BUSINESS_OPTIONS.playerTypes : ACADEMIC_OPTIONS.gradeLevels;
+    const formLabels: BusinessFormOptions | AcademicFormOptions = (userType === 'business' || userType === 'omep') ? BUSINESS_OPTIONS : ACADEMIC_OPTIONS;
+    const levelOptions = (userType === 'business' || userType === 'omep') ? BUSINESS_OPTIONS.playerTypes : ACADEMIC_OPTIONS.gradeLevels;
 
     // Use local state for the input values to prevent external interference
     const [playersInput, setPlayersInput] = useState(gameData.num_players > 0 ? gameData.num_players.toString() : '');
@@ -109,6 +109,9 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                     onChange={(e) => onFieldChange('game_version', e.target.value as NewGameData['game_version'])}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 bg-white text-base"
                 >
+                    {userType === 'omep' && (
+                        <option value="1.5">1.5 without virtual host</option>
+                    )}
                     <option value="2.0_dd">2.0 with Double Down</option>
                     <option value="2.0_no_dd">2.0 without Double Down</option>
                 </select>
@@ -137,7 +140,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                     <label htmlFor="class_name" className="block text-sm font-medium text-gray-700 mb-2">
                         {formLabels.classLabel}
                     </label>
-                    {userType === 'business' ? (
+                    {(userType === 'business' || userType === 'omep') ? (
                         <select
                             id="class_name"
                             name="class_name"

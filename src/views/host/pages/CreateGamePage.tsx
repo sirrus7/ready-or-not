@@ -36,7 +36,7 @@ const WIZARD_STEPS = [
 type NewGameDataValue =
     | string
     | number
-    | ('2.0_dd' | '1.5_dd')
+    | ('2.0_dd' | '1.5')
     | TeamConfig[];
 
 const CreateGamePage: React.FC = () => {

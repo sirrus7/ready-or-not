@@ -31,6 +31,7 @@ const PresentationApp: React.FC = () => {
     const syncManager = usePresentationSyncManager(sessionId || null);
     const connectionTimeoutRef = useRef<NodeJS.Timeout>();
     const previousConnectionStateRef = useRef<boolean>(false);
+    const [gameVersion, setGameVersion] = useState<string | undefined>(undefined);
 
     // Log state changes
     useEffect(() => {
@@ -48,8 +49,9 @@ const PresentationApp: React.FC = () => {
 
     useEffect(() => {
         if (!syncManager) return;
-        const unsub = syncManager.onSlideUpdate((slide, teamData) => {
+        const unsub = syncManager.onSlideUpdate((slide: Slide, teamData, gameVersion: string | undefined) => {
             setCurrentSlide(slide);
+            setGameVersion(gameVersion);
             setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
             setConnectionError(false);
@@ -87,12 +89,26 @@ const PresentationApp: React.FC = () => {
     useEffect(() => {
         if (!syncManager) return;
         videoDebug.videoLog('PresentationApp', 'Setting up host command listener');
-        const unsub = syncManager.onHostCommand((command) => {
+        return syncManager.onHostCommand((command) => {
             videoDebug.videoLog('PresentationApp', `Received host command: ${command.action}`, command.data);
+
+            // Handle scroll commands first (no video ref needed)
+            if (command.action === 'scroll') {
+                if (command.data?.scrollTop !== undefined) {
+                    const scrollEvent = new CustomEvent('hostScroll', {
+                        detail: {scrollTop: command.data.scrollTop}
+                    });
+                    window.dispatchEvent(scrollEvent);
+                }
+                return; // Exit early for scroll commands
+            }
+
+            // Handle video commands (need video ref)
             if (!videoRef.current) {
                 videoDebug.videoLog('PresentationApp', `No video ref available for command: ${command.action}`);
                 return;
             }
+
             videoDebug.videoLog('PresentationApp', `Executing command on video: ${command.action}`);
             switch (command.action) {
                 case 'play':
@@ -106,6 +122,8 @@ const PresentationApp: React.FC = () => {
                     window.close();
                     break;
             }
+
+            // Update connection status for any command
             videoDebug.videoLog('PresentationApp', 'Setting isConnectedToHost to true (from command)');
             setIsConnectedToHost(true);
             if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
@@ -116,7 +134,6 @@ const PresentationApp: React.FC = () => {
                 setConnectionError(true);
             }, 10000);
         });
-        return unsub;
     }, [syncManager]);
 
     useEffect(() => {
@@ -207,6 +224,7 @@ const PresentationApp: React.FC = () => {
                 teams={broadcastedTeamData?.teams || []}
                 teamRoundData={broadcastedTeamData?.teamRoundData || {}}
                 teamDecisions={broadcastedTeamData?.teamDecisions || []}
+                gameVersion={gameVersion}
                 onVideoControl={api => {
                     videoDebug.videoLog('PresentationApp', 'Received video control API:', {
                         hasSendCommand: !!api.sendCommand

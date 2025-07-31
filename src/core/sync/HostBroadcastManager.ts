@@ -148,7 +148,16 @@ export class HostBroadcastManager {
     /**
      * Send a host command (play, pause, seek, etc.) to the presentation
      */
-    sendCommand(action: 'play' | 'pause' | 'seek' | 'reset' | 'decision_reset' | 'sync' | 'volume' | 'close_presentation' | 'video_status_poll', data?: any): void {
+    sendCommand(action: 'play'
+        | 'pause'
+        | 'seek'
+        | 'reset'
+        | 'decision_reset'
+        | 'sync'
+        | 'volume'
+        | 'close_presentation'
+        | 'video_status_poll'
+        | 'scroll', data?: any): void {
         if (this.isDestroyed) return;
         const command: HostCommand = {
             type: BroadcastEventType.HOST_COMMAND,
@@ -184,13 +193,14 @@ export class HostBroadcastManager {
         teams: Team[];
         teamRoundData: Record<string, Record<number, TeamRoundData>>;
         teamDecisions: TeamDecision[];
-    }): void {
+    }, gameVersion?: string): void {
         if (this.isDestroyed) return;
         const update: SlideUpdate = {
             type: BroadcastEventType.SLIDE_UPDATE,
             sessionId: this.sessionId,
             slide,
             teamData,
+            gameVersion,
             timestamp: Date.now()
         };
         this.sendMessage(update);

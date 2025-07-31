@@ -9,6 +9,7 @@ import {useSlidePreCaching} from '@shared/hooks/useSlidePreCaching';
 export const useGameController = (
     initialDbSession: GameSession | null,
     gameStructure: GameStructure | null,
+    gameVersion: string | undefined,
     processInteractiveSlide: (completedSlide: Slide) => Promise<void>,
     processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>,
     processPayoffSlide: (payoffSlide: Slide) => Promise<void>,
@@ -54,6 +55,7 @@ export const useGameController = (
     useSlidePreCaching(
         gameStructure?.slides ?? [],
         currentSlideIndex,
+        gameVersion,
         {
             precacheCount: 3,
             enabled: true

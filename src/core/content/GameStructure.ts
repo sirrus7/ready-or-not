@@ -56,3 +56,76 @@ export const readyOrNotGame_2_0_NO_DD: GameStructure = {
     all_investment_payoffs: allInvestmentPayoffsData,
     investment_phase_budgets: INVESTMENT_PHASE_BUDGETS,
 };
+
+// Add this function to create 1.5 slides with updated titles and filenames
+const get15Slides = (): Slide[] => {
+    const baseSlides: Slide[] = getFilteredSlides('2.0_no_dd'); // Start with NO_DD slides
+
+    return baseSlides.map(slide => {
+        // Override specific slides for version 1.5
+        switch (slide.id) {
+            case 0:
+                return {
+                    ...slide,
+                    title: "Welcome",
+                    source_path: 'Slide_001.jpg'
+                };
+            case 1:
+                return {
+                    ...slide,
+                    title: "Overview",
+                    source_path: 'Slide_002.jpg'
+                };
+            case 2:
+                return {
+                    ...slide,
+                    title: "Target Acquisition",
+                    source_path: 'Slide_003.jpg'
+                };
+            case 3:
+                return {
+                    ...slide,
+                    title: "Target Acquisition",
+                    source_path: 'Slide_004.jpg'
+                };
+            case 4:
+                return {
+                    ...slide,
+                    title: "Mission Briefing",
+                    source_path: 'Slide_005.jpg',
+                    type: 'image',
+                };
+            case 5:
+                return {
+                    ...slide,
+                    title: "Welcome to ALU",
+                    source_path: 'Slide_006.jpg',
+                    type: 'image',
+                };
+            case 6:
+                return {
+                    ...slide,
+                    title: "How to Run",
+                    source_path: 'Slide_007.jpg',
+                    type: 'image',
+                };
+            default:
+                return slide;
+        }
+    });
+};
+
+// Add the new 1.5 GameStructure export
+export const readyOrNotGame_1_5: GameStructure = {
+    id: "ready_or_not_1.5",
+    name: "Ready Or Not 1.5 (without virtual host)",
+    slides: get15Slides(),
+    interactive_slides: get15Slides().filter(
+        (slide) => !!slide.interactive_data_key && slide.type.startsWith('interactive_')
+    ),
+    all_investment_options: allInvestmentOptionsData,
+    all_challenge_options: allChallengeOptionsData,
+    all_consequences: allConsequencesData,
+    all_investment_payoffs: allInvestmentPayoffsData,
+    investment_phase_budgets: INVESTMENT_PHASE_BUDGETS,
+};

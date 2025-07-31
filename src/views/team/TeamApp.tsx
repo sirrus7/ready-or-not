@@ -45,11 +45,13 @@ import React, {useEffect, useState} from 'react';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import DecisionModeContainer from '@views/team/components/InteractionPanel/DecisionContainer';
 import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards';
-import {useTeamGameState} from '@views/team/hooks/useTeamGameState';
-import {useTeamGameContext} from '@app/providers/TeamGameProvider';
-import {BASE_VALUES, ROUND_BASE_VALUES} from "@core/game/ScoringEngine.ts";
-import TeamInvestmentDisplay from "@views/team/components/GameStatus/TeamInvestmentDisplay.tsx";
+import {useTeamGameState, UseTeamGameStateReturn} from '@views/team/hooks/useTeamGameState';
+import {TeamGameContextType, useTeamGameContext} from '@app/providers/TeamGameProvider';
+import {BASE_VALUES, ROUND_BASE_VALUES} from "@core/game/ScoringEngine";
+import TeamInvestmentDisplay from "@views/team/components/GameStatus/TeamInvestmentDisplay";
 import {Building, ShoppingCart, DollarSign, TrendingUp, AlertTriangle} from 'lucide-react';
+import {StrategyStatusCard} from "@views/team/components/GameStatus/StrategyStatusCard";
+import {Slide, TeamRoundData} from "@shared/types";
 
 // Sets the duration (in MS) that the KPI changes are shown in the TeamApp
 const KPI_CHANGE_DURATION = 15000;
@@ -65,15 +67,15 @@ const TeamApp: React.FC = () => {
     const [investmentRefreshTrigger, setInvestmentRefreshTrigger] = useState(0);
 
     // ADDED: Get centralized adjustment data from TeamGameProvider (lightweight, no auth)
-    const teamGameContext = useTeamGameContext();
-    const sessionId = teamGameContext.sessionId;
+    const teamGameContext: TeamGameContextType = useTeamGameContext();
+    const sessionId: string | null = teamGameContext.sessionId;
     const {permanentAdjustments, isLoadingAdjustments} = teamGameContext;
 
     // ========================================================================
     // GAME STATE HOOK - SIMPLIFIED (uses centralized adjustments)
     // This now receives adjustments from the centralized system
     // ========================================================================
-    const teamGameState = useTeamGameState({
+    const teamGameState: UseTeamGameStateReturn = useTeamGameState({
         sessionId: sessionId || null,
         loggedInTeamId,
         permanentAdjustments, // ADDED: Pass centralized adjustments
@@ -185,14 +187,14 @@ const TeamApp: React.FC = () => {
     }
 
     // Extract key values for easier access
-    const currentActiveSlide = teamGameState.currentActiveSlide;
-    const currentTeamKpis = teamGameState.currentTeamKpis;
-    const isDecisionPhaseActive = teamGameState.isDecisionTime;
-    const resetTrigger = teamGameState.decisionResetTrigger;
-    const connectionStatus = teamGameState.connectionStatus;
+    const currentActiveSlide: Slide | null = teamGameState.currentActiveSlide;
+    const currentTeamKpis: TeamRoundData | null = teamGameState.currentTeamKpis;
+    const isDecisionPhaseActive: boolean = teamGameState.isDecisionTime;
+    const resetTrigger: number = teamGameState.decisionResetTrigger;
+    const connectionStatus: 'connected' | 'connecting' | 'disconnected' = teamGameState.connectionStatus;
 
     // Base values
-    const currentRound = (currentActiveSlide?.round_number as 1 | 2 | 3) || 1;
+    const currentRound: 1 | 2 | 3 = (currentActiveSlide?.round_number as 1 | 2 | 3) || 1;
     const baseValues = {
         capacity: BASE_VALUES.CAPACITY.toString(),
         orders: ROUND_BASE_VALUES[currentRound].orders.toString(),
@@ -302,7 +304,8 @@ const TeamApp: React.FC = () => {
                                 {/* RESTORED: ORIGINAL KPI SECTION WITH GRADIENT BACKGROUNDS */}
                                 <div className="space-y-3">
                                     {/* Capacity */}
-                                    <div className="bg-gradient-to-r from-kpi-capacity-500/20 to-kpi-capacity-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-capacity-500/30 hover:border-kpi-capacity-500/50 transition-colors">
+                                    <div
+                                        className="bg-gradient-to-r from-kpi-capacity-500/20 to-kpi-capacity-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-capacity-500/30 hover:border-kpi-capacity-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <Building className="text-kpi-capacity-400" size={20}/>
@@ -334,7 +337,8 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* Orders */}
-                                    <div className="bg-gradient-to-r from-kpi-orders-500/20 to-kpi-orders-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-orders-500/30 hover:border-kpi-orders-500/50 transition-colors">
+                                    <div
+                                        className="bg-gradient-to-r from-kpi-orders-500/20 to-kpi-orders-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-orders-500/30 hover:border-kpi-orders-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <ShoppingCart className="text-kpi-orders-400" size={20}/>
@@ -366,7 +370,8 @@ const TeamApp: React.FC = () => {
                                     </div>
 
                                     {/* Cost */}
-                                    <div className="bg-gradient-to-r from-kpi-cost-500/20 to-kpi-cost-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-cost-500/30 hover:border-kpi-cost-500/50 transition-colors">
+                                    <div
+                                        className="bg-gradient-to-r from-kpi-cost-500/20 to-kpi-cost-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-cost-500/30 hover:border-kpi-cost-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <DollarSign className="text-kpi-cost-400" size={20}/>
@@ -391,14 +396,16 @@ const TeamApp: React.FC = () => {
                                                     )}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
-                                                    Start: ${currentTeamKpis?.start_cost?.toLocaleString() || baseValues.cost}
+                                                    Start:
+                                                    ${currentTeamKpis?.start_cost?.toLocaleString() || baseValues.cost}
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* ASP - FIXED: Changed from purple to red colors */}
-                                    <div className="bg-gradient-to-r from-kpi-asp-500/20 to-kpi-asp-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-asp-500/30 hover:border-kpi-asp-500/50 transition-colors">
+                                    <div
+                                        className="bg-gradient-to-r from-kpi-asp-500/20 to-kpi-asp-600/20 backdrop-blur-sm rounded-lg p-3 border border-kpi-asp-500/30 hover:border-kpi-asp-500/50 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <TrendingUp className="text-kpi-asp-400" size={20}/>
@@ -423,7 +430,8 @@ const TeamApp: React.FC = () => {
                                                     )}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-1">
-                                                    Start: ${currentTeamKpis?.start_asp?.toLocaleString() || baseValues.asp}
+                                                    Start:
+                                                    ${currentTeamKpis?.start_asp?.toLocaleString() || baseValues.asp}
                                                 </div>
                                             </div>
                                         </div>
@@ -431,6 +439,13 @@ const TeamApp: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Strategy Status Card */}
+                        <StrategyStatusCard
+                            sessionId={sessionId}
+                            teamId={loggedInTeamId || ''}
+                            currentRound={currentActiveSlide?.round_number || 1}
+                        />
 
                         {/* INVESTMENT DISPLAY - Show purchased investments for current round */}
                         {currentActiveSlide && teamGameState.gameStructure && loggedInTeamId && (
@@ -483,7 +498,7 @@ const TeamApp: React.FC = () => {
                                                 src="/images/ready-or-not-logo.png"
                                                 alt="Ready or Not"
                                                 className="w-24 h-auto mx-auto drop-shadow-lg"
-                                                style={{ filter: 'brightness(1.1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5))' }}
+                                                style={{filter: 'brightness(1.1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5))'}}
                                             />
                                         </div>
                                         <h2 className="text-2xl font-bold mb-4 text-white">Following Along</h2>
@@ -501,7 +516,7 @@ const TeamApp: React.FC = () => {
                                                 src="/images/ready-or-not-logo.png"
                                                 alt="Ready or Not"
                                                 className="w-24 h-auto mx-auto drop-shadow-lg"
-                                                style={{ filter: 'brightness(1.1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5))' }}
+                                                style={{filter: 'brightness(1.1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5))'}}
                                             />
                                         </div>
                                         <h2 className="text-2xl font-bold mb-4 text-white">Ready to Start</h2>

@@ -2,6 +2,8 @@
 import {useEffect} from 'react';
 import {mediaManager} from '@shared/services/MediaManager';
 import {Slide} from '@shared/types/game';
+import {getUserType, UserType} from '@shared/constants/formOptions';
+import {useAuth} from '@app/providers/AuthProvider';
 
 interface UseSlidePreCachingOptions {
     /** Number of slides ahead to precache (default: 3) */
@@ -16,17 +18,22 @@ interface UseSlidePreCachingOptions {
  *
  * @param slides Array of all slides in the presentation
  * @param currentSlideIndex The current slide index
+ * @param gameVersion Game version for 1.5 slide logic
  * @param options Precaching configuration options
  */
 export const useSlidePreCaching = (
     slides: Slide[] | null,
     currentSlideIndex: number | null,
+    gameVersion: string | undefined,
     options: UseSlidePreCachingOptions = {}
 ): void => {
     const {
         precacheCount = 3,
         enabled = true
     } = options;
+
+    const {user} = useAuth();
+    const userType: UserType = getUserType(user);
 
     useEffect(() => {
         // Skip if precaching is disabled
@@ -39,9 +46,9 @@ export const useSlidePreCaching = (
         if (currentSlideIndex < 0 || currentSlideIndex >= slides.length) return;
 
         // Trigger precaching for upcoming slides
-        mediaManager.precacheUpcomingSlides(slides, currentSlideIndex, precacheCount);
+        mediaManager.precacheUpcomingSlides(slides, currentSlideIndex, userType, gameVersion, precacheCount);
 
-    }, [slides, currentSlideIndex, precacheCount, enabled]);
+    }, [slides, currentSlideIndex, precacheCount, enabled, userType, gameVersion]);
 };
 
 /**
@@ -51,10 +58,11 @@ export const useSlidePreCaching = (
 export const useSlidePreCachingWithStats = (
     slides: Slide[] | null,
     currentSlideIndex: number | null,
+    gameVersion: string | undefined,
     options: UseSlidePreCachingOptions = {}
 ) => {
     // Use the main precaching hook
-    useSlidePreCaching(slides, currentSlideIndex, options);
+    useSlidePreCaching(slides, currentSlideIndex, gameVersion, options);
 
     // Return cache management utilities
     return {

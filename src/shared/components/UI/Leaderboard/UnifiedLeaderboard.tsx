@@ -119,6 +119,19 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
         }
     }, [isNetIncomeReveal, sortedData.length]);
 
+    // Listen for scroll commands from host (presentation side)
+    useEffect(() => {
+        const handleHostScroll = (event: CustomEvent) => {
+            const scrollContainer = document.querySelector('.leaderboard-scroll') as HTMLElement;
+            if (scrollContainer) {
+                scrollContainer.scrollTop = event.detail.scrollTop;
+            }
+        };
+
+        window.addEventListener('hostScroll', handleHostScroll as EventListener);
+        return () => window.removeEventListener('hostScroll', handleHostScroll as EventListener);
+    }, []);
+
     // Special rendering for Net Income (bottom-up reveal)
     if (isNetIncomeReveal) {
         return (
@@ -141,7 +154,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
 
                 {/* Leaderboard with bottom-up reveal */}
                 <div
-                    className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
+                    className={`leaderboard-scroll w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
                     {sortedData.map((team, index) => {
                         const width = (team.value / maxPrimary) * 100;
                         const isLeader = isTopTied(team);
@@ -280,7 +293,7 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
 
             {/* Leaderboard with responsive sizing */}
             <div
-                className={`w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
+                className={`leaderboard-scroll w-full ${teamCount > 5 ? 'max-w-5xl' : 'max-w-4xl'} space-y-${barSpacing} max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}>
                 {sortedData.map((team, index) => {
                     const isLeader: boolean = isTopTied(team);
 
