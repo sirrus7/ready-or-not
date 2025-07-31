@@ -50,6 +50,7 @@ export interface SlideUpdate {
         teamRoundData: Record<string, Record<number, TeamRoundData>>;
         teamDecisions: TeamDecision[];
     };
+    gameVersion?: string;
     timestamp: number;
 }
 

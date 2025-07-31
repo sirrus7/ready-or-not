@@ -136,5 +136,3 @@ export const RONBOT_CONFIG = {
     presencePenalty: 0.1,
     frequencyPenalty: 0.1,
 } as const;
-
-export type RonBotConfig = typeof RONBOT_CONFIG;

@@ -10,7 +10,7 @@ export interface TeamConfig {
 }
 
 export interface NewGameData {
-    game_version: '2.0_dd' | '2.0_no_dd';
+    game_version: '2.0_dd' | '2.0_no_dd' | '1.5';
     name: string;
     class_name: string;
     grade_level: string;

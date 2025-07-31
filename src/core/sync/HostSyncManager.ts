@@ -31,12 +31,12 @@ export class HostSyncManager {
     /**
      * Send a slide update to the presentation
      */
-    sendSlideUpdate(slide: Slide, teamData?: {
+    sendSlideUpdate(slide: Slide, gameVersion?: string, teamData?: {
         teams: Team[];
         teamRoundData: Record<string, Record<number, TeamRoundData>>;
         teamDecisions: TeamDecision[];
     }): void {
-        this.broadcastManager.sendSlideUpdate(slide, teamData);
+        this.broadcastManager.sendSlideUpdate(slide, teamData, gameVersion);
     }
 
     sendPresenationClose() {

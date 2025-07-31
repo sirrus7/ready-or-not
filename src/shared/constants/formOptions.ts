@@ -34,7 +34,7 @@ export const ACADEMIC_GRADE_LEVELS = [
 export type BusinessEventType = typeof BUSINESS_EVENT_TYPES[number];
 export type BusinessPlayerType = typeof BUSINESS_PLAYER_TYPES[number];
 export type AcademicGradeLevel = typeof ACADEMIC_GRADE_LEVELS[number];
-export type UserType = 'academic' | 'business';
+export type UserType = 'academic' | 'business' | 'omep';
 
 // Strongly typed options interfaces
 interface FormOptions {
@@ -71,5 +71,7 @@ export const ACADEMIC_OPTIONS: AcademicFormOptions = {
 // Strictly typed user type detection
 export const getUserType = (user: any): UserType => {
     const userType = user?.user_metadata?.user_type;
-    return userType === 'business' ? 'business' : 'academic';
+    if (userType === 'omep') return 'omep';
+    if (userType === 'business') return 'business';
+    return 'academic';
 };

@@ -31,6 +31,7 @@ const PresentationApp: React.FC = () => {
     const syncManager = usePresentationSyncManager(sessionId || null);
     const connectionTimeoutRef = useRef<NodeJS.Timeout>();
     const previousConnectionStateRef = useRef<boolean>(false);
+    const [gameVersion, setGameVersion] = useState<string | undefined>(undefined);
 
     // Log state changes
     useEffect(() => {
@@ -48,8 +49,9 @@ const PresentationApp: React.FC = () => {
 
     useEffect(() => {
         if (!syncManager) return;
-        const unsub = syncManager.onSlideUpdate((slide, teamData) => {
+        const unsub = syncManager.onSlideUpdate((slide: Slide, teamData, gameVersion: string | undefined) => {
             setCurrentSlide(slide);
+            setGameVersion(gameVersion);
             setIsConnectedToHost(true);
             setStatusMessage('Connected - Presentation Display Active');
             setConnectionError(false);
@@ -222,6 +224,7 @@ const PresentationApp: React.FC = () => {
                 teams={broadcastedTeamData?.teams || []}
                 teamRoundData={broadcastedTeamData?.teamRoundData || {}}
                 teamDecisions={broadcastedTeamData?.teamDecisions || []}
+                gameVersion={gameVersion}
                 onVideoControl={api => {
                     videoDebug.videoLog('PresentationApp', 'Received video control API:', {
                         hasSendCommand: !!api.sendCommand

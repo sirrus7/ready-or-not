@@ -193,13 +193,14 @@ export class HostBroadcastManager {
         teams: Team[];
         teamRoundData: Record<string, Record<number, TeamRoundData>>;
         teamDecisions: TeamDecision[];
-    }): void {
+    }, gameVersion?: string): void {
         if (this.isDestroyed) return;
         const update: SlideUpdate = {
             type: BroadcastEventType.SLIDE_UPDATE,
             sessionId: this.sessionId,
             slide,
             teamData,
+            gameVersion,
             timestamp: Date.now()
         };
         this.sendMessage(update);

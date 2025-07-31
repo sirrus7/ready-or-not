@@ -275,8 +275,8 @@ const HostApp: React.FC = () => {
     // Sync: Send slide updates to presentation
     useEffect(() => {
         if (!hostSyncManager || !currentSlideData) return;
-        hostSyncManager.sendSlideUpdate(currentSlideData, teamData);
-    }, [hostSyncManager, currentSlideData, teamData]);
+        hostSyncManager.sendSlideUpdate(currentSlideData, gameVersion, teamData);
+    }, [hostSyncManager, currentSlideData, gameVersion, teamData]);
 
     // Sync: Send join info updates
     useEffect(() => {
@@ -514,7 +514,10 @@ const HostApp: React.FC = () => {
                     <div className="flex-grow relative w-full bg-black rounded-t-lg overflow-hidden">
                         <div className="absolute inset-0 flex items-center justify-center">
                             <div className="w-full h-full">
-                                <SlideRenderer {...memoizedSlideRendererProps} />
+                                <SlideRenderer
+                                    {...memoizedSlideRendererProps}
+                                    gameVersion={gameVersion}
+                                />
                             </div>
                         </div>
                         {currentSlideData && (

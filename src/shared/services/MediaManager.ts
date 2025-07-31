@@ -5,6 +5,7 @@ import {supabase} from '@shared/services/supabase';
 import {Slide} from '@shared/types/game';
 import {UserType} from '@shared/constants/formOptions';
 import {hasBusinessVersion} from '@shared/constants/businessSlides';
+import {hasVersion15} from "@shared/constants/version15Slides.ts";
 
 interface CachedUrl {
     url: string;
@@ -29,7 +30,7 @@ class MediaManager {
     private readonly DEFAULT_PRECACHE_COUNT: number = 3; // Default number of slides to precache ahead
 
     // Track precaching operations to avoid duplicates
-    private precachingInProgress = new Set<string>();
+    private precachingInProgress: Set<string> = new Set<string>();
     private lastPrecacheSlideIndex: number | null = null;
 
     private constructor() {
@@ -126,18 +127,28 @@ class MediaManager {
     }
 
     /**
-     * Gets signed URL with business/academic fallback logic
-     * Only tries business version for slides that actually have business variants
+     * Gets signed URL with version hierarchy fallback logic
+     * Version 1.5: version15 slides → business slides → standard slides
+     * Business users: business slides → standard slides
+     * Academic users: standard slides only
      */
-    public async getSignedUrlWithFallback(fileName: string, userType: UserType, skipBlobCache: boolean = false): Promise<string> {
-        // For academic users or slides without business versions, use original path
-        if (userType === 'academic' || !hasBusinessVersion(fileName)) {
-            return await this.getSignedUrl(fileName, skipBlobCache);
+    public async getSignedUrlWithFallback(fileName: string, userType: UserType, gameVersion?: string, skipBlobCache: boolean = false): Promise<string> {
+        // For version 1.5, try version15 folder first
+        if (gameVersion === '1.5') {
+            if (hasVersion15(fileName)) {
+                const version15Path = `business/version15/${fileName}`;
+                return await this.getSignedUrl(version15Path, skipBlobCache);
+            }
         }
 
-        // For business users with slides that have business versions, use business path
-        const businessPath = `business/${fileName}`;
-        return await this.getSignedUrl(businessPath, skipBlobCache);
+        // If we are a business user or omep override the default content
+        if ((userType === 'business' || userType === 'omep') && hasBusinessVersion(fileName)) {
+            const businessPath = `business/${fileName}`;
+            return await this.getSignedUrl(businessPath, skipBlobCache);
+        }
+
+        // Get standard content
+        return await this.getSignedUrl(fileName, skipBlobCache);
     }
 
     /**
@@ -145,6 +156,7 @@ class MediaManager {
      * @param slides Array of all slides in the presentation
      * @param currentSlideIndex The current slide index
      * @param userType Business or Academic
+     * @param gameVersion The version to use
      * @param precacheCount Number of slides ahead to precache (default: 3)
      * @param includeCurrent Whether to precache the current slide (default: true)
      */
@@ -152,6 +164,7 @@ class MediaManager {
         slides: Slide[],
         currentSlideIndex: number,
         userType: UserType,
+        gameVersion?: string,
         precacheCount: number = this.DEFAULT_PRECACHE_COUNT,
         includeCurrent: boolean = true
     ): void {
@@ -174,7 +187,7 @@ class MediaManager {
                     const cached = this.urlCache.get(sourcePath);
                     if (!cached || cached.expiresAt <= Date.now()) {
                         this.precachingInProgress.add(sourcePath);
-                        this.precacheSingleSlide(sourcePath, userType)
+                        this.precacheSingleSlide(sourcePath, userType, gameVersion)
                             .finally(() => {
                                 this.precachingInProgress.delete(sourcePath);
                             });
@@ -205,7 +218,7 @@ class MediaManager {
             // Start precaching this slide
             this.precachingInProgress.add(sourcePath);
 
-            this.precacheSingleSlide(sourcePath, userType)
+            this.precacheSingleSlide(sourcePath, userType, gameVersion)
                 .finally(() => {
                     this.precachingInProgress.delete(sourcePath);
                 });
@@ -217,11 +230,12 @@ class MediaManager {
      * This is useful for precaching the current slide when navigating.
      * @param fileName The source path of the slide media
      * @param userType The user type for business/academic path resolution
+     * @param gameVersion the version to load
      */
-    public async precacheSingleSlide(fileName: string, userType: UserType): Promise<void> {
+    public async precacheSingleSlide(fileName: string, userType: UserType, gameVersion?: string): Promise<void> {
         try {
             // Skip blob caching for precaching to avoid JWT timing issues
-            await this.getSignedUrlWithFallback(fileName, userType, true);
+            await this.getSignedUrlWithFallback(fileName, userType, gameVersion, true);
         } catch (error) {
             console.warn(`[MediaManager] Failed to precache ${fileName}:`,
                 error instanceof Error ? error.message : 'Unknown error');

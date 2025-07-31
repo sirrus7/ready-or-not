@@ -21,6 +21,7 @@ export interface SlideRendererProps {
     teams?: Team[];
     teamRoundData?: Record<string, Record<number, TeamRoundData>>;
     teamDecisions?: TeamDecision[];
+    gameVersion?: string;
     /**
      * Optional callback to expose imperative video control API to parent.
      * Called with { sendCommand } for video slides.
@@ -122,12 +123,13 @@ const SlideRenderer: React.FC<SlideRendererProps> = ({
                                                          teams,
                                                          teamRoundData,
                                                          teamDecisions,
+                                                         gameVersion,
                                                          onVideoControl
                                                      }) => {
     const [videoError, setVideoError] = useState(false);
 
     // Use the hook to get the signed URL for the current slide's media
-    const {url: sourceUrl, isLoading: isUrlLoading, error: urlError} = useSignedMediaUrl(slide?.source_path);
+    const {url: sourceUrl, isLoading: isUrlLoading, error: urlError} = useSignedMediaUrl(slide?.source_path, gameVersion);
 
     const isVideoSlide = isVideo(slide?.source_path);
 
