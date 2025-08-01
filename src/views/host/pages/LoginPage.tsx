@@ -1,4 +1,4 @@
-// src/pages/LoginPage.tsx
+// src/views/host/pages/LoginPage.tsx - SIMPLIFIED VERSION
 import React, {useState, useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
@@ -9,13 +9,20 @@ const LoginPage: React.FC = () => {
     const [password, setPassword] = useState('');
     const [isSignUp, setIsSignUp] = useState(false);
     const [error, setError] = useState('');
-    const {signIn, signUp, user, loading: authLoading} = useAuth(); // Added authLoading
+    const {signIn, signUp, user, loading: authLoading} = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
         document.title = "Ready or Not - Login";
-        // Redirect if user is already logged in and auth is not loading
+    }, []);
+
+    // 🔧 SIMPLIFIED: Only redirect after successful manual login
+    // Magic link routing is now handled by MagicLinkHandler
+    useEffect(() => {
+        // Only redirect if user exists and we're not in a loading state
+        // This handles the case where someone manually logs in via the form
         if (!authLoading && user) {
+            console.log('✅ User authenticated via login form, redirecting to dashboard');
             navigate('/dashboard', {replace: true});
         }
     }, [user, authLoading, navigate]);
@@ -24,94 +31,129 @@ const LoginPage: React.FC = () => {
         e.preventDefault();
         setError('');
 
+        if (!email || !password) {
+            setError('Please enter both email and password');
+            return;
+        }
+
         try {
             if (isSignUp) {
+                console.log('📝 Creating new account for:', email);
                 await signUp(email, password);
-                // Optional: Automatically sign in after successful sign up
-                // await signIn(email, password);
-                // Or, just tell them to log in now
-                setIsSignUp(false); // Switch to login view
-                alert("Account created successfully! Please sign in."); // Or a more sophisticated notification
+                // Switch to login view after successful signup
+                setIsSignUp(false);
+                setPassword(''); // Clear password for security
+                alert("Account created successfully! Please sign in."); // TODO: Replace with proper notification
             } else {
+                console.log('🔐 Signing in user:', email);
                 await signIn(email, password);
                 // Navigation is handled by the useEffect above once 'user' state updates
             }
         } catch (err) {
+            console.error('Login/Signup error:', err);
             setError(err instanceof Error ? err.message : 'An error occurred');
         }
     };
 
+    // Show loading state while authenticating
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-game-orange-500 mx-auto mb-4"></div>
+                    <p className="text-gray-700">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-            <div
-                className="max-w-md w-full bg-white rounded-lg shadow-xl border border-gray-200 p-8"> {/* Enhanced styling */}
-                <div className="flex items-center justify-center mb-6"> {/* Reduced margin */}
-                    <LogIn className="w-10 h-10 text-game-orange-600"/> {/* Slightly smaller icon */}
+            <div className="max-w-md w-full bg-white rounded-lg shadow-xl border border-gray-200 p-8">
+                <div className="flex items-center justify-center mb-6">
+                    <LogIn className="w-10 h-10 text-game-orange-600"/>
                 </div>
 
-                <h2 className="text-2xl font-bold text-center text-gray-800 mb-6"> {/* Reduced margin */}
-                    {isSignUp ? 'Create Host Account' : 'Host Login'}
+                <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">
+                    {isSignUp ? 'Create Account' : 'Welcome Back'}
                 </h2>
 
-                {error && (
-                    <div className="mb-4 p-3 bg-red-100 text-red-700 border border-red-200 rounded-md text-sm">
-                        {error}
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-5"> {/* Slightly reduced spacing */}
+                <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="email"
-                               className="block text-sm font-medium text-gray-700 mb-1"> {/* Added htmlFor */}
-                            Email Address
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                            Email
                         </label>
                         <input
-                            id="email" // Added id
                             type="email"
+                            id="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500" // Added shadow-sm, rounded-md
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-transparent"
+                            placeholder="Enter your email"
                             required
-                            autoComplete="email"
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="password"
-                               className="block text-sm font-medium text-gray-700 mb-1"> {/* Added htmlFor */}
+                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                             Password
                         </label>
                         <input
-                            id="password" // Added id
                             type="password"
+                            id="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500" // Added shadow-sm, rounded-md
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-transparent"
+                            placeholder="Enter your password"
                             required
-                            autoComplete={isSignUp ? "new-password" : "current-password"}
                         />
                     </div>
 
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+                            {error}
+                        </div>
+                    )}
+
                     <button
                         type="submit"
-                        className="w-full bg-game-orange-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-game-orange-700 focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:ring-offset-2 transition-colors duration-150 ease-in-out" // Enhanced styling
+                        className="w-full bg-game-orange-600 text-white py-2 px-4 rounded-md hover:bg-game-orange-700 focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:ring-offset-2 transition-colors"
+                        disabled={authLoading}
                     >
-                        {isSignUp ? 'Create Account' : 'Sign In'}
+                        {authLoading ? (
+                            <div className="flex items-center justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                                Processing...
+                            </div>
+                        ) : (
+                            isSignUp ? 'Create Account' : 'Sign In'
+                        )}
                     </button>
                 </form>
 
                 <div className="mt-6 text-center">
                     <button
+                        type="button"
                         onClick={() => {
                             setIsSignUp(!isSignUp);
                             setError('');
-                        }} // Clear error on toggle
-                        className="text-sm text-game-orange-600 hover:text-game-orange-800 hover:underline focus:outline-none" // Added focus style
+                            setPassword('');
+                        }}
+                        className="text-game-orange-600 hover:text-game-orange-800 text-sm font-medium"
                     >
                         {isSignUp
                             ? 'Already have an account? Sign in'
-                            : "Don't have an account? Sign up"}
+                            : "Don't have an account? Create one"
+                        }
                     </button>
+                </div>
+
+                {/* Magic Link Info */}
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800 text-center">
+                        <strong>Coming from Global Game Loader?</strong><br/>
+                        You should be automatically signed in. If not, please contact support.
+                    </p>
                 </div>
             </div>
         </div>
