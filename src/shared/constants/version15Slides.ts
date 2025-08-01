@@ -50,6 +50,11 @@ export const VERSION_15_SLIDE_PATHS: Set<string> = new Set([
     'Slide_039.jpg',
     'Slide_040.jpg',
     'Slide_041.jpg',
+    'Slide_043.jpg',
+    'Slide_044.jpg',
+    'Slide_045.jpg',
+    'Slide_046.jpg',
+    'Slide_047.jpg',
 ]);
 
 /**

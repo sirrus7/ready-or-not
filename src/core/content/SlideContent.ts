@@ -401,7 +401,7 @@ export const allGameSlides: Slide[] = [
         id: 42,
         round_number: 1,
         title: "CH3: Recession Setup",
-        type: 'consequence_reveal',  // ← CHANGED from 'video'
+        type: 'consequence_reveal',
         main_text: "Recession Impact",
         sub_text: "Economic downturn affects all companies",
         details: ["-1000 Orders"],

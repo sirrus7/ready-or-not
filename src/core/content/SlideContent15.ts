@@ -326,6 +326,36 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_041.jpg',
                     type: image,
                 };
+            case 42:
+                return {
+                    ...slide,
+                    source_path: 'Slide_043.jpg',
+                    type: consequence_reveal,
+                };
+            case 43:
+                return {
+                    ...slide,
+                    source_path: 'Slide_044.jpg',
+                    type: image,
+                };
+            case 44:
+                return {
+                    ...slide,
+                    source_path: 'Slide_045.jpg',
+                    type: image,
+                };
+            case 45:
+                return {
+                    ...slide,
+                    source_path: 'Slide_046.jpg',
+                    type: image,
+                };
+            case 46:
+                return {
+                    ...slide,
+                    source_path: 'Slide_047.jpg',
+                    type: image,
+                };
             default:
                 return slide;
         }
