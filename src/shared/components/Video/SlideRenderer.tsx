@@ -91,6 +91,20 @@ const SlideContent: React.FC<{
         }
 
         default:
+            // If there's a source URL, render as image first
+            if (sourceUrl) {
+                return (
+                    <div className={`w-full h-full flex items-center justify-center p-2 ${className}`}>
+                        <img
+                            src={sourceUrl}
+                            alt={slide.title || 'Slide Image'}
+                            className="max-w-full max-h-full object-contain"
+                        />
+                    </div>
+                );
+            }
+
+            // Fallback to overlay if no image is provided
             return (
                 <div className={`w-full h-full flex items-center justify-center p-4 ${className}`}>
                     <div
@@ -102,6 +116,18 @@ const SlideContent: React.FC<{
                         <p className="text-md sm:text-lg text-gray-300 mb-4">
                             {slide.sub_text || "Refer to your team device."}
                         </p>
+                        {slide.details && slide.details.length > 0 && (
+                            <div className="mt-4 space-y-2">
+                                {slide.details.map((detail, index) => (
+                                    <div
+                                        key={index}
+                                        className="text-sm sm:text-base text-gray-400 bg-slate-700/50 rounded-lg px-3 py-2"
+                                    >
+                                        {detail}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             );
