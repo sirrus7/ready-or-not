@@ -9,7 +9,26 @@ export const VERSION_15_SLIDE_PATHS: Set<string> = new Set([
     'Slide_005.jpg',
     'Slide_006.jpg',
     'Slide_007.jpg',
-    // Add any other slides that actually exist in your business/version15/ folder
+    'Slide_006_1.mp4',
+    'Slide_006_2.jpg',
+    'Slide_006_3.jpg',
+    'Slide_006_4.jpg',
+    'Slide_006_5.jpg',
+    'Slide_006_6.jpg',
+    'Slide_006_7.jpg',
+    'Slide_006_8.jpg',
+    'Slide_006_9.jpg',
+    'Slide_006_10.jpg',
+    'Slide_007.jpg',
+    'Slide_008.jpg',
+    'Slide_009.jpg',
+    'Slide_010.jpg',
+    'Slide_012.jpg',
+    'Slide_013.jpg',
+    'Slide_014.jpg',
+    'Slide_015.jpg',
+    'Slide_016.jpg',
+    'Slide_017.jpg',
 ]);
 
 /**
