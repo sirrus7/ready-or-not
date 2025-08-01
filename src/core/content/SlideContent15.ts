@@ -194,6 +194,132 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_017.jpg',
                     type: 'image',
                 };
+            case 18:
+                return {
+                    ...slide,
+                    source_path: 'Slide_019.jpg',
+                    type: 'image',
+                };
+            case 19:
+                return {
+                    ...slide,
+                    source_path: 'Slide_020.jpg',
+                    type: 'image',
+                };
+            case 20:
+                return {
+                    ...slide,
+                    source_path: 'Slide_021.jpg',
+                    type: 'image',
+                };
+            case 21:
+                return {
+                    ...slide,
+                    source_path: 'Slide_022.jpg',
+                    type: 'image',
+                };
+            case 22:
+                return {
+                    ...slide,
+                    source_path: 'Slide_023.jpg',
+                    type: 'image',
+                };
+            case 23:
+                return {
+                    ...slide,
+                    source_path: 'Slide_024.jpg',
+                    type: 'image',
+                };
+            case 24:
+                return {
+                    ...slide,
+                    source_path: 'Slide_025.jpg',
+                    type: 'image',
+                };
+            case 25:
+                return {
+                    ...slide,
+                    source_path: 'Slide_026.jpg',
+                    type: 'image',
+                };
+            case 27:
+                return {
+                    ...slide,
+                    source_path: 'Slide_028.jpg',
+                    type: 'image',
+                };
+            case 28:
+                return {
+                    ...slide,
+                    source_path: 'Slide_029.jpg',
+                    type: 'image',
+                };
+            case 29:
+                return {
+                    ...slide,
+                    source_path: 'Slide_030.jpg',
+                    type: 'image',
+                };
+            case 30:
+                return {
+                    ...slide,
+                    source_path: 'Slide_031.jpg',
+                    type: 'image',
+                };
+            case 31:
+                return {
+                    ...slide,
+                    source_path: 'Slide_032.jpg',
+                    type: 'image',
+                };
+            case 33:
+                return {
+                    ...slide,
+                    source_path: 'Slide_034.jpg',
+                    type: 'image',
+                };
+            case 34:
+                return {
+                    ...slide,
+                    source_path: 'Slide_035.jpg',
+                    type: 'image',
+                };
+            case 35:
+                return {
+                    ...slide,
+                    source_path: 'Slide_036.jpg',
+                    type: 'image',
+                };
+            case 36:
+                return {
+                    ...slide,
+                    source_path: 'Slide_037.jpg',
+                    type: 'image',
+                };
+            case 37:
+                return {
+                    ...slide,
+                    source_path: 'Slide_038.jpg',
+                    type: 'image',
+                };
+            case 38:
+                return {
+                    ...slide,
+                    source_path: 'Slide_039.jpg',
+                    type: 'image',
+                };
+            case 39:
+                return {
+                    ...slide,
+                    source_path: 'Slide_040.jpg',
+                    type: 'image',
+                };
+            case 40:
+                return {
+                    ...slide,
+                    source_path: 'Slide_041.jpg',
+                    type: 'image',
+                };
             default:
                 return slide;
         }
