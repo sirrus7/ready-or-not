@@ -71,8 +71,8 @@ refresh_token_reuse_interval = 10
 # FIXED: Security settings for magic links
 # Allow longer sessions to prevent premature expiration
 # This is important for magic links that may take time to process
-security_update_password_require_reauthentication = false
-security_manual_linking_enabled = true
+#security_update_password_require_reauthentication = false
+#security_manual_linking_enabled = true
 
 [auth.email]
 # Allow/disallow new user signups via email to your project
