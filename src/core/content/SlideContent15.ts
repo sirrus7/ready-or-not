@@ -98,6 +98,7 @@ export const get15Slides = (): Slide[] => {
     const baseSlides: Slide[] = getFilteredSlides('2.0_no_dd');
     const decimalSlides: Slide[] = createDecimalSlides();
     const image: SlideType = 'image' as SlideType
+    const consequence_reveal: SlideType = 'consequence_reveal' as SlideType
 
     return baseSlides.map(slide => {
         // Override specific slides for version 1.5
@@ -215,25 +216,25 @@ export const get15Slides = (): Slide[] => {
                 return {
                     ...slide,
                     source_path: 'Slide_021.jpg',
-                    type: image,
+                    type: consequence_reveal,
                 };
             case 21:
                 return {
                     ...slide,
                     source_path: 'Slide_022.jpg',
-                    type: image,
+                    type: consequence_reveal,
                 };
             case 22:
                 return {
                     ...slide,
                     source_path: 'Slide_023.jpg',
-                    type: image,
+                    type: consequence_reveal,
                 };
             case 23:
                 return {
                     ...slide,
                     source_path: 'Slide_024.jpg',
-                    type: image,
+                    type: consequence_reveal,
                 };
             case 24:
                 return {
@@ -293,25 +294,25 @@ export const get15Slides = (): Slide[] => {
                 return {
                     ...slide,
                     source_path: 'Slide_036.jpg',
-                    type: image,
+                    type: consequence_reveal,
                 };
             case 36:
                 return {
                     ...slide,
                     source_path: 'Slide_037.jpg',
-                    type: image,
+                    type: consequence_reveal,
                 };
             case 37:
                 return {
                     ...slide,
                     source_path: 'Slide_038.jpg',
-                    type: image,
+                    type: consequence_reveal,
                 };
             case 38:
                 return {
                     ...slide,
                     source_path: 'Slide_039.jpg',
-                    type: image,
+                    type: consequence_reveal,
                 };
             case 39:
                 return {
