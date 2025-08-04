@@ -702,7 +702,7 @@ export const allGameSlides: Slide[] = [
     {
         id: 67,
         round_number: 2,  // ✅ CORRECT: This is where Round 2 actually starts
-        title: "KPI Reset Example",
+        title: "KPI Reset",
         type: 'kpi_reset',
         source_path: 'Slide_068.mp4',
         auto_advance_after_video: false,

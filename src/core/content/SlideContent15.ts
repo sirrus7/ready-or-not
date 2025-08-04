@@ -98,7 +98,10 @@ export const get15Slides = (): Slide[] => {
     const baseSlides: Slide[] = getFilteredSlides('2.0_no_dd');
     const decimalSlides: Slide[] = createDecimalSlides();
     const image: SlideType = 'image' as SlideType
+    const interactive_invest: SlideType = 'interactive_invest' as SlideType
     const consequence_reveal: SlideType = 'consequence_reveal' as SlideType
+    const payoff_reveal: SlideType = 'payoff_reveal' as SlideType
+    const kpi_reset: SlideType = 'kpi_reset' as SlideType
 
     return baseSlides.map(slide => {
         // Override specific slides for version 1.5
@@ -354,6 +357,325 @@ export const get15Slides = (): Slide[] => {
                 return {
                     ...slide,
                     source_path: 'Slide_047.jpg',
+                    type: image,
+                };
+            case 48:
+                return {
+                    ...slide,
+                    source_path: 'Slide_049.jpg',
+                    type: image,
+                };
+            case 49:
+                return {
+                    ...slide,
+                    source_path: 'Slide_050.jpg',
+                    type: image,
+                };
+
+            case 50:
+                return {
+                    ...slide,
+                    source_path: 'Slide_051.jpg',
+                    type: consequence_reveal,
+                };
+            case 51:
+                return {
+                    ...slide,
+                    source_path: 'Slide_052.jpg',
+                    type: consequence_reveal,
+                };
+            case 52:
+                return {
+                    ...slide,
+                    source_path: 'Slide_053.jpg',
+                    type: consequence_reveal,
+                };
+            case 53:
+                return {
+                    ...slide,
+                    source_path: 'Slide_054.jpg',
+                    type: consequence_reveal,
+                };
+            case 54:
+                return {
+                    ...slide,
+                    source_path: 'Slide_055.jpg',
+                    type: image,
+                };
+            case 55:
+                return {
+                    ...slide,
+                    source_path: 'Slide_056.jpg',
+                    type: image,
+                };
+            case 56:
+                return {
+                    ...slide,
+                    source_path: 'Slide_057.jpg',
+                    type: payoff_reveal,
+                };
+            case 57:
+                return {
+                    ...slide,
+                    source_path: 'Slide_058.jpg',
+                    type: payoff_reveal,
+                };
+            case 58:
+                return {
+                    ...slide,
+                    source_path: 'Slide_059.jpg',
+                    type: payoff_reveal,
+                };
+            case 59:
+                return {
+                    ...slide,
+                    source_path: 'Slide_060.jpg',
+                    type: payoff_reveal,
+                };
+            case 60:
+                return {
+                    ...slide,
+                    source_path: 'Slide_061.jpg',
+                    type: payoff_reveal,
+                };
+            case 61:
+                return {
+                    ...slide,
+                    source_path: 'Slide_062.jpg',
+                    type: payoff_reveal,
+                };
+            case 62:
+                return {
+                    ...slide,
+                    source_path: 'Slide_063.jpg',
+                    type: image,
+                };
+            case 63:
+                return {
+                    ...slide,
+                    source_path: 'Slide_064.jpg',
+                    type: image,
+                };
+            case 64:
+                return {
+                    ...slide,
+                    source_path: 'Slide_065.jpg',
+                    type: image,
+                };
+            case 65:
+                return {
+                    ...slide,
+                    source_path: 'Slide_066.jpg',
+                    type: image,
+                };
+            case 66:
+                return {
+                    ...slide,
+                    source_path: 'Slide_067.jpg',
+                    type: image,
+                };
+            case 67:
+                return {
+                    ...slide,
+                    source_path: 'Slide_068.jpg',
+                    type: kpi_reset,
+                };
+            case 68:
+                return {
+                    ...slide,
+                    source_path: 'Slide_069.jpg',
+                    type: image,
+                };
+            case 69:
+                return {
+                    ...slide,
+                    source_path: 'Slide_070.jpg',
+                    type: image,
+                };
+            case 70:
+                return {
+                    ...slide,
+                    source_path: 'Slide_071.jpg',
+                    type: interactive_invest,
+                };
+            case 71:
+                return {
+                    ...slide,
+                    source_path: 'Slide_072.jpg',
+                    type: image,
+                };
+            case 72:
+                return {
+                    ...slide,
+                    source_path: 'Slide_073.jpg',
+                    type: image,
+                };
+            case 74:
+                return {
+                    ...slide,
+                    source_path: 'Slide_075.jpg',
+                    type: image,
+                };
+            case 75:
+                return {
+                    ...slide,
+                    source_path: 'Slide_076.jpg',
+                    type: image,
+                };
+            case 76:
+                return {
+                    ...slide,
+                    source_path: 'Slide_077.jpg',
+                    type: image,
+                };
+            case 77:
+                return {
+                    ...slide,
+                    source_path: 'Slide_078.jpg',
+                    type: image,
+                };
+            case 79:
+                return {
+                    ...slide,
+                    source_path: 'Slide_080.jpg',
+                    type: image,
+                };
+            case 80:
+                return {
+                    ...slide,
+                    source_path: 'Slide_081.jpg',
+                    type: image,
+                };
+            case 81:
+                return {
+                    ...slide,
+                    source_path: 'Slide_082.jpg',
+                    type: image,
+                };
+            case 82:
+                return {
+                    ...slide,
+                    source_path: 'Slide_083.jpg',
+                    type: consequence_reveal,
+                };
+            case 83:
+                return {
+                    ...slide,
+                    source_path: 'Slide_084.jpg',
+                    type: consequence_reveal,
+                };
+            case 84:
+                return {
+                    ...slide,
+                    source_path: 'Slide_085.jpg',
+                    type: consequence_reveal,
+                };
+            case 85:
+                return {
+                    ...slide,
+                    source_path: 'Slide_086.jpg',
+                    type: image,
+                };
+            case 86:
+                return {
+                    ...slide,
+                    source_path: 'Slide_087.jpg',
+                    type: consequence_reveal,
+                };
+            case 87:
+                return {
+                    ...slide,
+                    source_path: 'Slide_088.jpg',
+                    type: image,
+                };
+            case 88:
+                return {
+                    ...slide,
+                    source_path: 'Slide_089.jpg',
+                    type: image,
+                };
+            case 89:
+                return {
+                    ...slide,
+                    source_path: 'Slide_090.jpg',
+                    type: image,
+                };
+            case 90:
+                return {
+                    ...slide,
+                    source_path: 'Slide_091.jpg',
+                    type: image,
+                };
+            case 92:
+                return {
+                    ...slide,
+                    source_path: 'Slide_093.jpg',
+                    type: image,
+                };
+            case 93:
+                return {
+                    ...slide,
+                    source_path: 'Slide_094.jpg',
+                    type: consequence_reveal,
+                };
+            case 94:
+                return {
+                    ...slide,
+                    source_path: 'Slide_095.jpg',
+                    type: consequence_reveal,
+                };
+            case 95:
+                return {
+                    ...slide,
+                    source_path: 'Slide_096.jpg',
+                    type: consequence_reveal,
+                };
+            case 96:
+                return {
+                    ...slide,
+                    source_path: 'Slide_097.jpg',
+                    type: consequence_reveal,
+                };
+            case 97:
+                return {
+                    ...slide,
+                    source_path: 'Slide_098.jpg',
+                    type: image,
+                };
+            case 98:
+                return {
+                    ...slide,
+                    source_path: 'Slide_099.jpg',
+                    type: image,
+                };
+            case 100:
+                return {
+                    ...slide,
+                    source_path: 'Slide_101.jpg',
+                    type: consequence_reveal,
+                };
+            case 101:
+                return {
+                    ...slide,
+                    source_path: 'Slide_102.jpg',
+                    type: image,
+                };
+            case 102:
+                return {
+                    ...slide,
+                    source_path: 'Slide_103.jpg',
+                    type: image,
+                };
+            case 103:
+                return {
+                    ...slide,
+                    source_path: 'Slide_104.jpg',
+                    type: image,
+                };
+            case 104:
+                return {
+                    ...slide,
+                    source_path: 'Slide_105.jpg',
                     type: image,
                 };
             default:
