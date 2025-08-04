@@ -678,6 +678,210 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_105.jpg',
                     type: image,
                 };
+            case 106:
+                return {
+                    ...slide,
+                    source_path: 'Slide_107.jpg',
+                    type: image,
+                };
+            case 107:
+                return {
+                    ...slide,
+                    source_path: 'Slide_108.jpg',
+                    type: consequence_reveal,
+                };
+            case 108:
+                return {
+                    ...slide,
+                    source_path: 'Slide_109.jpg',
+                    type: consequence_reveal,
+                };
+            case 109:
+                return {
+                    ...slide,
+                    source_path: 'Slide_110.jpg',
+                    type: consequence_reveal,
+                };
+            case 110:
+                return {
+                    ...slide,
+                    source_path: 'Slide_111.jpg',
+                    type: consequence_reveal,
+                };
+            case 111:
+                return {
+                    ...slide,
+                    source_path: 'Slide_112.jpg',
+                    type: consequence_reveal,
+                };
+            case 112:
+                return {
+                    ...slide,
+                    source_path: 'Slide_113.jpg',
+                    type: image,
+                };
+            case 113:
+                return {
+                    ...slide,
+                    source_path: 'Slide_114.jpg',
+                    type: image,
+                };
+            case 114:
+                return {
+                    ...slide,
+                    source_path: 'Slide_115.jpg',
+                    type: image,
+                };
+            case 115:
+                return {
+                    ...slide,
+                    source_path: 'Slide_116.jpg',
+                    type: image,
+                };
+            case 116:
+                return {
+                    ...slide,
+                    source_path: 'Slide_117.jpg',
+                    type: image,
+                };
+            case 117:
+                return {
+                    ...slide,
+                    source_path: 'Slide_118.jpg',
+                    type: image,
+                };
+            case 119:
+                return {
+                    ...slide,
+                    source_path: 'Slide_120.jpg',
+                    type: image,
+                };
+            case 120:
+                return {
+                    ...slide,
+                    source_path: 'Slide_121.jpg',
+                    type: consequence_reveal,
+                };
+            case 121:
+                return {
+                    ...slide,
+                    source_path: 'Slide_122.jpg',
+                    type: consequence_reveal,
+                };
+            case 122:
+                return {
+                    ...slide,
+                    source_path: 'Slide_123.jpg',
+                    type: consequence_reveal,
+                };
+            case 123:
+                return {
+                    ...slide,
+                    source_path: 'Slide_124.jpg',
+                    type: consequence_reveal,
+                };
+            case 124:
+                return {
+                    ...slide,
+                    source_path: 'Slide_125.jpg',
+                    type: image,
+                };
+            case 125:
+                return {
+                    ...slide,
+                    source_path: 'Slide_126.jpg',
+                    type: image,
+                };
+            case 126:
+                return {
+                    ...slide,
+                    source_path: 'Slide_127.jpg',
+                    type: payoff_reveal,
+                };
+            case 127:
+                return {
+                    ...slide,
+                    source_path: 'Slide_128.jpg',
+                    type: payoff_reveal,
+                };
+            case 128:
+                return {
+                    ...slide,
+                    source_path: 'Slide_129.jpg',
+                    type: payoff_reveal,
+                };
+            case 129:
+                return {
+                    ...slide,
+                    source_path: 'Slide_130.jpg',
+                    type: payoff_reveal,
+                };
+            case 130:
+                return {
+                    ...slide,
+                    source_path: 'Slide_131.jpg',
+                    type: payoff_reveal,
+                };
+            case 131:
+                return {
+                    ...slide,
+                    source_path: 'Slide_132.jpg',
+                    type: payoff_reveal,
+                };
+            case 132:
+                return {
+                    ...slide,
+                    source_path: 'Slide_133.jpg',
+                    type: payoff_reveal,
+                };
+            case 133:
+                return {
+                    ...slide,
+                    source_path: 'Slide_134.jpg',
+                    type: payoff_reveal,
+                };
+            case 134:
+                return {
+                    ...slide,
+                    source_path: 'Slide_135.jpg',
+                    type: payoff_reveal,
+                };
+            case 135:
+                return {
+                    ...slide,
+                    source_path: 'Slide_136.jpg',
+                    type: payoff_reveal,
+                };
+            case 136:
+                return {
+                    ...slide,
+                    source_path: 'Slide_137.jpg',
+                    type: payoff_reveal,
+                };
+            case 137:
+                return {
+                    ...slide,
+                    source_path: 'Slide_138.jpg',
+                    type: payoff_reveal,
+                };
+            case 138:
+                return {
+                    ...slide,
+                    source_path: 'Slide_139.jpg',
+                    type: payoff_reveal,
+                };
+            case 139:
+                return {
+                    ...slide,
+                    source_path: 'Slide_140.jpg',
+                    type: image,
+                };
+            case 140:
+                return {
+                    ...slide,
+                    source_path: 'Slide_141.jpg',
+                    type: image,
+                };
             default:
                 return slide;
         }
