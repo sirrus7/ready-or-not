@@ -5,7 +5,7 @@ import {getFilteredSlides} from './GameStructure';
 /**
  * Creates the decimal slides that go between slide 6 and 7 in version 1.5
  */
-const createDecimalSlides = (): Slide[] => [
+const createSubSlides6 = (): Slide[] => [
     // Video slide after "How to Run"
     {
         id: 6.01,
@@ -91,12 +91,24 @@ const createDecimalSlides = (): Slide[] => [
     },
 ];
 
+const createSubSlides195 = (): Slide[] => [
+    {
+        id: 195.1,
+        round_number: 3,
+        title: "Implications",
+        type: 'image',
+        source_path: 'Slide_196_1.jpg',
+        background_css: 'bg-gray-200'
+    },
+];
+
 /**
  * Creates 1.5 slides with updated titles and filenames
  */
 export const get15Slides = (): Slide[] => {
     const baseSlides: Slide[] = getFilteredSlides('2.0_no_dd');
-    const decimalSlides: Slide[] = createDecimalSlides();
+    const subSlides6: Slide[] = createSubSlides6();
+    const subSlides195: Slide[] = createSubSlides195();
     const image: SlideType = 'image' as SlideType
     const interactive_invest: SlideType = 'interactive_invest' as SlideType
     const consequence_reveal: SlideType = 'consequence_reveal' as SlideType
@@ -882,14 +894,263 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_141.jpg',
                     type: image,
                 };
+            case 141:
+                return {
+                    ...slide,
+                    source_path: 'Slide_142.jpg',
+                    type: image,
+                };
+            case 142:
+                return {
+                    ...slide,
+                    source_path: 'Slide_143.jpg',
+                    type: kpi_reset,
+                };
+            case 143:
+                return {
+                    ...slide,
+                    source_path: 'Slide_144.jpg',
+                    type: interactive_invest,
+                };
+            case 145:
+                return {
+                    ...slide,
+                    source_path: 'Slide_146.jpg',
+                    type: image,
+                };
+            case 147:
+                return {
+                    ...slide,
+                    source_path: 'Slide_148.jpg',
+                    type: image,
+                };
+            case 148:
+                return {
+                    ...slide,
+                    source_path: 'Slide_149.jpg',
+                    type: image,
+                };
+            case 149:
+                return {
+                    ...slide,
+                    source_path: 'Slide_150.jpg',
+                    type: image,
+                };
+            case 150:
+                return {
+                    ...slide,
+                    source_path: 'Slide_151.jpg',
+                    type: image,
+                };
+            case 152:
+                return {
+                    ...slide,
+                    source_path: 'Slide_153.jpg',
+                    type: image,
+                };
+            case 153:
+                return {
+                    ...slide,
+                    source_path: 'Slide_154.jpg',
+                    type: image,
+                };
+            case 154:
+                return {
+                    ...slide,
+                    source_path: 'Slide_155.jpg',
+                    type: consequence_reveal,
+                };
+            case 155:
+                return {
+                    ...slide,
+                    source_path: 'Slide_156.jpg',
+                    type: consequence_reveal,
+                };
+            case 156:
+                return {
+                    ...slide,
+                    source_path: 'Slide_157.jpg',
+                    type: consequence_reveal,
+                };
+            case 157:
+                return {
+                    ...slide,
+                    source_path: 'Slide_158.jpg',
+                    type: image,
+                };
+            case 159:
+                return {
+                    ...slide,
+                    source_path: 'Slide_160.jpg',
+                    type: image,
+                };
+            case 160:
+                return {
+                    ...slide,
+                    source_path: 'Slide_161.jpg',
+                    type: image,
+                };
+            case 161:
+                return {
+                    ...slide,
+                    source_path: 'Slide_162.jpg',
+                    type: image,
+                };
+            case 162:
+                return {
+                    ...slide,
+                    source_path: 'Slide_163.jpg',
+                    type: image,
+                };
+            case 163:
+                return {
+                    ...slide,
+                    source_path: 'Slide_164.jpg',
+                    type: image,
+                };
+            case 165:
+                return {
+                    ...slide,
+                    source_path: 'Slide_166.jpg',
+                    type: image,
+                };
+            case 166:
+                return {
+                    ...slide,
+                    source_path: 'Slide_167.jpg',
+                    type: consequence_reveal,
+                };
+            case 167:
+                return {
+                    ...slide,
+                    source_path: 'Slide_168.jpg',
+                    type: consequence_reveal,
+                };
+            case 168:
+                return {
+                    ...slide,
+                    source_path: 'Slide_169.jpg',
+                    type: consequence_reveal,
+                };
+            case 169:
+                return {
+                    ...slide,
+                    source_path: 'Slide_170.jpg',
+                    type: image,
+                };
+            case 170:
+                return {
+                    ...slide,
+                    source_path: 'Slide_171.jpg',
+                    type: image,
+                };
+            case 171:
+                return {
+                    ...slide,
+                    source_path: 'Slide_172.jpg',
+                    type: payoff_reveal,
+                };
+            case 172:
+                return {
+                    ...slide,
+                    source_path: 'Slide_173.jpg',
+                    type: payoff_reveal,
+                };
+            case 173:
+                return {
+                    ...slide,
+                    source_path: 'Slide_174.jpg',
+                    type: payoff_reveal,
+                };
+            case 174:
+                return {
+                    ...slide,
+                    source_path: 'Slide_175.jpg',
+                    type: payoff_reveal,
+                };
+            case 175:
+                return {
+                    ...slide,
+                    source_path: 'Slide_176.jpg',
+                    type: payoff_reveal,
+                };
+            case 176:
+                return {
+                    ...slide,
+                    source_path: 'Slide_177.jpg',
+                    type: payoff_reveal,
+                };
+            case 177:
+                return {
+                    ...slide,
+                    source_path: 'Slide_178.jpg',
+                    type: payoff_reveal,
+                };
+            case 178:
+                return {
+                    ...slide,
+                    source_path: 'Slide_179.jpg',
+                    type: payoff_reveal,
+                };
+            case 179:
+                return {
+                    ...slide,
+                    source_path: 'Slide_180.jpg',
+                    type: payoff_reveal,
+                };
+            case 180:
+                return {
+                    ...slide,
+                    source_path: 'Slide_181.jpg',
+                    type: payoff_reveal,
+                };
+            case 181:
+                return {
+                    ...slide,
+                    source_path: 'Slide_182.jpg',
+                    type: payoff_reveal,
+                };
+            case 182:
+                return {
+                    ...slide,
+                    source_path: 'Slide_183.jpg',
+                    type: payoff_reveal,
+                };
+            case 183:
+                return {
+                    ...slide,
+                    source_path: 'Slide_184.jpg',
+                    type: payoff_reveal,
+                };
+            case 195:
+                return {
+                    ...slide,
+                    source_path: 'Slide_196.jpg',
+                    type: image,
+                };
+            case 196:
+                return {
+                    ...slide,
+                    source_path: 'Slide_197.jpg',
+                    type: image,
+                };
+            case 197:
+                return {
+                    ...slide,
+                    source_path: 'Slide_198.jpg',
+                    type: image,
+                };
             default:
                 return slide;
         }
     })
-        // Insert decimal slides after slide 6 and before slide 7
+        // Insert decimal slides after slide 6 and slide 195
         .flatMap(slide => {
             if (slide.id === 6) {
-                return [slide, ...decimalSlides];
+                return [slide, ...subSlides6];
+            }
+            if (slide.id === 195) {
+                return [slide, ...subSlides195]
             }
             return slide;
         })
