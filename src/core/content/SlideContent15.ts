@@ -106,7 +106,7 @@ const createSubSlides195 = (): Slide[] => [
  * Creates 1.5 slides with updated titles and filenames
  */
 export const get15Slides = (): Slide[] => {
-    const baseSlides: Slide[] = getFilteredSlides('2.0_no_dd');
+    const baseSlides: Slide[] = getFilteredSlides('2.0_dd');
     const subSlides6: Slide[] = createSubSlides6();
     const subSlides195: Slide[] = createSubSlides195();
     const image: SlideType = 'image' as SlideType
