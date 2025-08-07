@@ -2,6 +2,14 @@
 import {Slide, SlideType} from '@shared/types/game';
 import {getFilteredSlides} from './GameStructure';
 
+const image: SlideType = 'image' as SlideType
+const video: SlideType = 'video' as SlideType
+const interactive_invest: SlideType = 'interactive_invest' as SlideType
+const consequence_reveal: SlideType = 'consequence_reveal' as SlideType
+const interactive_choice: SlideType = 'interactive_choice' as SlideType
+const payoff_reveal: SlideType = 'payoff_reveal' as SlideType
+const kpi_reset: SlideType = 'kpi_reset' as SlideType
+
 /**
  * Creates the decimal slides that go between slide 6 and 7 in version 1.5
  */
@@ -11,7 +19,7 @@ const createSubSlides6 = (): Slide[] => [
         id: 6.01,
         round_number: 0,
         title: "Introduction Video",
-        type: 'video',
+        type: video,
         source_path: 'Slide_006_1.mp4',
         auto_advance_after_video: true,
         background_css: 'bg-gray-200'
@@ -20,73 +28,66 @@ const createSubSlides6 = (): Slide[] => [
     {
         id: 6.02,
         round_number: 0,
-        title: "KPI Tracking",
-        type: 'image',
-        source_path: 'Slide_006_2.jpg',
+        title: "Let's Get It On",
+        type: video,
+        source_path: 'Slide_006_2.mp4',
+        auto_advance_after_video: true,
         background_css: 'bg-gray-200'
     },
     {
         id: 6.03,
         round_number: 0,
-        title: "Let's Get It On",
-        type: 'image',
+        title: "Invest",
+        type: image,
         source_path: 'Slide_006_3.jpg',
         background_css: 'bg-gray-200'
     },
     {
         id: 6.04,
         round_number: 0,
-        title: "Invest",
-        type: 'image',
+        title: "Investments",
+        type: image,
         source_path: 'Slide_006_4.jpg',
         background_css: 'bg-gray-200'
     },
     {
         id: 6.05,
         round_number: 0,
-        title: "Investments",
-        type: 'image',
+        title: "RD-1 Investments",
+        type: image,
         source_path: 'Slide_006_5.jpg',
         background_css: 'bg-gray-200'
     },
     {
         id: 6.06,
         round_number: 0,
-        title: "RD-1 Investments",
-        type: 'image',
+        title: "Team Summary Sheets",
+        type: image,
         source_path: 'Slide_006_6.jpg',
         background_css: 'bg-gray-200'
     },
     {
         id: 6.07,
         round_number: 0,
-        title: "Team Summary Sheets",
-        type: 'image',
+        title: "Team Phone Guru (TPG)",
+        type: image,
         source_path: 'Slide_006_7.jpg',
         background_css: 'bg-gray-200'
     },
     {
         id: 6.08,
         round_number: 0,
-        title: "Team Phone Guru (TPG)",
-        type: 'image',
+        title: "Ready Or Not App",
+        type: image,
         source_path: 'Slide_006_8.jpg',
         background_css: 'bg-gray-200'
     },
     {
         id: 6.09,
         round_number: 0,
-        title: "Ready Or Not App",
-        type: 'image',
-        source_path: 'Slide_006_9.jpg',
-        background_css: 'bg-gray-200'
-    },
-    {
-        id: 6.10,
-        round_number: 0,
         title: "Ready Or Not Phone App",
-        type: 'image',
-        source_path: 'Slide_006_10.jpg',
+        type: image,
+        source_path: 'Slide_006_9.jpg',
         background_css: 'bg-gray-200'
     },
 ];
@@ -96,7 +97,7 @@ const createSubSlides195 = (): Slide[] => [
         id: 195.1,
         round_number: 3,
         title: "Implications",
-        type: 'image',
+        type: image,
         source_path: 'Slide_196_1.jpg',
         background_css: 'bg-gray-200'
     },
@@ -109,11 +110,6 @@ export const get15Slides = (): Slide[] => {
     const baseSlides: Slide[] = getFilteredSlides('2.0_dd');
     const subSlides6: Slide[] = createSubSlides6();
     const subSlides195: Slide[] = createSubSlides195();
-    const image: SlideType = 'image' as SlideType
-    const interactive_invest: SlideType = 'interactive_invest' as SlideType
-    const consequence_reveal: SlideType = 'consequence_reveal' as SlideType
-    const payoff_reveal: SlideType = 'payoff_reveal' as SlideType
-    const kpi_reset: SlideType = 'kpi_reset' as SlideType
 
     return baseSlides.map(slide => {
         // Override specific slides for version 1.5
@@ -215,11 +211,11 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_017.jpg',
                     type: image,
                 };
-            case 18:
+            case 17:
                 return {
                     ...slide,
                     source_path: 'Slide_019.jpg',
-                    type: image,
+                    type: interactive_choice,
                 };
             case 19:
                 return {
@@ -293,11 +289,11 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_032.jpg',
                     type: image,
                 };
-            case 33:
+            case 32:
                 return {
                     ...slide,
                     source_path: 'Slide_034.jpg',
-                    type: image,
+                    type: interactive_choice,
                 };
             case 34:
                 return {
@@ -371,11 +367,11 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_047.jpg',
                     type: image,
                 };
-            case 48:
+            case 47:
                 return {
                     ...slide,
                     source_path: 'Slide_049.jpg',
-                    type: image,
+                    type: interactive_choice,
                 };
             case 49:
                 return {
@@ -412,12 +408,6 @@ export const get15Slides = (): Slide[] => {
                 return {
                     ...slide,
                     source_path: 'Slide_055.jpg',
-                    type: image,
-                };
-            case 55:
-                return {
-                    ...slide,
-                    source_path: 'Slide_056.jpg',
                     type: image,
                 };
             case 56:
@@ -546,11 +536,11 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_078.jpg',
                     type: image,
                 };
-            case 79:
+            case 78:
                 return {
                     ...slide,
                     source_path: 'Slide_080.jpg',
-                    type: image,
+                    type: interactive_choice,
                 };
             case 80:
                 return {
@@ -618,11 +608,11 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_091.jpg',
                     type: image,
                 };
-            case 92:
+            case 91:
                 return {
                     ...slide,
                     source_path: 'Slide_093.jpg',
-                    type: image,
+                    type: interactive_choice,
                 };
             case 93:
                 return {
@@ -690,11 +680,11 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_105.jpg',
                     type: image,
                 };
-            case 106:
+            case 105:
                 return {
                     ...slide,
                     source_path: 'Slide_107.jpg',
-                    type: image,
+                    type: interactive_choice,
                 };
             case 107:
                 return {
@@ -762,11 +752,11 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_118.jpg',
                     type: image,
                 };
-            case 119:
+            case 118:
                 return {
                     ...slide,
                     source_path: 'Slide_120.jpg',
-                    type: image,
+                    type: interactive_choice,
                 };
             case 120:
                 return {
@@ -796,12 +786,6 @@ export const get15Slides = (): Slide[] => {
                 return {
                     ...slide,
                     source_path: 'Slide_125.jpg',
-                    type: image,
-                };
-            case 125:
-                return {
-                    ...slide,
-                    source_path: 'Slide_126.jpg',
                     type: image,
                 };
             case 126:
@@ -942,11 +926,11 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_151.jpg',
                     type: image,
                 };
-            case 152:
+            case 151:
                 return {
                     ...slide,
                     source_path: 'Slide_153.jpg',
-                    type: image,
+                    type: interactive_choice,
                 };
             case 153:
                 return {
@@ -1008,11 +992,11 @@ export const get15Slides = (): Slide[] => {
                     source_path: 'Slide_164.jpg',
                     type: image,
                 };
-            case 165:
+            case 164:
                 return {
                     ...slide,
                     source_path: 'Slide_166.jpg',
-                    type: image,
+                    type: interactive_choice,
                 };
             case 166:
                 return {
@@ -1036,12 +1020,6 @@ export const get15Slides = (): Slide[] => {
                 return {
                     ...slide,
                     source_path: 'Slide_170.jpg',
-                    type: image,
-                };
-            case 170:
-                return {
-                    ...slide,
-                    source_path: 'Slide_171.jpg',
                     type: image,
                 };
             case 171:
@@ -1144,6 +1122,18 @@ export const get15Slides = (): Slide[] => {
                 return slide;
         }
     })
+        // Remove slides not used in 1.5
+        .filter((slide: Slide) =>
+            slide.id !== 158 &&
+            slide.id !== 18 &&
+            slide.id !== 33 &&
+            slide.id !== 48 &&
+            slide.id !== 79 &&
+            slide.id !== 92 &&
+            slide.id !== 106 &&
+            slide.id !== 119 &&
+            slide.id !== 152 &&
+            slide.id !== 165)
         // Insert decimal slides after slide 6 and slide 195
         .flatMap(slide => {
             if (slide.id === 6) {
