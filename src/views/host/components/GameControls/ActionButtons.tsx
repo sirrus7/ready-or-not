@@ -1,6 +1,6 @@
 // src/views/host/components/GameControls/ActionButtons.tsx
 import React from 'react';
-import {Users, QrCode, FileText, LogOut} from 'lucide-react';
+import {Users, QrCode, FileText, LogOut, ExternalLink} from 'lucide-react';
 
 interface ActionButtonsRowProps {
     onOpenJoinInfo: () => void;
@@ -32,6 +32,13 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
             <button onClick={onToggleNotes}
                     className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors border ${showNotes ? 'bg-game-orange-50 text-game-orange-700 border-blue-300' : 'hover:bg-gray-100 text-gray-600 border-gray-300'}`}>
                 <FileText size={16}/> Notes
+            </button>
+            <button
+                onClick={() => window.open('https://chatgpt.com/g/g-681d465a11e88191850316345a0a3731-ready-or-not-2-0-faq-troubleshooting-assistant', '_blank', 'noopener,noreferrer')}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-blue-100 text-blue-600 transition-colors border border-blue-300"
+                type="button"
+                aria-label="RonBot Help">
+                <ExternalLink size={16}/> RonBot Help
             </button>
             <button onClick={onExitGame}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-red-100 text-red-600 transition-colors border border-red-300"
