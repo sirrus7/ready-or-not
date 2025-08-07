@@ -5,6 +5,7 @@ import {InteractiveSlideData, TeamGameEvent, TeamGameEventType} from '@core/sync
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {GameSession, GameStructure, PermanentKpiAdjustment, Slide, TeamRoundData} from '@shared/types';
 import {useTeamGameContext} from "@app/providers/TeamGameProvider";
+import {GameVersionManager} from "@core/game/GameVersionManager.ts";
 
 interface UseTeamGameStateProps {
     sessionId: string | null;
@@ -274,7 +275,8 @@ export const useTeamGameState = ({
                                 if (!session) return;
 
                                 const slideIndex: number = session.current_slide_index || 0;
-                                const initialSlide: Slide = readyOrNotGame_2_0_DD.slides[slideIndex];
+                                const gameStructureToUse: GameStructure = GameVersionManager.getGameStructure(session.game_version);
+                                const initialSlide: Slide = gameStructureToUse.slides[slideIndex];
                                 if (initialSlide) {
                                     setCurrentActiveSlide(initialSlide);
                                     const targetRound: 1 | 2 | 3 = (initialSlide.round_number as 1 | 2 | 3) || 1;

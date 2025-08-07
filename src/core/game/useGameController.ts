@@ -74,6 +74,8 @@ export const useGameController = (
         if (!currentSlideData || !gameStructure || !dbSession?.id) return;
 
         const processEffectSlideAuto = async () => {
+            console.log(`[useGameController] Auto-processing check for slide ${currentSlideData.id}, type: ${currentSlideData.type}`);
+
             // Handle consequence slides
             if (currentSlideData.type === 'consequence_reveal') {
                 // ULTIMATE FIX: Only process if this is a new slide and we're not already processing

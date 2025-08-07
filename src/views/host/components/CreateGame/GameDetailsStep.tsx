@@ -1,11 +1,12 @@
 // src/views/host/components/CreateGame/GameDetailsStep.tsx - Final fix with direct form validation and improved styling
-import React, {useState, useRef} from 'react';
+import React, {useRef, useState} from 'react';
 import {NewGameData} from '@shared/types/ui';
-import {ArrowRight, AlertCircle} from 'lucide-react';
+import {AlertCircle, ArrowRight} from 'lucide-react';
 import GameDetailsForm from './GameDetailsForm';
 import TeamRecommendationDisplay from './TeamRecommendation';
 import {useTeamRecommendations} from '@views/host/hooks/useTeamRecommendations';
 import {GameDetailsStepProps} from './types';
+import {GameVersion} from "@core/game/GameVersionManager.ts";
 
 const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
                                                              gameData,
@@ -46,7 +47,7 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
             num_teams: teamsInput?.value ? parseInt(teamsInput.value, 10) || 0 : gameData.num_teams,
             class_name: classInput?.value || gameData.class_name || '',
             grade_level: gradeSelect?.value || gameData.grade_level || 'Freshman',
-            game_version: (versionSelect?.value as '2.0_dd' | '2.0_no_dd') || gameData.game_version || '2.0_dd',
+            game_version: (versionSelect?.value as GameVersion.V2_0_DD | GameVersion.V2_0_NO_DD) || gameData.game_version || GameVersion.V2_0_DD,
             teams_config: gameData.teams_config || []
         };
     };

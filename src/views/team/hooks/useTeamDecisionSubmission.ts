@@ -243,12 +243,6 @@ export const useTeamDecisionSubmission = ({
                 }
             }
 
-            // Add challenge cost if selected
-            if (decisionState.selectedChallengeOptionId) {
-                // Challenge options don't have costs in current implementation
-                // but structure is ready if needed
-            }
-
             const submissionData: Omit<TeamDecision, 'id' | 'created_at'> = {
                 session_id: sessionId,
                 team_id: teamId,

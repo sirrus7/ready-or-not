@@ -55,13 +55,13 @@ const DecisionModeContainer: React.FC<DecisionModeContainerProps> = ({
         console.log(`[DecisionContainer] Using fallback database data for slide ${currentSlide.id}`);
 
         const investmentOptions = currentSlide.type === 'interactive_invest' ?
-            gameStructure.all_investment_options[dataKey] || [] :
+            (interactiveData?.investmentOptions || gameStructure.all_investment_options[dataKey] || []) :
             currentSlide.type === 'interactive_double_down_select' ?
-                gameStructure.all_investment_options['rd3-invest'] || [] :
+                (interactiveData?.rd3Investments || gameStructure.all_investment_options['rd3-invest'] || []) :
                 [];
 
         const challengeOptions = (currentSlide.type === 'interactive_choice' || currentSlide.type === 'interactive_double_down_select') ?
-            gameStructure.all_challenge_options[dataKey] || [] : [];
+            (interactiveData?.challengeOptions || gameStructure.all_challenge_options[dataKey] || []) : [];
 
         const rd3Investments = currentSlide.type === 'interactive_double_down_select' ?
             gameStructure.all_investment_options['rd3-invest'] || [] : [];

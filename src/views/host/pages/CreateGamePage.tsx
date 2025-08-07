@@ -14,9 +14,10 @@ import {
 import {ArrowLeft, Settings, Printer, Users, ListOrdered, Rocket, Zap, CheckCircle, AlertTriangle} from 'lucide-react';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {UserType, getUserType} from '@shared/constants/formOptions';
+import {GameVersion} from "@core/game/GameVersionManager.ts";
 
 const initialNewGameData: NewGameData = {
-    game_version: '2.0_dd',
+    game_version: GameVersion.V2_0_DD,
     name: '',
     class_name: '',
     grade_level: 'Freshman',

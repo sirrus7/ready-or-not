@@ -41,7 +41,7 @@
  * ============================================================================
  */
 
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import TeamLogin from '@views/team/components/TeamLogin/TeamLogin';
 import DecisionModeContainer from '@views/team/components/InteractionPanel/DecisionContainer';
 import KpiImpactCards from '@views/team/components/GameStatus/KpiImpactCards';
@@ -70,6 +70,8 @@ const TeamApp: React.FC = () => {
     const teamGameContext: TeamGameContextType = useTeamGameContext();
     const sessionId: string | null = teamGameContext.sessionId;
     const {permanentAdjustments, isLoadingAdjustments} = teamGameContext;
+    const kpiChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const pendingKpiChanges = useRef<Record<string, number>>({});
 
     // ========================================================================
     // GAME STATE HOOK - SIMPLIFIED (uses centralized adjustments)
@@ -122,16 +124,39 @@ const TeamApp: React.FC = () => {
             if (Math.abs(change) > 0) {
                 changes[kpi] = change;
                 hasChanges = true;
+
+                console.log(`[TeamApp] KPI Change detected: ${kpi} changed by ${change}`);
             }
         });
 
         if (hasChanges) {
-            setKpiChanges(changes);
-            playNotificationSound();
 
-            setTimeout(() => {
-                setKpiChanges({});
-            }, KPI_CHANGE_DURATION);
+            console.log('[TeamApp] Processing KPI changes:', {
+                changes,
+                slideType: teamGameState.currentActiveSlide?.type,
+                isConsequence: teamGameState.currentActiveSlide?.type === 'consequence_reveal'
+            });
+            // Accumulate pending changes
+            Object.entries(changes).forEach(([key, value]) => {
+                pendingKpiChanges.current[key] = (pendingKpiChanges.current[key] || 0) + value;
+            });
+
+            // Clear any existing timeout
+            if (kpiChangeTimeoutRef.current) {
+                clearTimeout(kpiChangeTimeoutRef.current);
+            }
+
+            // Set new timeout to apply all accumulated changes
+            kpiChangeTimeoutRef.current = setTimeout(() => {
+                setKpiChanges({...pendingKpiChanges.current});
+                pendingKpiChanges.current = {};
+                playNotificationSound(); // Play sound once for all combined changes
+
+                // Clear after animation duration
+                setTimeout(() => {
+                    setKpiChanges({});
+                }, KPI_CHANGE_DURATION);
+            }, 100); // 100ms debounce
         }
 
         setLastKpiValues(newKpiValues);

@@ -112,12 +112,13 @@ const UnifiedLeaderboard: React.FC<UnifiedLeaderboardProps> = ({
     }, [isNetIncomeReveal]);
 
     useEffect(() => {
-        if (isNetIncomeReveal) {
-            // Show all teams immediately for now - will be replaced with click-to-reveal
-            setRevealStage(sortedData.length);
-            setIsVisible(true);
+        if (isNetIncomeReveal && revealStage < sortedData.length) {
+            const timer = setTimeout(() => {
+                setRevealStage(prev => prev + 1);
+            }, 1000);
+            return () => clearTimeout(timer);
         }
-    }, [isNetIncomeReveal, sortedData.length]);
+    }, [isNetIncomeReveal, revealStage, sortedData.length]);
 
     // Listen for scroll commands from host (presentation side)
     useEffect(() => {

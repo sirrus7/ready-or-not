@@ -60,6 +60,17 @@ export class UnifiedEffectsProcessor {
     }
 
     /**
+     * Check if an investment was sacrificed in double down
+     */
+    private isInvestmentSacrificed(teamDecisions: TeamDecision[], investmentId: string): boolean {
+        const ddDecision = teamDecisions.find(d =>
+            d.phase_id === 'ch-dd-prompt' &&
+            d.selected_challenge_option_id === 'yes_dd'
+        );
+        return ddDecision?.double_down_sacrifice_id === investmentId;
+    }
+
+    /**
      * Update props dynamically
      */
     public updateProps(newProps: UnifiedEffectsProcessorProps): void {
@@ -84,6 +95,14 @@ export class UnifiedEffectsProcessor {
      * UPDATED: Added KPI reset slide routing
      */
     public async processEffectSlide(slide: Slide): Promise<void> {
+        console.log(`[UnifiedEffectsProcessor] Processing slide ${slide.id}, type: ${slide.type}`);
+
+        // Add check to prevent processing non-effect slides
+        if (!['consequence_reveal', 'payoff_reveal', 'kpi_reset'].includes(slide.type)) {
+            console.log(`[UnifiedEffectsProcessor] Skipping non-effect slide ${slide.id}`);
+            return;
+        }
+
         const slideKey = `${this.props.currentDbSession?.id}-${slide.id}`;
 
         // Prevent concurrent processing and reprocessing
@@ -248,6 +267,8 @@ export class UnifiedEffectsProcessor {
      * Process KPI reset slides - Uses batch for actual reset slides, individual for others
      */
     private async processKpiResetSlide(slide: Slide): Promise<void> {
+        console.log(`[UnifiedEffectsProcessor] KPI Reset for slide ${slide.id}, round ${slide.round_number}`);
+
         const {
             currentDbSession,
             teams,
@@ -740,7 +761,7 @@ export class UnifiedEffectsProcessor {
                         const hasExpandedShift: boolean = teamDecisions.some(decision =>
                             decision.phase_id === 'rd2-invest' &&
                             decision.selected_investment_options?.includes('C')
-                        );
+                        )
 
                         // Check for Automation (K)
                         const hasAutomation: boolean = teamDecisions.some(decision =>
@@ -815,23 +836,26 @@ export class UnifiedEffectsProcessor {
                     // ✅ NEW: RD-3 BONUSES (slides 182-183)
                 } else if (payoffSlide.id === 182) {
                     // RD-3 Production Efficiency Bonus - requires Production Efficiency (B) + manufacturing investments
-                    const hasProductionEfficiency: boolean = teamDecisions.some(decision =>
-                        decision.phase_id === 'rd3-invest' &&
-                        decision.selected_investment_options?.includes('B')
-                    );
+                    const hasProductionEfficiency: boolean = !this.isInvestmentSacrificed(teamDecisions, 'B') &&
+                        teamDecisions.some(decision =>
+                            decision.phase_id === 'rd3-invest' &&
+                            decision.selected_investment_options?.includes('B')
+                        );
 
                     if (hasProductionEfficiency) {
                         // Check for Expanded 2nd Shift (C)
-                        const hasExpandedShift: boolean = teamDecisions.some(decision =>
-                            decision.phase_id === 'rd3-invest' &&
-                            decision.selected_investment_options?.includes('C')
-                        );
+                        const hasExpandedShift: boolean = !this.isInvestmentSacrificed(teamDecisions, 'C') &&
+                            teamDecisions.some(decision =>
+                                decision.phase_id === 'rd3-invest' &&
+                                decision.selected_investment_options?.includes('C')
+                            );
 
                         // Check for Automation (K)
-                        const hasAutomation: boolean = teamDecisions.some(decision =>
-                            decision.phase_id === 'rd3-invest' &&
-                            decision.selected_investment_options?.includes('K')
-                        );
+                        const hasAutomation: boolean = !this.isInvestmentSacrificed(teamDecisions, 'K') &&
+                            teamDecisions.some(decision =>
+                                decision.phase_id === 'rd3-invest' &&
+                                decision.selected_investment_options?.includes('K')
+                            );
 
                         if (hasExpandedShift) {
                             // 2nd Shift bonus: +1000 CAP, -$300K COSTS
@@ -874,15 +898,17 @@ export class UnifiedEffectsProcessor {
 
                 } else if (payoffSlide.id === 183) {
                     // RD-3 Supply Chain + Distribution Bonus - requires both Supply Chain (D) AND Distribution Channels (G)
-                    const hasSupplyChain: boolean = teamDecisions.some(decision =>
-                        decision.phase_id === 'rd3-invest' &&
-                        decision.selected_investment_options?.includes('D')
-                    );
+                    const hasSupplyChain: boolean = !this.isInvestmentSacrificed(teamDecisions, 'D') &&
+                        teamDecisions.some(decision =>
+                            decision.phase_id === 'rd3-invest' &&
+                            decision.selected_investment_options?.includes('D')
+                        );
 
-                    const hasDistributionChannels: boolean = teamDecisions.some(decision =>
-                        decision.phase_id === 'rd3-invest' &&
-                        decision.selected_investment_options?.includes('G')
-                    );
+                    const hasDistributionChannels: boolean = !this.isInvestmentSacrificed(teamDecisions, 'G') &&
+                        teamDecisions.some(decision =>
+                            decision.phase_id === 'rd3-invest' &&
+                            decision.selected_investment_options?.includes('G')
+                        );
 
                     if (hasSupplyChain && hasDistributionChannels) {
                         // Apply bonus: +2000 Orders, -$100K Costs

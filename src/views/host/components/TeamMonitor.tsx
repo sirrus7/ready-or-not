@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
-import {Slide, TeamDecision} from '@shared/types';
+import {InvestmentOption, Slide, TeamDecision} from '@shared/types';
 import {AlertTriangle, CheckCircle2, Clock, Info,} from 'lucide-react';
 import {useSupabaseQuery} from '@shared/hooks/supabase';
 import {db, supabase} from '@shared/services/supabase';
@@ -269,6 +269,30 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                         hasSubmission: !!decision
                     };
                 }
+            }
+
+            case 'interactive_double_down_select': {
+                if (decision?.selected_challenge_option_id === 'no_dd') {
+                    return {
+                        type: 'choice',
+                        choiceText: 'No Double Down - Keeping all RD-3 investments',
+                        hasSubmission: true
+                    };
+                } else if (decision?.selected_challenge_option_id === 'yes_dd') {
+                    const rd3Investments: InvestmentOption[] = gameStructure.all_investment_options['rd3-invest'] || [];
+                    const sacrificeInv: InvestmentOption | undefined = rd3Investments.find(inv => inv.id === decision.double_down_sacrifice_id);
+                    const doubleDownInv: InvestmentOption | undefined = rd3Investments.find(inv => inv.id === decision.double_down_on_id);
+
+                    return {
+                        type: 'choice',
+                        choiceText: `Sacrifice: ${sacrificeInv?.name || 'Unknown'} → DD on: ${doubleDownInv?.name || 'Unknown'}`,
+                        hasSubmission: true
+                    };
+                }
+                return {
+                    type: 'none',
+                    hasSubmission: false
+                };
             }
 
             default:
