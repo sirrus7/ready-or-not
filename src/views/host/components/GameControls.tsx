@@ -9,8 +9,9 @@ import ExitModal from './GameControls/ExitModal';
 import JoinInfoModal from './GameControls/JoinInfoModal';
 import NotesSection from './GameControls/NotesSection';
 import TeamCodesModal from './GameControls/TeamCodesModal';
-import { useNavigate } from 'react-router-dom';
-import { useHostSyncManager } from '@core/sync/HostSyncManager';
+import {useNavigate} from 'react-router-dom';
+import {useHostSyncManager} from '@core/sync/HostSyncManager';
+import RonBotHelpModal from './GameControls/RonBotHelpModal';
 
 interface GameControlsProps {
     joinInfo: { joinUrl: string; qrCodeDataUrl: string } | null;
@@ -19,13 +20,14 @@ interface GameControlsProps {
     setIsJoinInfoOpen: (open: boolean) => void;
 }
 
-const GameControls: React.FC<GameControlsProps> = ({ joinInfo, setJoinInfo, isJoinInfoOpen, setIsJoinInfoOpen }) => {
-    const {state, currentSlideData, updateHostNotesForCurrentSlide, setCurrentHostAlertState,} = useGameContext();
+const GameControls: React.FC<GameControlsProps> = ({joinInfo, setJoinInfo, isJoinInfoOpen, setIsJoinInfoOpen}) => {
+    const {state, currentSlideData, updateHostNotesForCurrentSlide} = useGameContext();
     const hostSyncManager = useHostSyncManager(state.currentSessionId);
     // Modal states
     const [showNotes, setShowNotes] = useState(false);
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
     const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false);
+    const [isRonBotHelpModalOpen, setIsRonBotHelpModalOpen] = useState(false);
 
     const navigate = useNavigate();
 
@@ -59,6 +61,7 @@ const GameControls: React.FC<GameControlsProps> = ({ joinInfo, setJoinInfo, isJo
                     onOpenJoinInfo={() => setIsJoinInfoOpen(true)}
                     onOpenTeamCodes={() => setIsTeamCodesModalOpen(true)}
                     onToggleNotes={handleNotesToggle}
+                    onOpenRonBotHelp={() => setIsRonBotHelpModalOpen(true)}
                     onExitGame={() => setIsExitConfirmModalOpen(true)}
                     showNotes={showNotes}
                 />
@@ -73,7 +76,7 @@ const GameControls: React.FC<GameControlsProps> = ({ joinInfo, setJoinInfo, isJo
             </div>
 
             {/* Modals */}
-            <AlertModal />
+            <AlertModal/>
 
             <JoinInfoModal
                 isOpen={isJoinInfoOpen}
@@ -93,6 +96,11 @@ const GameControls: React.FC<GameControlsProps> = ({ joinInfo, setJoinInfo, isJo
                 isOpen={isExitConfirmModalOpen}
                 onClose={() => setIsExitConfirmModalOpen(false)}
                 onConfirmExit={onConfirmExit}
+            />
+
+            <RonBotHelpModal
+                isOpen={isRonBotHelpModalOpen}
+                onClose={() => setIsRonBotHelpModalOpen(false)}
             />
         </div>
     );

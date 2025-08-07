@@ -6,6 +6,7 @@ interface ActionButtonsRowProps {
     onOpenJoinInfo: () => void;
     onOpenTeamCodes: () => void;
     onToggleNotes: () => void;
+    onOpenRonBotHelp: () => void;
     onExitGame: () => void;
     showNotes: boolean;
 }
@@ -14,6 +15,7 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
                                                             onOpenJoinInfo,
                                                             onOpenTeamCodes,
                                                             onToggleNotes,
+                                                            onOpenRonBotHelp,
                                                             onExitGame,
                                                             showNotes
                                                         }) => {
@@ -34,10 +36,10 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
                 <FileText size={16}/> Notes
             </button>
             <button
-                onClick={() => window.open('https://chatgpt.com/g/g-681d465a11e88191850316345a0a3731-ready-or-not-2-0-faq-troubleshooting-assistant', '_blank', 'noopener,noreferrer')}
+                onClick={onOpenRonBotHelp}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-blue-100 text-blue-600 transition-colors border border-blue-300"
                 type="button"
-                aria-label="RonBot Help">
+                aria-label="Open RonBot Help">
                 <ExternalLink size={16}/> RonBot Help
             </button>
             <button onClick={onExitGame}
