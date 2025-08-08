@@ -4,10 +4,11 @@ export const BUSINESS_EVENT_TYPES = [
     "Business Development",
     "Employee Training",
     "Marketing",
+    "Game Host Training",
     "Other"
 ] as const;
 
-// Strict typing for business player types  
+// Strict typing for business player types
 export const BUSINESS_PLAYER_TYPES = [
     "Executives",
     "Management",
@@ -27,6 +28,7 @@ export const ACADEMIC_GRADE_LEVELS = [
     "College Junior",
     "College Senior",
     "Professional Development",
+    "Game Host Training",
     "Other"
 ] as const;
 

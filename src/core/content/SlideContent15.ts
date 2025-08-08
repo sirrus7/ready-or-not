@@ -497,7 +497,7 @@ export const get15Slides = (): Slide[] => {
             case 70:
                 return {
                     ...slide,
-                    source_path: 'Slide_071.jpg',
+                    source_path: 'Slide_071.mp4',
                     type: interactive_invest,
                 };
             case 71:
@@ -551,8 +551,8 @@ export const get15Slides = (): Slide[] => {
             case 81:
                 return {
                     ...slide,
-                    source_path: 'Slide_082.jpg',
-                    type: image,
+                    source_path: 'Slide_082.mp4',
+                    type: video,
                 };
             case 82:
                 return {
@@ -689,7 +689,7 @@ export const get15Slides = (): Slide[] => {
             case 107:
                 return {
                     ...slide,
-                    source_path: 'Slide_108.jpg',
+                    source_path: 'Slide_108.mp4',
                     type: consequence_reveal,
                 };
             case 108:
@@ -857,13 +857,13 @@ export const get15Slides = (): Slide[] => {
             case 137:
                 return {
                     ...slide,
-                    source_path: 'Slide_138.jpg',
+                    source_path: 'Slide_138.mp4',
                     type: payoff_reveal,
                 };
             case 138:
                 return {
                     ...slide,
-                    source_path: 'Slide_139.jpg',
+                    source_path: 'Slide_139.mp4',
                     type: payoff_reveal,
                 };
             case 139:
@@ -893,7 +893,7 @@ export const get15Slides = (): Slide[] => {
             case 143:
                 return {
                     ...slide,
-                    source_path: 'Slide_144.jpg',
+                    source_path: 'Slide_144.mp4',
                     type: interactive_invest,
                 };
             case 145:
@@ -935,8 +935,8 @@ export const get15Slides = (): Slide[] => {
             case 153:
                 return {
                     ...slide,
-                    source_path: 'Slide_154.jpg',
-                    type: image,
+                    source_path: 'Slide_154.mp4',
+                    type: video,
                 };
             case 154:
                 return {
@@ -1091,13 +1091,13 @@ export const get15Slides = (): Slide[] => {
             case 182:
                 return {
                     ...slide,
-                    source_path: 'Slide_183.jpg',
+                    source_path: 'Slide_183.mp4',
                     type: payoff_reveal,
                 };
             case 183:
                 return {
                     ...slide,
-                    source_path: 'Slide_184.jpg',
+                    source_path: 'Slide_184.mp4',
                     type: payoff_reveal,
                 };
             case 195:
