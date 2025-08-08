@@ -238,8 +238,13 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
         setDiceResult(result);
 
         // Start dice animation AND intro audio simultaneously
+        // Start dice animation AND intro audio simultaneously
         const diceAnimationPromise = simulateDiceAnimation(3000);
-        const audioPromise = audioManager.playIntroAudio(investmentId);
+        const audioPromise = (async () => {
+            // Wait for ALL audio to finish loading before trying to play
+            await audioManager.loadAllDoubleDownAudio();
+            return audioManager.playIntroAudio(investmentId);
+        })();
 
         // Wait for both to complete
         await Promise.all([diceAnimationPromise, audioPromise]);

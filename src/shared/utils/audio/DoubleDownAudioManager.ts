@@ -48,16 +48,19 @@ class DoubleDownAudioManager {
         try {
             const investments: string[] = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
 
+            // Load all intro audio (unique per investment)
             for (const investmentId of investments) {
-                // Load intro
                 await this.loadIntroAudio(investmentId).catch((err: Error) =>
                     console.warn(`Failed to load intro for ${investmentId}:`, err)
                 );
+            }
 
-                // Load all results for this investment
-                for (let diceTotal: number = 2; diceTotal <= 12; diceTotal++) {
-                    await this.loadSingleResultAudio(investmentId, diceTotal).catch((err: Error) =>
-                        console.warn(`Failed to load result ${diceTotal} for ${investmentId}:`, err)
+            // Load result audio ONCE (shared by all investments)
+            for (let diceTotal: number = 2; diceTotal <= 12; diceTotal++) {
+                const cacheKey: string = `shared-${diceTotal}`;
+                if (!this.resultAudioCache.has(cacheKey)) {
+                    await this.loadSingleResultAudio(diceTotal).catch((err: Error) =>
+                        console.warn(`Failed to load result ${diceTotal}:`, err)
                     );
                 }
             }
@@ -166,18 +169,18 @@ class DoubleDownAudioManager {
     /**
      * Load a single result audio file and cache as blob
      */
-    private async loadSingleResultAudio(investmentId: string, diceTotal: number): Promise<boolean> {
-        // Check if already loaded
-        const cacheKey: string = `${investmentId}-${diceTotal}`;
+    private async loadSingleResultAudio(diceTotal: number): Promise<boolean> {
+        const cacheKey: string = `shared-${diceTotal}`;
+
         if (this.resultAudioCache.has(cacheKey)) {
-            console.log(`[DoubleDownAudioManager] Result audio already loaded for ${investmentId} total ${diceTotal}`);
+            console.log(`[DoubleDownAudioManager] Result audio already loaded for total ${diceTotal}`);
             return true;
         }
 
         try {
-            const resultPath: string | null = getResultAudioPath(investmentId, diceTotal);
+            const resultPath: string | null = getResultAudioPath(diceTotal);
             if (!resultPath) {
-                console.warn(`[DoubleDownAudioManager] No result audio path found for ${investmentId} total ${diceTotal}`);
+                console.warn(`[DoubleDownAudioManager] No result audio path found for total ${diceTotal}`);
                 return false;
             }
 
@@ -198,10 +201,10 @@ class DoubleDownAudioManager {
             const blobUrl: string = URL.createObjectURL(audioBlob);
             this.resultAudioCache.set(cacheKey, blobUrl);
 
-            console.log(`[DoubleDownAudioManager] Successfully loaded result audio for ${investmentId} total ${diceTotal}`);
+            console.log(`[DoubleDownAudioManager] Successfully loaded result audio for total ${diceTotal}`);
             return true;
         } catch (error: unknown) {
-            console.error(`[DoubleDownAudioManager] Failed to load result audio for ${investmentId} total ${diceTotal}:`, error);
+            console.error(`[DoubleDownAudioManager] Failed to load result audio for total ${diceTotal}:`, error);
             return false;
         }
     }
@@ -211,11 +214,12 @@ class DoubleDownAudioManager {
      */
     public async playResultAudio(investmentId: string, diceTotal: number): Promise<boolean> {
         try {
-            const cacheKey: string = `${investmentId}-${diceTotal}`;
+            // Use shared cache key since all investments use the same result audio
+            const cacheKey: string = `shared-${diceTotal}`;
             const blobUrl: string | undefined = this.resultAudioCache.get(cacheKey);
 
             if (!blobUrl) {
-                console.warn(`[DoubleDownAudioManager] No pre-loaded result audio found for ${investmentId} total ${diceTotal}`);
+                console.warn(`[DoubleDownAudioManager] No pre-loaded result audio found for total ${diceTotal}`);
                 return false;
             }
 
