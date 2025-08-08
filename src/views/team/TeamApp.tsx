@@ -70,7 +70,10 @@ const TeamApp: React.FC = () => {
     const teamGameContext: TeamGameContextType = useTeamGameContext();
     const sessionId: string | null = teamGameContext.sessionId;
     const {permanentAdjustments, isLoadingAdjustments} = teamGameContext;
-    const kpiChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // UPDATED: Track both debounce and display timeouts separately
+    const kpiDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const kpiDisplayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const pendingKpiChanges = useRef<Record<string, number>>({});
 
     // ========================================================================
@@ -94,7 +97,6 @@ const TeamApp: React.FC = () => {
         }
     }, [teamGameState.sessionStatus]);
 
-    // ADD this simple useEffect:
     useEffect(() => {
         const currentKpis = teamGameState.currentTeamKpis;
         if (!currentKpis || !lastKpiValues.capacity) {
@@ -130,37 +132,56 @@ const TeamApp: React.FC = () => {
         });
 
         if (hasChanges) {
-
             console.log('[TeamApp] Processing KPI changes:', {
                 changes,
                 slideType: teamGameState.currentActiveSlide?.type,
                 isConsequence: teamGameState.currentActiveSlide?.type === 'consequence_reveal'
             });
+
             // Accumulate pending changes
             Object.entries(changes).forEach(([key, value]) => {
                 pendingKpiChanges.current[key] = (pendingKpiChanges.current[key] || 0) + value;
             });
 
-            // Clear any existing timeout
-            if (kpiChangeTimeoutRef.current) {
-                clearTimeout(kpiChangeTimeoutRef.current);
+            // Clear BOTH existing timeouts
+            if (kpiDebounceTimeoutRef.current) {
+                clearTimeout(kpiDebounceTimeoutRef.current);
+            }
+            if (kpiDisplayTimeoutRef.current) {
+                clearTimeout(kpiDisplayTimeoutRef.current);
+                console.log('[TeamApp] Cleared existing display timeout - resetting full display duration');
             }
 
-            // Set new timeout to apply all accumulated changes
-            kpiChangeTimeoutRef.current = setTimeout(() => {
+            // Set new debounce timeout to apply all accumulated changes
+            kpiDebounceTimeoutRef.current = setTimeout(() => {
                 setKpiChanges({...pendingKpiChanges.current});
                 pendingKpiChanges.current = {};
                 playNotificationSound(); // Play sound once for all combined changes
 
-                // Clear after animation duration
-                setTimeout(() => {
+                // Set new display timeout for the full duration
+                kpiDisplayTimeoutRef.current = setTimeout(() => {
                     setKpiChanges({});
+                    kpiDisplayTimeoutRef.current = null;
                 }, KPI_CHANGE_DURATION);
+
+                kpiDebounceTimeoutRef.current = null;
             }, 100); // 100ms debounce
         }
 
         setLastKpiValues(newKpiValues);
     }, [teamGameState.currentTeamKpis]);
+
+    // Add this useEffect for cleanup
+    useEffect(() => {
+        return () => {
+            if (kpiDebounceTimeoutRef.current) {
+                clearTimeout(kpiDebounceTimeoutRef.current);
+            }
+            if (kpiDisplayTimeoutRef.current) {
+                clearTimeout(kpiDisplayTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // Show session ended screen if session was deleted
     if (teamGameState.sessionStatus === 'deleted') {

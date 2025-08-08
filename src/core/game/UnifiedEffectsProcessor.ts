@@ -253,10 +253,13 @@ export class UnifiedEffectsProcessor {
             await this.applyBulkKpiUpdates(kpiUpdates, slide.round_number as 1 | 2 | 3);
         }
 
-        // Broadcast updates to teams
-        if (teamBroadcaster) {
+        // Only broadcast if there are actual KPI updates for teams
+        if (teamBroadcaster && Object.keys(this.updatedKpisForBroadcast).length > 0) {
+            console.log(`[UnifiedEffectsProcessor] 📡 Broadcasting KPI updates for ${Object.keys(this.updatedKpisForBroadcast).length} affected teams`);
             teamBroadcaster.broadcastKpiUpdated(slide, this.updatedKpisForBroadcast);
             this.updatedKpisForBroadcast = {};
+        } else if (teamBroadcaster) {
+            console.log(`[UnifiedEffectsProcessor] ⏭️ Skipping broadcast - no teams affected by slide ${slide.id}`);
         }
 
         // Refresh data from database
