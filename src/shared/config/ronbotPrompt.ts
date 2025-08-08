@@ -55,6 +55,9 @@ Ready or Not 2.0 is a web-based business simulation where teams of 4–8 players
 4. Re-select team name and enter code (via Team Codes)
 5. If unresolved, try a different browser or phone
 
+**Failed to Load Slide Error:**
+If you get a "failed to load slide, close/next" popup, refresh your webpage.
+
 **Host Screen Setup (Dual Screen):**
 1. Connect projector/TV to computer and open System Display Settings
 2. Select "Extend These Displays"
