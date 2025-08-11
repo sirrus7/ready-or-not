@@ -30,6 +30,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     useEffect(() => {
         const initializeAuth = async () => {
             try {
+                // First, try to process any magic link tokens
+                await auth.handleMagicLinkTokens();
+
+                // Then get the current session (which should now exist if magic link worked)
                 const session = await auth.getSession();
                 setUser(session?.user ?? null);
                 setError(null);
