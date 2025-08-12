@@ -1,10 +1,3 @@
-// =====================================================
-// SQL FUNCTION TO CREATE IN READY OR NOT
-// =====================================================
-
-
-If you want to use the SQL approach, create this function in Ready or Not:
-
 CREATE OR REPLACE FUNCTION update_user_type_by_email(
     user_email TEXT,
     new_user_type TEXT,
