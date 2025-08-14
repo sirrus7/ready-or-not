@@ -22,7 +22,13 @@ const AuthGuard: React.FC<AuthGuardProps> = React.memo(({children}) => {
     }
 
     if (!user) {
-        return <Navigate to="/login" state={{from: location}} replace/>;
+        // In production, redirect to root instead of login
+        if (import.meta.env.DEV) {
+            return <Navigate to="/login" state={{from: location}} replace/>;
+        } else {
+            // In production, redirect to root (assumes magic link access)
+            return <Navigate to="/" replace/>;
+        }
     }
 
     // Remove the key prop that might be causing issues

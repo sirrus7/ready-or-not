@@ -29,15 +29,17 @@ const Router: React.FC = React.memo(() => {
                     {/* PUBLIC ROUTES (No Authentication Required) */}
                     {/* ============================================================ */}
 
-                    {/* Login Route */}
-                    <Route
-                        path="/login"
-                        element={
-                            <Suspense fallback={<RouteLoadingFallback message="Loading login..."/>}>
-                                <LoginPage/>
-                            </Suspense>
-                        }
-                    />
+                    {/* Login Route - Development Only */}
+                    {import.meta.env.DEV && (
+                        <Route
+                            path="/login"
+                            element={
+                                <Suspense fallback={<RouteLoadingFallback message="Loading login..."/>}>
+                                    <LoginPage/>
+                                </Suspense>
+                            }
+                        />
+                    )}
 
                     {/* Team Join Routes - Public access */}
                     <Route

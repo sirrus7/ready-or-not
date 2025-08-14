@@ -2,7 +2,7 @@
 import React, {useEffect, useRef} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
 import {
-    PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, RefreshCw, LogOut,
+    PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, LogOut,
     FileText, Download, BookOpen, Users, TrendingUp
 } from 'lucide-react';
 import {useAuth} from '@app/providers/AuthProvider';
@@ -64,12 +64,6 @@ const DashboardPage: React.FC = () => {
             }, 100);
         }
     }, [shouldAutoRefresh, authLoading, user, clearCache, refetchGames]);
-
-    // Manual refresh function
-    const handleManualRefresh = async () => {
-        clearCache();
-        await refetchGames();
-    };
 
     // Combine active and draft games
     const activeGames = [
@@ -200,22 +194,15 @@ const DashboardPage: React.FC = () => {
                                 <PlusCircle size={20}/>
                                 Create New Game
                             </Link>
-                            <button
-                                onClick={handleManualRefresh}
-                                disabled={isLoadingGames}
-                                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-game-orange-600 hover:bg-game-orange-50 rounded-lg transition-colors border border-gray-200 hover:border-game-orange-300"
-                                title="Refresh games"
-                            >
-                                <RefreshCw size={16} className={isLoadingGames ? 'animate-spin' : ''}/>
-                                <span className="hidden sm:inline">Refresh</span>
-                            </button>
-                            <button
-                                onClick={handleLogout}
-                                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-red-200 hover:border-red-300"
-                            >
-                                <LogOut size={16}/>
-                                <span className="hidden sm:inline">Logout</span>
-                            </button>
+                            {import.meta.env.DEV && (
+                                <button
+                                    onClick={handleLogout}
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                >
+                                    <LogOut size={16}/>
+                                    Logout
+                                </button>
+                            )}
                         </div>
                     </div>
                 </header>
