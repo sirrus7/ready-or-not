@@ -3,7 +3,7 @@ import React, {useEffect, useRef} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
 import {
     PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, LogOut,
-    FileText, Download, BookOpen, Users, TrendingUp, Bot, GraduationCap,
+    Download, BookOpen, Users, TrendingUp, Bot, GraduationCap,
     LifeBuoy, Mail, Phone, PlayCircle, Star
 } from 'lucide-react';
 import {useAuth} from '@app/providers/AuthProvider';
