@@ -9,7 +9,7 @@ interface RonBotHelpModalProps {
     onClose: () => void;
 }
 
-const RONBOT_GPT_URL = 'https://chatgpt.com/g/g-681d465a11e88191850316345a0a3731-ready-or-not-2-0-faq-troubleshooting-assistant';
+export const RONBOT_GPT_URL = 'https://chatgpt.com/g/g-681d465a11e88191850316345a0a3731-ready-or-not-2-0-faq-troubleshooting-assistant';
 
 const RonBotHelpModal: React.FC<RonBotHelpModalProps> = ({isOpen, onClose}) => {
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);

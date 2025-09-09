@@ -3,7 +3,8 @@ import React, {useEffect, useRef} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
 import {
     PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, LogOut,
-    FileText, Download, BookOpen, Users, TrendingUp
+    FileText, Download, BookOpen, Users, TrendingUp, Bot, GraduationCap,
+    LifeBuoy, Mail, Phone, PlayCircle, Star
 } from 'lucide-react';
 import {useAuth} from '@app/providers/AuthProvider';
 import {useDashboardData} from '@views/host/hooks/useDashboardData';
@@ -11,8 +12,9 @@ import {useDashboardActions} from '@views/host/hooks/useDashboardActions';
 import NotificationBanner from '@views/host/components/Dashboard/NotificationBanner';
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
 import {GameSession} from '@shared/types';
-import RonBotWidget from '@shared/components/RonBotWidget.tsx';
+import RonBotWidget from '@shared/components/RonBotWidget';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
+import {RONBOT_GPT_URL} from "@views/host/components/GameControls/RonBotHelpModal";
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
@@ -284,18 +286,22 @@ const DashboardPage: React.FC = () => {
                                                                         const progressText = round === 0 ? `Setup - Slide ${slideId}` : `Round ${round} - Slide ${slideId}`;
 
                                                                         return (
-                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200">
-                                                                                <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+                                                                            <span
+                                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200">
+                                                                                <div
+                                                                                    className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
                                                                                 {progressText}
                                                                             </span>
                                                                         );
                                                                     })()}
                                                                 </div>
 
-                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                                                                <div
+                                                                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
                                                                     {/* Class Name - Critical for Multiple Classes */}
                                                                     <div>
-                                                                        <span className="font-medium text-gray-700">Class:</span>
+                                                                        <span
+                                                                            className="font-medium text-gray-700">Class:</span>
                                                                         <div className="text-gray-500">
                                                                             {game.class_name || 'No class set'}
                                                                         </div>
@@ -303,7 +309,8 @@ const DashboardPage: React.FC = () => {
 
                                                                     {/* Grade Level - Audience Context */}
                                                                     <div>
-                                                                        <span className="font-medium text-gray-700">Level:</span>
+                                                                        <span
+                                                                            className="font-medium text-gray-700">Level:</span>
                                                                         <div className="text-gray-500">
                                                                             {game.grade_level || 'Not specified'}
                                                                         </div>
@@ -311,7 +318,8 @@ const DashboardPage: React.FC = () => {
 
                                                                     {/* Last Updated - More Useful Than Created */}
                                                                     <div>
-                                                                        <span className="font-medium text-gray-700">Updated:</span>
+                                                                        <span
+                                                                            className="font-medium text-gray-700">Updated:</span>
                                                                         <div className="text-gray-500">
                                                                             {new Date(game.updated_at).toLocaleDateString()}
                                                                         </div>
@@ -319,7 +327,8 @@ const DashboardPage: React.FC = () => {
 
                                                                     {/* Game Version - Keep This for Context */}
                                                                     <div>
-                                                                        <span className="font-medium text-gray-700">Version:</span>
+                                                                        <span
+                                                                            className="font-medium text-gray-700">Version:</span>
                                                                         <div className="text-gray-500">
                                                                             v{game.game_version === '2.0_dd' ? '2.0 DD' :
                                                                             game.game_version === '2.0_no_dd' ? '2.0' :
@@ -412,8 +421,10 @@ const DashboardPage: React.FC = () => {
                                                                     const progressText = round === 0 ? `Setup - Slide ${slideId}` : `Round ${round} - Slide ${slideId}`;
 
                                                                     return (
-                                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200">
-                                                                            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+                                                                        <span
+                                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200">
+                                                                            <div
+                                                                                className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
                                                                             {progressText}
                                                                         </span>
                                                                     );
@@ -481,44 +492,94 @@ const DashboardPage: React.FC = () => {
 
                     {/* Sidebar */}
                     <div className="space-y-6">
-                        {/* Quick Resources */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
-                            <div className="p-6 border-b border-gray-100">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <BookOpen size={20} className="text-game-orange-600"/>
-                                    Game Resources
-                                </h3>
+                        {/* Training & Support - Prominent Section */}
+                        <div
+                            className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-xl border-2 border-blue-200">
+                            <div className="p-6 border-b border-blue-200 bg-white bg-opacity-80 rounded-t-2xl">
+                                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3 mb-3">
+                                    <div className="bg-blue-100 p-3 rounded-xl">
+                                        <LifeBuoy size={28} className="text-blue-600"/>
+                                    </div>
+                                    Training & Support
+                                </h2>
+                                <p className="text-blue-800 text-base leading-relaxed">
+                                    Below is the fastest
+                                    path to answering questions, resolving issues and hosting a game.
+                                </p>
                             </div>
                             <div className="p-6 space-y-4">
+                                {/* How to Host Guide - Very Prominent */}
                                 <a
                                     href="/game-materials/core/how-to-host-guide.pdf"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                    className="flex items-center gap-4 p-4 rounded-xl bg-white shadow-lg border-2 border-green-200 hover:border-green-300 hover:shadow-xl transition-all group"
                                 >
                                     <div
-                                        className="bg-game-orange-100 p-2 rounded-lg group-hover:bg-game-orange-200 transition-colors">
-                                        <FileText size={16} className="text-game-orange-600"/>
+                                        className="bg-green-100 p-3 rounded-xl group-hover:bg-green-200 transition-colors">
+                                        <GraduationCap size={24} className="text-green-600"/>
                                     </div>
                                     <div className="flex-1">
-                                        <div className="font-medium text-gray-900">How to Host Guide</div>
-                                        <div className="text-sm text-gray-500">Complete facilitation manual</div>
+                                        <div className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                            How to Host Guide
+                                            <Star size={16} className="text-yellow-500"/>
+                                        </div>
+                                        <div className="text-sm text-green-700 font-medium">
+                                            The guide for hosting RON 2.0
+                                        </div>
                                     </div>
-                                    <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
+                                    <Download size={20}
+                                              className="text-gray-400 group-hover:text-green-600 transition-colors"/>
                                 </a>
 
+                                {/* RONBOT - Very Prominent */}
+                                <a
+                                    href={RONBOT_GPT_URL}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-4 p-4 rounded-xl bg-white shadow-lg border-2 border-purple-200 hover:border-purple-300 hover:shadow-xl transition-all group"
+                                >
+                                    <div
+                                        className="bg-purple-100 p-3 rounded-xl group-hover:bg-purple-200 transition-colors">
+                                        <Bot size={24} className="text-purple-600"/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-lg font-bold text-gray-900">RONBOT</div>
+                                        <div className="text-sm text-purple-700 font-medium">
+                                            Your first stop for answers to questions & troubleshooting
+                                        </div>
+                                    </div>
+                                    <TrendingUp size={20}
+                                                className="text-gray-400 group-hover:text-purple-600 transition-colors"/>
+                                </a>
+
+                                {/* How to Host Video - Placeholder */}
+                                <div
+                                    className="flex items-center gap-3 p-4 rounded-lg bg-gray-100 border-2 border-gray-200">
+                                    <div className="bg-gray-200 p-2 rounded-lg">
+                                        <PlayCircle size={20} className="text-gray-500"/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-semibold text-gray-600">How to Host Video</div>
+                                        <div className="text-sm text-gray-500">Coming Soon - Video tutorial for
+                                            hosting
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Vocabulary & Quiz */}
                                 <a
                                     href="/game-materials/core/vocabulary-definitions.pdf"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group"
                                 >
                                     <div
-                                        className="bg-green-100 p-2 rounded-lg group-hover:bg-green-200 transition-colors">
-                                        <BookOpen size={16} className="text-green-600"/>
+                                        className="bg-blue-100 p-2 rounded-lg group-hover:bg-blue-200 transition-colors">
+                                        <BookOpen size={18} className="text-blue-600"/>
                                     </div>
                                     <div className="flex-1">
-                                        <div className="font-medium text-gray-900">Vocabulary Definitions</div>
+                                        <div className="font-medium text-gray-900">Vocabulary & Definitions</div>
                                         <div className="text-sm text-gray-500">Business terms reference</div>
                                     </div>
                                     <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
@@ -528,18 +589,47 @@ const DashboardPage: React.FC = () => {
                                     href="/game-materials/core/vocabulary-quiz.pdf"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group"
                                 >
                                     <div
                                         className="bg-orange-100 p-2 rounded-lg group-hover:bg-orange-200 transition-colors">
-                                        <Users size={16} className="text-orange-600"/>
+                                        <Users size={18} className="text-orange-600"/>
                                     </div>
                                     <div className="flex-1">
                                         <div className="font-medium text-gray-900">Vocabulary Quiz</div>
-                                        <div className="text-sm text-gray-500">Assessment tool</div>
+                                        <div className="text-sm text-gray-500">Assessment tool for students</div>
                                     </div>
                                     <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
                                 </a>
+
+                                {/* Contact Section */}
+                                <div className="border-t border-blue-200 pt-4 mt-6">
+                                    <h4 className="font-semibold text-gray-900 mb-3 text-center">Need Personal
+                                        Support?</h4>
+                                    <div className="space-y-2">
+                                        <a
+                                            href="mailto:ehedaa.igd@shiftadvantage.com"
+                                            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group text-center justify-center"
+                                        >
+                                            <div
+                                                className="bg-blue-100 p-2 rounded-lg group-hover:bg-blue-200 transition-colors">
+                                                <Mail size={16} className="text-blue-600"/>
+                                            </div>
+                                            <div className="font-medium text-gray-900">Email Support</div>
+                                        </a>
+
+                                        <a
+                                            href="tel:+1-503-333-8687"
+                                            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group text-center justify-center"
+                                        >
+                                            <div
+                                                className="bg-green-100 p-2 rounded-lg group-hover:bg-green-200 transition-colors">
+                                                <Phone size={16} className="text-green-600"/>
+                                            </div>
+                                            <div className="font-medium text-gray-900">Call (503) 333-8687</div>
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -560,10 +650,10 @@ const DashboardPage: React.FC = () => {
                                     <div className="flex justify-between items-center">
                                         <span className="text-white">Success Rate:</span>
                                         <span className="font-bold">
-                                            {activeGames.length + completedGames.length > 0
-                                                ? Math.round((completedGames.length / (activeGames.length + completedGames.length)) * 100)
-                                                : 0}%
-                                        </span>
+                        {activeGames.length + completedGames.length > 0
+                            ? Math.round((completedGames.length / (activeGames.length + completedGames.length)) * 100)
+                            : 0}%
+                    </span>
                                     </div>
                                 </div>
                             </div>
