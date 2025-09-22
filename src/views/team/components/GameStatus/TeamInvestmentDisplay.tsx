@@ -265,8 +265,20 @@ const TeamInvestmentDisplay: React.FC<InvestmentDisplayProps> = ({
                             <div className="flex gap-1 ml-2 flex-wrap">
                                 {investments.map((investment, _index) => (
                                     <div key={investment.id}
-                                         className="w-6 h-6 bg-slate-600 rounded-full flex items-center justify-center">
-                                        <span className="text-xs font-bold text-slate-300">
+                                         className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                             investment.name.includes('(SACRIFICED)')
+                                                 ? 'bg-red-600/80 border border-red-400/50'
+                                                 : investment.name.includes('(DOUBLED DOWN)')
+                                                     ? 'bg-green-600/80 border border-green-400/50'
+                                                     : 'bg-slate-600'
+                                         }`}>
+                                        <span className={`text-xs font-bold ${
+                                            investment.name.includes('(SACRIFICED)')
+                                                ? 'text-red-200'
+                                                : investment.name.includes('(DOUBLED DOWN)')
+                                                    ? 'text-green-200'
+                                                    : 'text-slate-300'
+                                        }`}>
                                             {InvestmentDisplayUtils.letterToNumber(investment.id)}
                                         </span>
                                     </div>
