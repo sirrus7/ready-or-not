@@ -127,7 +127,7 @@ const LeaderboardChartDisplay: React.FC<LeaderboardChartDisplayProps> = ({
             ...item,
             rank: index + 1
         }));
-    }, [teams, teamRoundData, teamDecisions, currentRoundForDisplay, metric, secondaryMetric, higherIsBetter]); // NEW: Add teamDecisions dependency
+    }, [teams, teamRoundData, teamDecisions, currentRoundForDisplay, metric, secondaryMetric, higherIsBetter, dataKey]);
 
     // Determine round display text
     const roundDisplay: string = useMemo(() => {
