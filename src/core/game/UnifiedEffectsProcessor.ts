@@ -627,21 +627,10 @@ export class UnifiedEffectsProcessor {
                 console.log(`[UnifiedEffectsProcessor] CH7 customization for team ${team.name}: ${capacityImpact} (automation: ${hasAutomationCapability})`);
             }
 
-            // Calculate KPI changes (don't save yet)
-            const finalKpis = await this.calculateTeamKpiChanges({
-                team,
-                currentRound: consequenceSlide.round_number as 1 | 2 | 3,
-                effects: effectsToApply,
-                sessionId: currentDbSession.id
-            });
-
-            // Collect for bulk update
-            kpiUpdates.push({teamId: team.id, kpis: finalKpis});
-
             // ========================================================================
-            // SPECIAL HANDLING: CH5 Option B Employee Development bonus (immediate effects)
+            // SPECIAL HANDLING: CH5 Option A or B Employee Development bonus (immediate effects)
             // ========================================================================
-            if (challengeId === 'ch5' && (teamSelection === 'B' || teamSelection === 'B,C')) {
+            if (challengeId === 'ch5' && (teamSelection.includes('A') || teamSelection.includes('B'))) {
                 // Check Employee Development investment for conditional capacity bonus
                 const hasEmployeeDevelopment = await EmployeeDevelopmentTracker.hasEmployeeDevelopment(
                     currentDbSession.id,
@@ -652,20 +641,32 @@ export class UnifiedEffectsProcessor {
                     // Apply +500 capacity bonus for Employee Development
                     effectsToApply = effectsToApply.map(effect => {
                         if (effect.kpi === 'capacity' && effect.timing === 'immediate') {
-                            return {
+                            const newEffect = {
                                 ...effect,
-                                change_value: effect.change_value + 500, // Add 500 to base 1000 = 1500 total
+                                change_value: effect.change_value + 500,
                                 description: effect.description
                                     ? `${effect.description} (+500 bonus from Employee Development)`
-                                    : 'Temporary Hiring Capacity (+500 bonus from Employee Development)'
+                                    : 'Hiring Capacity (+500 bonus from Employee Development)'
                             };
+                            return newEffect;
                         }
                         return effect;
                     });
 
-                    console.log(`[UnifiedEffectsProcessor] Applied Employee Development bonus to CH5 Option B for team ${team.name}: +500 capacity`);
+                    console.log(`[UnifiedEffectsProcessor] Applied Employee Development bonus to CH5 Option ${teamSelection} for team ${team.name}: +500 capacity`);
                 }
             }
+
+            // Calculate KPI changes (don't save yet)
+            const finalKpis: TeamRoundData = await this.calculateTeamKpiChanges({
+                team,
+                currentRound: consequenceSlide.round_number as 1 | 2 | 3,
+                effects: effectsToApply,
+                sessionId: currentDbSession.id
+            });
+
+            // Collect for bulk update
+            kpiUpdates.push({teamId: team.id, kpis: finalKpis});
 
             // ========================================================================
             // MINIMAL CHANGE: Handle permanent effects with Employee Development check
@@ -721,6 +722,14 @@ export class UnifiedEffectsProcessor {
                     );
                 }
             }
+
+            console.log(`[DEBUG] FINAL effectsToApply before KPI calculation:`, effectsToApply.map(e => ({
+                kpi: e.kpi,
+                timing: e.timing,
+                change_value: e.change_value,
+                description: e.description
+            })));
+
             console.log(`[UnifiedEffectsProcessor] Applied effects for team ${team.name}, selection "${teamSelection}"`);
         }
 
