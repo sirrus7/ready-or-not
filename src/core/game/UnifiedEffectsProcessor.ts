@@ -639,6 +639,35 @@ export class UnifiedEffectsProcessor {
             kpiUpdates.push({teamId: team.id, kpis: finalKpis});
 
             // ========================================================================
+            // SPECIAL HANDLING: CH5 Option B Employee Development bonus (immediate effects)
+            // ========================================================================
+            if (challengeId === 'ch5' && (teamSelection === 'B' || teamSelection === 'B,C')) {
+                // Check Employee Development investment for conditional capacity bonus
+                const hasEmployeeDevelopment = await EmployeeDevelopmentTracker.hasEmployeeDevelopment(
+                    currentDbSession.id,
+                    team.id
+                );
+
+                if (hasEmployeeDevelopment) {
+                    // Apply +500 capacity bonus for Employee Development
+                    effectsToApply = effectsToApply.map(effect => {
+                        if (effect.kpi === 'capacity' && effect.timing === 'immediate') {
+                            return {
+                                ...effect,
+                                change_value: effect.change_value + 500, // Add 500 to base 1000 = 1500 total
+                                description: effect.description
+                                    ? `${effect.description} (+500 bonus from Employee Development)`
+                                    : 'Temporary Hiring Capacity (+500 bonus from Employee Development)'
+                            };
+                        }
+                        return effect;
+                    });
+
+                    console.log(`[UnifiedEffectsProcessor] Applied Employee Development bonus to CH5 Option B for team ${team.name}: +500 capacity`);
+                }
+            }
+
+            // ========================================================================
             // MINIMAL CHANGE: Handle permanent effects with Employee Development check
             // ========================================================================
             const permanentEffects: KpiEffect[] = consequenceForTeamSelection.effects.filter(eff =>
@@ -776,13 +805,13 @@ export class UnifiedEffectsProcessor {
                             bonusEffects.push(
                                 {
                                     kpi: 'capacity',
-                                    change_value: 500,
+                                    change_value: 1000,
                                     timing: 'immediate',
                                     description: 'Production Efficiency + Expanded 2nd Shift Bonus'
                                 },
                                 {
                                     kpi: 'cost',
-                                    change_value: -150000,
+                                    change_value: -300000,
                                     timing: 'immediate',
                                     description: 'Production Efficiency + Expanded 2nd Shift Bonus'
                                 }
@@ -793,13 +822,13 @@ export class UnifiedEffectsProcessor {
                             bonusEffects.push(
                                 {
                                     kpi: 'capacity',
-                                    change_value: 500,
+                                    change_value: 1000,
                                     timing: 'immediate',
                                     description: 'Production Efficiency + Automation Bonus'
                                 },
                                 {
                                     kpi: 'cost',
-                                    change_value: -75000,
+                                    change_value: -150000,
                                     timing: 'immediate',
                                     description: 'Production Efficiency + Automation Bonus'
                                 }

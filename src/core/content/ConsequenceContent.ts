@@ -310,7 +310,7 @@ export const allConsequencesData: Record<string, Consequence[]> = {
             effects: [
                 {
                     kpi: 'cost',
-                    change_value: 100000,
+                    change_value: 50000,
                     timing: 'immediate',
                     challenge_id: 'ch4',
                     option_id: 'B'
