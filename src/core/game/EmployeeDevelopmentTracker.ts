@@ -2,6 +2,7 @@
 // PRODUCTION: Check if team invested in Employee Development for conditional bonuses
 
 import { db } from '@shared/services/supabase';
+import {TeamDecision} from "@shared/types";
 
 export class EmployeeDevelopmentTracker {
 
@@ -13,12 +14,11 @@ export class EmployeeDevelopmentTracker {
         console.log(`[EmployeeDevelopmentTracker] Checking Employee Development for team ${teamId}`);
 
         try {
-            const allDecisions = await db.decisions.getBySession(sessionId);
-            const teamDecisions = allDecisions.filter(d => d.team_id === teamId);
+            const allDecisions: TeamDecision[] = await db.decisions.getBySession(sessionId);
+            const teamDecisions: TeamDecision[] = allDecisions.filter(d => d.team_id === teamId);
 
             // Check for Employee Development (option E) in any investment round
-            const hasInvestment = teamDecisions.some(decision =>
-                (decision.phase_id === 'rd1-invest' || decision.phase_id === 'rd2-invest') &&
+            const hasInvestment: boolean = teamDecisions.some(decision =>
                 decision.selected_investment_options?.includes('E')
             );
 
