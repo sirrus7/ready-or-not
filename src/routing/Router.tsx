@@ -30,7 +30,7 @@ const Router: React.FC = React.memo(() => {
                     {/* ============================================================ */}
 
                     {/* Login Route - Development Only */}
-                    {import.meta.env.DEV && (
+                    {/*{import.meta.env.DEV && (*/}
                         <Route
                             path="/login"
                             element={
@@ -39,7 +39,7 @@ const Router: React.FC = React.memo(() => {
                                 </Suspense>
                             }
                         />
-                    )}
+                    {/*)}*/}
 
                     {/* Team Join Routes - Public access */}
                     <Route
