@@ -16,7 +16,7 @@ import CreateGamePageDirect from '@views/host/pages/CreateGamePage';
 import GameResultsPageDirect from '@views/host/pages/GameResultsPage';
 import TeamAppDirect from '@views/team/TeamApp';
 import PresentationAppDirect from '@views/presentation/PresentationApp';
-import {ExternalLink} from "lucide-react";
+// import {ExternalLink} from "lucide-react";
 
 // ============================================================================
 // LAZY LOADED COMPONENTS - Code Splitting by Route
@@ -69,27 +69,27 @@ export const DisplayWrapper: React.FC = () => {
 
     if (!sessionId) {
         // In development, redirect to login; in production, show marketplace login
-        if (import.meta.env.DEV) {
+        // if (import.meta.env.DEV) {
             return <Navigate to="/login" replace/>;
-        } else {
-            return (
-                <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                    <div className="text-center max-w-md mx-auto p-6">
-                        <h1 className="text-2xl font-bold text-gray-800 mb-4">Login Required</h1>
-                        <p className="text-gray-600 mb-6">
-                            Please login through the marketplace to access your game session.
-                        </p>
-                        <a
-                            href="https://platform.ron2game.com/login"
-                            className="inline-flex items-center gap-2 bg-game-orange-600 text-white font-semibold py-3 px-6 rounded-md hover:bg-game-orange-700 focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:ring-offset-2 transition-colors duration-150"
-                        >
-                            Go to Marketplace Login
-                            <ExternalLink size={16}/>
-                        </a>
-                    </div>
-                </div>
-            );
-        }
+        // } else {
+        //     return (
+        //         <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        //             <div className="text-center max-w-md mx-auto p-6">
+        //                 <h1 className="text-2xl font-bold text-gray-800 mb-4">Login Required</h1>
+        //                 <p className="text-gray-600 mb-6">
+        //                     Please login through the marketplace to access your game session.
+        //                 </p>
+        //                 <a
+        //                     href="https://platform.ron2game.com/login"
+        //                     className="inline-flex items-center gap-2 bg-game-orange-600 text-white font-semibold py-3 px-6 rounded-md hover:bg-game-orange-700 focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:ring-offset-2 transition-colors duration-150"
+        //                 >
+        //                     Go to Marketplace Login
+        //                     <ExternalLink size={16}/>
+        //                 </a>
+        //             </div>
+        //         </div>
+        //     );
+        // }
     }
 
     return (
