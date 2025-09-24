@@ -23,21 +23,21 @@ const AuthGuard: React.FC<AuthGuardProps> = React.memo(({children}) => {
 
     if (!user) {
         // In development, redirect to login page
-        // if (import.meta.env.DEV) {
+        if (import.meta.env.DEV) {
             return <Navigate to="/login" state={{from: location}} replace/>;
-        // } else {
-        //     // In production, redirect to marketplace login
-        //     window.location.href = "https://platform.ron2game.com/login";
-        //     return (
-        //         <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        //             <div className="text-center">
-        //                 <div
-        //                     className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-game-orange-500 mx-auto mb-4"></div>
-        //                 <p className="text-gray-700">Redirecting to login...</p>
-        //             </div>
-        //         </div>
-        //     );
-        // }
+        } else {
+            // In production, redirect to marketplace login
+            window.location.href = "https://platform.ron2game.com/login";
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                    <div className="text-center">
+                        <div
+                            className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-game-orange-500 mx-auto mb-4"></div>
+                        <p className="text-gray-700">Redirecting to login...</p>
+                    </div>
+                </div>
+            );
+        }
     }
 
     // Remove the key prop that might be causing issues
