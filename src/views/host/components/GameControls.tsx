@@ -12,6 +12,9 @@ import TeamCodesModal from './GameControls/TeamCodesModal';
 import {useNavigate} from 'react-router-dom';
 import {useHostSyncManager} from '@core/sync/HostSyncManager';
 import RonBotHelpModal from './GameControls/RonBotHelpModal';
+import {useAuth} from "@app/providers/AuthProvider.tsx";
+import {BulkMediaDownload} from "@shared/components/BulkMediaDownload.tsx";
+import {getUserType} from "@shared/constants/formOptions.ts";
 
 interface GameControlsProps {
     joinInfo: { joinUrl: string; qrCodeDataUrl: string } | null;
@@ -21,13 +24,16 @@ interface GameControlsProps {
 }
 
 const GameControls: React.FC<GameControlsProps> = ({joinInfo, setJoinInfo, isJoinInfoOpen, setIsJoinInfoOpen}) => {
-    const {state, currentSlideData, updateHostNotesForCurrentSlide} = useGameContext();
+    const {state, currentSlideData, updateHostNotesForCurrentSlide, gameVersion} = useGameContext();
     const hostSyncManager = useHostSyncManager(state.currentSessionId);
     // Modal states
     const [showNotes, setShowNotes] = useState(false);
     const [isTeamCodesModalOpen, setIsTeamCodesModalOpen] = useState(false);
     const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false);
     const [isRonBotHelpModalOpen, setIsRonBotHelpModalOpen] = useState(false);
+    const [showBulkDownload, setShowBulkDownload] = useState(false);
+
+    const { user } = useAuth();
 
     const navigate = useNavigate();
 
@@ -63,6 +69,7 @@ const GameControls: React.FC<GameControlsProps> = ({joinInfo, setJoinInfo, isJoi
                     onToggleNotes={handleNotesToggle}
                     onOpenRonBotHelp={() => setIsRonBotHelpModalOpen(true)}
                     onExitGame={() => setIsExitConfirmModalOpen(true)}
+                    onOpenBulkDownload={() => setShowBulkDownload(true)}  // Add this line
                     showNotes={showNotes}
                 />
 
@@ -102,6 +109,22 @@ const GameControls: React.FC<GameControlsProps> = ({joinInfo, setJoinInfo, isJoi
                 isOpen={isRonBotHelpModalOpen}
                 onClose={() => setIsRonBotHelpModalOpen(false)}
             />
+
+            <RonBotHelpModal
+                isOpen={isRonBotHelpModalOpen}
+                onClose={() => setIsRonBotHelpModalOpen(false)}
+            />
+
+            {showBulkDownload && state.gameStructure && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <BulkMediaDownload
+                        slides={state.gameStructure.slides}
+                        userType={getUserType(user)}
+                        gameVersion={gameVersion}
+                        onClose={() => setShowBulkDownload(false)}
+                    />
+                </div>
+            )}
         </div>
     );
 };

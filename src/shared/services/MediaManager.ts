@@ -12,6 +12,21 @@ interface CachedUrl {
     expiresAt: number;
 }
 
+interface BulkDownloadProgress {
+    downloaded: number;
+    total: number;
+    currentFile: string;
+    isComplete: boolean;
+    errors: string[];
+}
+
+interface BulkDownloadOptions {
+    gameVersion?: string;
+    userType: UserType;
+    onProgress?: (progress: BulkDownloadProgress) => void;
+    concurrent?: number; // Number of simultaneous downloads
+}
+
 /**
  * MediaManager is a singleton class responsible for fetching, caching,
  * and refreshing signed URLs for private media from a Supabase bucket ON DEMAND.
@@ -32,6 +47,10 @@ class MediaManager {
     // Track precaching operations to avoid duplicates
     private precachingInProgress: Set<string> = new Set<string>();
     private lastPrecacheSlideIndex: number | null = null;
+
+    private bulkDownloadProgress: BulkDownloadProgress | null = null;
+    private readonly BULK_DOWNLOAD_STORAGE_KEY = 'media-bulk-download-complete';
+    private readonly BULK_DOWNLOAD_VERSION_KEY = 'media-bulk-download-version';
 
     private constructor() {
     }
@@ -286,6 +305,140 @@ class MediaManager {
         this.urlCache.clear();
         this.precachingInProgress.clear();
         this.lastPrecacheSlideIndex = null;
+    }
+
+    /**
+     * Downloads and caches all media files for a game structure locally
+     */
+    public async bulkDownloadAllMedia(
+        slides: Slide[],
+        options: BulkDownloadOptions
+    ): Promise<void> {
+        const { gameVersion, userType, onProgress, concurrent = 5 } = options;
+
+        // Get all unique media files
+        const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
+
+        this.bulkDownloadProgress = {
+            downloaded: 0,
+            total: mediaFiles.length,
+            currentFile: '',
+            isComplete: false,
+            errors: []
+        };
+
+        console.log(`[MediaManager] Starting bulk download of ${mediaFiles.length} files`);
+
+        // Download files in batches to avoid overwhelming the browser
+        const batches = this.chunkArray(mediaFiles, concurrent);
+
+        for (const batch of batches) {
+            const promises = batch.map(async (filePath) => {
+                try {
+                    this.bulkDownloadProgress!.currentFile = filePath;
+                    onProgress?.(this.bulkDownloadProgress!);
+
+                    // Force download and cache the file
+                    await this.getSignedUrlWithFallback(filePath, userType, gameVersion, false);
+
+                    this.bulkDownloadProgress!.downloaded++;
+                    onProgress?.(this.bulkDownloadProgress!);
+
+                } catch (error) {
+                    const errorMsg = `Failed to download ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+                    this.bulkDownloadProgress!.errors.push(errorMsg);
+                    console.warn('[MediaManager] Bulk download error:', errorMsg);
+                }
+            });
+
+            await Promise.all(promises);
+        }
+
+        this.bulkDownloadProgress.isComplete = true;
+        this.bulkDownloadProgress.currentFile = '';
+        onProgress?.(this.bulkDownloadProgress);
+
+        // Mark bulk download as complete in localStorage
+        localStorage.setItem(this.BULK_DOWNLOAD_STORAGE_KEY, 'true');
+        localStorage.setItem(this.BULK_DOWNLOAD_VERSION_KEY, `${gameVersion || 'default'}-${userType}`);
+
+        console.log(`[MediaManager] Bulk download complete. Downloaded: ${this.bulkDownloadProgress.downloaded}, Errors: ${this.bulkDownloadProgress.errors.length}`);
+    }
+
+    /**
+     * Extracts all unique media file paths from slides considering version hierarchy
+     */
+    private extractUniqueMediaPaths(slides: Slide[], userType: UserType, gameVersion?: string): string[] {
+        const mediaPaths = new Set<string>();
+
+        slides.forEach(slide => {
+            if (slide.source_path) {
+                // Get the actual file path that would be used based on version hierarchy
+                const resolvedPath = this.resolveMediaPath(slide.source_path, userType, gameVersion);
+                mediaPaths.add(resolvedPath);
+            }
+        });
+
+        return Array.from(mediaPaths);
+    }
+
+    /**
+     * Resolves the actual media path based on version hierarchy logic
+     */
+    private resolveMediaPath(fileName: string, userType: UserType, gameVersion?: string): string {
+        // For version 1.5, try version15 folder first
+        if (gameVersion === '1.5') {
+            if (hasVersion15(fileName)) {
+                return `business/version15/${fileName}`;
+            }
+        }
+
+        // If we are a business user or omep override the default content
+        if ((userType === 'business' || userType === 'omep') && hasBusinessVersion(fileName)) {
+            return `business/${fileName}`;
+        }
+
+        // Get standard content
+        return fileName;
+    }
+
+    /**
+     * Helper to chunk array into smaller arrays
+     */
+    private chunkArray<T>(array: T[], size: number): T[][] {
+        const chunks: T[][] = [];
+        for (let i = 0; i < array.length; i += size) {
+            chunks.push(array.slice(i, i + size));
+        }
+        return chunks;
+    }
+
+    /**
+     * Check if bulk download is complete for current version/user type
+     */
+    public isBulkDownloadComplete(gameVersion?: string, userType?: UserType): boolean {
+        const isComplete = localStorage.getItem(this.BULK_DOWNLOAD_STORAGE_KEY) === 'true';
+        const storedVersion = localStorage.getItem(this.BULK_DOWNLOAD_VERSION_KEY);
+        const currentVersion = `${gameVersion || 'default'}-${userType || 'academic'}`;
+
+        return isComplete && storedVersion === currentVersion;
+    }
+
+    /**
+     * Get current bulk download progress
+     */
+    public getBulkDownloadProgress(): BulkDownloadProgress | null {
+        return this.bulkDownloadProgress;
+    }
+
+    /**
+     * Clear bulk download cache and reset completion status
+     */
+    public clearBulkDownloadCache(): void {
+        localStorage.removeItem(this.BULK_DOWNLOAD_STORAGE_KEY);
+        localStorage.removeItem(this.BULK_DOWNLOAD_VERSION_KEY);
+        this.clearCache(); // Clear existing media cache
+        this.bulkDownloadProgress = null;
     }
 }
 
