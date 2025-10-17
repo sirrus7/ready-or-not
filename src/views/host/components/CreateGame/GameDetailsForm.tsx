@@ -112,8 +112,8 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                     {userType === 'omep' && (
                         <option value="1.5">1.5 without virtual host</option>
                     )}
-                    <option value="2.0_dd">2.0 with Double Down</option>
                     <option value="2.0_no_dd">2.0 without Double Down</option>
+                    <option value="2.0_dd">2.0 with Double Down</option>
                 </select>
             </div>
 
