@@ -334,7 +334,7 @@ const TeamApp: React.FC = () => {
             {/* ================================================================ */}
             {/* MAIN CONTENT - RESTORED: Simple responsive layout */}
             {/* ================================================================ */}
-            <div className="flex flex-col lg:flex-row min-h-[calc(100vh-73px)]">
+            <div className="flex flex-col-reverse lg:flex-row min-h-[calc(100vh-73px)]">
 
                 {/* LEFT PANEL - RESTORED: Team Status with ADDED Impact Cards */}
                 <div className="w-full lg:w-80 bg-gray-800/50 border-b lg:border-b-0 lg:border-r border-gray-700">
