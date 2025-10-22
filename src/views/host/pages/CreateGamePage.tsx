@@ -17,7 +17,7 @@ import {UserType, getUserType} from '@shared/constants/formOptions';
 import {GameVersion} from "@core/game/GameVersionManager.ts";
 
 const initialNewGameData: NewGameData = {
-    game_version: GameVersion.V2_0_DD,
+    game_version: GameVersion.V2_0_NO_DD,
     name: '',
     class_name: '',
     grade_level: 'Freshman',

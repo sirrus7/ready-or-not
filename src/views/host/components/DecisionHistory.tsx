@@ -1,7 +1,7 @@
 // src/views/host/components/DecisionHistory.tsx
 // FIXED VERSION - Properly determines completion based on team submissions
 
-import React, {useState, useEffect, useMemo} from 'react';
+import React, {useState, useEffect, useMemo, useRef} from 'react';
 import {useGameContext} from '@app/providers/GameProvider';
 import DecisionHistoryButton from './DecisionHistoryButton';
 import {Slide} from '@shared/types';
@@ -29,18 +29,31 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
     const currentSlide = gameStructure?.slides[current_slide_index ?? -1];
     const currentRoundKey = currentSlide ? `round_${currentSlide.round_number}` : null;
 
+    const [shouldAutoScroll, setShouldAutoScroll] = useState<boolean>(false);
+    const currentDecisionRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (shouldAutoScroll && currentDecisionRef.current !== null){
+            currentDecisionRef.current.scrollIntoView({behavior: "smooth"});
+            setShouldAutoScroll(false);
+        }
+    }, [expandedDecisions])
+
     // Auto-expand current interactive decision and its round
     useEffect(() => {
         if (currentInteractiveSlide && currentInteractiveSlide.interactive_data_key) {
-            // Expand the decision
+            // Autoscroll to current decision
+            setShouldAutoScroll(true);
+            // Expand the decision and close all other decision
             setExpandedDecisions(prev => {
                 const newState = {
                     ...prev,
-                    [currentInteractiveSlide.interactive_data_key]: true
                 };
+                Object.keys(newState).forEach(key => {newState[key] = false;});
+                newState[currentInteractiveSlide.interactive_data_key] = true;
                 return newState;
             });
-
+            
             // Also expand the round that contains this decision
             const roundKey = `round_${currentInteractiveSlide.round_number}`;
             setExpandedRounds(prev => ({
@@ -90,7 +103,7 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
     const toggleDecisionExpansion = (decisionKey: string) => {
         setExpandedDecisions(prev => ({...prev, [decisionKey]: !prev[decisionKey]}));
     };
-
+    
     return (
         <div>
             <div className="space-y-2">
@@ -135,9 +148,12 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
                                         // Keep the base label clean since we have visual indicators
                                         const enhancedLabel = slide.title || `Decision Point`;
                                         const isDecisionExpanded = expandedDecisions[slide.interactive_data_key || ''] ?? false;
-
                                         return (
-                                            <div key={slide.interactive_data_key || slide.id} className="mb-3">
+                                            <div 
+                                                key={slide.interactive_data_key || slide.id} 
+                                                className="mb-3"
+                                                ref={isCurrentSlide ? currentDecisionRef : null}
+                                            >
                                                 <DecisionHistoryButton
                                                     label={enhancedLabel}
                                                     isCurrent={isCurrentSlide}
