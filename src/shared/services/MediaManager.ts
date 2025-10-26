@@ -5,7 +5,8 @@ import {supabase} from '@shared/services/supabase';
 import {Slide} from '@shared/types/game';
 import {UserType} from '@shared/constants/formOptions';
 import {hasBusinessVersion} from '@shared/constants/businessSlides';
-import {hasVersion15} from "@shared/constants/version15Slides.ts";
+import {hasVersion15} from "@shared/constants/version15Slides";
+import {indexedDBCache} from "@shared/services/IndexedDBCache";
 
 interface CachedUrl {
     url: string;
@@ -76,11 +77,29 @@ class MediaManager {
      * @param forceBlobCache Force blob caching even for non-video files (for bulk download)
      */
     public async getSignedUrl(fileName: string, skipBlobCache: boolean = false, forceBlobCache: boolean = false): Promise<string> {
-        // ALWAYS check blob cache first if not skipping (regardless of file type)
+        // STEP 1: Check IndexedDB first (works across tabs)
+        if (!skipBlobCache) {
+            try {
+                const indexedDBEntry = await indexedDBCache.get(fileName);
+                if (indexedDBEntry && indexedDBEntry.expiresAt > Date.now()) {
+                    console.log(`[MediaManager] Using IndexedDB cache for ${fileName}`);
+                    // Also update in-memory cache for faster subsequent access
+                    MediaManager.blobCache.set(fileName, {
+                        blobUrl: indexedDBEntry.blobUrl,
+                        expiresAt: indexedDBEntry.expiresAt
+                    });
+                    return indexedDBEntry.blobUrl;
+                }
+            } catch (error) {
+                console.warn(`[MediaManager] IndexedDB lookup failed for ${fileName}, continuing with fallback:`, error);
+            }
+        }
+
+        // STEP 2: Check in-memory blob cache (fast but tab-specific)
         if (!skipBlobCache) {
             const blobCached = MediaManager.blobCache.get(fileName);
             if (blobCached && blobCached.expiresAt > Date.now()) {
-                console.log(`[MediaManager] Using blob cache for ${fileName}`);
+                console.log(`[MediaManager] Using in-memory blob cache for ${fileName}`);
                 return blobCached.blobUrl;
             }
         }
@@ -142,8 +161,18 @@ class MediaManager {
                 const blob: Blob = await response.blob();
                 const blobUrl: string = URL.createObjectURL(blob);
 
+                // Store in in-memory cache
                 MediaManager.blobCache.set(fileName, {blobUrl, expiresAt});
-                console.log(`[MediaManager] Cached ${fileName} as blob URL`);
+
+                // Store in IndexedDB for cross-tab access
+                try {
+                    await indexedDBCache.set(fileName, blobUrl, blob, expiresAt);
+                } catch (idbError) {
+                    console.warn(`[MediaManager] Failed to store in IndexedDB for ${fileName}:`, idbError);
+                    // Continue anyway, in-memory cache still works
+                }
+
+                console.log(`[MediaManager] Cached ${fileName} as blob URL (memory + IndexedDB)`);
                 return blobUrl;
             } catch (error) {
                 console.error('[MediaManager] Failed to cache as blob:', error);
@@ -285,6 +314,11 @@ class MediaManager {
                 this.urlCache.delete(fileName);
             }
         }
+
+        // Also cleanup IndexedDB
+        indexedDBCache.cleanupExpired().catch(error => {
+            console.error('[MediaManager] Failed to cleanup IndexedDB:', error);
+        });
     }
 
     /**
@@ -318,6 +352,11 @@ class MediaManager {
         this.urlCache.clear();
         this.precachingInProgress.clear();
         this.lastPrecacheSlideIndex = null;
+
+        // Also clear IndexedDB
+        indexedDBCache.clear().catch(error => {
+            console.error('[MediaManager] Failed to clear IndexedDB:', error);
+        });
     }
 
     /**
@@ -396,7 +435,7 @@ class MediaManager {
         slides: Slide[],
         options: BulkDownloadOptions
     ): Promise<void> {
-        const { gameVersion, userType, onProgress, concurrent = 5 } = options;
+        const {gameVersion, userType, onProgress, concurrent = 5} = options;
         const cacheKey = `${gameVersion || 'default'}-${userType}`;
 
         // GUARD: Prevent concurrent downloads
