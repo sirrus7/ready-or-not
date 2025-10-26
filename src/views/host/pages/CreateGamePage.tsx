@@ -10,8 +10,20 @@ import {
     PrintHandoutsStep,
     RoomSetupStep,
     TeamSetupStep,
-} from '@views/host/components/CreateGame/index';
-import {ArrowLeft, Settings, Printer, Users, ListOrdered, Rocket, Zap, CheckCircle, AlertTriangle} from 'lucide-react';
+    MediaDownloadStep,
+} from '@views/host/components/CreateGame';
+import {
+    ArrowLeft,
+    Settings,
+    Printer,
+    Users,
+    ListOrdered,
+    Rocket,
+    Zap,
+    CheckCircle,
+    AlertTriangle,
+    Download
+} from 'lucide-react';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {UserType, getUserType} from '@shared/constants/formOptions';
 import {GameVersion} from "@core/game/GameVersionManager.ts";
@@ -31,7 +43,8 @@ const WIZARD_STEPS = [
     {id: 2, title: 'Team Setup', component: TeamSetupStep, icon: Users},
     {id: 3, title: 'Room & Screen Setup', component: RoomSetupStep, icon: ListOrdered},
     {id: 4, title: 'Print Handouts', component: PrintHandoutsStep, icon: Printer},
-    {id: 5, title: 'Finalize & Start', component: FinalizeStep, icon: Rocket},
+    {id: 5, title: 'Download Content', component: MediaDownloadStep, icon: Download},
+    {id: 6, title: 'Finalize & Start', component: FinalizeStep, icon: Rocket},
 ] as const;
 
 type NewGameDataValue =
@@ -383,7 +396,7 @@ const CreateGamePage: React.FC = () => {
                     {currentStep === 2 && (
                         <TeamSetupStep
                             gameData={gameData}
-                            onDataChange={handleDataChange} // ✅ Direct reference
+                            onDataChange={handleDataChange}
                             onNext={handleNextStep}
                             onPrevious={handlePreviousStep}
                             draftSessionId={draftSessionId}
@@ -406,6 +419,15 @@ const CreateGamePage: React.FC = () => {
                         />
                     )}
                     {currentStep === 5 && (
+                        <MediaDownloadStep
+                            gameData={gameData}
+                            userType={userType}
+                            onNext={handleNextStep}
+                            onPrevious={handlePreviousStep}
+                            draftSessionId={draftSessionId}
+                        />
+                    )}
+                    {currentStep === 6 && (
                         <FinalizeStep
                             gameData={gameData}
                             onNext={finalizeGame}

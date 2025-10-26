@@ -24,6 +24,7 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
     const [isDownloading, setIsDownloading] = useState<boolean>(false);
     const [progress, setProgress] = useState<BulkDownloadProgress | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [cacheCleared, setCacheCleared] = useState<number>(0); // ADD THIS - forces re-render
 
     const startDownload = useCallback(async (
         slides: Slide[],
@@ -38,7 +39,7 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
             await mediaManager.bulkDownloadAllMedia(slides, {
                 gameVersion,
                 userType,
-                concurrent: 3, // Limit concurrent downloads to avoid browser throttling
+                concurrent: 3,
                 onProgress: (progressData) => {
                     setProgress({...progressData});
                 }
@@ -53,13 +54,15 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
     }, []);
 
     const isDownloadComplete = useCallback((gameVersion?: string, userType?: UserType): boolean => {
+        // The cacheCleared dependency forces this to re-evaluate when cache is cleared
         return mediaManager.isBulkDownloadComplete(gameVersion, userType);
-    }, []);
+    }, [cacheCleared]); // ADD cacheCleared as dependency
 
     const clearCache = useCallback((): void => {
         mediaManager.clearBulkDownloadCache();
         setProgress(null);
         setError(null);
+        setCacheCleared(prev => prev + 1); // INCREMENT to force re-render
     }, []);
 
     return {

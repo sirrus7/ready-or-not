@@ -32,6 +32,11 @@ export interface PrintHandoutsStepProps extends BaseWizardStepProps {
     onNext: () => void;
 }
 
+export interface MediaDownloadStepProps extends BaseWizardStepProps {
+    userType: UserType;
+    onNext: () => void;
+}
+
 export interface FinalizeStepProps extends BaseWizardStepProps {
     onNext: () => void;
 }

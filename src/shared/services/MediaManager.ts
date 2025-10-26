@@ -51,6 +51,11 @@ class MediaManager {
     private bulkDownloadProgress: BulkDownloadProgress | null = null;
     private readonly BULK_DOWNLOAD_STORAGE_KEY = 'media-bulk-download-complete';
     private readonly BULK_DOWNLOAD_VERSION_KEY = 'media-bulk-download-version';
+    private readonly BULK_DOWNLOAD_TIMESTAMP_KEY = 'media-bulk-download-timestamp';
+    private readonly BULK_DOWNLOAD_CONTENT_VERSION_KEY = 'media-bulk-download-content-version';
+    private readonly BULK_DOWNLOAD_CACHE_EXPIRY_DAYS = 7; // Cache expires after 7 days
+    private readonly BULK_DOWNLOAD_CURRENT_CONTENT_VERSION = '1.0'; // Increment when you update slides
+    private isBulkDownloading: boolean = false;
 
     private constructor() {
     }
@@ -68,19 +73,26 @@ class MediaManager {
      * For other files, returns the regular signed URL.
      * @param fileName The file name
      * @param skipBlobCache Skip blob caching (useful for precaching to avoid JWT timing issues)
+     * @param forceBlobCache Force blob caching even for non-video files (for bulk download)
      */
-    public async getSignedUrl(fileName: string, skipBlobCache: boolean = false): Promise<string> {
+    public async getSignedUrl(fileName: string, skipBlobCache: boolean = false, forceBlobCache: boolean = false): Promise<string> {
+        // ALWAYS check blob cache first if not skipping (regardless of file type)
+        if (!skipBlobCache) {
+            const blobCached = MediaManager.blobCache.get(fileName);
+            if (blobCached && blobCached.expiresAt > Date.now()) {
+                console.log(`[MediaManager] Using blob cache for ${fileName}`);
+                return blobCached.blobUrl;
+            }
+        }
+
         // Check if this is a video file
         const isVideoFile: boolean = /\.(mp4|webm|mov|avi|mkv)$/i.test(fileName);
 
-        if (isVideoFile && !skipBlobCache) {
-            // For video files, use blob cache (only if not skipping)
-            const cached = MediaManager.blobCache.get(fileName);
-            if (cached && cached.expiresAt > Date.now()) {
-                return cached.blobUrl;
-            }
-        } else {
-            // For non-video files, or when skipping blob cache, use regular URL cache
+        // Determine if we should create a NEW blob cache entry
+        const shouldCreateBlobCache = !skipBlobCache && (isVideoFile || forceBlobCache);
+
+        // If not using blob cache, check URL cache
+        if (!shouldCreateBlobCache) {
             const cached: CachedUrl | undefined = this.urlCache.get(fileName);
             if (cached && cached.expiresAt > Date.now()) {
                 return cached.url;
@@ -106,8 +118,8 @@ class MediaManager {
 
         const expiresAt: number = Date.now() + (this.SIGNED_URL_EXPIRY_SECONDS * 1000) - this.REFRESH_BUFFER_MS;
 
-        if (isVideoFile && !skipBlobCache) {
-            // Try to cache as blob (only if not skipping)
+        if (shouldCreateBlobCache) {
+            // Try to cache as blob
             try {
                 const response: Response = await fetch(data.signedUrl);
                 if (!response.ok) {
@@ -124,16 +136,17 @@ class MediaManager {
                         url: data.signedUrl,
                         errorBody: errorBody
                     });
-                    throw new Error(`Failed to fetch video: ${response.status} ${response.statusText}`);
+                    throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
                 }
 
                 const blob: Blob = await response.blob();
                 const blobUrl: string = URL.createObjectURL(blob);
 
                 MediaManager.blobCache.set(fileName, {blobUrl, expiresAt});
+                console.log(`[MediaManager] Cached ${fileName} as blob URL`);
                 return blobUrl;
             } catch (error) {
-                console.error('[MediaManager] Failed to cache video blob:', error);
+                console.error('[MediaManager] Failed to cache as blob:', error);
                 // Fallback to signed URL
                 this.urlCache.set(fileName, {url: data.signedUrl, expiresAt});
                 return data.signedUrl;
@@ -151,23 +164,23 @@ class MediaManager {
      * Business users: business slides → standard slides
      * Academic users: standard slides only
      */
-    public async getSignedUrlWithFallback(fileName: string, userType: UserType, gameVersion?: string, skipBlobCache: boolean = false): Promise<string> {
+    public async getSignedUrlWithFallback(fileName: string, userType: UserType, gameVersion?: string, skipBlobCache: boolean = false, forceBlobCache: boolean = false): Promise<string> {
         // For version 1.5, try version15 folder first
         if (gameVersion === '1.5') {
             if (hasVersion15(fileName)) {
                 const version15Path = `business/version15/${fileName}`;
-                return await this.getSignedUrl(version15Path, skipBlobCache);
+                return await this.getSignedUrl(version15Path, skipBlobCache, forceBlobCache);
             }
         }
 
         // If we are a business user or omep override the default content
         if ((userType === 'business' || userType === 'omep') && hasBusinessVersion(fileName)) {
             const businessPath = `business/${fileName}`;
-            return await this.getSignedUrl(businessPath, skipBlobCache);
+            return await this.getSignedUrl(businessPath, skipBlobCache, forceBlobCache);
         }
 
         // Get standard content
-        return await this.getSignedUrl(fileName, skipBlobCache);
+        return await this.getSignedUrl(fileName, skipBlobCache, forceBlobCache);
     }
 
     /**
@@ -308,6 +321,75 @@ class MediaManager {
     }
 
     /**
+     * Check if cache is valid (not expired and correct version)
+     */
+    private isCacheValid(gameVersion?: string, userType?: UserType): boolean {
+        const isComplete = localStorage.getItem(this.BULK_DOWNLOAD_STORAGE_KEY) === 'true';
+        const storedVersion = localStorage.getItem(this.BULK_DOWNLOAD_VERSION_KEY);
+        const currentVersion = `${gameVersion || 'default'}-${userType || 'academic'}`;
+
+        if (!isComplete || storedVersion !== currentVersion) {
+            return false;
+        }
+
+        // Check content version
+        const cachedContentVersion = localStorage.getItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY);
+        if (cachedContentVersion !== this.BULK_DOWNLOAD_CURRENT_CONTENT_VERSION) {
+            console.log('[MediaManager] Content version mismatch, cache invalid');
+            return false;
+        }
+
+        // Check timestamp expiry
+        const timestamp = localStorage.getItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY);
+        if (timestamp) {
+            const cacheAge = Date.now() - parseInt(timestamp);
+            const maxAge = this.BULK_DOWNLOAD_CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+            if (cacheAge > maxAge) {
+                console.log('[MediaManager] Cache expired, needs refresh');
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Get cache info for display purposes
+     */
+    public getCacheInfo(gameVersion?: string, userType?: UserType): {
+        isComplete: boolean;
+        isValid: boolean;
+        cachedVersion: string | null;
+        timestamp: Date | null;
+        daysOld: number | null;
+        contentVersion: string | null;
+    } {
+        const storedVersion = localStorage.getItem(this.BULK_DOWNLOAD_VERSION_KEY);
+        const timestamp = localStorage.getItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY);
+        const contentVersion = localStorage.getItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY);
+        const isComplete = localStorage.getItem(this.BULK_DOWNLOAD_STORAGE_KEY) === 'true';
+
+        let daysOld = null;
+        let timestampDate = null;
+
+        if (timestamp) {
+            const ts = parseInt(timestamp);
+            timestampDate = new Date(ts);
+            daysOld = Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000));
+        }
+
+        return {
+            isComplete,
+            isValid: this.isCacheValid(gameVersion, userType),
+            cachedVersion: storedVersion,
+            timestamp: timestampDate,
+            daysOld,
+            contentVersion
+        };
+    }
+
+    /**
      * Downloads and caches all media files for a game structure locally
      */
     public async bulkDownloadAllMedia(
@@ -315,54 +397,90 @@ class MediaManager {
         options: BulkDownloadOptions
     ): Promise<void> {
         const { gameVersion, userType, onProgress, concurrent = 5 } = options;
+        const cacheKey = `${gameVersion || 'default'}-${userType}`;
 
-        // Get all unique media files
-        const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
-
-        this.bulkDownloadProgress = {
-            downloaded: 0,
-            total: mediaFiles.length,
-            currentFile: '',
-            isComplete: false,
-            errors: []
-        };
-
-        console.log(`[MediaManager] Starting bulk download of ${mediaFiles.length} files`);
-
-        // Download files in batches to avoid overwhelming the browser
-        const batches = this.chunkArray(mediaFiles, concurrent);
-
-        for (const batch of batches) {
-            const promises = batch.map(async (filePath) => {
-                try {
-                    this.bulkDownloadProgress!.currentFile = filePath;
-                    onProgress?.(this.bulkDownloadProgress!);
-
-                    // Force download and cache the file
-                    await this.getSignedUrlWithFallback(filePath, userType, gameVersion, false);
-
-                    this.bulkDownloadProgress!.downloaded++;
-                    onProgress?.(this.bulkDownloadProgress!);
-
-                } catch (error) {
-                    const errorMsg = `Failed to download ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-                    this.bulkDownloadProgress!.errors.push(errorMsg);
-                    console.warn('[MediaManager] Bulk download error:', errorMsg);
-                }
-            });
-
-            await Promise.all(promises);
+        // GUARD: Prevent concurrent downloads
+        if (this.isBulkDownloading) {
+            console.warn('[MediaManager] Download already in progress, ignoring duplicate call');
+            return;
         }
 
-        this.bulkDownloadProgress.isComplete = true;
-        this.bulkDownloadProgress.currentFile = '';
-        onProgress?.(this.bulkDownloadProgress);
+        // Check if already downloaded and cache is still valid
+        if (this.isCacheValid(gameVersion, userType)) {
+            console.log(`[MediaManager] Cache already valid for ${cacheKey}, skipping download`);
+            if (onProgress) {
+                const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
+                onProgress({
+                    downloaded: mediaFiles.length,
+                    total: mediaFiles.length,
+                    currentFile: '',
+                    isComplete: true,
+                    errors: []
+                });
+            }
+            return;
+        }
 
-        // Mark bulk download as complete in localStorage
-        localStorage.setItem(this.BULK_DOWNLOAD_STORAGE_KEY, 'true');
-        localStorage.setItem(this.BULK_DOWNLOAD_VERSION_KEY, `${gameVersion || 'default'}-${userType}`);
+        // SET FLAG
+        this.isBulkDownloading = true;
 
-        console.log(`[MediaManager] Bulk download complete. Downloaded: ${this.bulkDownloadProgress.downloaded}, Errors: ${this.bulkDownloadProgress.errors.length}`);
+        try {
+            // Get all unique media files (already resolved paths)
+            const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
+
+            this.bulkDownloadProgress = {
+                downloaded: 0,
+                total: mediaFiles.length,
+                currentFile: '',
+                isComplete: false,
+                errors: []
+            };
+
+            console.log(`[MediaManager] Starting bulk download of ${mediaFiles.length} files for ${cacheKey}`);
+
+            // Download files in batches to avoid overwhelming the browser
+            const batches = this.chunkArray(mediaFiles, concurrent);
+
+            for (const batch of batches) {
+                const promises = batch.map(async (filePath) => {
+                    try {
+                        this.bulkDownloadProgress!.currentFile = filePath;
+                        onProgress?.(this.bulkDownloadProgress!);
+
+                        // filePath is already resolved, so call getSignedUrl directly with forceBlobCache
+                        await this.getSignedUrl(filePath, false, true);
+
+                        this.bulkDownloadProgress!.downloaded++;
+                        onProgress?.(this.bulkDownloadProgress!);
+
+                    } catch (error) {
+                        const errorMsg = `Failed to download ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+                        this.bulkDownloadProgress!.errors.push(errorMsg);
+                        console.warn('[MediaManager] Bulk download error:', errorMsg);
+                        // Still increment the counter even on error to maintain accurate progress
+                        this.bulkDownloadProgress!.downloaded++;
+                        onProgress?.(this.bulkDownloadProgress!);
+                    }
+                });
+
+                await Promise.all(promises);
+            }
+
+            this.bulkDownloadProgress.isComplete = true;
+            this.bulkDownloadProgress.currentFile = '';
+            onProgress?.(this.bulkDownloadProgress);
+
+            // Mark bulk download as complete with timestamp and version
+            localStorage.setItem(this.BULK_DOWNLOAD_STORAGE_KEY, 'true');
+            localStorage.setItem(this.BULK_DOWNLOAD_VERSION_KEY, cacheKey);
+            localStorage.setItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY, Date.now().toString());
+            localStorage.setItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY, this.BULK_DOWNLOAD_CURRENT_CONTENT_VERSION);
+
+            console.log(`[MediaManager] Bulk download complete. Downloaded: ${this.bulkDownloadProgress.downloaded}, Errors: ${this.bulkDownloadProgress.errors.length}`);
+        } finally {
+            // ALWAYS CLEAR FLAG
+            this.isBulkDownloading = false;
+        }
     }
 
     /**
@@ -417,11 +535,7 @@ class MediaManager {
      * Check if bulk download is complete for current version/user type
      */
     public isBulkDownloadComplete(gameVersion?: string, userType?: UserType): boolean {
-        const isComplete = localStorage.getItem(this.BULK_DOWNLOAD_STORAGE_KEY) === 'true';
-        const storedVersion = localStorage.getItem(this.BULK_DOWNLOAD_VERSION_KEY);
-        const currentVersion = `${gameVersion || 'default'}-${userType || 'academic'}`;
-
-        return isComplete && storedVersion === currentVersion;
+        return this.isCacheValid(gameVersion, userType);
     }
 
     /**
@@ -437,8 +551,11 @@ class MediaManager {
     public clearBulkDownloadCache(): void {
         localStorage.removeItem(this.BULK_DOWNLOAD_STORAGE_KEY);
         localStorage.removeItem(this.BULK_DOWNLOAD_VERSION_KEY);
+        localStorage.removeItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY);
+        localStorage.removeItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY);
         this.clearCache(); // Clear existing media cache
         this.bulkDownloadProgress = null;
+        this.isBulkDownloading = false; // ADD THIS
     }
 }
 

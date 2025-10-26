@@ -33,8 +33,9 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
         await startDownload(slides, userType, gameVersion);
     };
 
-    const handleClearCache = (): void => {
+    const handleClearCache = async (): Promise<void> => {
         clearCache();
+        await handleStartDownload();
     };
 
     return (
