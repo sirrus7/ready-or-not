@@ -206,9 +206,9 @@ export const HealthCheck: React.FC = () => {
                 <h2 style={{ fontSize: '18px', marginBottom: '15px' }}>Components</h2>
 
                 <div style={{ display: 'grid', gap: '10px' }}>
-                    {statusRow('Front End', status.frontend, "status-row-frontend")}
-                    {statusRow('Database', status.database, "status-row-database")}
-                    {statusRow('Realtime', status.realtime, "status-row-realtime")}
+                    {statusRow('Front End', status.frontend)}
+                    {statusRow('Database', status.database)}
+                    {statusRow('Realtime', status.realtime)}
                 </div>
             </div>
 
@@ -224,7 +224,7 @@ export const HealthCheck: React.FC = () => {
                 <div id="database-latency" data-latency={status.databaseLatency}>
                     <strong>Database Latency:</strong> {status.databaseLatency !== null ? `${status.databaseLatency}ms` : 'N/A'}
                 </div>
-                <div id="realtime=latency" data-timestamp={status.realtimeLatency}>
+                <div id="realtime-latency" data-latency={status.realtimeLatency}>
                     <strong>Realtime Latency:</strong> {status.realtimeLatency !== null ? `${status.realtimeLatency}ms` : 'N/A'}
                 </div>
             </div>
