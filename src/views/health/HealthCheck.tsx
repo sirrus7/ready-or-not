@@ -134,7 +134,8 @@ export const HealthCheck: React.FC = () => {
 
     const statusRow = (label: string, state: HealthStates) => (
         <div
-            data-status={status}
+            id={`status-row-${label.toLowerCase()}`}
+            data-status={state}
             style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -181,6 +182,7 @@ export const HealthCheck: React.FC = () => {
             </h1>
 
             <div
+                id="overall-status"
                 data-status={overallStatus }
                 style={{
                     fontSize: '20px',
@@ -204,9 +206,9 @@ export const HealthCheck: React.FC = () => {
                 <h2 style={{ fontSize: '18px', marginBottom: '15px' }}>Components</h2>
 
                 <div style={{ display: 'grid', gap: '10px' }}>
-                    {statusRow('Front End', status.frontend)}
-                    {statusRow('Database', status.database)}
-                    {statusRow('Realtime', status.realtime)}
+                    {statusRow('Front End', status.frontend, "status-row-frontend")}
+                    {statusRow('Database', status.database, "status-row-database")}
+                    {statusRow('Realtime', status.realtime, "status-row-realtime")}
                 </div>
             </div>
 
@@ -219,10 +221,10 @@ export const HealthCheck: React.FC = () => {
             }}>
                 <h2 style={{ fontSize: '18px', marginBottom: '15px' }}>Metrics</h2>
 
-                <div id="latency" data-latency={status.databaseLatency}>
+                <div id="database-latency" data-latency={status.databaseLatency}>
                     <strong>Database Latency:</strong> {status.databaseLatency !== null ? `${status.databaseLatency}ms` : 'N/A'}
                 </div>
-                <div id="timestamp" data-timestamp={status.realtimeLatency}>
+                <div id="realtime=latency" data-timestamp={status.realtimeLatency}>
                     <strong>Realtime Latency:</strong> {status.realtimeLatency !== null ? `${status.realtimeLatency}ms` : 'N/A'}
                 </div>
             </div>
@@ -237,7 +239,7 @@ export const HealthCheck: React.FC = () => {
                     <h2 style={{ fontSize: '18px', marginBottom: '15px', color: '#dc2626' }}>
                         Database Error Details
                     </h2>
-                    <pre id="error-message" style={{
+                    <pre id="database-error-message" style={{
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
                         color: '#991b1b'
@@ -257,7 +259,7 @@ export const HealthCheck: React.FC = () => {
                     <h2 style={{ fontSize: '18px', marginBottom: '15px', color: '#dc2626' }}>
                         Realtime Error Details
                     </h2>
-                    <pre id="error-message" style={{
+                    <pre id="realtime-error-message" style={{
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
                         color: '#991b1b'
