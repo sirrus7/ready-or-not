@@ -33,7 +33,6 @@ export const HealthCheck: React.FC = () => {
     });
 
     useEffect(() => {
-        console.log("running checks")
         checkDatabaseHealth();
         checkRealtimeHealth();
     }, []);
@@ -67,7 +66,7 @@ export const HealthCheck: React.FC = () => {
                 ...prev,
                 database: HealthStates.Unhealthy,
                 databaseLatency: Date.now() - startTime,
-                databaseError: error instanceof Error ? error.message : 'Unknown error',
+                databaseError: error ? error.message : 'Unknown error',
             }));
         });
     };
@@ -77,15 +76,14 @@ export const HealthCheck: React.FC = () => {
         let testChannel: RealtimeChannel | null = null;
         await new Promise<void>((resolve, reject) => {
             const timeoutId = setTimeout(() => {
-                console.log('timedout')
-                // reject(`Failed to recieve broadcast before timeout of ${RealtimeTimeout} ms!`)
+                reject(`Failed to recieve broadcast before timeout of ${RealtimeTimeout} ms!`)
             }, RealtimeTimeout)
 
             const channelName = `health-check-${Date.now()}`
             testChannel = supabase.channel(channelName, {
                 config: {
                     broadcast: {
-                        self: true  // This allows you to receive your own messages
+                        self: true
                     }
                 }
             });
@@ -107,7 +105,6 @@ export const HealthCheck: React.FC = () => {
                         event: 'health_check',
                         payload: { test: 'health-check-ping' }
                     });
-                    console.log("here")
                 } else {
                     clearTimeout(timeoutId);
                     reject('Error sending broadcast!')
@@ -133,7 +130,6 @@ export const HealthCheck: React.FC = () => {
                 supabase.removeChannel(testChannel);
             }
         });
-        console.log("Finished check")
     };
 
     const statusRow = (label: string, state: HealthStates) => (
@@ -184,9 +180,7 @@ export const HealthCheck: React.FC = () => {
                 Health Check
             </h1>
 
-            {/* Overall Status - Easy for Grafana to check */}
             <div
-                id="overall-status"
                 data-status={overallStatus }
                 style={{
                     fontSize: '20px',
@@ -201,7 +195,6 @@ export const HealthCheck: React.FC = () => {
             >
                 Status: {overallStatus}
             </div>
-            {/* Detailed Status */}
             <div style={{
                 backgroundColor: 'white',
                 padding: '20px',
@@ -234,7 +227,6 @@ export const HealthCheck: React.FC = () => {
                 </div>
             </div>
 
-            {/* Error Details */}
             {status.databaseError && (
                 <div style={{
                     backgroundColor: 'white',
@@ -275,7 +267,6 @@ export const HealthCheck: React.FC = () => {
                 </div>
             )}
 
-            {/* JSON Output for programmatic access */}
             <details style={{ marginTop: '20px' }}>
                 <summary style={{ cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' }}>
                     Raw JSON
