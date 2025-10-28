@@ -6,7 +6,7 @@ import GameDetailsForm from './GameDetailsForm';
 import TeamRecommendationDisplay from './TeamRecommendation';
 import {useTeamRecommendations} from '@views/host/hooks/useTeamRecommendations';
 import {GameDetailsStepProps} from './types';
-import {GameVersion} from "@core/game/GameVersionManager.ts";
+import { GameVersion } from '@shared/types';
 
 const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
                                                              gameData,
@@ -47,7 +47,7 @@ const GameDetailsStep: React.FC<GameDetailsStepProps> = ({
             num_teams: teamsInput?.value ? parseInt(teamsInput.value, 10) || 0 : gameData.num_teams,
             class_name: classInput?.value || gameData.class_name || '',
             grade_level: gradeSelect?.value || gameData.grade_level || 'Freshman',
-            game_version: (versionSelect?.value as GameVersion.V2_0_DD | GameVersion.V2_0_NO_DD) || gameData.game_version || GameVersion.V2_0_DD,
+            game_version: (versionSelect?.value as GameVersion) || gameData.game_version,
             teams_config: gameData.teams_config || []
         };
     };

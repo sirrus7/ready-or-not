@@ -134,3 +134,10 @@ export interface StrategyInvestmentDetails {
     purchaseRound: number | null;
     purchasePhaseId: string | null;
 }
+
+export enum GameVersion {
+    V1_5_NO_DD = '1.5_no_dd',
+    V1_5_DD = '1.5_dd',
+    V2_0_NO_DD = '2.0_no_dd',
+    V2_0_DD = '2.0_dd'
+}

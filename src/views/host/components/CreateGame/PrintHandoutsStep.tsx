@@ -15,6 +15,7 @@ import {
 
 import {usePDFGeneration} from "@shared/hooks/pdf/useTeamCardsPDF.tsx";
 import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
+import { GameVersionManager } from '@core/game/GameVersionManager';
 
 const PrintHandoutsStep: React.FC<PrintHandoutsStepProps> = ({
                                                                  gameData,
@@ -88,14 +89,14 @@ const PrintHandoutsStep: React.FC<PrintHandoutsStepProps> = ({
         };
     }, [num_players, num_teams]);
 
-    const pioneerPressEmailSubject = `Ready or Not ${game_version === '2.0_dd' ? '2.0' : '1.5'} Game Packet Order - "${gameName || 'Untitled Game'}"`;
+    const pioneerPressEmailSubject = `Ready or Not ${game_version.toString().includes('2.0') ? '2.0' : '1.5'} Game Packet Order - "${gameName || 'Untitled Game'}"`;
     const pioneerPressEmailBody = `
 Hello Pioneer Press,
 
 Please prepare a game packet order for our upcoming "Ready or Not" session with the following details:
 
 Game Name: ${gameName || 'N/A'}
-Game Version: ${game_version === '2.0_dd' ? '2.0 with Double Down' : '1.5 with Double Down'}
+Game Version: ${GameVersionManager.getDisplayName(game_version)}
 Number of Teams: ${num_teams || 'N/A'}
 Number of Players: ${num_players || 'N/A'}
 

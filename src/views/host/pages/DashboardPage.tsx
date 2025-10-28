@@ -15,6 +15,7 @@ import {GameSession} from '@shared/types';
 import RonBotWidget from '@shared/components/RonBotWidget';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {RONBOT_GPT_URL} from "@views/host/components/GameControls/RonBotHelpModal";
+import { GameVersionManager } from '@core/game/GameVersionManager';
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
@@ -330,9 +331,7 @@ const DashboardPage: React.FC = () => {
                                                                         <span
                                                                             className="font-medium text-gray-700">Version:</span>
                                                                         <div className="text-gray-500">
-                                                                            v{game.game_version === '2.0_dd' ? '2.0 DD' :
-                                                                            game.game_version === '2.0_no_dd' ? '2.0' :
-                                                                                game.game_version}
+                                                                            {GameVersionManager.getDisplayVersion(game.game_version)}
                                                                         </div>
                                                                     </div>
                                                                 </div>

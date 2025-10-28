@@ -3,7 +3,7 @@ import React, {useState, useEffect, useCallback, useRef, useMemo} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useAuth} from '@app/providers/AuthProvider';
 import {GameSessionManager} from '@core/game/GameSessionManager';
-import {NewGameData, TeamConfig} from '@shared/types';
+import {GameVersion, NewGameData, TeamConfig} from '@shared/types';
 import {
     FinalizeStep,
     GameDetailsStep,
@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {UserType, getUserType} from '@shared/constants/formOptions';
-import {GameVersion} from "@core/game/GameVersionManager.ts";
 
 const initialNewGameData: NewGameData = {
     game_version: GameVersion.V2_0_NO_DD,
