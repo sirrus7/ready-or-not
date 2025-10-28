@@ -62,6 +62,16 @@ export class GameVersionManager {
         return Object.values(GameVersion).includes(version as GameVersion);
     }
 
+    static parseGameVersion(version: string): GameVersion {
+        if (version === "1.5"){
+            return GameVersion.V1_5_DD;
+        }
+        if (version in GameVersion){
+            return version as GameVersion;
+        }
+        return GameVersion.V2_0_DD;
+    }
+
     /**
      * Get the display name for a version
      */
