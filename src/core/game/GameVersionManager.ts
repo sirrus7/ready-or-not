@@ -66,7 +66,7 @@ export class GameVersionManager {
         if (version === "1.5"){
             return GameVersion.V1_5_DD;
         }
-        if (version in GameVersion){
+        if (Object.values(GameVersion).includes(version as GameVersion)){
             return version as GameVersion;
         }
         return GameVersion.V2_0_DD;
