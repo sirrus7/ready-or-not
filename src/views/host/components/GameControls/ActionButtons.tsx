@@ -1,6 +1,6 @@
 // src/views/host/components/GameControls/ActionButtons.tsx
 import React from 'react';
-import {Users, QrCode, FileText, LogOut, ExternalLink} from 'lucide-react';
+import {Users, QrCode, FileText, LogOut, ExternalLink, Download} from 'lucide-react';
 
 interface ActionButtonsRowProps {
     onOpenJoinInfo: () => void;
@@ -8,6 +8,7 @@ interface ActionButtonsRowProps {
     onToggleNotes: () => void;
     onOpenRonBotHelp: () => void;
     onExitGame: () => void;
+    onOpenBulkDownload: () => void; // Add this
     showNotes: boolean;
 }
 
@@ -17,6 +18,7 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
                                                             onToggleNotes,
                                                             onOpenRonBotHelp,
                                                             onExitGame,
+                                                            onOpenBulkDownload, // Add this
                                                             showNotes
                                                         }) => {
     return (
@@ -34,6 +36,14 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
             <button onClick={onToggleNotes}
                     className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors border ${showNotes ? 'bg-game-orange-50 text-game-orange-700 border-blue-300' : 'hover:bg-gray-100 text-gray-600 border-gray-300'}`}>
                 <FileText size={16}/> Notes
+            </button>
+            {/* ADD THIS NEW BUTTON */}
+            <button
+                onClick={onOpenBulkDownload}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-blue-100 text-blue-600 transition-colors border border-blue-300"
+                type="button"
+                aria-label="Download All Media">
+                <Download size={16}/> Download Media
             </button>
             <button
                 onClick={onOpenRonBotHelp}
