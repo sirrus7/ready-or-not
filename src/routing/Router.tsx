@@ -4,6 +4,7 @@ import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import {AuthProvider} from '@app/providers/AuthProvider';
 import {GameProvider} from '@app/providers/GameProvider';
 import {TeamGameProvider} from '@app/providers/TeamGameProvider';
+import { HealthCheck } from '@views/health/HealthCheck';
 import {
     HostApp,
     DashboardPage,
@@ -57,6 +58,11 @@ const Router: React.FC = React.memo(() => {
                     <Route
                         path="/display/:sessionId"
                         element={<DisplayWrapper/>}
+                    />
+                    
+                    <Route
+                        path="/health"
+                        element={<HealthCheck/>}
                     />
 
                     {/* ============================================================ */}
