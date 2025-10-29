@@ -52,6 +52,7 @@ import TeamInvestmentDisplay from "@views/team/components/GameStatus/TeamInvestm
 import {Building, ShoppingCart, DollarSign, TrendingUp, AlertTriangle} from 'lucide-react';
 import {StrategyStatusCard} from "@views/team/components/GameStatus/StrategyStatusCard";
 import {Slide, TeamRoundData} from "@shared/types";
+import {TeamAuthData, teamAuthStorage} from "@shared/utils/storage";
 
 // Sets the duration (in MS) that the KPI changes are shown in the TeamApp
 const KPI_CHANGE_DURATION = 15000;
@@ -77,6 +78,20 @@ const TeamApp: React.FC = () => {
     const pendingKpiChanges = useRef<Record<string, number>>({});
 
     // ========================================================================
+    // PERSISTENT LOGIN - Check localStorage on mount for auto-login
+    // ========================================================================
+    useEffect(() => {
+        if (!sessionId) return;
+
+        const authData: TeamAuthData | null = teamAuthStorage.load(sessionId);
+        if (authData) {
+            console.log(`[TeamApp] Auto-login: Restoring session for team ${authData.teamName}`);
+            setLoggedInTeamId(authData.teamId);
+            setLoggedInTeamName(authData.teamName);
+        }
+    }, [sessionId]);
+
+    // ========================================================================
     // GAME STATE HOOK - SIMPLIFIED (uses centralized adjustments)
     // This now receives adjustments from the centralized system
     // ========================================================================
@@ -92,10 +107,13 @@ const TeamApp: React.FC = () => {
     useEffect(() => {
         // Clear team login when session is deleted
         if (teamGameState.sessionStatus === 'deleted') {
+            if (sessionId) {
+                teamAuthStorage.clear(sessionId);
+            }
             setLoggedInTeamId(null);
             setLoggedInTeamName(null);
         }
-    }, [teamGameState.sessionStatus]);
+    }, [teamGameState.sessionStatus, sessionId]);
 
     useEffect(() => {
         const currentKpis = teamGameState.currentTeamKpis;
@@ -226,6 +244,11 @@ const TeamApp: React.FC = () => {
                     onLoginSuccess={(teamId, teamName) => {
                         setLoggedInTeamId(teamId);
                         setLoggedInTeamName(teamName);
+
+                        // Store authentication data with timestamp
+                        if (sessionId) {
+                            teamAuthStorage.save(sessionId, teamId, teamName);
+                        }
                     }}
                 />
             </div>
@@ -311,9 +334,10 @@ const TeamApp: React.FC = () => {
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => {
-                                    // Clear localStorage
-                                    localStorage.removeItem(`ron_teamId_${sessionId}`);
-                                    localStorage.removeItem(`ron_teamName_${sessionId}`);
+                                    // Clear localStorage using utility
+                                    if (sessionId) {
+                                        teamAuthStorage.clear(sessionId);
+                                    }
                                     setLoggedInTeamId(null);
                                     setLoggedInTeamName(null);
                                 }}
