@@ -318,7 +318,7 @@ const TeamApp: React.FC = () => {
             {/* ================================================================ */}
             {/* HEADER - Team identification and logout */}
             {/* ================================================================ */}
-            <div className="bg-gray-800/50 border-b border-gray-700 sticky top-0 z-10">
+            <div className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
                 <div className="container mx-auto px-4 py-2">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
@@ -358,7 +358,7 @@ const TeamApp: React.FC = () => {
             {/* ================================================================ */}
             {/* MAIN CONTENT - RESTORED: Simple responsive layout */}
             {/* ================================================================ */}
-            <div className="flex flex-col lg:flex-row min-h-[calc(100vh-73px)]">
+            <div className={`flex ${isDecisionPhaseActive ? 'flex-col-reverse' : 'flex-col'} lg:flex-row min-h-[calc(100vh-73px)]`}>
 
                 {/* LEFT PANEL - RESTORED: Team Status with ADDED Impact Cards */}
                 <div className="w-full lg:w-80 bg-gray-800/50 border-b lg:border-b-0 lg:border-r border-gray-700">

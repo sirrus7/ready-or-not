@@ -8,7 +8,7 @@
     "lint:fix": "eslint . --fix",
     "lint:supabase": "eslint . --format=compact | grep -E 'supabase|@supabase' || true",
     "lint:check-services": "echo '🔍 Checking for direct Supabase usage...' && npm run lint:supabase && echo '✅ Check complete! Any violations shown above.'",
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview"
   },
