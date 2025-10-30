@@ -1,8 +1,7 @@
 // src/shared/types/ui.ts
 // These types are primarily used in UI components, forms, or wizard steps
 
-// Use 'import type' for type-only imports
-// Currently using direct literal string types for game_version, so 'GameVersion' not needed yet.
+import { GameVersion } from "./game";
 
 export interface TeamConfig {
     name: string;
@@ -10,7 +9,7 @@ export interface TeamConfig {
 }
 
 export interface NewGameData {
-    game_version: '2.0_dd' | '2.0_no_dd' | '1.5';
+    game_version: GameVersion;
     name: string;
     class_name: string;
     grade_level: string;

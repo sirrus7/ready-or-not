@@ -1,5 +1,5 @@
 // src/core/content/GameStructure.ts
-import {GameStructure, Slide} from '@shared/types/game';
+import {GameStructure, GameVersion, Slide} from '@shared/types/game';
 import {allGameSlides} from './SlideContent';
 import {allInvestmentOptionsData} from './InvestmentOptions';
 import {allChallengeOptionsData} from './ChallengeOptions';
@@ -25,8 +25,8 @@ export const readyOrNotGame_2_0_DD: GameStructure = {
 };
 
 // Add this function to filter out double down slides
-export const getFilteredSlides = (gameVersion: string): Slide[] => {
-    if (gameVersion === '2.0_no_dd') {
+export const getFilteredSlides = (gameVersion: GameVersion): Slide[] => {
+    if (gameVersion === GameVersion.V2_0_NO_DD || gameVersion === GameVersion.V1_5_NO_DD) {
         // Filter out double down slides
         return allGameSlides.filter(slide => {
             // Remove the double down selection slide (slide 144)
@@ -47,8 +47,8 @@ export const getFilteredSlides = (gameVersion: string): Slide[] => {
 export const readyOrNotGame_2_0_NO_DD: GameStructure = {
     id: "ready_or_not_2.0_no_dd",
     name: "Ready Or Not 2.0 (without Double Down)",
-    slides: getFilteredSlides('2.0_no_dd'),
-    interactive_slides: getFilteredSlides('2.0_no_dd').filter(
+    slides: getFilteredSlides(GameVersion.V2_0_NO_DD),
+    interactive_slides: getFilteredSlides(GameVersion.V2_0_NO_DD).filter(
         (slide) => !!slide.interactive_data_key && slide.type.startsWith('interactive_')
     ),
     all_investment_options: allInvestmentOptionsData,
@@ -59,11 +59,26 @@ export const readyOrNotGame_2_0_NO_DD: GameStructure = {
 };
 
 // Add the new 1.5 GameStructure export
-export const readyOrNotGame_1_5: GameStructure = {
-    id: "ready_or_not_1.5",
-    name: "Ready Or Not 1.5 (without virtual host)",
-    slides: get15Slides(),
-    interactive_slides: get15Slides().filter(
+export const readyOrNotGame_1_5_DD: GameStructure = {
+    id: "ready_or_not_1.5_dd",
+    name: "Ready Or Not 1.5 (with Double Down)",
+    slides: get15Slides(GameVersion.V1_5_DD),
+    interactive_slides: get15Slides(GameVersion.V1_5_DD).filter(
+        (slide) => !!slide.interactive_data_key && slide.type.startsWith('interactive_')
+    ),
+    all_investment_options: allInvestmentOptionsData,
+    all_challenge_options: allChallengeOptionsData,
+    all_consequences: allConsequencesData,
+    all_investment_payoffs: allInvestmentPayoffsData,
+    investment_phase_budgets: INVESTMENT_PHASE_BUDGETS,
+};
+
+// Add the new 1.5 GameStructure export
+export const readyOrNotGame_1_5_NO_DD: GameStructure = {
+    id: "ready_or_not_1.5_no_dd",
+    name: "Ready Or Not 1.5 (without Double Down)",
+    slides: get15Slides(GameVersion.V1_5_NO_DD),
+    interactive_slides: get15Slides(GameVersion.V1_5_NO_DD).filter(
         (slide) => !!slide.interactive_data_key && slide.type.startsWith('interactive_')
     ),
     all_investment_options: allInvestmentOptionsData,

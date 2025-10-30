@@ -195,7 +195,7 @@ class MediaManager {
      */
     public async getSignedUrlWithFallback(fileName: string, userType: UserType, gameVersion?: string, skipBlobCache: boolean = false, forceBlobCache: boolean = false): Promise<string> {
         // For version 1.5, try version15 folder first
-        if (gameVersion === '1.5') {
+        if (gameVersion?.includes('1.5')) {
             if (hasVersion15(fileName)) {
                 const version15Path = `business/version15/${fileName}`;
                 return await this.getSignedUrl(version15Path, skipBlobCache, forceBlobCache);

@@ -2,6 +2,7 @@
 import {GameSession, GameSessionInsert, GameStructure, NewGameData, TeamRoundData} from '@shared/types';
 import {db, formatSupabaseError} from '@shared/services/supabase';
 import {ScoringEngine} from './ScoringEngine';
+import { GameVersionManager } from './GameVersionManager';
 
 export class GameSessionManager {
     private static instance: GameSessionManager;
@@ -147,7 +148,9 @@ export class GameSessionManager {
         completed: GameSession[];
     }> {
         try {
-            const allSessions: GameSession[] = await db.sessions.getByHost(hostId);
+            let allSessions: GameSession[] = await db.sessions.getByHost(hostId);
+            // Catch old 1.5 game versions or any invalid game versions in the DB
+            allSessions = allSessions.map(session => ({...session, game_version: GameVersionManager.parseGameVersion(session.game_version)}));
             return {
                 draft: allSessions.filter(s => (s as any).status === 'draft'),
                 active: allSessions.filter(s => (s as any).status === 'active' && !s.is_complete),

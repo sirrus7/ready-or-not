@@ -14,7 +14,7 @@ export function shouldAutoAdvance(gameVersion: string, slideAutoAdvance?: boolea
     }
     
     // For version 1.5, disable all auto-advance regardless of slide setting
-    if (gameVersion === '1.5') {
+    if (gameVersion.includes('1.5')) {
         return false;
     }
     

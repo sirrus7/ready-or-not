@@ -1,5 +1,5 @@
 // src/core/content/SlideContent15.ts
-import {Slide, SlideType} from '@shared/types/game';
+import {GameVersion, Slide, SlideType} from '@shared/types/game';
 import {getFilteredSlides} from './GameStructure';
 
 const image: SlideType = 'image' as SlideType
@@ -106,8 +106,8 @@ const createSubSlides195 = (): Slide[] => [
 /**
  * Creates 1.5 slides with updated titles and filenames
  */
-export const get15Slides = (): Slide[] => {
-    const baseSlides: Slide[] = getFilteredSlides('2.0_dd');
+export const get15Slides = (version: GameVersion): Slide[] => {
+    const baseSlides: Slide[] = getFilteredSlides(version);
     const subSlides6: Slide[] = createSubSlides6();
     const subSlides195: Slide[] = createSubSlides195();
 
