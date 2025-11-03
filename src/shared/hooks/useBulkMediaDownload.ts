@@ -1,6 +1,6 @@
 import {useState, useCallback} from 'react';
 import {mediaManager} from '@shared/services/MediaManager';
-import {Slide} from '@shared/types/game';
+import {GameVersion, Slide} from '@shared/types/game';
 import {UserType} from '@shared/constants/formOptions';
 
 interface BulkDownloadProgress {
@@ -14,8 +14,8 @@ interface BulkDownloadProgress {
 interface UseBulkMediaDownloadReturn {
     isDownloading: boolean;
     progress: BulkDownloadProgress | null;
-    startDownload: (slides: Slide[], userType: UserType, gameVersion?: string) => Promise<void>;
-    isDownloadComplete: (gameVersion?: string, userType?: UserType) => boolean;
+    startDownload: (slides: Slide[], userType: UserType, gameVersion: GameVersion) => Promise<void>;
+    isDownloadComplete: (gameVersion?: GameVersion, userType?: UserType) => boolean;
     clearCache: () => void;
     error: string | null;
 }
@@ -29,7 +29,7 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
     const startDownload = useCallback(async (
         slides: Slide[],
         userType: UserType,
-        gameVersion?: string
+        gameVersion?: GameVersion
     ): Promise<void> => {
         setIsDownloading(true);
         setError(null);
@@ -53,7 +53,7 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
         }
     }, []);
 
-    const isDownloadComplete = useCallback((gameVersion?: string, userType?: UserType): boolean => {
+    const isDownloadComplete = useCallback((gameVersion?: GameVersion, userType?: UserType): boolean => {
         // The cacheCleared dependency forces this to re-evaluate when cache is cleared
         return mediaManager.isBulkDownloadComplete(gameVersion, userType);
     }, [cacheCleared]); // ADD cacheCleared as dependency

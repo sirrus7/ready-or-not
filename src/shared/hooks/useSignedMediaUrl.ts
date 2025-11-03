@@ -3,6 +3,7 @@ import {useState, useEffect} from 'react';
 import {mediaManager} from '@shared/services/MediaManager';
 import {getUserType, UserType} from '@shared/constants/formOptions';
 import {useAuth} from '@app/providers/AuthProvider';
+import { GameVersion } from '@shared/types';
 
 interface SignedMediaUrlState {
     url: string | null;
@@ -16,7 +17,7 @@ interface SignedMediaUrlState {
  * @param gameVersion The game version for slide fallback logic
  * @returns An object containing the URL, loading state, and any errors.
  */
-export const useSignedMediaUrl = (sourcePath: string | undefined, gameVersion?: string): SignedMediaUrlState => {
+export const useSignedMediaUrl = (sourcePath: string | undefined, gameVersion?: GameVersion): SignedMediaUrlState => {
     const [state, setState] = useState<SignedMediaUrlState>({
         url: null,
         isLoading: false,

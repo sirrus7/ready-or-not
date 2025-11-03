@@ -1,5 +1,5 @@
 import {PresentationBroadcastManager} from './PresentationBroadcastManager';
-import {Slide} from '@shared/types';
+import {GameVersion, Slide} from '@shared/types';
 import {HostCommand} from './types';
 import {useEffect, useRef} from 'react';
 
@@ -48,7 +48,7 @@ export class PresentationSyncManager {
      * @param callback (slide, teamData) => void
      * @returns unsubscribe function
      */
-    onSlideUpdate(callback: (slide: Slide, teamData?: any, gameVersion?: string) => void): () => void {
+    onSlideUpdate(callback: (slide: Slide, teamData?: any, gameVersion?: GameVersion) => void): () => void {
         return this.broadcastManager.onSlideUpdate(callback);
     }
 

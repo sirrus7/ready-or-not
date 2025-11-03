@@ -1,5 +1,5 @@
 // src/core/game/GameSessionManager.ts - COMPLETE VERSION
-import {GameSession, GameSessionInsert, GameStructure, NewGameData, TeamRoundData} from '@shared/types';
+import {GameSession, GameSessionInsert, GameStructure, GameVersion, NewGameData, TeamRoundData} from '@shared/types';
 import {db, formatSupabaseError} from '@shared/services/supabase';
 import {ScoringEngine} from './ScoringEngine';
 import { GameVersionManager } from './GameVersionManager';
@@ -30,7 +30,7 @@ export class GameSessionManager {
             name: `Draft Game - ${new Date().toLocaleDateString()}`,
             host_id: hostId,
             status: 'draft',
-            game_version: '2.0_dd',
+            game_version: GameVersion.V2_0_DD,
             current_slide_index: 0,
             is_playing: false,
             is_complete: false,
@@ -218,6 +218,7 @@ export class GameSessionManager {
         try {
             const sessionData: GameSession = await db.sessions.getById(sessionId);
             if (!sessionData) throw new Error(`Session with ID '${sessionId}' not found.`);
+            sessionData.game_version = GameVersionManager.parseGameVersion(sessionData.game_version);
             return sessionData;
         } catch (error) {
             throw new Error(`Failed to load session: ${formatSupabaseError(error)}`);

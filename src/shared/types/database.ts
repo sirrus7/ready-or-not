@@ -1,3 +1,5 @@
+import { GameVersion } from "./game";
+
 // src/shared/types/database.ts
 export interface PermanentKpiAdjustment {
     id: string;
@@ -34,7 +36,7 @@ export interface GameSession {
     id: string;
     host_id: string;
     name: string;
-    game_version: string;
+    game_version: GameVersion | string; // string type to account for legacy '1.5' games
     class_name: string | null;
     grade_level: string | null;
     is_playing: boolean;

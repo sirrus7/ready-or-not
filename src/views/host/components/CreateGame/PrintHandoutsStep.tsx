@@ -89,7 +89,7 @@ const PrintHandoutsStep: React.FC<PrintHandoutsStepProps> = ({
         };
     }, [num_players, num_teams]);
 
-    const pioneerPressEmailSubject = `Ready or Not ${game_version.toString().includes('2.0') ? '2.0' : '1.5'} Game Packet Order - "${gameName || 'Untitled Game'}"`;
+    const pioneerPressEmailSubject = `Ready or Not ${game_version.includes('2.0') ? '2.0' : '1.5'} Game Packet Order - "${gameName || 'Untitled Game'}"`;
     const pioneerPressEmailBody = `
 Hello Pioneer Press,
 

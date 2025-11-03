@@ -36,7 +36,7 @@ export class GameVersionManager {
      * @param version - The game version (from database)
      * @returns The corresponding GameStructure
      */
-    static getGameStructure(version: string | null | undefined): GameStructure {
+    static getGameStructure(version: GameVersion | string | null | undefined): GameStructure {
         // Default to 2.0 with DD if no version specified
         if (!version) {
             return GAME_STRUCTURES[GameVersion.V2_0_DD];

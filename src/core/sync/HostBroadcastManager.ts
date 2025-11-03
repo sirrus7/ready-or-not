@@ -1,4 +1,4 @@
-import {Slide} from '@shared/types/game';
+import {GameVersion, Slide} from '@shared/types/game';
 import {
     HostCommand,
     SlideUpdate,
@@ -193,7 +193,7 @@ export class HostBroadcastManager {
         teams: Team[];
         teamRoundData: Record<string, Record<number, TeamRoundData>>;
         teamDecisions: TeamDecision[];
-    }, gameVersion?: string): void {
+    }, gameVersion?: GameVersion): void {
         if (this.isDestroyed) return;
         const update: SlideUpdate = {
             type: BroadcastEventType.SLIDE_UPDATE,

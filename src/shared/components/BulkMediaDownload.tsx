@@ -1,13 +1,13 @@
 import React from 'react';
 import {Download, CheckCircle, AlertCircle, X} from 'lucide-react';
 import {useBulkMediaDownload} from '@shared/hooks/useBulkMediaDownload';
-import {Slide} from '@shared/types/game';
+import {GameVersion, Slide} from '@shared/types/game';
 import {UserType} from '@shared/constants/formOptions';
 
 interface BulkMediaDownloadProps {
     slides: Slide[],
     userType: UserType,
-    gameVersion?: string,
+    gameVersion: GameVersion,
     onClose?: () => void,
 }
 

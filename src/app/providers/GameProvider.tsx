@@ -12,7 +12,8 @@ import {
     AppState,
     GameStructure,
     Slide,
-    PermanentKpiAdjustment // ADDED: For centralized adjustments
+    PermanentKpiAdjustment, // ADDED: For centralized adjustments
+    GameVersion
 } from '@shared/types';
 import {SimpleRealtimeManager} from "@core/sync";
 import {GameVersionManager} from "@core/game/GameVersionManager.ts";
@@ -32,7 +33,7 @@ import {GameVersionManager} from "@core/game/GameVersionManager.ts";
 export interface GameContextType {
     state: AppState;
     currentSlideData: Slide | null;
-    gameVersion: string; // ADDED: Game version for version-dependent features
+    gameVersion: GameVersion; // ADDED: Game version for version-dependent features
     nextSlide: (source?: 'manual' | 'video' | 'auto') => Promise<void>;
     previousSlide: () => Promise<void>;
     selectSlideByIndex: (index: number) => Promise<void>;
@@ -95,7 +96,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
     const gameController = useGameController(
         session,
         gameStructure,
-        session?.game_version,
+        session?.game_version as GameVersion,
         gameProcessing.processInteractiveSlide,
         gameProcessing.processConsequenceSlide,
         gameProcessing.processPayoffSlide,
@@ -175,7 +176,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
         return {
             state: appState,
             currentSlideData: gameControllerRef.current.currentSlideData,
-            gameVersion: session?.game_version || '2.0',
+            gameVersion: GameVersionManager.parseGameVersion(session?.game_version ?? ""),
             nextSlide: gameControllerRef.current.nextSlide,
             previousSlide: gameControllerRef.current.previousSlide,
             selectSlideByIndex: gameControllerRef.current.selectSlideByIndex,

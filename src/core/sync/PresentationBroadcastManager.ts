@@ -1,4 +1,4 @@
-import {Slide} from '@shared/types/game';
+import {GameVersion, Slide} from '@shared/types/game';
 import {
     HostCommand,
     PresentationStatus,
@@ -16,7 +16,7 @@ export class PresentationBroadcastManager {
     private static instances: Map<string, PresentationBroadcastManager> = new Map();
     private channel: BroadcastChannel;
     private sessionId: string;
-    private slideHandlers: Set<(slide: Slide, teamData?: any, gameVersion?: string) => void> = new Set();
+    private slideHandlers: Set<(slide: Slide, teamData?: any, gameVersion?: GameVersion) => void> = new Set();
     private joinInfoHandlers: Set<(joinUrl: string, qrCodeDataUrl: string) => void> = new Set();
     private commandHandlers: Set<(command: HostCommand) => void> = new Set();
     private pingHandlers: Set<() => void> = new Set();
@@ -90,7 +90,7 @@ export class PresentationBroadcastManager {
      * @param callback (slide, teamData) => void
      * @returns unsubscribe function
      */
-    onSlideUpdate(callback: (slide: Slide, teamData?: any, gameVersion?: string) => void): () => void {
+    onSlideUpdate(callback: (slide: Slide, teamData?: any, gameVersion?: GameVersion) => void): () => void {
         if (this.isDestroyed) return () => {
         };
         this.slideHandlers.add(callback);
