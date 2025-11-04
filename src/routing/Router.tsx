@@ -19,6 +19,8 @@ import {
     AuthenticatedPage,
     DisplayWrapper
 } from '@routing/routes';
+import HostValidation from '@views/health/HostValidation';
+import MobileValidation from '@views/health/MobileValidation';
 
 const Router: React.FC = React.memo(() => {
     return (
@@ -65,9 +67,24 @@ const Router: React.FC = React.memo(() => {
                         element={<HealthCheck/>}
                     />
 
+                    <Route
+                        path="/validation/mobile/:testId"
+                        element={<MobileValidation/>}
+                    />
+
                     {/* ============================================================ */}
                     {/* PROTECTED ROUTES (Authentication Required) */}
                     {/* ============================================================ */}
+
+                    {/* Host Validation Tool - Protected */}
+                    <Route 
+                    path="/validation" 
+                    element={
+                            <AuthenticatedPage>
+                                <HostValidation />
+                            </AuthenticatedPage>
+                        } 
+                    />
 
                     {/* Dashboard - Protected */}
                     <Route
