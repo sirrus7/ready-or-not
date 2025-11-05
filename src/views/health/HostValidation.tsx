@@ -11,7 +11,11 @@ import {
     type TestResult
 } from '@shared/services/ValidationTools';
 
-// Utility function to generate a random GUID
+// Speed thresholds (in MB/s)
+const SPEED_THRESHOLD_GOOD = 2.5;       // 20 Mbps
+const SPEED_THRESHOLD_ACCEPTABLE = 1.0; // 8 Mbps
+
+// Utility function to generate a random ID to sync realtime test
 const generateUniqueId = (): string => {
     return `${Date.now()}-${Math.floor(Math.random() * 10000)}`
 };
@@ -27,7 +31,7 @@ const HostValidation: React.FC = () => {
     const navigate = useNavigate();
 
     // Unique ID per page load
-    const [identifier, setIdentifier] = useState(generateUniqueId());
+    const identifier = generateUniqueId();
 
     // Database test state
     const [dbStatus, setDbStatus] = useState<TestStatus>(TestStatus.idle);
@@ -49,11 +53,8 @@ const HostValidation: React.FC = () => {
     useEffect(() => {
         runDatabaseTest();
         runStorageTest();
-    }, []);
-
-    useEffect(() => {
         generateQRCode();
-    }, [identifier])
+    }, []);
 
     const runDatabaseTest = async () => {
         setDbStatus(TestStatus.running);
@@ -76,10 +77,10 @@ const HostValidation: React.FC = () => {
         setRealtimeResult(null);
 
         const sendResult = await testRealtimeChannelSend(`validation-host-send-${identifier}`, {
-                type: 'validation',
-                timestamp: Date.now(),
-                message: 'Test message from validation page'
-            });
+            type: 'validation',
+            timestamp: Date.now(),
+            message: 'Test message from validation page'
+        });
 
         if (!sendResult.success) {
             setRealtimeStatus(TestStatus.error);
@@ -182,6 +183,28 @@ const HostValidation: React.FC = () => {
         }
     };
 
+    const getSpeedBadge = (speedMBps: number) => {
+        if (speedMBps >= SPEED_THRESHOLD_GOOD) {
+            return (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    Fast
+                </span>
+            );
+        } else if (speedMBps >= SPEED_THRESHOLD_ACCEPTABLE) {
+            return (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                    Moderate
+                </span>
+            );
+        } else {
+            return (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                    Slow
+                </span>
+            );
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-game-cream-50 to-game-cream-100">
             <div className="max-w-6xl mx-auto px-4 py-8">
@@ -267,7 +290,7 @@ const HostValidation: React.FC = () => {
                                         {getStatusBadge(realtimeStatus)}
                                     </div>
                                     <p className="text-sm text-gray-500 mt-1 mb-3">
-                                        Use this test to validate player to host communication. Scan the QR code to open the mobile testing validation page and begin the test.
+                                        Use this test to validate player to host communication. Scan the QR code to open the mobile testing validation page and then begin the test.
                                     </p>
                                     <button
                                         onClick={runRealtimeTest}
@@ -426,7 +449,12 @@ const HostValidation: React.FC = () => {
 
                             <div className="p-6">
                                 <div className="mb-4">
-                                    {getStatusBadge(storageStatus)}
+                                    <div className="flex gap-2 items-center">
+                                        {getStatusBadge(storageStatus)}
+                                        {storageResult?.details?.downloadSpeedMBps && (
+                                            getSpeedBadge(parseFloat(storageResult.details.downloadSpeedMBps))
+                                        )}
+                                    </div>
                                 </div>
 
                                 {storageResult && (
@@ -440,7 +468,7 @@ const HostValidation: React.FC = () => {
                                             <div>
                                                 <p className="text-sm font-medium text-gray-700">Download Time:</p>
                                                 <p className="text-2xl font-bold text-blue-600">
-                                                    {storageResult.duration.toFixed(2)}ms
+                                                    {storageResult.duration.toFixed(0)}ms
                                                 </p>
                                             </div>
                                         )}

@@ -41,7 +41,7 @@ export async function testDatabaseConnection(): Promise<TestResult> {
     
     return {
       success: true,
-      message: `Database is accessible (${duration.toFixed(2)}ms)`,
+      message: `Database is responsive`,
       duration,
       details: { recordsReturned: data?.length || 0 }
     };
@@ -223,42 +223,70 @@ export async function testStorageDownloadSpeed(
   filePath: string = 'Slide_005.mp4'
 ): Promise<TestResult> {
   const startTime = performance.now();
-  
+    
   try {
+    // Step 1: Get signed URL (same as MediaManager)
     const { data, error } = await supabase
       .storage
       .from(bucketName)
-      .download(filePath);
-    
-    const duration = performance.now() - startTime;
+      .createSignedUrl(filePath, 300); // 5 min expiry
     
     if (error) {
       return {
         success: false,
-        message: `Storage download failed: ${error.message}`,
-        duration,
+        message: `Failed to create signed URL: ${error.message}`,
+        duration: performance.now() - startTime,
         error: error.message,
         details: error
       };
     }
     
-    if (!data) {
+    if (!data?.signedUrl) {
       return {
         success: false,
-        message: 'No data received from storage',
-        duration,
-        error: 'Empty response'
+        message: 'No signed URL returned',
+        duration: performance.now() - startTime,
+        error: 'Empty signed URL response'
       };
     }
     
-    const fileSizeBytes = data.size;
+    // Step 2: Fetch the file as blob (same as MediaManager bulk download)
+    const response = await fetch(data.signedUrl);
+    
+    if (!response.ok) {
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+      } catch (e) {
+        errorBody = 'Could not read error response';
+      }
+      
+      return {
+        success: false,
+        message: `Fetch failed: ${response.status} ${response.statusText}`,
+        duration: performance.now() - startTime,
+        error: `${response.status} ${response.statusText}`,
+        details: {
+          statusCode: response.status,
+          statusText: response.statusText,
+          errorBody
+        }
+      };
+    }
+    
+    // Step 3: Download as blob
+    const blob = await response.blob();
+    const duration = performance.now() - startTime;
+    
+    // Calculate metrics
+    const fileSizeBytes = blob.size;
     const fileSizeMB = fileSizeBytes / (1024 * 1024);
     const durationSeconds = duration / 1000;
     const downloadSpeedMBps = fileSizeMB / durationSeconds;
     
     return {
       success: true,
-      message: `File downloaded successfully from '${bucketName}/${filePath}'`,
+      message: `File downloaded successfully`,
       duration,
       details: {
         bucketName,
@@ -266,7 +294,8 @@ export async function testStorageDownloadSpeed(
         fileSizeBytes,
         fileSizeMB: fileSizeMB.toFixed(2),
         downloadSpeedMBps: downloadSpeedMBps.toFixed(2),
-        downloadSpeedMbps: (downloadSpeedMBps * 8).toFixed(2)
+        downloadSpeedMbps: (downloadSpeedMBps * 8).toFixed(2),
+        blobType: blob.type
       }
     };
   } catch (error: any) {
