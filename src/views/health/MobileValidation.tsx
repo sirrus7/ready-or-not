@@ -1,5 +1,5 @@
 // src/views/validation/MobileValidationTestPage.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Radio, CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import {
@@ -8,36 +8,40 @@ import {
     type TestResult
 } from '@shared/services/ValidationTools';
 
-type TestStatus = 'idle' | 'running' | 'success' | 'error';
+type TestStatus = 'running' | 'success' | 'error';
 
 const MobileValidationTestPage: React.FC = () => {
     const { testId } = useParams<{ testId: string }>();
-    const [status, setStatus] = useState<TestStatus>('idle');
-    const [result, setResult] = useState<TestResult | null>(null);
+    const [status, setStatus] = useState<TestStatus>('running');
+    const [message, setMessage] = useState<string>("");
+    const [error, setError] = useState<string>("");
+
+    useEffect(() => {
+        runTest()
+    }, [testId])
 
     const runTest = async () => {
         if (!testId) {
             setStatus('error');
-            setResult({
-                success: false,
-                message: 'No test ID provided in URL',
-                error: 'Missing test ID parameter'
-            });
+            setMessage('Try closing this page and reopening from validation page QR code or Link')
+            setError('Invalid ID')
             return;
         }
 
         setStatus('running');
-        setResult(null);
+        setMessage('Ready, please start test from Validation Page')
+        setError('');
 
         // Step 1: Listen for message from desktop on 
         const receiveChannel = `validation-host-send-${testId}`;
         const sendChannel = `validation-host-receive-${testId}`;
 
-        const receiveResult = await testRealtimeChannelReceive(receiveChannel, 30000);
+        const receiveResult = await testRealtimeChannelReceive(receiveChannel, 120000);
 
         if (!receiveResult.success) {
-            setResult(receiveResult);
             setStatus('error');
+            setMessage('Test timed out. Try again.');
+            setError('Failed to receive update after 2 minutes');
             return;
         }
 
@@ -50,27 +54,16 @@ const MobileValidationTestPage: React.FC = () => {
         });
 
         if (!sendResult.success) {
-            setResult(sendResult);
             setStatus('error');
+            setMessage('Received message from host but was not able to send update. Try again.');
+            setError('Failed to send update');
             return;
         }
 
         // Mobile test is successful when it sends the response
-        setResult({
-            success: true,
-            message: 'Test completed successfully! Message received and response sent.',
-            duration: receiveResult.duration,
-            details: {
-                receivedMessage: receiveResult.details,
-                sentResponse: sendResult.success
-            }
-        });
-        setStatus('success')
-    };
-
-    const resetTest = () => {
-        setStatus('idle');
-        setResult(null);
+        setStatus('success');
+        setMessage('Test completed successfully! Able to recieve and sent updates.')
+        setError('')
     };
 
     const getStatusIcon = () => {
@@ -81,21 +74,17 @@ const MobileValidationTestPage: React.FC = () => {
                 return <CheckCircle className="w-20 h-20 text-green-400" />;
             case 'error':
                 return <XCircle className="w-20 h-20 text-red-400" />;
-            default:
-                return <Radio className="w-20 h-20 text-gray-400" />;
         }
     };
 
     const getStatusText = () => {
         switch (status) {
             case 'running':
-                return 'Waiting for test message...';
+                return 'Ready and waiting for host to start test...';
             case 'success':
                 return 'Test Passed!';
             case 'error':
                 return 'Test Failed';
-            default:
-                return 'Ready to Test';
         }
     };
 
@@ -107,8 +96,6 @@ const MobileValidationTestPage: React.FC = () => {
                 return 'text-green-300';
             case 'error':
                 return 'text-red-300';
-            default:
-                return 'text-gray-300';
         }
     };
 
@@ -119,7 +106,7 @@ const MobileValidationTestPage: React.FC = () => {
                 <div className="flex items-center justify-center gap-3">
                     <Radio className="w-6 h-6 text-purple-400" />
                     <h1 className="text-xl font-bold text-white">
-                        Realtime Test
+                        Connectivity Test
                     </h1>
                 </div>
             </div>
@@ -141,90 +128,44 @@ const MobileValidationTestPage: React.FC = () => {
 
                     {/* Content Section */}
                     <div className="p-6 space-y-6">
-
-                        {/* Instructions or Results */}
-                        {status === 'idle' && (
-                            <div className="text-center space-y-4">
-                                <p className="text-gray-300 leading-relaxed">
-                                    This test verifies that your device can receive realtime messages from the server and send responses back.
-                                </p>
-                                <div className="bg-gray-700/50 rounded-lg p-4 text-left">
-                                    <p className="text-sm text-gray-300 font-semibold mb-2">Instructions:</p>
-                                    <ol className="text-sm text-gray-400 space-y-2 list-decimal list-inside">
-                                        <li>Press "Run Test" below</li>
-                                        <li>Click "Begin Test" on the desktop page</li>
-                                        <li>Wait for this page to receive and respond to the message</li>
-                                    </ol>
-                                </div>
-                                {testId && (
-                                    <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3">
-                                        <p className="text-xs text-purple-300 font-mono break-all">
-                                            Test ID: {testId}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
                         {status === 'running' && (
                             <div className="text-center space-y-4">
-                                <p className="text-gray-300">
-                                    Waiting for test message from desktop...
-                                </p>
                                 <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4">
                                     <p className="text-sm text-purple-300">
-                                        Now click "Begin Test" on the desktop validation page
+                                        Click "Start Test" on the desktop validation page
                                     </p>
                                 </div>
                             </div>
                         )}
 
-                        {status === 'success' && result && (
+                        {status === 'success' && (
                             <div className="space-y-4">
                                 <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
                                     <p className="text-sm font-medium text-green-300 mb-2">Success!</p>
-                                    <p className="text-sm text-green-200">{result.message}</p>
+                                    <p className="text-sm text-green-200">{message}</p>
                                 </div>
-
-                                {result.duration && (
-                                    <div className="bg-gray-700/50 rounded-lg p-4">
-                                        <p className="text-sm font-medium text-gray-300 mb-1">Response Time:</p>
-                                        <p className="text-2xl font-bold text-white">
-                                            {result.duration.toFixed(2)}ms
-                                        </p>
-                                    </div>
-                                )}
-
-                                {result.details && (
-                                    <details className="bg-gray-700/50 rounded-lg p-4">
-                                        <summary className="text-sm font-medium text-gray-300 cursor-pointer">
-                                            View Details
-                                        </summary>
-                                        <pre className="text-xs text-gray-400 mt-2 overflow-auto">
-                                            {JSON.stringify(result.details, null, 2)}
-                                        </pre>
-                                    </details>
-                                )}
                             </div>
                         )}
 
-                        {status === 'error' && result && (
+                        {status === 'error' && (
                             <div className="space-y-4">
                                 <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
                                     <p className="text-sm font-medium text-red-300 mb-2">Test Failed</p>
-                                    <p className="text-sm text-red-200">{result.message}</p>
+                                    <p className="text-sm text-red-200">{message}</p>
                                 </div>
 
-                                {result.error && (
+                                {error && (
                                     <div className="bg-gray-700/50 rounded-lg p-4">
                                         <p className="text-sm font-medium text-gray-300 mb-1">Error:</p>
-                                        <p className="text-sm text-red-300">{result.error}</p>
+                                        <p className="text-sm text-red-300">{error}</p>
                                     </div>
                                 )}
 
                                 <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
                                     <p className="text-xs text-yellow-200">
-                                        <strong>Troubleshooting:</strong> Make sure you sent a test message from the desktop page while this test was running.
+                                        <strong>Troubleshooting: </strong>
+                                        Make sure you open this page before you start the test on the host.
+                                        Ensure that firewalls or other networking restrictions aren't blocking traffic.
                                     </p>
                                 </div>
                             </div>
@@ -232,29 +173,9 @@ const MobileValidationTestPage: React.FC = () => {
 
                         {/* Action Buttons */}
                         <div className="pt-4 space-y-3">
-                            {status === 'idle' && (
-                                <button
-                                    onClick={runTest}
-                                    className="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-4 rounded-xl font-semibold hover:from-purple-600 hover:to-purple-700 transition-all shadow-lg flex items-center justify-center gap-2"
-                                >
-                                    <Radio className="w-5 h-5" />
-                                    Run Test
-                                </button>
-                            )}
-
-                            {status === 'running' && (
-                                <button
-                                    disabled
-                                    className="w-full bg-gray-700 text-gray-400 px-6 py-4 rounded-xl font-semibold cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    Test Running...
-                                </button>
-                            )}
-
                             {(status === 'success' || status === 'error') && (
                                 <button
-                                    onClick={resetTest}
+                                    onClick={runTest}
                                     className="w-full bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-4 rounded-xl font-semibold hover:from-gray-700 hover:to-gray-800 transition-all shadow-lg flex items-center justify-center gap-2"
                                 >
                                     <RefreshCw className="w-5 h-5" />
@@ -267,7 +188,7 @@ const MobileValidationTestPage: React.FC = () => {
                         {status === 'running' && (
                             <div className="text-center">
                                 <p className="text-xs text-gray-500">
-                                    Test will timeout after 30 seconds if no message is received
+                                    Test will timeout after 2 minutes if no message is received
                                 </p>
                             </div>
                         )}
@@ -277,7 +198,7 @@ const MobileValidationTestPage: React.FC = () => {
                 {/* Footer Info */}
                 <div className="mt-6 text-center">
                     <p className="text-sm text-gray-500">
-                        Ready or Not 2.0 - Application Validation
+                        Ready or Not - Application Validation
                     </p>
                 </div>
             </div>
