@@ -99,7 +99,7 @@ const MobileValidationTestPage: React.FC = () => {
     const getStatusText = () => {
         switch (status) {
             case 'running':
-                return 'Ready and waiting for host to start test...';
+                return 'Test in Progress...';
             case 'success':
                 return 'Test Passed!';
             case 'error':
@@ -151,7 +151,7 @@ const MobileValidationTestPage: React.FC = () => {
                             <div className="text-center space-y-4">
                                 <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4">
                                     <p className="text-sm text-purple-300">
-                                        Click "Start Test" on the desktop validation page
+                                        Please wait for test to finish
                                     </p>
                                 </div>
                             </div>
