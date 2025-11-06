@@ -41,7 +41,7 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
     return (
         <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 max-w-md mx-auto">
             <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Media Predownload</h3>
+                <h3 className="text-lg font-semibold text-gray-800">Preload Media</h3>
                 {onClose && (
                     <button
                         onClick={onClose}
@@ -57,7 +57,7 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
                 <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-center text-green-800">
                         <CheckCircle size={20} className="mr-2"/>
-                        <span className="font-medium">All media downloaded and cached locally!</span>
+                        <span className="font-medium">All media preloaded and cached locally!</span>
                     </div>
                 </div>
             )}
@@ -67,7 +67,7 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
                     <div className="flex items-start text-red-800">
                         <AlertCircle size={20} className="mr-2 flex-shrink-0 mt-0.5"/>
                         <div>
-                            <span className="font-medium">Download Error:</span>
+                            <span className="font-medium">Preload Error:</span>
                             <p className="text-sm mt-1">{error}</p>
                         </div>
                     </div>
@@ -77,7 +77,7 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
             {isDownloading && progress && (
                 <div className="mb-4">
                     <div className="flex justify-between text-sm text-gray-600 mb-2">
-                        <span>Downloading media files...</span>
+                        <span>Loading media files...</span>
                         <span>{progress.downloaded} / {progress.total}</span>
                     </div>
 
@@ -108,7 +108,7 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
                         disabled={isDownloading}
                     >
                         <Download size={18} className="mr-2"/>
-                        Download All Media ({slides.filter(s => s.source_path).length} files)
+                        Preload All Media ({slides.filter(s => s.source_path).length} files)
                     </button>
                 )}
 
@@ -118,15 +118,15 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
                         className="w-full px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
                         disabled={isDownloading}
                     >
-                        Clear Cache & Re-download
+                        Clear Cache & Preload again
                     </button>
                 )}
             </div>
 
             <div className="mt-4 text-xs text-gray-500">
-                <p>This will download all presentation media to your device for faster loading.</p>
+                <p>This will preload all presentation media to your device for faster loading.</p>
                 {downloadComplete && (
-                    <p className="mt-1 text-green-600">✓ Files cached locally - no internet required for playback</p>
+                    <p className="mt-1 text-green-600">✓ Files cached locally - Playback is not dependent on internet speed</p>
                 )}
             </div>
         </div>

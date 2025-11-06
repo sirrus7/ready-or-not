@@ -42,8 +42,8 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
                 onClick={onOpenBulkDownload}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-blue-100 text-blue-600 transition-colors border border-blue-300"
                 type="button"
-                aria-label="Download All Media">
-                <Download size={16}/> Download Media
+                aria-label="Preload All Media">
+                <Download size={16}/> Preload Media
             </button>
             <button
                 onClick={onOpenRonBotHelp}
