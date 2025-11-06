@@ -32,20 +32,39 @@ const MobileValidationTestPage: React.FC = () => {
         setMessage('Ready, please start test from Validation Page')
         setError('');
 
-        // Step 1: Listen for message from desktop on 
+        const startChannel = `validation-host-start-${testId}`;
         const receiveChannel = `validation-host-send-${testId}`;
         const sendChannel = `validation-host-receive-${testId}`;
 
-        const receiveResult = await testRealtimeChannelReceive(receiveChannel, 120000);
+        // Setup our channel to listen
+        const receivePromise = testRealtimeChannelReceive(receiveChannel, 120000);
 
-        if (!receiveResult.success) {
+        // Send our start message to host
+        const startResult = await testRealtimeChannelSend(startChannel, {
+            type: 'validation-mobile-to-desktop',
+            timestamp: Date.now(),
+            message: 'Response from mobile test page',
+            testId: testId
+        });
+
+        if (!startResult.success) {
             setStatus('error');
-            setMessage('Test timed out. Try again.');
-            setError('Failed to receive update after 2 minutes');
+            setMessage('Error starting test, please close this page and try again');
+            setError('Failed to send update');
             return;
         }
 
-        // Step 2: Send response back to desktop on 'validation-host-${testId}'
+        // Wait for response from host
+        const receiveResult = await receivePromise;
+
+        if (!receiveResult.success) {
+            setStatus('error');
+            setMessage('Failed to receive update after 2 minutes');
+            setError('Timed Out');
+            return;
+        }
+
+        // Send final response to host
         const sendResult = await testRealtimeChannelSend(sendChannel, {
             type: 'validation-mobile-to-desktop',
             timestamp: Date.now(),
@@ -55,7 +74,7 @@ const MobileValidationTestPage: React.FC = () => {
 
         if (!sendResult.success) {
             setStatus('error');
-            setMessage('Received message from host but was not able to send update. Try again.');
+            setMessage('Received message from host but was not able to send update');
             setError('Failed to send update');
             return;
         }
@@ -164,34 +183,22 @@ const MobileValidationTestPage: React.FC = () => {
                                 <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
                                     <p className="text-xs text-yellow-200">
                                         <strong>Troubleshooting: </strong>
-                                        Make sure you open this page before you start the test on the host.
-                                        Ensure that firewalls or other networking restrictions aren't blocking traffic.
+                                        Ensure that firewalls or other networking restrictions aren't blocking traffic. Try using 
                                     </p>
                                 </div>
                             </div>
                         )}
 
-                        {/* Action Buttons */}
-                        <div className="pt-4 space-y-3">
-                            {(status === 'success' || status === 'error') && (
-                                <button
-                                    onClick={runTest}
-                                    className="w-full bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-4 rounded-xl font-semibold hover:from-gray-700 hover:to-gray-800 transition-all shadow-lg flex items-center justify-center gap-2"
-                                >
-                                    <RefreshCw className="w-5 h-5" />
-                                    Try Again
-                                </button>
-                            )}
-                        </div>
-
                         {/* Timer Warning */}
-                        {status === 'running' && (
+                        
                             <div className="text-center">
                                 <p className="text-xs text-gray-500">
-                                    Test will timeout after 2 minutes if no message is received
+                                    {status === 'running' ? 
+                                        <>Test will timeout after 2 minutes if no message is received</> : 
+                                        <>This window can now be closed. Do not reload this page, launch from the Application Validation page each time you test.</>
+                                    }
                                 </p>
                             </div>
-                        )}
                     </div>
                 </div>
 

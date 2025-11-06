@@ -220,7 +220,7 @@ export async function testRealtimeChannelReceive(
  */
 export async function testStorageDownloadSpeed(
   bucketName: string = 'slide-content',
-  filePath: string = 'Slide_005.mp4'
+  filePath: string = 'Slide_007.mp4'
 ): Promise<TestResult> {
   const startTime = performance.now();
     
