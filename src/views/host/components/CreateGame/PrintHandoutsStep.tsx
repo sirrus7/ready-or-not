@@ -218,11 +218,16 @@ Thank you,
                             <li>Sticky Arrows, Team Name Tents, and other game pieces</li>
                         </ul>
                         <p className="font-medium text-gray-800 mb-1">Contact for Quote & Order:</p>
-                        <p className="text-gray-600">Phone: <a href="tel:5412655214"
-                                                               className="text-game-orange-600 hover:underline">(541)
-                            265-5214</a></p>
-                        <p className="text-gray-600 mb-3">Email: <a href="mailto:ppinfo@pioneerprinting.org"
-                                                                    className="text-game-orange-600 hover:underline">ppinfo@pioneerprinting.org</a>
+                        <p className="text-gray-600">Phone: <a href="tel:+15412655242"
+                                                               className="text-game-orange-600 hover:underline">+1 (541)
+                            265-5242</a></p>
+                        <p className="text-gray-600">Email: <a href="mailto:ppinfo@pioneerprinting.org"
+                                                               className="text-game-orange-600 hover:underline">ppinfo@pioneerprinting.org</a>
+                        </p>
+                        <p className="text-gray-600 mb-3">Website: <a href="https://www.pioneerprinting.net"
+                                                                      target="_blank"
+                                                                      rel="noopener noreferrer"
+                                                                      className="text-game-orange-600 hover:underline">www.pioneerprinting.net</a>
                         </p>
                         <a
                             href={`mailto:ppinfo@pioneerprinting.org?subject=${encodeURIComponent(pioneerPressEmailSubject)}&body=${encodeURIComponent(pioneerPressEmailBody)}`}
@@ -531,17 +536,20 @@ Thank you,
                             <div className="flex items-center">
                                 <div className="w-2 h-2 bg-game-orange-500 rounded-full mr-3"></div>
                                 <h4 className="font-medium text-gray-800 text-sm">Special Folder</h4>
-                                <span className="ml-2 text-xs bg-game-orange-100 text-game-orange-700 px-2 py-1 rounded">2 items</span>
+                                <span
+                                    className="ml-2 text-xs bg-game-orange-100 text-game-orange-700 px-2 py-1 rounded">2 items</span>
                             </div>
                             {expandedSections.special ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
                         </button>
 
                         {expandedSections.special && (
                             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pl-4">
-                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                <div
+                                    className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">KPI Impact Cards</h5>
-                                        <span className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.kpiImpactCards}</span>
+                                        <span
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.kpiImpactCards}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">Print and cut as needed, color</p>
                                     <button
@@ -552,10 +560,12 @@ Thank you,
                                     </button>
                                 </div>
 
-                                <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                <div
+                                    className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className="font-medium text-gray-700 text-sm">Growth Strategy Reports</h5>
-                                        <span className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.bizGrowthReports}</span>
+                                        <span
+                                            className="text-sm font-bold bg-game-orange-600 text-white px-2 py-1 rounded">Need: {calculatedMaterials.bizGrowthReports}</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-2">1 per team</p>
                                     <button
