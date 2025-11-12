@@ -213,7 +213,7 @@ const GameResultsCharts: React.FC<GameResultsChartsProps> = ({
             {METRICS.map(metric => (
                 <ResultsChart
                     key={metric.key}
-                    title={`Final ${metric.label}`}
+                    title={`RD-3 ${metric.label}`}
                     metric={metric}
                     data={metricData[metric.key] || []}
                     isWinnerChart={metric.key === 'net_income'}
