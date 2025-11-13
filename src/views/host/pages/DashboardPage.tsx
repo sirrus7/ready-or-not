@@ -11,7 +11,7 @@ import {useDashboardData} from '@views/host/hooks/useDashboardData';
 import {useDashboardActions} from '@views/host/hooks/useDashboardActions';
 import NotificationBanner from '@views/host/components/Dashboard/NotificationBanner';
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
-import {GameSession, NewGameData} from '@shared/types';
+import {GameSession} from '@shared/types';
 import RonBotWidget from '@shared/components/RonBotWidget';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {RONBOT_GPT_URL} from "@views/host/components/GameControls/RonBotHelpModal";
@@ -56,19 +56,10 @@ const DashboardPage: React.FC = () => {
 
     // Print Modal
     const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
-    const [printModalGameInfo, setPrintModalGameInfo] = useState<NewGameData | null>(null);
-    const handleOpenPrintModal = (gameId: string) => {
-        const game = activeGames.find((game) => game.id = gameId)!;
+    const [printModalSessionId, setPrintModalSessionId] = useState<string | null>(null);
+    const handleOpenPrintModal = (sessionId: string) => {
         setIsPrintModalOpen(true);
-        setPrintModalGameInfo({
-            game_version: GameVersionManager.parseGameVersion(game.game_version),
-            name: game.name,
-            class_name: game.class_name ?? "",
-            grade_level: game.grade_level ?? "",
-            num_players: 0,
-            num_teams: 0,
-            teams_config: []
-        });
+        setPrintModalSessionId(sessionId);
     }
 
 
@@ -714,9 +705,9 @@ const DashboardPage: React.FC = () => {
                 onClose={closeDeleteModal}
             />
             <PrintHandoutsModal
+                sessionId={printModalSessionId}
                 isOpen={isPrintModalOpen}
                 handleClose={() => {setIsPrintModalOpen(false);}}
-                gameData={printModalGameInfo}
             />
         </div>
     );
