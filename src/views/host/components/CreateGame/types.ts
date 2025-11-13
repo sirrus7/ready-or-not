@@ -30,6 +30,7 @@ export interface RoomSetupStepProps extends BaseWizardStepProps {
 
 export interface PrintHandoutsStepProps extends BaseWizardStepProps {
     onNext: () => void;
+    hideFooter: boolean
 }
 
 export interface MediaDownloadStepProps extends BaseWizardStepProps {

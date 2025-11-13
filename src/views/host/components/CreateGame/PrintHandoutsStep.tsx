@@ -18,10 +18,11 @@ import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
 import { GameVersionManager } from '@core/game/GameVersionManager';
 
 const PrintHandoutsStep: React.FC<PrintHandoutsStepProps> = ({
-                                                                 gameData,
-                                                                 onNext,
-                                                                 onPrevious,
-                                                                 draftSessionId
+                                                                gameData,
+                                                                onNext,
+                                                                onPrevious,
+                                                                draftSessionId,
+                                                                hideFooter=false,
                                                              }) => {
     const {
         generatePDF: generateTeamCardPDF,
@@ -597,7 +598,7 @@ Thank you,
                 </div>
             )}
 
-            <div className="mt-8 flex justify-between">
+            {!hideFooter && <div className="mt-8 flex justify-between">
                 <button
                     type="button"
                     onClick={onPrevious}
@@ -612,7 +613,7 @@ Thank you,
                 >
                     Next: Finalize & Start <ArrowRight size={18}/>
                 </button>
-            </div>
+            </div>}
         </div>
     );
 };

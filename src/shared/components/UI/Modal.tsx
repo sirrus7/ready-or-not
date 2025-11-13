@@ -7,7 +7,7 @@ interface ModalProps {
     onClose: () => void;
     title: string;
     children: React.ReactNode;
-    size?: 'sm' | 'md' | 'lg' | 'xl';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
     hideCloseButton?: boolean;
 }
 
@@ -24,13 +24,6 @@ const Modal: React.FC<ModalProps> = ({
     if (!isOpen) {
         return null;
     }
-
-    const sizeClasses = {
-        sm: 'sm:max-w-sm',
-        md: 'sm:max-w-md',
-        lg: 'sm:max-w-lg',
-        xl: 'sm:max-w-xl',
-    };
 
     return (
         <div
@@ -53,7 +46,7 @@ const Modal: React.FC<ModalProps> = ({
 
                 {/* Modal panel, show/hide based on modal state. */}
                 <div
-                    className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full ${sizeClasses[size]}`}
+                    className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full sm:max-w-${size}`}
                 >
                     <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                         <div className="sm:flex sm:items-start">

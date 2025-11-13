@@ -1,22 +1,23 @@
 // src/views/host/pages/DashboardPage.tsx - Fixed infinite refresh loop
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
 import {
     PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, LogOut,
     Download, BookOpen, Users, TrendingUp, Bot, GraduationCap,
-    LifeBuoy, Mail, Phone, PlayCircle, Star
+    LifeBuoy, Mail, Phone, PlayCircle, Star, Printer
 } from 'lucide-react';
 import {useAuth} from '@app/providers/AuthProvider';
 import {useDashboardData} from '@views/host/hooks/useDashboardData';
 import {useDashboardActions} from '@views/host/hooks/useDashboardActions';
 import NotificationBanner from '@views/host/components/Dashboard/NotificationBanner';
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
-import {GameSession} from '@shared/types';
+import {GameSession, NewGameData} from '@shared/types';
 import RonBotWidget from '@shared/components/RonBotWidget';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {RONBOT_GPT_URL} from "@views/host/components/GameControls/RonBotHelpModal";
 import { GameVersionManager } from '@core/game/GameVersionManager';
 import { CheckCircle2 } from 'lucide-react';
+import PrintHandoutsModal from '../components/Dashboard/PrintHandoutsModel';
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
@@ -52,6 +53,24 @@ const DashboardPage: React.FC = () => {
         dismissNotification,
         closeDeleteModal
     } = useDashboardActions(refetchGames);
+
+    // Print Modal
+    const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+    const [printModalGameInfo, setPrintModalGameInfo] = useState<NewGameData | null>(null);
+    const handleOpenPrintModal = (gameId: string) => {
+        const game = activeGames.find((game) => game.id = gameId)!;
+        setIsPrintModalOpen(true);
+        setPrintModalGameInfo({
+            game_version: GameVersionManager.parseGameVersion(game.game_version),
+            name: game.name,
+            class_name: game.class_name ?? "",
+            grade_level: game.grade_level ?? "",
+            num_players: 0,
+            num_teams: 0,
+            teams_config: []
+        });
+    }
+
 
     // FIXED: Auto-refresh when returning from cancelled draft creation
     useEffect(() => {
@@ -340,7 +359,13 @@ const DashboardPage: React.FC = () => {
 
                                                             <div className="flex items-center gap-3 ml-6">
                                                                 {getActionButton(game)}
-
+                                                                <button
+                                                                    onClick={() => handleOpenPrintModal(game.id)}
+                                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                    title={"Print game materials"}
+                                                                >
+                                                                    <Printer size={18}/>
+                                                                </button>
                                                                 <button
                                                                     onClick={() => handleOpenDeleteModal(
                                                                         game.id,
@@ -687,6 +712,11 @@ const DashboardPage: React.FC = () => {
                 isDeleting={isDeleting}
                 onConfirm={handleConfirmDelete}
                 onClose={closeDeleteModal}
+            />
+            <PrintHandoutsModal
+                isOpen={isPrintModalOpen}
+                handleClose={() => {setIsPrintModalOpen(false);}}
+                gameData={printModalGameInfo}
             />
         </div>
     );
