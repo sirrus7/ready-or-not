@@ -76,7 +76,7 @@ const GameResultsPage: React.FC = () => {
 
             const consolidatedNetIncome = calculateConsolidatedNetIncome(teamRoundData, team.id, allTeamDecisions);
             const revenue = calculateKpiValue(round3Data, 'revenue', allTeamDecisions, team.id);
-            const netMargin = calculateKpiValue(round3Data, 'net_margin', allTeamDecisions, team.id);
+            const netMargin = calculateKpiValue(round3Data, 'net_margin');
 
             return {
                 team,
