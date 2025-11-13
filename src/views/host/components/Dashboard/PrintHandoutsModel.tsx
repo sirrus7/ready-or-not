@@ -20,11 +20,7 @@ const PrintHandoutsModal = (props: PrintHandoutsModalProps) => {
 
     const [gameData, setGameData] = useState<NewGameData | null>(null);
 
-    const { 
-        teams, 
-        isLoadingTeams, 
-        error: teamError 
-    } = useTeamDataManager(sessionId);
+    const {teams, isLoadingTeams} = useTeamDataManager(sessionId);
 
 
     useEffect(() => {
@@ -47,7 +43,7 @@ const PrintHandoutsModal = (props: PrintHandoutsModalProps) => {
         loadSession();
     }, [sessionId, teams])
 
-    if (!gameData) {return null}
+    if (!gameData || isLoadingTeams) {return null}
     return (
         <Modal
             isOpen={isOpen}
@@ -58,7 +54,7 @@ const PrintHandoutsModal = (props: PrintHandoutsModalProps) => {
             <PrintHandoutsStep
                 onNext={() => null}
                 onPrevious={() => null}
-                draftSessionId={null}
+                draftSessionId={sessionId}
                 gameData={gameData}
                 hideSetup={true}
             />
