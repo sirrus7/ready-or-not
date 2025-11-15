@@ -16,6 +16,7 @@ import RonBotWidget from '@shared/components/RonBotWidget';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {RONBOT_GPT_URL} from "@views/host/components/GameControls/RonBotHelpModal";
 import { GameVersionManager } from '@core/game/GameVersionManager';
+import { CheckCircle2 } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
@@ -530,7 +531,24 @@ const DashboardPage: React.FC = () => {
                                     <Download size={20}
                                               className="text-gray-400 group-hover:text-green-600 transition-colors"/>
                                 </a>
-
+                                {/* Application Validation */}
+                                <Link
+                                    to="/validation"
+                                    className="flex items-center gap-4 p-4 rounded-xl bg-white shadow-lg border-2 border-blue-200 hover:border-blue-300 hover:shadow-xl transition-all group"
+                                >
+                                    <div
+                                        className="bg-blue-100 p-3 rounded-xl group-hover:bg-blue-200 transition-colors">
+                                        <CheckCircle2 size={24} className="text-blue-600"/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-lg font-bold text-gray-900">Application Validation</div>
+                                        <div className="text-sm text-blue-700 font-medium">
+                                            Validate Connectivity, Functionality, and Performance
+                                        </div>
+                                    </div>
+                                    <TrendingUp size={20}
+                                                className="text-gray-400 group-hover:text-blue-600 transition-colors"/>
+                                </Link>
                                 {/* RONBOT - Very Prominent */}
                                 <a
                                     href={RONBOT_GPT_URL}
