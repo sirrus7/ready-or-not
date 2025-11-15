@@ -42,7 +42,7 @@ const WIZARD_STEPS = [
     {id: 2, title: 'Team Setup', component: TeamSetupStep, icon: Users},
     {id: 3, title: 'Room & Screen Setup', component: RoomSetupStep, icon: ListOrdered},
     {id: 4, title: 'Print Handouts', component: PrintHandoutsStep, icon: Printer},
-    {id: 5, title: 'Download Content', component: MediaDownloadStep, icon: Download},
+    {id: 5, title: 'Preload Content', component: MediaDownloadStep, icon: Download},
     {id: 6, title: 'Finalize & Start', component: FinalizeStep, icon: Rocket},
 ] as const;
 

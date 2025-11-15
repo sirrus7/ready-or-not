@@ -72,7 +72,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-lg">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-sm text-gray-600 mb-1">Downloading content for:</p>
+                        <p className="text-sm text-gray-600 mb-1">Preloading content for:</p>
                         <p className="font-bold text-lg text-blue-900">{gameVersionDisplayName}</p>
                     </div>
                     <Download size={32} className="text-blue-600 opacity-50"/>
@@ -85,12 +85,11 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                     <Info size={20} className="text-blue-600 mr-3 flex-shrink-0 mt-0.5"/>
                     <div>
                         <h3 className="font-semibold text-blue-800 mb-1">
-                            Recommended: Download Content Before Starting
+                            Recommended: Preload Content Before Starting
                         </h3>
                         <p className="text-sm text-blue-700">
-                            We strongly recommend downloading all presentation content before starting your game.
-                            This ensures instant slide loading, smooth video playback, and works even with poor internet
-                            connection.
+                            We strongly recommend preloading all presentation content before starting your game.
+                            Preloading content speeds up video and slide load times, especially for those with slower connections.
                         </p>
                     </div>
                 </div>
@@ -103,18 +102,17 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                         <CheckCircle size={24} className="text-green-600 mr-3 flex-shrink-0 mt-0.5"/>
                         <div className="flex-1">
                             <h3 className="font-semibold text-green-800 mb-1">
-                                Content Already Downloaded
+                                Content Already Preloaded
                             </h3>
                             <p className="text-sm text-green-700 mb-2">
                                 All media for <strong>{gameVersionDisplayName}</strong> has been cached locally.
-                                Your game will load instantly with no delays!
                             </p>
                             <button
                                 onClick={handleClearAndRedownload}
                                 className="text-sm text-green-700 underline hover:text-green-800 flex items-center gap-1"
                             >
                                 <Download size={14}/>
-                                Clear cache & re-download
+                                Clear cache & preload again
                             </button>
                         </div>
                     </div>
