@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '@shared/components/UI/Modal';
 import { PrintHandoutsStep } from '../CreateGame';
-import { NewGameData } from '@shared/types';
+import { GameVersion, NewGameData } from '@shared/types';
 import { useTeamDataManager } from '@shared/hooks/useTeamDataManager';
 import { GameSessionManager } from '@core/game/GameSessionManager';
 
@@ -28,7 +28,7 @@ const PrintHandoutsModal = (props: PrintHandoutsModalProps) => {
             const sessionManager = GameSessionManager.getInstance();
             const sessionData = await sessionManager.loadSession(sessionId);
             setGameData({
-                    game_version: sessionData.game_version,
+                    game_version: sessionData.game_version as GameVersion, // sessionManager enforces GameVersion already
                     name: sessionData.name,
                     class_name: sessionData.class_name || '',
                     grade_level: sessionData.grade_level || '',
