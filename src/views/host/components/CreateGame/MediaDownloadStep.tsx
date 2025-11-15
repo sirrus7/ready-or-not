@@ -126,10 +126,10 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                         <Download size={24} className="text-blue-600 mr-3 flex-shrink-0 mt-0.5 animate-bounce"/>
                         <div className="flex-1">
                             <h3 className="font-semibold text-blue-800 mb-2">
-                                Downloading Media Files
+                                Loading Media Files
                             </h3>
                             <p className="text-sm text-blue-700 mb-3">
-                                Please wait while we download all presentation content. This may take a minute...
+                                Please wait while we preload all presentation content. This may take a minute...
                             </p>
 
                             <div className="space-y-2">
@@ -206,10 +206,10 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                         <AlertCircle size={24} className="text-yellow-600 mr-3 flex-shrink-0 mt-0.5"/>
                         <div className="flex-1">
                             <h3 className="font-semibold text-yellow-800 mb-1">
-                                Download Skipped
+                                Preloading Skipped
                             </h3>
                             <p className="text-sm text-yellow-700 mb-3">
-                                You've chosen to skip the download. Slides will load from the internet, which may cause
+                                You've chosen to skip preloading slide content. Slides will load from the internet, which may cause
                                 delays during your presentation.
                             </p>
                             <button
@@ -217,7 +217,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                                 className="text-sm text-yellow-700 underline hover:text-yellow-800 flex items-center gap-1"
                             >
                                 <Download size={14}/>
-                                Download anyway
+                                Preload anyway
                             </button>
                         </div>
                     </div>
@@ -229,7 +229,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <h4 className="font-semibold text-gray-800 mb-2 text-sm flex items-center">
                         <Info size={16} className="mr-2"/>
-                        Why download content?
+                        Why preload content?
                     </h4>
                     <ul className="text-xs text-gray-700 space-y-1.5 list-disc list-inside">
                         <li>Instant slide loading with no delays</li>
