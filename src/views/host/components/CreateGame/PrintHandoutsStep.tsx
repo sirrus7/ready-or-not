@@ -18,10 +18,11 @@ import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
 import { GameVersionManager } from '@core/game/GameVersionManager';
 
 const PrintHandoutsStep: React.FC<PrintHandoutsStepProps> = ({
-                                                                 gameData,
-                                                                 onNext,
-                                                                 onPrevious,
-                                                                 draftSessionId
+                                                                gameData,
+                                                                onNext,
+                                                                onPrevious,
+                                                                draftSessionId,
+                                                                hideSetup=false,
                                                              }) => {
     const {
         generatePDF: generateTeamCardPDF,
@@ -60,7 +61,7 @@ const PrintHandoutsStep: React.FC<PrintHandoutsStepProps> = ({
 
     const calculatedMaterials = useMemo(() => {
         const teams = num_teams > 0 ? num_teams : 1; // Default to 1 team if 0
-        const players = num_players > 0 ? num_players : 2; // Default to 2 players if 0
+        const players = num_players > 0 ? num_players : teams; // Default to 1 player per team
 
         // These are example calculations and should match your game's actual needs
         const gameBoards = teams;
@@ -169,7 +170,7 @@ Thank you,
                 This simulation requires physical handouts for player interaction. Choose your preferred method to
                 obtain them:
             </p>
-            <div className="bg-game-cream-100 border-l-4 border-game-orange-500 p-4 rounded-md mb-6">
+            {!hideSetup && <div className="bg-game-cream-100 border-l-4 border-game-orange-500 p-4 rounded-md mb-6">
                 <div className="flex">
                     <div className="flex-shrink-0 pt-0.5">
                         <Info className="h-5 w-5 text-game-brown-700"/>
@@ -182,7 +183,7 @@ Thank you,
                         </p>
                     </div>
                 </div>
-            </div>
+            </div>}
 
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 <button
@@ -597,7 +598,7 @@ Thank you,
                 </div>
             )}
 
-            <div className="mt-8 flex justify-between">
+            {!hideSetup && <div className="mt-8 flex justify-between">
                 <button
                     type="button"
                     onClick={onPrevious}
@@ -612,7 +613,7 @@ Thank you,
                 >
                     Next: Finalize & Start <ArrowRight size={18}/>
                 </button>
-            </div>
+            </div>}
         </div>
     );
 };
