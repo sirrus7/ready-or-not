@@ -410,42 +410,6 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     source_path: 'Slide_055.jpg',
                     type: image,
                 };
-            case 56:
-                return {
-                    ...slide,
-                    source_path: 'Slide_057.jpg',
-                    type: payoff_reveal,
-                };
-            case 57:
-                return {
-                    ...slide,
-                    source_path: 'Slide_058.jpg',
-                    type: payoff_reveal,
-                };
-            case 58:
-                return {
-                    ...slide,
-                    source_path: 'Slide_059.jpg',
-                    type: payoff_reveal,
-                };
-            case 59:
-                return {
-                    ...slide,
-                    source_path: 'Slide_060.jpg',
-                    type: payoff_reveal,
-                };
-            case 60:
-                return {
-                    ...slide,
-                    source_path: 'Slide_061.jpg',
-                    type: payoff_reveal,
-                };
-            case 61:
-                return {
-                    ...slide,
-                    source_path: 'Slide_062.jpg',
-                    type: payoff_reveal,
-                };
             case 62:
                 return {
                     ...slide,
@@ -788,72 +752,6 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     source_path: 'Slide_125.jpg',
                     type: image,
                 };
-            case 126:
-                return {
-                    ...slide,
-                    source_path: 'Slide_127.jpg',
-                    type: payoff_reveal,
-                };
-            case 127:
-                return {
-                    ...slide,
-                    source_path: 'Slide_128.jpg',
-                    type: payoff_reveal,
-                };
-            case 128:
-                return {
-                    ...slide,
-                    source_path: 'Slide_129.jpg',
-                    type: payoff_reveal,
-                };
-            case 129:
-                return {
-                    ...slide,
-                    source_path: 'Slide_130.jpg',
-                    type: payoff_reveal,
-                };
-            case 130:
-                return {
-                    ...slide,
-                    source_path: 'Slide_131.jpg',
-                    type: payoff_reveal,
-                };
-            case 131:
-                return {
-                    ...slide,
-                    source_path: 'Slide_132.jpg',
-                    type: payoff_reveal,
-                };
-            case 132:
-                return {
-                    ...slide,
-                    source_path: 'Slide_133.jpg',
-                    type: payoff_reveal,
-                };
-            case 133:
-                return {
-                    ...slide,
-                    source_path: 'Slide_134.jpg',
-                    type: payoff_reveal,
-                };
-            case 134:
-                return {
-                    ...slide,
-                    source_path: 'Slide_135.jpg',
-                    type: payoff_reveal,
-                };
-            case 135:
-                return {
-                    ...slide,
-                    source_path: 'Slide_136.jpg',
-                    type: payoff_reveal,
-                };
-            case 136:
-                return {
-                    ...slide,
-                    source_path: 'Slide_137.jpg',
-                    type: payoff_reveal,
-                };
             case 137:
                 return {
                     ...slide,
@@ -1021,78 +919,6 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     ...slide,
                     source_path: 'Slide_170.jpg',
                     type: image,
-                };
-            case 171:
-                return {
-                    ...slide,
-                    source_path: 'Slide_172.jpg',
-                    type: payoff_reveal,
-                };
-            case 172:
-                return {
-                    ...slide,
-                    source_path: 'Slide_173.jpg',
-                    type: payoff_reveal,
-                };
-            case 173:
-                return {
-                    ...slide,
-                    source_path: 'Slide_174.jpg',
-                    type: payoff_reveal,
-                };
-            case 174:
-                return {
-                    ...slide,
-                    source_path: 'Slide_175.jpg',
-                    type: payoff_reveal,
-                };
-            case 175:
-                return {
-                    ...slide,
-                    source_path: 'Slide_176.jpg',
-                    type: payoff_reveal,
-                };
-            case 176:
-                return {
-                    ...slide,
-                    source_path: 'Slide_177.jpg',
-                    type: payoff_reveal,
-                };
-            case 177:
-                return {
-                    ...slide,
-                    source_path: 'Slide_178.jpg',
-                    type: payoff_reveal,
-                };
-            case 178:
-                return {
-                    ...slide,
-                    source_path: 'Slide_179.jpg',
-                    type: payoff_reveal,
-                };
-            case 179:
-                return {
-                    ...slide,
-                    source_path: 'Slide_180.jpg',
-                    type: payoff_reveal,
-                };
-            case 180:
-                return {
-                    ...slide,
-                    source_path: 'Slide_181.jpg',
-                    type: payoff_reveal,
-                };
-            case 181:
-                return {
-                    ...slide,
-                    source_path: 'Slide_182.jpg',
-                    type: payoff_reveal,
-                };
-            case 182:
-                return {
-                    ...slide,
-                    source_path: 'Slide_183.mp4',
-                    type: payoff_reveal,
                 };
             case 183:
                 return {

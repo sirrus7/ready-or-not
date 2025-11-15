@@ -55,7 +55,7 @@ class MediaManager {
     private readonly BULK_DOWNLOAD_TIMESTAMP_KEY = 'media-bulk-download-timestamp';
     private readonly BULK_DOWNLOAD_CONTENT_VERSION_KEY = 'media-bulk-download-content-version';
     private readonly BULK_DOWNLOAD_CACHE_EXPIRY_DAYS = 7; // Cache expires after 7 days
-    private readonly BULK_DOWNLOAD_CURRENT_CONTENT_VERSION = '1.0'; // Increment when you update slides
+    private readonly BULK_DOWNLOAD_CURRENT_CONTENT_VERSION = '1.1'; // Increment when you update slides
     private isBulkDownloading: boolean = false;
 
     private constructor() {
