@@ -87,3 +87,18 @@ export const readyOrNotGame_1_5_NO_DD: GameStructure = {
     all_investment_payoffs: allInvestmentPayoffsData,
     investment_phase_budgets: INVESTMENT_PHASE_BUDGETS,
 };
+
+// Add the new 1.5 GameStructure export
+export const readyOrNotGame_1_5_ACADEMIC: GameStructure = {
+    id: "ready_or_not_1.5_academic",
+    name: "Ready Or Not 1.5 Academic",
+    slides: get15Slides(GameVersion.V1_5_ACADEMIC),
+    interactive_slides: get15Slides(GameVersion.V1_5_ACADEMIC).filter(
+        (slide) => !!slide.interactive_data_key && slide.type.startsWith('interactive_')
+    ),
+    all_investment_options: allInvestmentOptionsData,
+    all_challenge_options: allChallengeOptionsData,
+    all_consequences: allConsequencesData,
+    all_investment_payoffs: allInvestmentPayoffsData,
+    investment_phase_budgets: INVESTMENT_PHASE_BUDGETS,
+};

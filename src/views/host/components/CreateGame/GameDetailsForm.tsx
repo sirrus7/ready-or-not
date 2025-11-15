@@ -27,7 +27,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                                                                         userType = 'academic'
                                                                     }) => {
     // Instead of creating a union type, just get what we need directly
-    const formLabels: BusinessFormOptions | AcademicFormOptions = (userType === 'business' || userType === 'omep') ? BUSINESS_OPTIONS : ACADEMIC_OPTIONS;
+    const formLabels: BusinessFormOptions | AcademicFormOptions = (userType === 'business' || userType === 'omep') && gameData.game_version !== GameVersion.V1_5_ACADEMIC ? BUSINESS_OPTIONS : ACADEMIC_OPTIONS;
     const levelOptions = (userType === 'business' || userType === 'omep') ? BUSINESS_OPTIONS.playerTypes : ACADEMIC_OPTIONS.gradeLevels;
 
     // Use local state for the input values to prevent external interference
@@ -113,6 +113,7 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                 >
                     {userType === 'omep' && (
                         <>
+                            <option value={GameVersion.V1_5_ACADEMIC}>{GameVersionManager.getDisplayName(GameVersion.V1_5_ACADEMIC)}</option>
                             <option value={GameVersion.V1_5_NO_DD}>{GameVersionManager.getDisplayName(GameVersion.V1_5_NO_DD)}</option>
                             <option value={GameVersion.V1_5_DD}>{GameVersionManager.getDisplayName(GameVersion.V1_5_DD)}</option>
                         </>
