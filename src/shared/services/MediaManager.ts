@@ -2,7 +2,7 @@
 // Updated MediaManager with public precacheSingleSlide method
 
 import {supabase} from '@shared/services/supabase';
-import {Slide} from '@shared/types/game';
+import {GameVersion, Slide} from '@shared/types/game';
 import {UserType} from '@shared/constants/formOptions';
 import {hasBusinessVersion} from '@shared/constants/businessSlides';
 import {hasVersion15} from "@shared/constants/version15Slides";
@@ -22,7 +22,7 @@ interface BulkDownloadProgress {
 }
 
 interface BulkDownloadOptions {
-    gameVersion?: string;
+    gameVersion?: GameVersion;
     userType: UserType;
     onProgress?: (progress: BulkDownloadProgress) => void;
     concurrent?: number; // Number of simultaneous downloads
@@ -195,7 +195,7 @@ class MediaManager {
      */
     public async getSignedUrlWithFallback(fileName: string, userType: UserType, gameVersion?: string, skipBlobCache: boolean = false, forceBlobCache: boolean = false): Promise<string> {
         // For version 1.5, try version15 folder first
-        if (gameVersion === '1.5') {
+        if (gameVersion?.includes('1.5')) {
             if (hasVersion15(fileName)) {
                 const version15Path = `business/version15/${fileName}`;
                 return await this.getSignedUrl(version15Path, skipBlobCache, forceBlobCache);
@@ -225,7 +225,7 @@ class MediaManager {
         slides: Slide[],
         currentSlideIndex: number,
         userType: UserType,
-        gameVersion?: string,
+        gameVersion?: GameVersion,
         precacheCount: number = this.DEFAULT_PRECACHE_COUNT,
         includeCurrent: boolean = true
     ): void {
@@ -293,7 +293,7 @@ class MediaManager {
      * @param userType The user type for business/academic path resolution
      * @param gameVersion the version to load
      */
-    public async precacheSingleSlide(fileName: string, userType: UserType, gameVersion?: string): Promise<void> {
+    public async precacheSingleSlide(fileName: string, userType: UserType, gameVersion?: GameVersion): Promise<void> {
         try {
             // Skip blob caching for precaching to avoid JWT timing issues
             await this.getSignedUrlWithFallback(fileName, userType, gameVersion, true);
@@ -362,7 +362,7 @@ class MediaManager {
     /**
      * Check if cache is valid (not expired and correct version)
      */
-    private isCacheValid(gameVersion?: string, userType?: UserType): boolean {
+    private isCacheValid(gameVersion?: GameVersion, userType?: UserType): boolean {
         const isComplete = localStorage.getItem(this.BULK_DOWNLOAD_STORAGE_KEY) === 'true';
         const storedVersion = localStorage.getItem(this.BULK_DOWNLOAD_VERSION_KEY);
         const currentVersion = `${gameVersion || 'default'}-${userType || 'academic'}`;
@@ -396,7 +396,7 @@ class MediaManager {
     /**
      * Get cache info for display purposes
      */
-    public getCacheInfo(gameVersion?: string, userType?: UserType): {
+    public getCacheInfo(gameVersion?: GameVersion, userType?: UserType): {
         isComplete: boolean;
         isValid: boolean;
         cachedVersion: string | null;
@@ -525,7 +525,7 @@ class MediaManager {
     /**
      * Extracts all unique media file paths from slides considering version hierarchy
      */
-    private extractUniqueMediaPaths(slides: Slide[], userType: UserType, gameVersion?: string): string[] {
+    private extractUniqueMediaPaths(slides: Slide[], userType: UserType, gameVersion?: GameVersion): string[] {
         const mediaPaths = new Set<string>();
 
         slides.forEach(slide => {
@@ -542,9 +542,9 @@ class MediaManager {
     /**
      * Resolves the actual media path based on version hierarchy logic
      */
-    private resolveMediaPath(fileName: string, userType: UserType, gameVersion?: string): string {
+    private resolveMediaPath(fileName: string, userType: UserType, gameVersion?: GameVersion): string {
         // For version 1.5, try version15 folder first
-        if (gameVersion === '1.5') {
+        if (gameVersion?.includes('1.5')) {
             if (hasVersion15(fileName)) {
                 return `business/version15/${fileName}`;
             }
@@ -573,7 +573,7 @@ class MediaManager {
     /**
      * Check if bulk download is complete for current version/user type
      */
-    public isBulkDownloadComplete(gameVersion?: string, userType?: UserType): boolean {
+    public isBulkDownloadComplete(gameVersion?: GameVersion, userType?: UserType): boolean {
         return this.isCacheValid(gameVersion, userType);
     }
 

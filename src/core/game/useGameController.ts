@@ -3,13 +3,13 @@
 
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GameSessionManager} from '@core/game/GameSessionManager';
-import {GameStructure, GameSession, Slide} from '@shared/types';
+import {GameStructure, GameSession, Slide, GameVersion} from '@shared/types';
 import {useSlidePreCaching} from '@shared/hooks/useSlidePreCaching';
 
 export const useGameController = (
     initialDbSession: GameSession | null,
     gameStructure: GameStructure | null,
-    gameVersion: string | undefined,
+    gameVersion: GameVersion | undefined,
     processInteractiveSlide: (completedSlide: Slide) => Promise<void>,
     processConsequenceSlide: (consequenceSlide: Slide) => Promise<void>,
     processPayoffSlide: (payoffSlide: Slide) => Promise<void>,

@@ -8,6 +8,8 @@ import {
     BusinessFormOptions,
     UserType
 } from '@shared/constants/formOptions';
+import { GameVersionManager } from '@core/game/GameVersionManager';
+import { GameVersion } from '@shared/types';
 
 interface GameDetailsFormProps {
     gameData: NewGameData;
@@ -110,10 +112,13 @@ const GameDetailsForm: React.FC<GameDetailsFormProps> = React.memo(({
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-game-orange-500 focus:border-game-orange-500 bg-white text-base"
                 >
                     {userType === 'omep' && (
-                        <option value="1.5">1.5 without virtual host</option>
+                        <>
+                            <option value={GameVersion.V1_5_NO_DD}>{GameVersionManager.getDisplayName(GameVersion.V1_5_NO_DD)}</option>
+                            <option value={GameVersion.V1_5_DD}>{GameVersionManager.getDisplayName(GameVersion.V1_5_DD)}</option>
+                        </>
                     )}
-                    <option value="2.0_no_dd">2.0 without Double Down</option>
-                    <option value="2.0_dd">2.0 with Double Down</option>
+                    <option value={GameVersion.V2_0_NO_DD}>{GameVersionManager.getDisplayName(GameVersion.V2_0_NO_DD)}</option>
+                    <option value={GameVersion.V2_0_DD}>{GameVersionManager.getDisplayName(GameVersion.V2_0_DD)}</option>
                 </select>
             </div>
 

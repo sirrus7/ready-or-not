@@ -1,7 +1,7 @@
 // src/shared/hooks/useSlidePreCaching.ts
 import {useEffect} from 'react';
 import {mediaManager} from '@shared/services/MediaManager';
-import {Slide} from '@shared/types/game';
+import {GameVersion, Slide} from '@shared/types/game';
 import {getUserType, UserType} from '@shared/constants/formOptions';
 import {useAuth} from '@app/providers/AuthProvider';
 
@@ -24,7 +24,7 @@ interface UseSlidePreCachingOptions {
 export const useSlidePreCaching = (
     slides: Slide[] | null,
     currentSlideIndex: number | null,
-    gameVersion: string | undefined,
+    gameVersion: GameVersion | undefined,
     options: UseSlidePreCachingOptions = {}
 ): void => {
     const {
@@ -58,7 +58,7 @@ export const useSlidePreCaching = (
 export const useSlidePreCachingWithStats = (
     slides: Slide[] | null,
     currentSlideIndex: number | null,
-    gameVersion: string | undefined,
+    gameVersion: GameVersion | undefined,
     options: UseSlidePreCachingOptions = {}
 ) => {
     // Use the main precaching hook

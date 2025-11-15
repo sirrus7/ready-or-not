@@ -2,7 +2,7 @@
 // FIXED VERSION - All syntax errors corrected, proper exports
 
 import React, {useState, useEffect} from 'react';
-import {Slide} from '@shared/types/game';
+import {GameVersion, Slide} from '@shared/types/game';
 import {AlertCircle, ListChecks} from 'lucide-react';
 import {LeaderboardChartDisplay} from '@shared/components/UI/Leaderboard';
 import {isVideo, useHostVideo, usePresentationVideo} from '@shared/utils/video';
@@ -21,7 +21,7 @@ export interface SlideRendererProps {
     teams?: Team[];
     teamRoundData?: Record<string, Record<number, TeamRoundData>>;
     teamDecisions?: TeamDecision[];
-    gameVersion?: string;
+    gameVersion?: GameVersion;
     /**
      * Optional callback to expose imperative video control API to parent.
      * Called with { sendCommand } for video slides.

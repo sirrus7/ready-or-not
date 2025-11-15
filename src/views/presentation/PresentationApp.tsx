@@ -1,7 +1,7 @@
 // src/views/presentation/PresentationApp.tsx
 import React, {useEffect, useRef, useState} from 'react';
 import {useParams} from 'react-router-dom';
-import {Slide} from '@shared/types/game';
+import {GameVersion, Slide} from '@shared/types/game';
 import SlideRenderer from '@shared/components/Video/SlideRenderer';
 import {Hourglass, Maximize, Minimize, Monitor, RefreshCw, Wifi, WifiOff} from 'lucide-react';
 import {usePresentationSyncManager} from '@core/sync/PresentationSyncManager';
@@ -31,7 +31,7 @@ const PresentationApp: React.FC = () => {
     const syncManager = usePresentationSyncManager(sessionId || null);
     const connectionTimeoutRef = useRef<NodeJS.Timeout>();
     const previousConnectionStateRef = useRef<boolean>(false);
-    const [gameVersion, setGameVersion] = useState<string | undefined>(undefined);
+    const [gameVersion, setGameVersion] = useState<GameVersion | undefined>(undefined);
 
     // Log state changes
     useEffect(() => {
@@ -49,7 +49,7 @@ const PresentationApp: React.FC = () => {
 
     useEffect(() => {
         if (!syncManager) return;
-        const unsub = syncManager.onSlideUpdate((slide: Slide, teamData, gameVersion: string | undefined) => {
+        const unsub = syncManager.onSlideUpdate((slide: Slide, teamData, gameVersion: GameVersion | undefined) => {
             setCurrentSlide(slide);
             setGameVersion(gameVersion);
             setIsConnectedToHost(true);

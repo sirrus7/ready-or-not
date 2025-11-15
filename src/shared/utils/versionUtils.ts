@@ -1,5 +1,7 @@
 // src/shared/utils/versionUtils.ts
 
+import { GameVersion } from "@shared/types";
+
 /**
  * Determines if auto-advance should be enabled based on game version and slide configuration
  * 
@@ -7,14 +9,14 @@
  * @param slideAutoAdvance - The slide's auto_advance_after_video setting
  * @returns true if auto-advance should occur, false otherwise
  */
-export function shouldAutoAdvance(gameVersion: string, slideAutoAdvance?: boolean): boolean {
+export function shouldAutoAdvance(gameVersion: GameVersion, slideAutoAdvance?: boolean): boolean {
     // If slide doesn't have auto-advance enabled, never auto-advance
     if (!slideAutoAdvance) {
         return false;
     }
     
     // For version 1.5, disable all auto-advance regardless of slide setting
-    if (gameVersion === '1.5') {
+    if (gameVersion.includes('1.5')) {
         return false;
     }
     

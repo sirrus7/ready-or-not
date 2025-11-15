@@ -2,6 +2,7 @@
 import React from 'react';
 import {FinalizeStepProps} from './types';
 import {ArrowLeft, Rocket, AlertTriangle, UsersIcon} from 'lucide-react';
+import { GameVersionManager } from '@core/game/GameVersionManager';
 
 const FinalizeStep: React.FC<FinalizeStepProps> = ({
                                                        gameData,
@@ -33,8 +34,7 @@ const FinalizeStep: React.FC<FinalizeStepProps> = ({
                         },
                         {
                             label: "Game Version",
-                            value: gameData.game_version === '2.0_dd' ?
-                                '2.0 with Double Down' : '2.0 without Double Down'
+                            value: GameVersionManager.getDisplayName(gameData.game_version)
                         },
                         {
                             label: "Class / Group",

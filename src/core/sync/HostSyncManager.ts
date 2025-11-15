@@ -1,5 +1,5 @@
 import {HostBroadcastManager, ConnectionStatus} from './HostBroadcastManager';
-import {Slide, Team, TeamDecision, TeamRoundData} from '@shared/types';
+import {GameVersion, Slide, Team, TeamDecision, TeamRoundData} from '@shared/types';
 import {useEffect, useRef} from 'react';
 
 /**
@@ -31,7 +31,7 @@ export class HostSyncManager {
     /**
      * Send a slide update to the presentation
      */
-    sendSlideUpdate(slide: Slide, gameVersion?: string, teamData?: {
+    sendSlideUpdate(slide: Slide, gameVersion?: GameVersion, teamData?: {
         teams: Team[];
         teamRoundData: Record<string, Record<number, TeamRoundData>>;
         teamDecisions: TeamDecision[];

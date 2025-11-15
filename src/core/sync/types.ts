@@ -1,5 +1,5 @@
 // src/core/sync/types.ts
-import {Slide} from '@shared/types/game';
+import {GameVersion, Slide} from '@shared/types/game';
 import {Team, TeamDecision, TeamRoundData} from "@shared/types";
 
 export enum BroadcastEventType {
@@ -50,7 +50,7 @@ export interface SlideUpdate {
         teamRoundData: Record<string, Record<number, TeamRoundData>>;
         teamDecisions: TeamDecision[];
     };
-    gameVersion?: string;
+    gameVersion?: GameVersion;
     timestamp: number;
 }
 
