@@ -1,6 +1,7 @@
 // src/core/game/GameVersionManager.ts
 import {GameStructure, GameVersion} from '@shared/types/game';
 import {
+    readyOrNotGame_1_5_ACADEMIC,
     readyOrNotGame_1_5_NO_DD,
     readyOrNotGame_1_5_DD,
     readyOrNotGame_2_0_NO_DD,
@@ -16,6 +17,7 @@ import {
 
 // Map of versions to their display names
 export const GAME_VERSION_DISPLAY_NAMES: Record<GameVersion, string> = {
+    [GameVersion.V1_5_ACADEMIC]: 'Ready Or Not 1.5 Academic',
     [GameVersion.V1_5_NO_DD]: 'Ready Or Not 1.5 (without Double Down)',
     [GameVersion.V1_5_DD]: 'Ready Or Not 1.5 (with Double Down)',
     [GameVersion.V2_0_NO_DD]: 'Ready Or Not 2.0 (without Double Down)',
@@ -24,6 +26,7 @@ export const GAME_VERSION_DISPLAY_NAMES: Record<GameVersion, string> = {
 
 // Map of versions to their game structures
 const GAME_STRUCTURES: Record<GameVersion, GameStructure> = {
+    [GameVersion.V1_5_ACADEMIC]: readyOrNotGame_1_5_ACADEMIC,
     [GameVersion.V1_5_NO_DD]: readyOrNotGame_1_5_NO_DD,
     [GameVersion.V1_5_DD]: readyOrNotGame_1_5_DD,
     [GameVersion.V2_0_NO_DD]: readyOrNotGame_2_0_NO_DD,
@@ -84,6 +87,8 @@ export class GameVersionManager {
 
     static getDisplayVersion(version: string): string {
         switch (version){
+            case GameVersion.V1_5_ACADEMIC:
+                return "v1.5 Academic";
             case GameVersion.V1_5_DD:
                 return "v1.5 DD";
             case GameVersion.V1_5_NO_DD:
@@ -111,13 +116,15 @@ export class GameVersionManager {
      * Check if a version has double down feature
      */
     static hasDoubleDown(version: string): boolean {
-        return version === GameVersion.V2_0_DD || version == GameVersion.V1_5_DD;
+        return version === GameVersion.V2_0_DD || 
+            version === GameVersion.V1_5_DD || 
+            version === GameVersion.V1_5_ACADEMIC;
     }
 
     /**
      * Check if a version uses virtual host
      */
     static hasVirtualHost(version: string): boolean {
-        return version !== GameVersion.V1_5_DD && version !== GameVersion.V1_5_NO_DD;
+        return version.includes('1.5');
     }
 }

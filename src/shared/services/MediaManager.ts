@@ -202,8 +202,8 @@ class MediaManager {
             }
         }
 
-        // If we are a business user or omep override the default content
-        if ((userType === 'business' || userType === 'omep') && hasBusinessVersion(fileName)) {
+        // If we are a business user or omep override the default content (exclude 1.5 academic, for which we don't want business slides)
+        if ((userType === 'business' || userType === 'omep') && hasBusinessVersion(fileName) && gameVersion !== GameVersion.V1_5_ACADEMIC) {
             const businessPath = `business/${fileName}`;
             return await this.getSignedUrl(businessPath, skipBlobCache, forceBlobCache);
         }
@@ -551,7 +551,7 @@ class MediaManager {
         }
 
         // If we are a business user or omep override the default content
-        if ((userType === 'business' || userType === 'omep') && hasBusinessVersion(fileName)) {
+        if ((userType === 'business' || userType === 'omep') && hasBusinessVersion(fileName) && gameVersion !== GameVersion.V1_5_ACADEMIC) {
             return `business/${fileName}`;
         }
 
