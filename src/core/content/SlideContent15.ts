@@ -112,7 +112,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
     const subSlides195: Slide[] = createSubSlides195();
 
     return baseSlides.map(slide => {
-        // Override specific slides for version 1.5
+        // Override specific slides for version 1.5 (exceptions for 1.5 academic)
         switch (slide.id) {
             case 0:
                 return {
@@ -212,6 +212,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: image,
                 };
             case 17:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_019.jpg',
@@ -248,6 +249,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: consequence_reveal,
                 };
             case 24:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_025.jpg',
@@ -290,6 +292,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: image,
                 };
             case 32:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_034.jpg',
@@ -326,6 +329,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: consequence_reveal,
                 };
             case 39:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_040.jpg',
@@ -368,6 +372,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: image,
                 };
             case 47:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_049.jpg',
@@ -405,6 +410,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: consequence_reveal,
                 };
             case 54:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_055.jpg',
@@ -501,6 +507,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: image,
                 };
             case 78:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_080.jpg',
@@ -537,6 +544,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: consequence_reveal,
                 };
             case 85:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_086.jpg',
@@ -573,6 +581,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: image,
                 };
             case 91:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_093.jpg',
@@ -603,6 +612,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: consequence_reveal,
                 };
             case 97:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_098.jpg',
@@ -645,6 +655,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: image,
                 };
             case 105:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_107.jpg',
@@ -681,6 +692,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: consequence_reveal,
                 };
             case 112:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_113.jpg',
@@ -717,6 +729,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: image,
                 };
             case 118:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_120.jpg',
@@ -747,6 +760,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: consequence_reveal,
                 };
             case 124:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_125.jpg',
@@ -825,6 +839,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: image,
                 };
             case 151:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_153.jpg',
@@ -855,6 +870,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: consequence_reveal,
                 };
             case 157:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_158.jpg',
@@ -891,6 +907,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: image,
                 };
             case 164:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_166.jpg',
@@ -915,6 +932,7 @@ export const get15Slides = (version: GameVersion): Slide[] => {
                     type: consequence_reveal,
                 };
             case 169:
+                if (version === GameVersion.V1_5_ACADEMIC){ return slide }
                 return {
                     ...slide,
                     source_path: 'Slide_170.jpg',

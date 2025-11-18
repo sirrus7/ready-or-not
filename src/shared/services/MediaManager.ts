@@ -7,6 +7,7 @@ import {UserType} from '@shared/constants/formOptions';
 import {hasBusinessVersion} from '@shared/constants/businessSlides';
 import {hasVersion15} from "@shared/constants/version15Slides";
 import {indexedDBCache} from "@shared/services/IndexedDBCache";
+import { hasVersion15Academic } from '@shared/constants/version15AcademicSlides';
 
 interface CachedUrl {
     url: string;
@@ -55,7 +56,7 @@ class MediaManager {
     private readonly BULK_DOWNLOAD_TIMESTAMP_KEY = 'media-bulk-download-timestamp';
     private readonly BULK_DOWNLOAD_CONTENT_VERSION_KEY = 'media-bulk-download-content-version';
     private readonly BULK_DOWNLOAD_CACHE_EXPIRY_DAYS = 7; // Cache expires after 7 days
-    private readonly BULK_DOWNLOAD_CURRENT_CONTENT_VERSION = '1.1'; // Increment when you update slides
+    private readonly BULK_DOWNLOAD_CURRENT_CONTENT_VERSION = '1.2'; // Increment when you update slides
     private isBulkDownloading: boolean = false;
 
     private constructor() {
@@ -196,6 +197,11 @@ class MediaManager {
     public async getSignedUrlWithFallback(fileName: string, userType: UserType, gameVersion?: string, skipBlobCache: boolean = false, forceBlobCache: boolean = false): Promise<string> {
         // For version 1.5, try version15 folder first
         if (gameVersion?.includes('1.5')) {
+            if (hasVersion15Academic(fileName)) {
+                const version15AcademicPath = `business/version15/academic/${fileName}`;
+                return await this.getSignedUrl(version15AcademicPath, skipBlobCache, forceBlobCache)
+            }
+
             if (hasVersion15(fileName)) {
                 const version15Path = `business/version15/${fileName}`;
                 return await this.getSignedUrl(version15Path, skipBlobCache, forceBlobCache);
@@ -545,6 +551,10 @@ class MediaManager {
     private resolveMediaPath(fileName: string, userType: UserType, gameVersion?: GameVersion): string {
         // For version 1.5, try version15 folder first
         if (gameVersion?.includes('1.5')) {
+            if (hasVersion15Academic(fileName)) {
+                return `business/version15/academic/${fileName}`;
+            }
+
             if (hasVersion15(fileName)) {
                 return `business/version15/${fileName}`;
             }
