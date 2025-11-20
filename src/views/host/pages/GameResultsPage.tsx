@@ -37,6 +37,11 @@ const GameResultsPage: React.FC = () => {
         error: teamDataError
     } = useTeamDataManager(sessionId || '');
 
+    const allTeamDecisions = teamDecisions ?
+            Object.values(teamDecisions).flatMap(teamDecisionsByPhase =>
+                Object.values(teamDecisionsByPhase)) : [];
+
+
     // Load session data
     useEffect(() => {
         const loadSession = async () => {
@@ -64,11 +69,6 @@ const GameResultsPage: React.FC = () => {
     // Calculate final standings and stats
     const finalStandings = useMemo((): TeamStanding[] => {
         if (!teams.length || !teamRoundData) return [];
-
-        const allTeamDecisions = teamDecisions ?
-            Object.values(teamDecisions).flatMap(teamDecisionsByPhase =>
-                Object.values(teamDecisionsByPhase)
-            ) : [];
 
         const standings = teams.map(team => {
             const round3Data = teamRoundData[team.id]?.[3];
@@ -212,7 +212,7 @@ const GameResultsPage: React.FC = () => {
                                     <DollarSign size={24} className="text-green-600"/>
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-gray-900">Total Revenue</h3>
+                                    <h3 className="font-semibold text-gray-900">Average Consolidated Revenue</h3>
                                     <p className="text-2xl font-bold text-green-600">
                                         ${gameStats.totalRevenue.toLocaleString()}
                                     </p>
@@ -283,6 +283,7 @@ const GameResultsPage: React.FC = () => {
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Net Margin</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Capacity</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Orders</th>
+                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Average Selling Price</th>
                             </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -313,13 +314,16 @@ const GameResultsPage: React.FC = () => {
                                         ${team.revenue.toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
-                                        {team.netMargin.toFixed(1)}%
+                                        {(team.netMargin * 100).toFixed(1)}%
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
                                         {team.capacity.toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
                                         {team.orders.toLocaleString()}
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
+                                        {team.asp.toLocaleString()}
                                     </td>
                                 </tr>
                             ))}
@@ -338,6 +342,7 @@ const GameResultsPage: React.FC = () => {
                         teams={teams}
                         teamRoundData={teamRoundData}
                         roundNumber={3}
+                        teamDecisions={allTeamDecisions}
                     />
                 </div>
 

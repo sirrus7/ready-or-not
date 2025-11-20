@@ -8,7 +8,7 @@ import {
     BarChart2,
     Zap
 } from 'lucide-react';
-import {Team, TeamRoundData} from '@shared/types';
+import {Team, TeamDecision, TeamRoundData} from '@shared/types';
 import {calculateKpiValue, formatValueForDisplay} from '@shared/components/UI/Leaderboard/utils';
 
 interface LeaderboardItem {
@@ -16,13 +16,15 @@ interface LeaderboardItem {
     value: number;
     formattedValue: string;
     rank: number;
-    secondaryValue?: string;
+    secondaryValue?: number;
+    formattedSecondaryValue?: string;
 }
 
 interface GameResultsChartsProps {
     teams: Team[];
     teamRoundData: Record<string, Record<number, TeamRoundData>>;
     roundNumber: number;
+    teamDecisions: TeamDecision[];
 }
 
 interface MetricConfig {
@@ -68,94 +70,12 @@ const METRICS: MetricConfig[] = [
     }
 ];
 
-// Individual chart component
-const ResultsChart: React.FC<{
-    title: string;
-    metric: MetricConfig;
-    data: LeaderboardItem[];
-    isWinnerChart?: boolean;
-}> = ({title, metric, data, isWinnerChart = false}) => {
-    const maxValue = Math.max(...data.map(item => item.value));
-
-    return (
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            {/* Header */}
-            <div className="p-4 border-b border-gray-100">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2 bg-gradient-to-r ${metric.colorScheme} rounded-lg text-white`}>
-                        {metric.icon}
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-gray-900">{title}</h3>
-                        {isWinnerChart && (
-                            <p className="text-sm text-yellow-600 font-medium">🏆 Final Rankings</p>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Chart Content */}
-            <div className="p-6">
-                <div className="space-y-4">
-                    {data.map((item, index) => {
-                        const isWinner = isWinnerChart && index === 0;
-                        const barWidth = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
-
-                        return (
-                            <div key={item.teamName} className="space-y-2">
-                                {/* Team info row */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        {isWinner && <Trophy size={20} className="text-yellow-500"/>}
-                                        <div
-                                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                                                isWinner ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'
-                                            }`}>
-                                            {item.rank}
-                                        </div>
-                                        <span className={`font-medium ${
-                                            isWinner ? 'text-yellow-800' : 'text-gray-900'
-                                        }`}>
-                                            {item.teamName}
-                                        </span>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className={`font-bold ${
-                                            isWinner ? 'text-yellow-600' : 'text-gray-900'
-                                        }`}>
-                                            {item.formattedValue}
-                                        </div>
-                                        {item.secondaryValue && (
-                                            <div className="text-sm text-gray-500">
-                                                {metric.secondaryLabel}: {item.secondaryValue}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Progress bar */}
-                                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                                    <div
-                                        className={`h-full bg-gradient-to-r ${metric.colorScheme} transition-all duration-700 ${
-                                            isWinner ? 'shadow-lg' : ''
-                                        }`}
-                                        style={{width: `${Math.max(barWidth, 2)}%`}}
-                                    />
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-};
-
 // Main component
 const GameResultsCharts: React.FC<GameResultsChartsProps> = ({
                                                                  teams,
                                                                  teamRoundData,
-                                                                 roundNumber
+                                                                 roundNumber,
+                                                                 teamDecisions,
                                                              }) => {
     // Calculate leaderboard data for each metric
     const metricData = useMemo(() => {
@@ -166,13 +86,14 @@ const GameResultsCharts: React.FC<GameResultsChartsProps> = ({
                 const roundData = teamRoundData[team.id]?.[roundNumber];
                 if (!roundData) return null;
 
-                const value = calculateKpiValue(roundData, metric.key as any);
+                const value = calculateKpiValue(roundData, metric.key as any, teamDecisions, team.id);
                 const formattedValue = formatValueForDisplay(value, metric.key as any);
 
-                let secondaryValue: string | undefined;
+                let secondaryValue : number | undefined;
+                let formattedSecondaryValue: string | undefined;
                 if (metric.secondaryMetric) {
-                    const secValue = calculateKpiValue(roundData, metric.secondaryMetric as any);
-                    secondaryValue = formatValueForDisplay(secValue, metric.secondaryMetric as any);
+                    secondaryValue = calculateKpiValue(roundData, metric.secondaryMetric as any, teamDecisions, team.id);
+                    formattedSecondaryValue = formatValueForDisplay(secondaryValue, metric.secondaryMetric as any);
                 }
 
                 return {
@@ -180,6 +101,7 @@ const GameResultsCharts: React.FC<GameResultsChartsProps> = ({
                     value,
                     formattedValue,
                     secondaryValue,
+                    formattedSecondaryValue,
                     rank: 0 // Will be set after sorting
                 };
             }).filter((item): item is NonNullable<typeof item> => item !== null);
@@ -210,15 +132,113 @@ const GameResultsCharts: React.FC<GameResultsChartsProps> = ({
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {METRICS.map(metric => (
-                <ResultsChart
-                    key={metric.key}
-                    title={`Final ${metric.label}`}
-                    metric={metric}
-                    data={metricData[metric.key] || []}
-                    isWinnerChart={metric.key === 'net_income'}
-                />
-            ))}
+            { METRICS.map(metric => {
+                const title = `RD-3 ${metric.label}`
+                const data = metricData[metric.key] || [] 
+                const isWinnerChart = metric.key === 'net_income'
+                return (
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                        {/* Header */}
+                        <div className="p-4 border-b border-gray-100">
+                            <div className="flex flex-col gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 bg-gradient-to-r ${metric.colorScheme} rounded-lg text-white`}>
+                                        {metric.icon}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900">{title}</h3>
+                                        {isWinnerChart && (
+                                            <p className="text-sm text-yellow-600 font-medium">🏆 Final Rankings</p>
+                                        )}
+                                    </div>
+                                </div>
+                                {/* Legend */}
+                                {metric.key === 'capacity' && 
+                                    <div className="flex gap-6  text-sm">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                                            <span className="text-gray-700">Capacity</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 bg-orange-500 rounded"></div>
+                                            <span className="text-gray-700">Orders</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+
+                        {/* Chart Content */}
+                        <div className="p-6">
+                            <div className="space-y-4">
+                                {data.map((item, index) => {
+                                    const isWinner = isWinnerChart && index === 0;
+                                    const maxValue = Math.max(...data.map(v => v.value));
+                                    const barWidth = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
+                                    const secondaryBarMax = Math.max(...data.map(v => v.secondaryValue || 0));
+                                    const secondaryValue = item.secondaryValue || 0
+                                    const secondaryBarWidth = secondaryValue > 0 ? (secondaryValue / secondaryBarMax) * 100 : 0
+
+                                    return (
+                                        <div key={item.teamName} className="space-y-2">
+                                            {/* Team info row */}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    {isWinner && <Trophy size={20} className="text-yellow-500"/>}
+                                                    <div
+                                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                                            isWinner ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'
+                                                        }`}>
+                                                        {item.rank}
+                                                    </div>
+                                                    <span className={`font-medium ${
+                                                        isWinner ? 'text-yellow-800' : 'text-gray-900'
+                                                    }`}>
+                                                        {item.teamName}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className={`font-bold ${
+                                                        isWinner ? 'text-yellow-600' : 'text-gray-900'
+                                                    }`}>
+                                                        {item.formattedValue}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Progress bar */}
+                                            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                                <div
+                                                    className={`h-full bg-gradient-to-r ${metric.colorScheme} transition-all duration-700 ${
+                                                        isWinner ? 'shadow-lg' : ''
+                                                    }`}
+                                                    style={{width: `${Math.max(barWidth, 2)}%`}}
+                                                />
+                                            </div>
+                                            {item.secondaryValue && 
+                                                <div className="flex flex-col flex-center gap-2">
+                                                    <div className="text-right">
+                                                        <div className="font-bold text-gray-900">
+                                                            {item.formattedSecondaryValue}
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                                        <div
+                                                            className='h-full bg-gradient-to-r from-amber-500 to-amber-600 transition-all duration-700'
+                                                            style={{width: `${Math.max(secondaryBarWidth, 2)}%`}}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )})
+            }
         </div>
     );
 };
