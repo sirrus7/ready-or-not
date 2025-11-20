@@ -37,6 +37,11 @@ const GameResultsPage: React.FC = () => {
         error: teamDataError
     } = useTeamDataManager(sessionId || '');
 
+    const allTeamDecisions = teamDecisions ?
+            Object.values(teamDecisions).flatMap(teamDecisionsByPhase =>
+                Object.values(teamDecisionsByPhase)) : [];
+
+
     // Load session data
     useEffect(() => {
         const loadSession = async () => {
@@ -65,18 +70,13 @@ const GameResultsPage: React.FC = () => {
     const finalStandings = useMemo((): TeamStanding[] => {
         if (!teams.length || !teamRoundData) return [];
 
-        const allTeamDecisions = teamDecisions ?
-            Object.values(teamDecisions).flatMap(teamDecisionsByPhase =>
-                Object.values(teamDecisionsByPhase)
-            ) : [];
-
         const standings = teams.map(team => {
             const round3Data = teamRoundData[team.id]?.[3];
             if (!round3Data) return null;
 
             const consolidatedNetIncome = calculateConsolidatedNetIncome(teamRoundData, team.id, allTeamDecisions);
             const revenue = calculateKpiValue(round3Data, 'revenue', allTeamDecisions, team.id);
-            const netMargin = calculateKpiValue(round3Data, 'net_margin');
+            const netMargin = calculateKpiValue(round3Data, 'net_margin', allTeamDecisions, team.id);
 
             return {
                 team,
@@ -342,6 +342,7 @@ const GameResultsPage: React.FC = () => {
                         teams={teams}
                         teamRoundData={teamRoundData}
                         roundNumber={3}
+                        teamDecisions={allTeamDecisions}
                     />
                 </div>
 
