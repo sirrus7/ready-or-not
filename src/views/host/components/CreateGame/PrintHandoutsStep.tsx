@@ -223,8 +223,8 @@ Thank you,
                         <p className="text-gray-600">Phone: <a href="tel:+15412655242"
                                                                className="text-game-orange-600 hover:underline">+1 (541)
                             265-5242</a></p>
-                        <p className="text-gray-600">Email: <a href="mailto:ppinfo@pioneerprinting.org"
-                                                               className="text-game-orange-600 hover:underline">ppinfo@pioneerprinting.org</a>
+                        <p className="text-gray-600">Email: <a href="mailto:print@pioneerprinting.org"
+                                                               className="text-game-orange-600 hover:underline">print@pioneerprinting.org</a>
                         </p>
                         <p className="text-gray-600 mb-3">Website: <a href="https://www.pioneerprinting.net"
                                                                       target="_blank"
@@ -232,7 +232,7 @@ Thank you,
                                                                       className="text-game-orange-600 hover:underline">www.pioneerprinting.net</a>
                         </p>
                         <a
-                            href={`mailto:ppinfo@pioneerprinting.org?subject=${encodeURIComponent(pioneerPressEmailSubject)}&body=${encodeURIComponent(pioneerPressEmailBody)}`}
+                            href={`mailto:print@pioneerprinting.org?subject=${encodeURIComponent(pioneerPressEmailSubject)}&body=${encodeURIComponent(pioneerPressEmailBody)}`}
                             className="inline-flex items-center gap-2 bg-game-orange-500 text-white text-xs font-semibold py-2.5 px-4 rounded-md hover:bg-game-orange-600 transition-colors shadow hover:shadow-md"
                         >
                             <Mail size={15}/> Compose Order Email (Pre-filled)
