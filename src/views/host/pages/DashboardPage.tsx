@@ -17,7 +17,7 @@ import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
 import {RONBOT_GPT_URL} from "@views/host/components/GameControls/RonBotHelpModal";
 import { GameVersionManager } from '@core/game/GameVersionManager';
 import { CheckCircle2 } from 'lucide-react';
-import PrintHandoutsModal from '../components/Dashboard/PrintHandoutsModel';
+import PrintHandoutsModal from '../components/Dashboard/PrintHandoutsModal';
 
 const DashboardPage: React.FC = () => {
     const {user, loading: authLoading} = useAuth();
@@ -56,12 +56,6 @@ const DashboardPage: React.FC = () => {
 
     // Print Modal
     const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
-    const [printModalSessionId, setPrintModalSessionId] = useState<string | null>(null);
-    const handleOpenPrintModal = (sessionId: string) => {
-        setIsPrintModalOpen(true);
-        setPrintModalSessionId(sessionId);
-    }
-
 
     // FIXED: Auto-refresh when returning from cancelled draft creation
     useEffect(() => {
@@ -351,13 +345,6 @@ const DashboardPage: React.FC = () => {
                                                             <div className="flex items-center gap-3 ml-6">
                                                                 {getActionButton(game)}
                                                                 <button
-                                                                    onClick={() => handleOpenPrintModal(game.id)}
-                                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                    title={"Print game materials"}
-                                                                >
-                                                                    <Printer size={18}/>
-                                                                </button>
-                                                                <button
                                                                     onClick={() => handleOpenDeleteModal(
                                                                         game.id,
                                                                         game.name,
@@ -600,6 +587,27 @@ const DashboardPage: React.FC = () => {
                                     </div>
                                 </div>
 
+
+                                {/* Game Materials Section */}
+                                <div className="border-t border-blue-200 pt-4 mt-4">
+                                    <h4 className="font-semibold text-gray-900 mb-3 text-center">Game Materials</h4>
+                                    
+                                    {/* Print Handouts */}
+                                    <button
+                                        onClick={() => setIsPrintModalOpen(true)}
+                                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group"
+                                    >
+                                        <div
+                                            className="bg-purple-100 p-2 rounded-lg group-hover:bg-purple-200 transition-colors">
+                                            <Printer size={18} className="text-purple-600"/>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-medium text-gray-900">Print Handouts</div>
+                                            <div className="text-sm text-gray-500">Download game materials & PDFs</div>
+                                        </div>
+                                    </button>
+                                </div>
+
                                 {/* Vocabulary & Quiz */}
                                 <a
                                     href="/game-materials/core/vocabulary-definitions.pdf"
@@ -705,7 +713,6 @@ const DashboardPage: React.FC = () => {
                 onClose={closeDeleteModal}
             />
             <PrintHandoutsModal
-                sessionId={printModalSessionId}
                 isOpen={isPrintModalOpen}
                 handleClose={() => {setIsPrintModalOpen(false);}}
             />
