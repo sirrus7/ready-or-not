@@ -13,7 +13,7 @@ import {
     GameStructure,
     Slide,
     PermanentKpiAdjustment, // ADDED: For centralized adjustments
-    GameVersion
+    GameVersion, Team
 } from '@shared/types';
 import {SimpleRealtimeManager} from "@core/sync";
 import {GameVersionManager} from "@core/game/GameVersionManager.ts";
@@ -49,6 +49,9 @@ export interface GameContextType {
     clearHostAlert: () => Promise<void>; // ADDED: Missing method from interface
     permanentAdjustments: PermanentKpiAdjustment[]; // Now available globally
     isLoadingAdjustments: boolean; // Loading state for adjustments
+    addTeam: (teamName: string, passcode: string) => Promise<Team>;
+    removeTeam: (teamId: string) => Promise<void>;
+    canModifyTeams: boolean;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -127,10 +130,51 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
         }
     }, [session?.id, teamDataManager]);
 
+    // Determine if teams can be modified (before first investment slide)
+    const canModifyTeams = useMemo((): boolean => {
+        if (!gameStructure?.slides) return true;
+
+        const currentIndex = gameController.currentSlideIndex ?? 0;
+
+        // Find the index of the first interactive_invest slide in the game structure
+        const firstInvestSlideIndex = gameStructure.slides.findIndex(
+            (slide) => slide.type === 'interactive_invest'
+        );
+
+        // If no investment slide found (shouldn't happen), allow modification
+        if (firstInvestSlideIndex === -1) return true;
+
+        // Can modify teams only if we haven't reached the first investment slide yet
+        return currentIndex < firstInvestSlideIndex;
+    }, [gameController.currentSlideIndex, gameStructure?.slides]);
+
+    const addTeam = useCallback(async (teamName: string, passcode: string): Promise<Team> => {
+        if (!session?.id) {
+            throw new Error('Cannot add team: No active session');
+        }
+        if (!canModifyTeams) {
+            throw new Error('Cannot add team: Game has progressed past the initial setup phase');
+        }
+        return await teamDataManager.addTeamToSession(session.id, teamName, passcode);
+    }, [session?.id, canModifyTeams, teamDataManager]);
+
+    const removeTeam = useCallback(async (teamId: string): Promise<void> => {
+        if (!session?.id) {
+            throw new Error('Cannot remove team: No active session');
+        }
+        if (!canModifyTeams) {
+            throw new Error('Cannot remove team: Game has progressed past the initial setup phase');
+        }
+        await teamDataManager.removeTeamFromSession(session.id, teamId);
+    }, [session?.id, canModifyTeams, teamDataManager]);
+
     const gameControllerRef = useRef(gameController);
     const gameProcessingRef = useRef(gameProcessing);
     const resetTeamDecisionRef = useRef(resetTeamDecision);
-
+    const addTeamRef = useRef(addTeam);
+    const removeTeamRef = useRef(removeTeam);
+    addTeamRef.current = addTeam;
+    removeTeamRef.current = removeTeam;
     gameControllerRef.current = gameController;
     gameProcessingRef.current = gameProcessing;
     resetTeamDecisionRef.current = resetTeamDecision;
@@ -191,13 +235,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = React.memo(
             setCurrentHostAlertState: gameControllerRef.current.setCurrentHostAlertState,
             clearHostAlert: gameControllerRef.current.clearHostAlert,
             permanentAdjustments,
-            isLoadingAdjustments
+            isLoadingAdjustments,
+            addTeam: addTeamRef.current,
+            removeTeam: removeTeamRef.current,
+            canModifyTeams,
         };
     }, [
         appState,
         session?.game_version,
         permanentAdjustments,
-        isLoadingAdjustments
+        isLoadingAdjustments,
+        canModifyTeams
         // Removed all function dependencies since we're using refs
     ]);
 

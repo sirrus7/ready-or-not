@@ -15,6 +15,7 @@ import RonBotHelpModal from './GameControls/RonBotHelpModal';
 import {useAuth} from "@app/providers/AuthProvider.tsx";
 import {BulkMediaDownload} from "@shared/components/BulkMediaDownload.tsx";
 import {getUserType} from "@shared/constants/formOptions.ts";
+import TeamManagementModal from "@views/host/components/GameControls/TeamManagementModal";
 
 interface GameControlsProps {
     joinInfo: { joinUrl: string; qrCodeDataUrl: string } | null;
@@ -24,7 +25,7 @@ interface GameControlsProps {
 }
 
 const GameControls: React.FC<GameControlsProps> = ({joinInfo, setJoinInfo, isJoinInfoOpen, setIsJoinInfoOpen}) => {
-    const {state, currentSlideData, updateHostNotesForCurrentSlide, gameVersion} = useGameContext();
+    const {state, currentSlideData, updateHostNotesForCurrentSlide, gameVersion, canModifyTeams} = useGameContext();
     const hostSyncManager = useHostSyncManager(state.currentSessionId);
     // Modal states
     const [showNotes, setShowNotes] = useState(false);
@@ -32,6 +33,7 @@ const GameControls: React.FC<GameControlsProps> = ({joinInfo, setJoinInfo, isJoi
     const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false);
     const [isRonBotHelpModalOpen, setIsRonBotHelpModalOpen] = useState(false);
     const [showBulkDownload, setShowBulkDownload] = useState(false);
+    const [isTeamManagementModalOpen, setIsTeamManagementModalOpen] = useState(false);
 
     const { user } = useAuth();
 
@@ -69,8 +71,11 @@ const GameControls: React.FC<GameControlsProps> = ({joinInfo, setJoinInfo, isJoi
                     onToggleNotes={handleNotesToggle}
                     onOpenRonBotHelp={() => setIsRonBotHelpModalOpen(true)}
                     onExitGame={() => setIsExitConfirmModalOpen(true)}
-                    onOpenBulkDownload={() => setShowBulkDownload(true)}  // Add this line
+                    onOpenBulkDownload={() => setShowBulkDownload(true)}
+                    onOpenTeamManagement={() => setIsTeamManagementModalOpen(true)}
                     showNotes={showNotes}
+                    canModifyTeams={canModifyTeams}
+                    teamCount={state.teams.length}
                 />
 
                 {/* Notes Section */}
@@ -113,6 +118,11 @@ const GameControls: React.FC<GameControlsProps> = ({joinInfo, setJoinInfo, isJoi
             <RonBotHelpModal
                 isOpen={isRonBotHelpModalOpen}
                 onClose={() => setIsRonBotHelpModalOpen(false)}
+            />
+
+            <TeamManagementModal
+                isOpen={isTeamManagementModalOpen}
+                onClose={() => setIsTeamManagementModalOpen(false)}
             />
 
             {showBulkDownload && state.gameStructure && (

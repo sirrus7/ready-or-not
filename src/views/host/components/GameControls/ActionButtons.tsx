@@ -1,6 +1,6 @@
 // src/views/host/components/GameControls/ActionButtons.tsx
 import React from 'react';
-import {Users, QrCode, FileText, LogOut, ExternalLink, Download} from 'lucide-react';
+import {Users, QrCode, FileText, LogOut, ExternalLink, Download, UserPlus} from 'lucide-react';
 
 interface ActionButtonsRowProps {
     onOpenJoinInfo: () => void;
@@ -8,8 +8,11 @@ interface ActionButtonsRowProps {
     onToggleNotes: () => void;
     onOpenRonBotHelp: () => void;
     onExitGame: () => void;
-    onOpenBulkDownload: () => void; // Add this
+    onOpenBulkDownload: () => void;
+    onOpenTeamManagement: () => void;
     showNotes: boolean;
+    canModifyTeams: boolean;
+    teamCount: number;
 }
 
 const ActionButtons: React.FC<ActionButtonsRowProps> = ({
@@ -18,8 +21,11 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
                                                             onToggleNotes,
                                                             onOpenRonBotHelp,
                                                             onExitGame,
-                                                            onOpenBulkDownload, // Add this
-                                                            showNotes
+                                                            onOpenBulkDownload,
+                                                            onOpenTeamManagement,
+                                                            showNotes,
+                                                            canModifyTeams,
+                                                            teamCount
                                                         }) => {
     return (
         <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -33,11 +39,23 @@ const ActionButtons: React.FC<ActionButtonsRowProps> = ({
                     aria-label="Team Codes">
                 <Users size={16}/> Team Codes
             </button>
+            {/* Team Management Button - only shows before first investment */}
+            {canModifyTeams && (
+                <button
+                    onClick={onOpenTeamManagement}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-blue-100 text-blue-600 transition-colors border border-blue-300"
+                    aria-label="Manage Teams"
+                >
+                    <UserPlus size={16}/> Manage Teams
+                    <span className="bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded text-xs">
+                        {teamCount}
+                    </span>
+                </button>
+            )}
             <button onClick={onToggleNotes}
                     className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors border ${showNotes ? 'bg-game-orange-50 text-game-orange-700 border-blue-300' : 'hover:bg-gray-100 text-gray-600 border-gray-300'}`}>
                 <FileText size={16}/> Notes
             </button>
-            {/* ADD THIS NEW BUTTON */}
             <button
                 onClick={onOpenBulkDownload}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md hover:bg-blue-100 text-blue-600 transition-colors border border-blue-300"
