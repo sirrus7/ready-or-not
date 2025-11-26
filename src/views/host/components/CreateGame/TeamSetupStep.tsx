@@ -14,21 +14,12 @@ import {
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import {generateTeamJoinUrl} from '@shared/utils/urlUtils';
+import {DEFAULT_TEAM_NAMES} from '@shared/constants/teamNames';
 
 // Internal state for this component can use an 'id' for React keys
 interface LocalTeamConfig extends TeamConfig {
     id: number; // Client-side temporary ID for list mapping and editing state
 }
-
-// Default team names list
-const DEFAULT_TEAM_NAMES = [
-    'CRANE', 'WILLOW', 'BIGHORN', 'OSPREY', 'YEW', 'LAUREL', 'MAPLE', 'HEMLOCK', 'OWL', 'ELM',
-    'CYPRESS', 'BOXELDER', 'PLUM', 'DOGWOOD', 'ELK', 'ASH', 'ASPEN', 'BIRCH', 'FILBERT', 'FIR',
-    'JUNIPER', 'LARCH', 'OAK', 'PEAR', 'PINE', 'SPRUCE', 'CHUKAR', 'BRANT', 'EAGLE', 'SWIFT',
-    'HERON', 'EGRET', 'RAVEN', 'CROW', 'JAY', 'FALCON', 'TOWIE', 'DOVE', 'PLOVER', 'AVOCET',
-    'WILLET', 'SNAKE', 'ROGUE', 'ALSEA', 'TRASK', 'WILSON', 'CHETCO', 'SANDY', 'HOOD', 'UMPQUA',
-    'SILETZ', 'OWYHEE'
-];
 
 const generatePasscode = (): string => {
     return Math.floor(100 + Math.random() * 900).toString(); // 3-digit numeric passcode

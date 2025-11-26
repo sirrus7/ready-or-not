@@ -22,6 +22,8 @@ interface TeamDataManagerOutput {
     resetTeamDecisionInDb: (sessionId: string, teamId: string, phaseId: string) => Promise<void>;
     setTeamRoundDataDirectly: Dispatch<SetStateAction<Record<string, Record<number, TeamRoundData>>>>;
     setPermanentAdjustmentsDirectly: Dispatch<SetStateAction<PermanentKpiAdjustment[]>>;
+    addTeamToSession: (sessionId: string, teamName: string, passcode: string) => Promise<Team>;
+    removeTeamFromSession: (sessionId: string, teamId: string) => Promise<void>;
 }
 
 // ADD THIS: Simple deep equality check for React state
@@ -216,6 +218,66 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         }
     }, [fetchTeamDecisionsForSession]);
 
+    const addTeamToSession = useCallback(async (
+        sessionId: string,
+        teamName: string,
+        passcode: string
+    ): Promise<Team> => {
+        if (!sessionId || sessionId === 'new') {
+            throw new Error('Cannot add team: Invalid session ID');
+        }
+        try {
+            const newTeam = await db.teams.create({
+                session_id: sessionId,
+                name: teamName,
+                passcode: passcode
+            });
+
+            // Initialize KPI data for the new team in Round 1
+            // Using Round 1 base values: orders=6250, cost=1200000, capacity=5000, asp=1000
+            await db.kpis.create({
+                session_id: sessionId,
+                team_id: newTeam.id,
+                round_number: 1,
+                start_capacity: 5000,
+                start_orders: 6250,
+                start_cost: 1200000,
+                start_asp: 1000,
+                current_capacity: 5000,
+                current_orders: 6250,
+                current_cost: 1200000,
+                current_asp: 1000,
+                revenue: 0,
+                net_margin: 0,
+                net_income: 0,
+            });
+
+            // Refresh teams list
+            await fetchTeamsForSession(sessionId);
+            return newTeam as Team;
+        } catch (err) {
+            console.error("useTeamDataManager: Error adding team:", err);
+            throw new Error(`Failed to add team: ${formatSupabaseError(err)}`);
+        }
+    }, [fetchTeamsForSession]);
+
+    const removeTeamFromSession = useCallback(async (
+        sessionId: string,
+        teamId: string
+    ): Promise<void> => {
+        if (!sessionId || sessionId === 'new') {
+            throw new Error('Cannot remove team: Invalid session ID');
+        }
+        try {
+            await db.teams.delete(teamId);
+            // Refresh teams list
+            await fetchTeamsForSession(sessionId);
+        } catch (err) {
+            console.error("useTeamDataManager: Error removing team:", err);
+            throw new Error(`Failed to remove team: ${formatSupabaseError(err)}`);
+        }
+    }, [fetchTeamsForSession]);
+
     // Initial fetch when sessionId becomes available
     useEffect(() => {
         if (initialSessionId && initialSessionId !== 'new') {
@@ -299,7 +361,9 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         fetchTeamRoundDataForSession,
         resetTeamDecisionInDb,
         setTeamRoundDataDirectly: setTeamRoundData,
-        setPermanentAdjustmentsDirectly: setPermanentAdjustments
+        setPermanentAdjustmentsDirectly: setPermanentAdjustments,
+        addTeamToSession,
+        removeTeamFromSession,
     }), [
         teams,
         teamDecisions,
@@ -315,6 +379,8 @@ export const useTeamDataManager = (initialSessionId: string | null): TeamDataMan
         fetchTeamRoundDataForSession,
         resetTeamDecisionInDb,
         setTeamRoundData,
-        setPermanentAdjustments
+        setPermanentAdjustments,
+        addTeamToSession,
+        removeTeamFromSession,
     ]);
 };
