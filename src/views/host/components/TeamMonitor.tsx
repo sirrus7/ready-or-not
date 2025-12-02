@@ -333,23 +333,51 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
             <div className="p-4">
                 {/* Submission Progress - only show for current decision */}
                 {isCurrentDecision && (
-                    <div className="mb-4 p-3 bg-game-orange-50 border border-game-orange-200 rounded-lg">
-                        <h3 className="font-semibold text-game-orange-800 mb-2">Submission Progress</h3>
+                    <div className={`mb-4 p-3 rounded-lg transition-all duration-300 ${
+                        submissionStats.allSubmitted 
+                            ? 'bg-green-100 border-2 border-green-500 shadow-md' 
+                            : 'bg-game-orange-50 border border-game-orange-200'
+                    }`}>
+                        <h3 className={`font-semibold mb-2 flex items-center gap-2 ${
+                            submissionStats.allSubmitted 
+                                ? 'text-green-800' 
+                                : 'text-game-orange-800'
+                        }`}>
+                            {submissionStats.allSubmitted && (
+                                <CheckCircle2 className="text-green-600" size={20}/>
+                            )}
+                            Submission Progress
+                            {submissionStats.allSubmitted && (
+                                <span className="ml-auto text-sm font-bold text-green-700 bg-green-200 px-3 py-1 rounded-full">
+                                    ✓ Complete
+                                </span>
+                            )}
+                        </h3>
                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-game-orange-700">
+                            <span className={`text-sm font-medium ${
+                                submissionStats.allSubmitted 
+                                    ? 'text-green-700' 
+                                    : 'text-game-orange-700'
+                            }`}>
                                 {submissionStats.submitted} of {submissionStats.total} teams submitted
                             </span>
                             <div className="flex items-center">
-                                {submissionStats.allSubmitted ? (
-                                    <CheckCircle2 className="text-green-600" size={20}/>
-                                ) : (
+                                {!submissionStats.allSubmitted && (
                                     <Clock className="text-orange-500" size={20}/>
                                 )}
                             </div>
                         </div>
-                        <div className="w-full bg-game-orange-200 rounded-full h-2 mt-2">
+                        <div className={`w-full rounded-full h-2 mt-2 ${
+                            submissionStats.allSubmitted 
+                                ? 'bg-green-200' 
+                                : 'bg-game-orange-200'
+                        }`}>
                             <div
-                                className="bg-game-orange-600 h-2 rounded-full transition-all duration-300"
+                                className={`h-2 rounded-full transition-all duration-300 ${
+                                    submissionStats.allSubmitted 
+                                        ? 'bg-green-600' 
+                                        : 'bg-game-orange-600'
+                                }`}
                                 style={{width: `${teams.length > 0 ? (submissionStats.submitted / teams.length) * 100 : 0}%`}}
                             />
                         </div>

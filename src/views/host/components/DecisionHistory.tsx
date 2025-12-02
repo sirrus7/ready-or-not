@@ -44,12 +44,15 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
         if (currentInteractiveSlide && currentInteractiveSlide.interactive_data_key) {
             // Autoscroll to current decision
             setShouldAutoScroll(true);
-            // Expand the decision and close all other decision
+            
+            // Expand the decision and close all other decisions
             setExpandedDecisions(prev => {
-                const newState = {
-                    ...prev,
-                };
-                Object.keys(newState).forEach(key => {newState[key] = false;});
+                const newState: Record<string, boolean> = {};
+                // Close all existing decisions
+                Object.keys(prev).forEach(key => {
+                    newState[key] = false;
+                });
+                // Open only the current decision
                 newState[currentInteractiveSlide.interactive_data_key] = true;
                 return newState;
             });
@@ -61,7 +64,24 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
                 [roundKey]: true
             }));
         }
-    }, [currentInteractiveSlide]);
+
+    }, [currentInteractiveSlide?.interactive_data_key]);
+
+    // Separate effect for scrolling (triggered when expandedDecisions changes)
+    useEffect(() => {
+        if (shouldAutoScroll && currentDecisionRef.current) {
+            // Small delay to ensure the DOM is updated
+            const timer = setTimeout(() => {
+                currentDecisionRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+                setShouldAutoScroll(false);
+            }, 100);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [expandedDecisions, shouldAutoScroll]);
 
     const groupedSlides = useMemo(() => {
         if (!gameStructure) return {};
@@ -103,7 +123,7 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
     const toggleDecisionExpansion = (decisionKey: string) => {
         setExpandedDecisions(prev => ({...prev, [decisionKey]: !prev[decisionKey]}));
     };
-    
+
     return (
         <div>
             <div className="space-y-2">
@@ -148,6 +168,13 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
                                         // Keep the base label clean since we have visual indicators
                                         const enhancedLabel = slide.title || `Decision Point`;
                                         const isDecisionExpanded = expandedDecisions[slide.interactive_data_key || ''] ?? false;
+                                        const allTeamsSubmitted = decisionKey ? (() => {
+                                            if (teams.length === 0) return false;
+                                            const submittedCount = teams.filter(team => 
+                                                teamDecisions[team.id]?.[decisionKey]?.submitted_at
+                                            ).length;
+                                            return submittedCount === teams.length;
+                                        })() : false;
                                         return (
                                             <div 
                                                 key={slide.interactive_data_key || slide.id} 
@@ -160,6 +187,7 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
                                                     isCompleted={isCompleted}
                                                     icon={icon}
                                                     isExpanded={isDecisionExpanded}
+                                                    allSubmitted={allTeamsSubmitted} // NEW PROP
                                                     onClick={() => {
                                                         if (slide.interactive_data_key) {
                                                             toggleDecisionExpansion(slide.interactive_data_key);
