@@ -92,7 +92,7 @@ export const useDashboardActions = (refetchGames: () => Promise<CategorizedGames
     const handleResumeDraft = useCallback((sessionId: string, _sessionName: string) => {
         // Navigate to create-game with the draft session ID
         // The CreateGamePage will detect and load the existing draft
-        navigate(`/create-game?resume=${sessionId}`);
+        navigate(`/create?resume=${sessionId}`);
     }, [navigate]);
 
     const handleOpenDeleteModal = useCallback((sessionId: string, gameName: string, gameType: 'draft' | 'active' | 'completed') => {
