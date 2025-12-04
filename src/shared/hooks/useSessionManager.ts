@@ -54,7 +54,7 @@ export const useSessionManager = (
 
                 if (sessionIdToProcess === 'new') {
                     // For new sessions, redirect to create-game wizard
-                    navigate('/create-game', {replace: true});
+                    navigate('/create', {replace: true});
                     setIsLoading(false);
                     return;
                 } else {
