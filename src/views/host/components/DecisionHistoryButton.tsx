@@ -9,7 +9,7 @@ interface DecisionHistoryButtonProps {
     icon: React.ElementType<LucideProps>;
     onClick: () => void;
     isExpanded?: boolean;
-    allSubmitted?: boolean; // NEW PROP
+    allSubmitted?: boolean;
 }
 
 const DecisionHistoryButton: React.FC<DecisionHistoryButtonProps> = ({
@@ -19,7 +19,7 @@ const DecisionHistoryButton: React.FC<DecisionHistoryButtonProps> = ({
     icon: Icon,
     onClick,
     isExpanded = false,
-    allSubmitted = false // NEW PROP
+    allSubmitted = false
 }) => {
     let baseClasses = `w-full flex items-center p-3 transition-all duration-300 text-left text-sm ${
         isExpanded ? 'rounded-t-lg' : 'rounded-lg'

@@ -187,7 +187,7 @@ const DecisionHistory: React.FC<DecisionHistoryProps> = ({currentInteractiveSlid
                                                     isCompleted={isCompleted}
                                                     icon={icon}
                                                     isExpanded={isDecisionExpanded}
-                                                    allSubmitted={allTeamsSubmitted} // NEW PROP
+                                                    allSubmitted={allTeamsSubmitted}
                                                     onClick={() => {
                                                         if (slide.interactive_data_key) {
                                                             toggleDecisionExpansion(slide.interactive_data_key);
