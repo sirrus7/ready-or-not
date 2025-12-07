@@ -48,7 +48,6 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
         async () => {
             if (!currentSessionId || currentSessionId === 'new' || !isInvestmentPeriod) return [];
 
-            // ✅ UPDATED - Use service layer
             const data = await db.decisions.getAllImmediatePurchases(currentSessionId);
 
             return (data || []).map(item => ({
@@ -72,31 +71,31 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
     useEffect(() => {
         if (!currentSessionId || !isInvestmentPeriod) return;
 
-        const channel = supabase
+                const channel = supabase
             .channel(`immediate-purchases-${currentSessionId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
                     table: 'team_decisions',
                     filter: `session_id=eq.${currentSessionId}`,
-                },
+                        },
                 (payload: any) => {
                     const record = payload.new || payload.old;
                     if (record &&
                         typeof record === 'object' && record.is_immediate_purchase &&
                         record.immediate_purchase_type === 'business_growth_strategy') {
-                        refreshImmediatePurchases();
+                            refreshImmediatePurchases();
                     }
-                }
-            )
+                        }
+                    )
             .subscribe((_u: any) => {
             });
 
-        return () => {
-            channel.unsubscribe();
-        };
+                return () => {
+                    channel.unsubscribe();
+                };
     }, [currentSessionId, isInvestmentPeriod, refreshImmediatePurchases]);
 
     // Load continuation pricing for all teams
@@ -148,10 +147,7 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
         setAllTeamsSubmittedCurrentInteractivePhase(submissionStats.allSubmitted);
     }, [submissionStats.allSubmitted, setAllTeamsSubmittedCurrentInteractivePhase]);
 
-    // REMOVED: Generic "all teams submitted" alert
-    // The slide-specific host_alert should be triggered after processing instead
-
-    // Structured selection data function with FIXED immediate purchases handling and DEBUG LOGS
+    // Structured selection data function
     const getSelectionData = (decision?: TeamDecision, teamId?: string): SelectionData => {
         if (!slideDataToUse || !gameStructure || !decisionKey) {
             return {
@@ -165,11 +161,9 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                 const selectedIds = decision?.selected_investment_options || [];
                 const investmentOptions = gameStructure.all_investment_options[decisionKey] || [];
 
-                // Get immediate purchases for this team
                 // Get immediate purchases for this team and this specific decision
                 const teamImmediatePurchases = safeImmediatePurchases.filter(purchase =>
                     purchase.team_id === teamId &&
-                    // Only include immediate purchases that belong to this decision
                     purchase.phase_id === `${decisionKey}_immediate`
                 );
 
@@ -188,7 +182,7 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                 const allSelectedIds = [...immediateLetters, ...selectedIds];
                 const totalBudget = (decision?.total_spent_budget || 0) + immediateBudget;
 
-                // ✅ GET CONTINUATION PRICING from cache
+                // Get continuation pricing from cache
                 const teamContinuationPricing = teamId ? continuationPricingCache[teamId] : null;
 
                 // Helper function to get actual cost for an investment
@@ -251,7 +245,7 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                         hasSubmission: !!decision
                     };
                 } else {
-                    // Single selection (existing logic)
+                    // Single selection
                     const selectedOption = challengeOptions.find(opt => opt.id === selectedOptionId);
 
                     // Special handling for ch5 - null selection means no choice made yet
@@ -396,8 +390,15 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                         return (
                             <div
                                 key={team.id}
-                                className={`bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow ${
+                                className={`rounded-lg transition-shadow ${
                                     selectionData.type === 'choice' ? 'p-3' : 'p-4'
+                                } ${
+                                    // Match Submission Progress styling ONLY when this is the current decision
+                                    isCurrentDecision 
+                                        ? (hasSubmitted 
+                                            ? 'bg-green-50 border-2 border-green-500 text-green-900' 
+                                            : 'bg-game-orange-50 border border-game-orange-200 text-game-orange-900')
+                                        : 'bg-white border border-gray-200 hover:shadow-sm'
                                 }`}
                             >
                                 {/* Selection Display - compact for choices */}
@@ -405,25 +406,41 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <div className={`w-1.5 h-1.5 rounded-full ${
-                                                hasSubmitted ? 'bg-green-500' : 'bg-gray-300'
+                                                hasSubmitted ? 'bg-green-500' : (isCurrentDecision ? 'bg-orange-500' : 'bg-gray-300')
                                             }`}/>
-                                            <span className="text-sm font-medium text-gray-700">{team.name}</span>
+                                            <span className={`text-sm font-medium ${
+                                                isCurrentDecision 
+                                                    ? (hasSubmitted ? 'text-green-800' : 'text-game-orange-800')
+                                                    : 'text-gray-700'
+                                            }`}>{team.name}</span>
                                             {hasSubmitted && (
-                                                <span className="text-xs text-gray-500">
+                                                <span className={`text-xs ${
+                                                    isCurrentDecision 
+                                                        ? 'text-green-600'
+                                                        : 'text-gray-500'
+                                                }`}>
                                                     {new Date(decision!.submitted_at!).toLocaleTimeString([], {
                                                         hour: '2-digit',
                                                         minute: '2-digit'
                                                     })}
                                                 </span>
                                             )}
-                                            <span className="text-gray-400">•</span>
-                                            <span className="text-gray-700">{selectionData.choiceText}</span>
+                                            <span className={`${
+                                                isCurrentDecision 
+                                                    ? (hasSubmitted ? 'text-green-600' : 'text-game-orange-600')
+                                                    : 'text-gray-400'
+                                            }`}>•</span>
+                                            <span className={`${
+                                                isCurrentDecision 
+                                                    ? (hasSubmitted ? 'text-green-800' : 'text-game-orange-800')
+                                                    : 'text-gray-700'
+                                            }`}>{selectionData.choiceText}</span>
                                         </div>
 
                                         {hasSubmitted && isCurrentDecision && (
                                             <button
                                                 onClick={() => openResetModal(team.id, team.name)}
-                                                className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 hover:border-red-300 transition-colors"
+                                                className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 border border-green-300 rounded hover:bg-green-200 hover:border-green-400 transition-colors"
                                             >
                                                 Reset
                                             </button>
@@ -435,11 +452,19 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <div className={`w-1.5 h-1.5 rounded-full ${
-                                                    hasSubmitted ? 'bg-green-500' : 'bg-gray-300'
+                                                    hasSubmitted ? 'bg-green-500' : (isCurrentDecision ? 'bg-orange-500' : 'bg-gray-300')
                                                 }`}/>
-                                                <span className="text-sm font-medium text-gray-700">{team.name}</span>
+                                                <span className={`text-sm font-medium ${
+                                                    isCurrentDecision 
+                                                        ? (hasSubmitted ? 'text-green-800' : 'text-game-orange-800')
+                                                        : 'text-gray-700'
+                                                }`}>{team.name}</span>
                                                 {hasSubmitted && (
-                                                    <span className="text-xs text-gray-500">
+                                                    <span className={`text-xs ${
+                                                        isCurrentDecision 
+                                                            ? 'text-green-600'
+                                                            : 'text-gray-500'
+                                                    }`}>
                                                         {new Date(decision!.submitted_at!).toLocaleTimeString([], {
                                                             hour: '2-digit',
                                                             minute: '2-digit'
@@ -451,7 +476,7 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                                             {hasSubmitted && isCurrentDecision && (
                                                 <button
                                                     onClick={() => openResetModal(team.id, team.name)}
-                                                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 hover:border-red-300 transition-colors"
+                                                    className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 border border-green-300 rounded hover:bg-green-200 hover:border-green-400 transition-colors"
                                                 >
                                                     Reset
                                                 </button>
