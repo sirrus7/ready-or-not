@@ -611,7 +611,7 @@ Thank you,
                     onClick={onNext}
                     className="flex items-center gap-2 bg-game-orange-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-game-orange-700 transition-colors shadow-md"
                 >
-                    Next: Finalize & Start <ArrowRight size={18}/>
+                    Next: Preload Content <ArrowRight size={18}/>
                 </button>
             </div>}
         </div>
