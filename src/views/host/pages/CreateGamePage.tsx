@@ -108,6 +108,10 @@ const CreateGamePage: React.FC = () => {
                         setGameData(prev => ({...prev, ...savedState}));
                     }
                 } else {
+                    if (type === 'academic') {
+                        setGameData(prev => ({...prev, game_version: GameVersion.V2_0_DD}))
+                    }
+
                     // FIXED: Clean up existing drafts, but NOT the one we might be resuming
                     const existingDrafts = await sessionManager.getCategorizedSessionsForHost(user.id);
 
