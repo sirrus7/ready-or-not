@@ -46,7 +46,12 @@ export class ForcedSelectionTracker {
                 decision.selected_investment_options?.includes(rule.requiredInvestment)
             );
 
-            if (hasInvestment) {
+            const wasSacrificed: boolean = teamDecisions.some(decision =>
+                decision.phase_id === 'ch-dd-prompt' &&
+                decision.double_down_sacrifice_id === rule.requiredInvestment
+            );
+
+            if (hasInvestment && !wasSacrificed) {
                 return rule.forcedOption;
             }
 
