@@ -614,18 +614,16 @@ const DoubleDownDiceDisplay: React.FC<DoubleDownDiceDisplayProps> = ({
                                             <h3 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-white mb-4 text-center">KPI
                                                 Changes</h3>
                                             <div className="grid gap-4">
-                                                {kpiChanges.map((teamChange, teamIndex) => (
-                                                    <div key={teamIndex} className="text-center">
-                                                        <div className="flex flex-wrap gap-2 justify-center">
-                                                            {teamChange.changes.map((change, changeIndex) => (
-                                                                <span key={changeIndex}
-                                                                      className="text-base md:text-lg lg:text-xl xl:text-2xl">
-                                                                {formatKpiChange(change)}
-                                                            </span>
-                                                            ))}
-                                                        </div>
+                                                <div className="text-center">
+                                                    <div className="flex flex-wrap gap-2 justify-center">
+                                                        {kpiChanges[0].changes.map((change, changeIndex) => (
+                                                            <span key={changeIndex}
+                                                                    className="text-base md:text-lg lg:text-xl xl:text-2xl">
+                                                            {formatKpiChange(change)}
+                                                        </span>
+                                                        ))}
                                                     </div>
-                                                ))}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
