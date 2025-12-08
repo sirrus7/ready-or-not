@@ -334,7 +334,7 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                     }`}>
                         <h3 className={`font-semibold mb-2 flex items-center gap-2 ${
                             submissionStats.allSubmitted 
-                                ? 'text-green-800' 
+                                ? 'text-green-900' 
                                 : 'text-game-orange-800'
                         }`}>
                             {submissionStats.allSubmitted && (
@@ -342,7 +342,7 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                             )}
                             Submission Progress
                             {submissionStats.allSubmitted && (
-                                <span className="ml-auto text-sm font-bold text-green-700 bg-green-200 px-3 py-1 rounded-full">
+                                <span className="ml-auto text-sm font-bold text-green-900 bg-green-200 px-3 py-1 rounded-full">
                                     ✓ Complete
                                 </span>
                             )}
@@ -350,8 +350,8 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                         <div className="flex items-center justify-between">
                             <span className={`text-sm font-medium ${
                                 submissionStats.allSubmitted 
-                                    ? 'text-green-700' 
-                                    : 'text-game-orange-700'
+                                    ? 'text-green-900' 
+                                    : 'text-game-orange-800'
                             }`}>
                                 {submissionStats.submitted} of {submissionStats.total} teams submitted
                             </span>
@@ -410,13 +410,13 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                                             }`}/>
                                             <span className={`text-sm font-medium ${
                                                 isCurrentDecision 
-                                                    ? (hasSubmitted ? 'text-green-800' : 'text-game-orange-800')
+                                                    ? (hasSubmitted ? 'text-green-900' : 'text-game-orange-800')
                                                     : 'text-gray-700'
                                             }`}>{team.name}</span>
                                             {hasSubmitted && (
                                                 <span className={`text-xs ${
                                                     isCurrentDecision 
-                                                        ? 'text-green-600'
+                                                        ? 'text-green-900'
                                                         : 'text-gray-500'
                                                 }`}>
                                                     {new Date(decision!.submitted_at!).toLocaleTimeString([], {
@@ -427,12 +427,12 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                                             )}
                                             <span className={`${
                                                 isCurrentDecision 
-                                                    ? (hasSubmitted ? 'text-green-600' : 'text-game-orange-600')
+                                                    ? (hasSubmitted ? 'text-green-900' : 'text-game-orange-600')
                                                     : 'text-gray-400'
                                             }`}>•</span>
                                             <span className={`${
                                                 isCurrentDecision 
-                                                    ? (hasSubmitted ? 'text-green-800' : 'text-game-orange-800')
+                                                    ? (hasSubmitted ? 'text-green-900' : 'text-game-orange-800')
                                                     : 'text-gray-700'
                                             }`}>{selectionData.choiceText}</span>
                                         </div>
@@ -440,7 +440,7 @@ const TeamMonitor: React.FC<TeamMonitorProps> = ({slide}: TeamMonitorProps) => {
                                         {hasSubmitted && isCurrentDecision && (
                                             <button
                                                 onClick={() => openResetModal(team.id, team.name)}
-                                                className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 border border-green-300 rounded hover:bg-green-200 hover:border-green-400 transition-colors"
+                                                className="px-2 py-1 text-xs font-medium text-green-900 bg-green-100 border border-green-300 rounded hover:bg-green-200 hover:border-green-400 transition-colors"
                                             >
                                                 Reset
                                             </button>
