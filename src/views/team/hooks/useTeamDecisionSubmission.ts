@@ -102,7 +102,7 @@ export const useTeamDecisionSubmission = ({
     } = useSupabaseQuery(
         async () => {
             if (!sessionId || !teamId || !decisionKey) return [];
-            return await db.decisions.getImmediatePurchases(sessionId, teamId, `${decisionKey}_immediate`);
+            return await db.decisions.getImmediatePurchases(sessionId, teamId, decisionKey);
         },
         [sessionId, teamId, decisionKey],
         {
