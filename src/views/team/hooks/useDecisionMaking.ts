@@ -184,9 +184,7 @@ export const useDecisionMaking = ({
             }
 
             try {
-                // Create the immediate purchase phase_id
-                const immediatePhaseId = `${currentSlide.interactive_data_key}_immediate`;
-                const decisions: TeamDecision[] = await db.decisions.getImmediatePurchases(sessionId, teamId, immediatePhaseId)
+                const decisions: TeamDecision[] = await db.decisions.getImmediatePurchases(sessionId, teamId, currentSlide.interactive_data_key)
 
                 if (decisions && decisions.length > 0) {
                     // CHANGED: Extract immediate purchase options (now letters)

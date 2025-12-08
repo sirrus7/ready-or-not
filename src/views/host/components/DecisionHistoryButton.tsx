@@ -72,7 +72,7 @@ const DecisionHistoryButton: React.FC<DecisionHistoryButtonProps> = ({
                 <span className={`block leading-tight truncate ${textClasses}`}>{label}</span>
             </div>
             {allSubmitted && isCurrent && (
-                <span className="ml-2 text-xs font-bold text-green-700 bg-green-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                <span className="ml-2 text-xs font-bold text-green-900 bg-green-200 px-2 py-0.5 rounded-full flex-shrink-0">
                     ✓ DONE
                 </span>
             )}
