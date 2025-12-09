@@ -97,8 +97,7 @@ const OperationalKPITrends: React.FC<OperationalKPITrendsProps> = ({teams, teamR
         color: string;
         dataKey: string;
         yAxisFormatter?: (value: number) => string;
-        description: string;
-    }> = ({title, data, icon, color, dataKey, yAxisFormatter, description}) => (
+    }> = ({title, data, icon, color, dataKey, yAxisFormatter}) => (
         <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
             <div className="flex items-center gap-3 mb-2">
                 <div className={`p-2 rounded-lg text-white ${color}`}>
@@ -106,7 +105,6 @@ const OperationalKPITrends: React.FC<OperationalKPITrendsProps> = ({teams, teamR
                 </div>
                 <div>
                     <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-                    <p className="text-sm text-gray-600">{description}</p>
                 </div>
             </div>
 
@@ -127,6 +125,7 @@ const OperationalKPITrends: React.FC<OperationalKPITrendsProps> = ({teams, teamR
                         <Tooltip
                             formatter={(value: number, name: string) => formatTooltipValue(value, name, dataKey)}
                             labelClassName="font-medium"
+                            wrapperStyle={{ zIndex: 1 }}
                             contentStyle={{
                                 backgroundColor: 'white',
                                 border: '1px solid #e5e7eb',
@@ -179,7 +178,6 @@ const OperationalKPITrends: React.FC<OperationalKPITrendsProps> = ({teams, teamR
                 {/* Production Capacity */}
                 <OperationalChart
                     title="Capacity"
-                    description="Manufacturing capability - impacted by investments"
                     data={operationalTrendData.capacity}
                     icon={<Building size={24}/>}
                     color="bg-gradient-to-r from-blue-500 to-blue-600"
@@ -190,7 +188,6 @@ const OperationalKPITrends: React.FC<OperationalKPITrendsProps> = ({teams, teamR
                 {/* Market Orders */}
                 <OperationalChart
                     title="Orders"
-                    description="Customer demand - affected by market challenges"
                     data={operationalTrendData.orders}
                     icon={<ShoppingCart size={24}/>}
                     color="bg-gradient-to-r from-yellow-500 to-yellow-600"
@@ -201,7 +198,6 @@ const OperationalKPITrends: React.FC<OperationalKPITrendsProps> = ({teams, teamR
                 {/* Operational Costs */}
                 <OperationalChart
                     title="Costs"
-                    description="Total expenses - influenced by investments and challenges"
                     data={operationalTrendData.cost}
                     icon={<DollarSign size={24}/>}
                     color="bg-gradient-to-r from-green-500 to-green-600"
@@ -212,7 +208,6 @@ const OperationalKPITrends: React.FC<OperationalKPITrendsProps> = ({teams, teamR
                 {/* Average Selling Price */}
                 <OperationalChart
                     title="Average Selling Price"
-                    description="Pricing strategy - adjusted through market responses"
                     data={operationalTrendData.asp}
                     icon={<TrendingUp size={24}/>}
                     color="bg-gradient-to-r from-red-500 to-red-600"
