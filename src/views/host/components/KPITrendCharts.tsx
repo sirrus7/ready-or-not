@@ -202,16 +202,6 @@ const KPITrendCharts: React.FC<KPITrendChartsProps> = ({teams, teamRoundData, te
                     dataKey="netMargin"
                     yAxisFormatter={(value) => `${(value * 100).toFixed(1)}%`}
                 />
-
-                {/* Capacity Trend */}
-                <TrendChart
-                    title="Production Capacity"
-                    data={trendData.capacity}
-                    icon={<Zap size={24}/>}
-                    color="bg-gradient-to-r from-blue-500 to-blue-600"
-                    dataKey="capacity"
-                    yAxisFormatter={(value) => `${(value / 1000).toFixed(1)}K`}
-                />
             </div>
 
             {/* Insights */}
