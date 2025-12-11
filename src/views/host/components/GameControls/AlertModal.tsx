@@ -1,57 +1,104 @@
 // src/views/host/components/GameControls/AlertModal.tsx
-// FIXED VERSION - Resolves "Next" button not working issue
 
 import React from 'react';
-import {Lightbulb} from 'lucide-react';
-import Modal from '@shared/components/UI/Modal';
-import {useGameContext} from '@app/providers/GameProvider';
+import { X, Info, FileEdit, ListTodo, FileStack, CheckCircle2, Circle } from 'lucide-react';
+import { useGameContext } from '@app/providers/GameProvider';
+import { HostAlertCategory } from '@shared/types';
+
+/**
+ * Get visual properties for each alert category
+ * 
+ * ICON CHOICES:
+ * - HandPlatter: Perfect for hand out materials (hand holding/presenting items)
+ * - ClipboardCheck: Great for decisions (checkmarks imply completion/submission)
+ * - PenLine: Ideal for writing/updating KPIs on documents
+ * - Lightbulb: Standard for generic alerts/information
+ */
+const getAlertStyles = (category: HostAlertCategory) => {
+    switch (category) {
+        case HostAlertCategory.HAND_OUT_MATERIALS:
+            return {
+                bgColor: 'bg-blue-100',
+                headerBg: 'bg-blue-600',
+                iconColor: 'text-white',
+                borderColor: 'border-blue-300',
+                icon: FileStack, // Hand presenting/distributing items
+                buttonBg: 'bg-blue-600 hover:bg-blue-700',
+                buttonRing: 'focus:ring-blue-500'
+            };
+        case HostAlertCategory.DECISIONS:
+            return {
+                bgColor: 'bg-amber-100',
+                headerBg: 'bg-amber-600',
+                iconColor: 'text-white',
+                borderColor: 'border-amber-300',
+                icon: ListTodo, // Clipboard with checkmark - decisions being completed
+                buttonBg: 'bg-amber-600 hover:bg-amber-700',
+                buttonRing: 'focus:ring-amber-500'
+            };
+        case HostAlertCategory.KPI_UPDATE:
+            return {
+                bgColor: 'bg-purple-100',
+                headerBg: 'bg-purple-600',
+                iconColor: 'text-white',
+                borderColor: 'border-purple-300',
+                icon: FileEdit, // Pen writing on a line/document
+                buttonBg: 'bg-purple-600 hover:bg-purple-700',
+                buttonRing: 'focus:ring-purple-500'
+            };
+        case HostAlertCategory.GENERIC:
+        default:
+            return {
+                bgColor: 'bg-gray-100',
+                headerBg: 'bg-gray-600',
+                iconColor: 'text-white',
+                borderColor: 'border-gray-300',
+                icon: Info, // Classic lightbulb for ideas/information
+                buttonBg: 'bg-gray-600 hover:bg-gray-700',
+                buttonRing: 'focus:ring-gray-500'
+            };
+    }
+};
+
+
 
 /**
  * HOST ALERT MODAL COMPONENT
  *
- * PURPOSE:
- * - Display host alerts during game flow (e.g., "All Teams Have Submitted")
- * - Provide "Next" and "Close" button options for different alert handling
- * - Integrate with host control navigation system
- *
- * REQUIREMENTS:
- * 1. "Next" button: Should advance to next slide for "All Teams Have Submitted" alerts
- * 2. "Close" button: Should dismiss alert without advancing
- * 3. Must call correct GameContext methods for each action
- * 4. Handle both automatic and manual alert dismissal
- *
- * WORKFLOW:
- * 1. Alert appears when triggered by game logic
- * 2. Host sees alert with two options:
- *    - "Next": Progress game flow (calls clearHostAlert)
- *    - "Close": Dismiss without action (calls setCurrentHostAlertState)
- * 3. Modal closes and appropriate action is taken
- *
- * INTEGRATION POINTS:
- * - GameContext.clearHostAlert(): Handles alert clearing + slide advancement
- * - GameContext.setCurrentHostAlertState(): Handles manual dismissal
- * - useGameController manages the actual navigation logic
  */
 const AlertModal: React.FC = () => {
-    const {state, clearHostAlert, setCurrentHostAlertState} = useGameContext();
+    const { state, clearHostAlert, setCurrentHostAlertState } = useGameContext();
 
     // Early return if no alert is present
     if (!state.currentHostAlert) return null;
 
-    /**
-     * NEXT BUTTON HANDLER
-     *
-     * PURPOSE: Progress the game flow appropriately based on alert type
-     *
-     * BEHAVIOR:
-     * - For "All Teams Have Submitted": Clear alert AND advance to next slide
-     * - For other alerts: Clear alert without advancing
-     *
-     * IMPLEMENTATION:
-     * - Calls clearHostAlert() which contains the logic to determine action
-     * - clearHostAlert() is async and handles slide advancement internally
-     * - Logging helps debug if navigation isn't working
-     */
+    // Get category (default to GENERIC if not specified)
+    const category = state.currentHostAlert.category || HostAlertCategory.GENERIC;
+    const styles = getAlertStyles(category);
+    const IconComponent = styles.icon;
+
+    // Check if this is a decision alert and we should show team status
+    const isDecisionAlert = category === HostAlertCategory.DECISIONS;
+    
+    // Calculate team submission status
+    const teams = state.teams || [];
+    const currentSlideData = state.gameStructure?.slides[state.current_slide_index ?? -1];
+    const interactiveDataKey = currentSlideData?.interactive_data_key;
+    
+    const teamSubmissionStatus = teams.map(team => {
+        const hasSubmitted = interactiveDataKey 
+            ? !!(state.teamDecisions[team.id]?.[interactiveDataKey])
+            : false;
+        return {
+            id: team.id,
+            name: team.name,
+            hasSubmitted
+        };
+    });
+
+    const submittedCount = teamSubmissionStatus.filter(t => t.hasSubmitted).length;
+    const totalCount = teamSubmissionStatus.length;
+
     const handleNextClick = async () => {
         try {
             await clearHostAlert();
@@ -60,90 +107,112 @@ const AlertModal: React.FC = () => {
         }
     };
 
-    /**
-     * CLOSE BUTTON HANDLER
-     *
-     * PURPOSE: Dismiss alert without taking any game action
-     *
-     * BEHAVIOR:
-     * - Always just dismisses the alert
-     * - Does not advance slides
-     * - Sets dismissal tracking for "All Teams Have Submitted" alerts
-     *
-     * IMPLEMENTATION:
-     * - Calls setCurrentHostAlertState(null) to clear alert
-     * - GameContext handles dismissal tracking internally
-     */
     const handleCloseClick = () => {
         setCurrentHostAlertState(null);
     };
 
-    /**
-     * OVERLAY CLICK HANDLER
-     *
-     * PURPOSE: Allow dismissing alert by clicking outside modal
-     * Same behavior as Close button
-     */
-    const handleOverlayClick = () => {
-        setCurrentHostAlertState(null);
+    const handleOverlayClick = (e: React.MouseEvent) => {
+        // Only close if clicking the overlay itself, not the modal content
+        if (e.target === e.currentTarget) {
+            setCurrentHostAlertState(null);
+        }
     };
 
     return (
-        <Modal
-            isOpen={!!state.currentHostAlert}
-            onClose={handleOverlayClick} // Handle overlay/X button clicks
-            title={state.currentHostAlert.title || "Game Host Alert!"}
-            hideCloseButton={false}
+        <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={handleOverlayClick}
         >
-            <div className="p-1">
-                <div className="flex items-start">
-                    <div
-                        className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-game-orange-100 sm:mx-0 sm:h-8 sm:w-8">
-                        <Lightbulb className="h-5 w-5 text-game-orange-600" aria-hidden="true"/>
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                {/* Colored Header with Icon and Close Button */}
+                <div className={`${styles.headerBg} px-8 py-8 flex items-center justify-between`}>
+                    {/* Extra Large Icon */}
+                    <div className="flex items-center gap-8">
+                        <div className="flex-shrink-0 flex items-center justify-center h-32 w-32 rounded-full bg-white bg-opacity-30 shadow-lg">
+                            <IconComponent className={`h-16 w-16 ${styles.iconColor} stroke-[2.5]`} aria-hidden="true" strokeWidth={2.5} />
+                        </div>
+                        
+                        {/* Title */}
+                        <h3 className="text-5xl font-bold text-white drop-shadow-lg">
+                            {state.currentHostAlert.title || "Game Host Alert!"}
+                        </h3>
                     </div>
-                    <div className="ml-3 text-left">
-                        <p className="text-sm text-gray-600 mt-1">
-                            {state.currentHostAlert.message}
-                        </p>
+
+                    {/* Close Button */}
+                    <button
+                        onClick={handleCloseClick}
+                        className="flex-shrink-0 p-3 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-colors"
+                        aria-label="Close"
+                    >
+                        <X className="h-8 w-8 text-white" />
+                    </button>
+                </div>
+
+                {/* Content Section with Colored Background */}
+                <div className={`${styles.bgColor} flex-1 overflow-y-auto`}>
+                    <div className="px-8 py-8">
+                        {/* Message Section */}
+                        <div className={`bg-white rounded-lg p-8 shadow-md border-2 ${styles.borderColor}`}>
+                            <p className="text-2xl text-gray-800 leading-relaxed">
+                                {state.currentHostAlert.message}
+                            </p>
+
+                            {/* Team Status Indicator - Only show for DECISIONS */}
+                            {isDecisionAlert && totalCount > 0 && (
+                                <div className="mt-8">
+                                    <div className="mb-5 text-xl font-bold text-gray-800">
+                                        Team Submissions: {submittedCount} of {totalCount}
+                                    </div>
+                                    <div className="flex flex-wrap gap-6">
+                                        {teamSubmissionStatus.map(team => (
+                                            <div key={team.id} className="flex flex-col items-center gap-2">
+                                                <div className={`h-20 w-20 rounded-full flex items-center justify-center font-bold text-white shadow-lg ${
+                                                    team.hasSubmitted ? 'bg-green-500' : 'bg-gray-400'
+                                                }`}>
+                                                    {team.hasSubmitted ? (
+                                                        <CheckCircle2 className="h-12 w-12" strokeWidth={2.5} />
+                                                    ) : (
+                                                        <Circle className="h-12 w-12" strokeWidth={2.5} />
+                                                    )}
+                                                </div>
+                                                <span className="text-base font-semibold text-gray-800 text-center max-w-[90px] truncate">
+                                                    {team.name}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* BUTTON CONTAINER - Proper flex layout for two-button design */}
-                <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-                    {/*
-                        NEXT BUTTON - PRIMARY ACTION
-                        - Blue styling indicates primary action
-                        - Positioned on right (flex-row-reverse)
-                        - Calls clearHostAlert() for proper game flow
-                        - Includes loading/disabled states for async operation
-                    */}
-                    <button
-                        type="button"
-                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-game-orange-600 text-base font-medium text-white hover:bg-game-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-game-orange-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
-                        onClick={handleNextClick}
-                        aria-label="Proceed with game flow - advance slide if appropriate"
-                    >
-                        Next
-                    </button>
+                {/* Button Section */}
+                <div className={`${styles.bgColor} px-8 py-4 border-t-2 ${styles.borderColor}`}>
+                    <div className="flex flex-row-reverse gap-3">
+                        {/* Next Button - Primary Action */}
+                        <button
+                            type="button"
+                            className={`flex-1 sm:flex-none inline-flex justify-center items-center rounded-lg border border-transparent shadow-lg px-8 py-3 ${styles.buttonBg} text-lg font-bold text-white focus:outline-none focus:ring-4 focus:ring-offset-2 ${styles.buttonRing} transition-all transform hover:scale-105`}
+                            onClick={handleNextClick}
+                            aria-label="Proceed with game flow - advance slide if appropriate"
+                        >
+                            Next
+                        </button>
 
-                    {/*
-                        CLOSE BUTTON - SECONDARY ACTION
-                        - Gray styling indicates secondary action
-                        - Positioned on left
-                        - Calls setCurrentHostAlertState(null) for dismissal only
-                        - Always available as escape hatch
-                    */}
-                    <button
-                        type="button"
-                        onClick={handleCloseClick}
-                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm sm:mr-3 transition-colors"
-                        aria-label="Close alert without advancing"
-                    >
-                        Close
-                    </button>
+                        {/* Close Button - Secondary Action */}
+                        <button
+                            type="button"
+                            onClick={handleCloseClick}
+                            className="flex-1 sm:flex-none inline-flex justify-center items-center rounded-lg border-2 border-gray-400 shadow-lg px-8 py-3 bg-white text-lg font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-gray-400 transition-all"
+                            aria-label="Close alert without advancing"
+                        >
+                            Close
+                        </button>
+                    </div>
                 </div>
             </div>
-        </Modal>
+        </div>
     );
 };
 
