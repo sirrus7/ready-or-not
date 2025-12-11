@@ -334,6 +334,10 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
 
         if (isEnabled && sourceUrl) {
             const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
+            if (!video.paused) { // Pause before changing to avoid two audio streams playing at once
+                video.pause();
+            }
+
             if (video.currentSrc !== sourceUrl) {
                 // Only reset presentation video ready state if it's a completely new video
                 if (isNewVideo) {
