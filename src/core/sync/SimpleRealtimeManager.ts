@@ -43,6 +43,7 @@ export interface TeamGameEvent {
  * SimpleRealtimeManager - Singleton pattern Supabase Realtime manager
  * Handles team communication via Supabase custom channels
  * Mirrors SimpleBroadcastManager architecture for consistency
+ * Automatic reconnection on connection failures
  */
 export class SimpleRealtimeManager {
     private static instances: Map<string, SimpleRealtimeManager> = new Map();
@@ -59,6 +60,11 @@ export class SimpleRealtimeManager {
 
     // Track if this instance has been destroyed
     private isDestroyed: boolean = false;
+
+    // Reconnection state
+    private reconnectInterval: ReturnType<typeof setInterval> | null = null;
+    private reconnectAttempts: number = 0;
+    private readonly RECONNECT_DELAY: number = 15000; // Reconnect every 15 seconds
 
     private constructor(sessionId: string, mode: 'host' | 'team') {
         this.sessionId = sessionId;
@@ -84,7 +90,12 @@ export class SimpleRealtimeManager {
     private setupChannel(): void {
         if (this.isDestroyed) return;
 
-        // Create Supabase custom channel for this session
+        if (this.channel) {
+            supabase.removeChannel(this.channel);
+            this.channel = null;
+        }
+
+        // Create Supabase custom channel 
         this.channel = supabase.channel(`team-events-${this.sessionId}`);
 
         // Listen for team game events (teams only)
@@ -110,18 +121,44 @@ export class SimpleRealtimeManager {
             switch (status) {
                 case 'SUBSCRIBED':
                     this.updateConnectionStatus('connected');
-                    console.log(`[SimpleRealtimeManager] ${this.mode} connected to team events for session ${this.sessionId}`);
+                    if (this.reconnectAttempts > 0) {
+                        console.log(`[SimpleRealtimeManager] Reconnected successfully after ${this.reconnectAttempts} attempt(s)`);
+                    }
                     break;
                 case 'CHANNEL_ERROR':
                 case 'TIMED_OUT':
-                    this.updateConnectionStatus('disconnected');
-                    console.error(`[SimpleRealtimeManager] ${this.mode} connection error: ${status}`);
-                    break;
                 case 'CLOSED':
                     this.updateConnectionStatus('disconnected');
+                    console.warn(`[SimpleRealtimeManager] ${this.mode} connection closed`);
+                    // Only schedule reconnect if not already connecting
+                    if (!this.reconnectInterval) {
+                        this.scheduleReconnect();
+                    }
                     break;
             }
         });
+    }
+
+    private scheduleReconnect(): void {
+        if (this.isDestroyed || this.reconnectInterval || this.connectionStatus === 'connected') {
+            return;
+        }
+        const attemptReconnect = () => {
+            if (this.isDestroyed) {
+                if (this.reconnectInterval){
+                    clearInterval(this.reconnectInterval);
+                }
+                return;
+            }
+
+            this.reconnectAttempts++;
+            console.log(`[SimpleRealtimeManager] Attempting reconnection for ${this.mode}, ${this.reconnectAttempts} attempt...`);
+            this.updateConnectionStatus('connecting');
+            this.setupChannel();
+        };
+
+        this.reconnectInterval = setInterval(attemptReconnect, this.RECONNECT_DELAY);
+        attemptReconnect();
     }
 
     private updateConnectionStatus(status: RealtimeConnectionStatus): void {
@@ -129,6 +166,15 @@ export class SimpleRealtimeManager {
 
         if (this.connectionStatus !== status) {
             this.connectionStatus = status;
+
+            if (status === 'connected') {
+                this.reconnectAttempts = 0;
+                if (this.reconnectInterval) {
+                    clearTimeout(this.reconnectInterval);
+                    this.reconnectInterval = null;
+                }
+            }
+
             this.statusCallbacks.forEach(callback => {
                 try {
                     callback(status);
@@ -207,8 +253,7 @@ export class SimpleRealtimeManager {
 
     // TEAM METHODS - Listening to host events
     onTeamEvent(callback: (event: TeamGameEvent) => void): () => void {
-        if (this.isDestroyed) return () => {
-        };
+        if (this.isDestroyed) return () => {};
 
         this.teamEventHandlers.add(callback);
         return () => {
@@ -220,8 +265,7 @@ export class SimpleRealtimeManager {
 
     // CONNECTION STATUS METHODS (mirrors SimpleBroadcastManager)
     onConnectionStatus(callback: (status: RealtimeConnectionStatus) => void): () => void {
-        if (this.isDestroyed) return () => {
-        };
+        if (this.isDestroyed) return () => {};
 
         this.statusCallbacks.add(callback);
         return () => {
@@ -242,6 +286,11 @@ export class SimpleRealtimeManager {
         console.log(`[SimpleRealtimeManager] Destroying ${this.mode} instance for session ${this.sessionId}`);
 
         this.isDestroyed = true;
+
+        if (this.reconnectInterval) {
+            clearTimeout(this.reconnectInterval);
+            this.reconnectInterval = null;
+        }
 
         // Clear all handlers
         this.teamEventHandlers.clear();
