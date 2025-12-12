@@ -45,7 +45,7 @@ export interface GameContextType {
     updateHostNotesForCurrentSlide: (notes: string) => void;
     setAllTeamsSubmittedCurrentInteractivePhase: (submitted: boolean) => void;
     allTeamsSubmittedCurrentInteractivePhase: boolean;
-    setCurrentHostAlertState: (alert: { title: string; message: string } | null) => void;
+    setCurrentHostAlertState: (alert: { title: string; message: string | string[] } | null) => void;
     clearHostAlert: () => Promise<void>; // ADDED: Missing method from interface
     permanentAdjustments: PermanentKpiAdjustment[]; // Now available globally
     isLoadingAdjustments: boolean; // Loading state for adjustments

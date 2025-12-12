@@ -1,6 +1,15 @@
 // src/core/content/SlideContent.ts
 import {HostAlertCategory, Slide} from '@shared/types/game';
 
+const decision_alert =  { 
+    category: HostAlertCategory.DECISIONS,
+    title: "Time's up!",
+    message: [
+        'Check the Control Panel & Ensure all Teams have submitted.',
+        '- Click "Close" to close this window & give them more time.',
+        '- Click "Next" to end this decision session & proceed to next slide.']
+};
+
 export const allGameSlides: Slide[] = [
     // --- Welcome & Setup (Round 0) ---
     {
@@ -82,11 +91,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Make all investment decisions on your team device before the video ends.",
         auto_advance_after_video: false,
         background_css: 'bg-slate-800',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "Investment Period Complete",
-            message: "Confirm all teams have submitted their RD-1 investments."
-        }
+        host_alert: decision_alert
     },
     {
         id: 8,
@@ -171,11 +176,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you respond to the equipment failure?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "CH1 Closed",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 18,
@@ -312,11 +313,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you respond to the new tax?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "CH2 Closed",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 33,
@@ -457,11 +454,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you handle the economic downturn?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "CH3 Closed",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 48,
@@ -752,11 +745,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "You have $500K to invest. Submit decisions before time expires.",
         auto_advance_after_video: false,
         background_css: 'bg-slate-800',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "Investment Period Complete",
-            message: "Confirm all teams have submitted their RD-2 investments."
-        }
+        host_alert: decision_alert
     },
     {
         id: 71,
@@ -825,11 +814,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you handle the supply chain disruption?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "CH4 Closed",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 79,
@@ -947,11 +932,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you meet the increased demand?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "CH5 Closed",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 92,
@@ -1080,11 +1061,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you handle the defective products?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "CH6 Closed",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 106,
@@ -1210,11 +1187,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you respond to the new competitor?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "CH7 Closed",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 119,
@@ -1548,11 +1521,7 @@ export const allGameSlides: Slide[] = [
         timer_duration_seconds: 300,
         auto_advance_after_video: false,
         background_css: 'bg-slate-800',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "Double Down Decision",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 145,
@@ -1613,11 +1582,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you respond to the ransomware attack?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "CH8 Closed",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 152,
@@ -1739,11 +1704,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you handle the system failures?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            category: HostAlertCategory.DECISIONS,
-            title: "CH9 Closed",
-            message: "Confirm all teams have answered."
-        }
+        host_alert: decision_alert
     },
     {
         id: 165,

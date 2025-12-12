@@ -1,40 +1,44 @@
 // src/views/host/components/GameControls/AlertModal.tsx
 
 import React from 'react';
-import { X, Info, FileEdit, ListTodo, FileStack, CheckCircle2, Circle } from 'lucide-react';
+import { HandPlatter, ClipboardCheck, PenLine, Lightbulb, X, CheckCircle2, Circle } from 'lucide-react';
 import { useGameContext } from '@app/providers/GameProvider';
 import { HostAlertCategory } from '@shared/types';
 
 /**
  * Get visual properties for each alert category
  * 
- * ICON CHOICES:
- * - HandPlatter: Perfect for hand out materials (hand holding/presenting items)
- * - ClipboardCheck: Great for decisions (checkmarks imply completion/submission)
+ * ICON/IMAGE CHOICES:
+ * - HandPlatter: Perfect for hand out materials (hand holding/presenting items) - OR CUSTOM IMAGE
+ * - ClipboardCheck: Great for decisions (checkmarks imply completion/submission) - OR CUSTOM IMAGE
  * - PenLine: Ideal for writing/updating KPIs on documents
  * - Lightbulb: Standard for generic alerts/information
  */
-const getAlertStyles = (category: HostAlertCategory) => {
+const getAlertStyles = (category: HostAlertCategory, decisionHasFinished: boolean) => {
     switch (category) {
         case HostAlertCategory.HAND_OUT_MATERIALS:
             return {
-                bgColor: 'bg-blue-100',
-                headerBg: 'bg-blue-600',
+                bgColor: 'bg-green-100',
+                headerBg: 'bg-green-600',
                 iconColor: 'text-white',
-                borderColor: 'border-blue-300',
-                icon: FileStack, // Hand presenting/distributing items
-                buttonBg: 'bg-blue-600 hover:bg-blue-700',
-                buttonRing: 'focus:ring-blue-500'
+                borderColor: 'border-green-300',
+                icon: HandPlatter, // Hand presenting/distributing items
+                useCustomImage: true, // Flag to use custom image
+                customImagePath: '/images/alert-handout.jpg', // Path to custom image
+                buttonBg: 'bg-green-600 hover:bg-green-700',
+                buttonRing: 'focus:ring-green-500'
             };
         case HostAlertCategory.DECISIONS:
             return {
-                bgColor: 'bg-amber-100',
-                headerBg: 'bg-amber-600',
+                bgColor: decisionHasFinished ? 'bg-red-100' : 'bg-green-100',
+                headerBg: decisionHasFinished ? 'bg-red-600' : 'bg-green-600',
                 iconColor: 'text-white',
-                borderColor: 'border-amber-300',
-                icon: ListTodo, // Clipboard with checkmark - decisions being completed
-                buttonBg: 'bg-amber-600 hover:bg-amber-700',
-                buttonRing: 'focus:ring-amber-500'
+                borderColor: decisionHasFinished ? 'border-red-300' : 'border-green-300',
+                icon: ClipboardCheck, // Clipboard with checkmark - decisions being completed
+                useCustomImage: true, // Flag to use custom image
+                customImagePath: '/images/alert-decisions.jpg', // Path to custom image
+                buttonBg: decisionHasFinished ? 'bg-red-600 hover:bg-red-700': 'bg-green-600 hover:bg-green-700',
+                buttonRing: decisionHasFinished ? 'focus:ring-green-500': 'focus:ring-green-500',
             };
         case HostAlertCategory.KPI_UPDATE:
             return {
@@ -42,7 +46,8 @@ const getAlertStyles = (category: HostAlertCategory) => {
                 headerBg: 'bg-purple-600',
                 iconColor: 'text-white',
                 borderColor: 'border-purple-300',
-                icon: FileEdit, // Pen writing on a line/document
+                icon: PenLine, // Pen writing on a line/document
+                useCustomImage: false, // Uses icon
                 buttonBg: 'bg-purple-600 hover:bg-purple-700',
                 buttonRing: 'focus:ring-purple-500'
             };
@@ -53,18 +58,18 @@ const getAlertStyles = (category: HostAlertCategory) => {
                 headerBg: 'bg-gray-600',
                 iconColor: 'text-white',
                 borderColor: 'border-gray-300',
-                icon: Info, // Classic lightbulb for ideas/information
+                icon: Lightbulb, // Classic lightbulb for ideas/information
+                useCustomImage: false, // Uses icon
                 buttonBg: 'bg-gray-600 hover:bg-gray-700',
                 buttonRing: 'focus:ring-gray-500'
             };
     }
 };
 
-
-
 /**
  * HOST ALERT MODAL COMPONENT
  *
+
  */
 const AlertModal: React.FC = () => {
     const { state, clearHostAlert, setCurrentHostAlertState } = useGameContext();
@@ -74,8 +79,6 @@ const AlertModal: React.FC = () => {
 
     // Get category (default to GENERIC if not specified)
     const category = state.currentHostAlert.category || HostAlertCategory.GENERIC;
-    const styles = getAlertStyles(category);
-    const IconComponent = styles.icon;
 
     // Check if this is a decision alert and we should show team status
     const isDecisionAlert = category === HostAlertCategory.DECISIONS;
@@ -98,6 +101,10 @@ const AlertModal: React.FC = () => {
 
     const submittedCount = teamSubmissionStatus.filter(t => t.hasSubmitted).length;
     const totalCount = teamSubmissionStatus.length;
+
+    const styles = getAlertStyles(category, totalCount !== submittedCount);
+    const IconComponent = styles.icon;
+
 
     const handleNextClick = async () => {
         try {
@@ -126,12 +133,13 @@ const AlertModal: React.FC = () => {
             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Colored Header with Icon and Close Button */}
                 <div className={`${styles.headerBg} px-8 py-8 flex items-center justify-between`}>
-                    {/* Extra Large Icon */}
+                    {/* Extra Large Icon or Custom Image */}
                     <div className="flex items-center gap-8">
-                        <div className="flex-shrink-0 flex items-center justify-center h-32 w-32 rounded-full bg-white bg-opacity-30 shadow-lg">
-                            <IconComponent className={`h-16 w-16 ${styles.iconColor} stroke-[2.5]`} aria-hidden="true" strokeWidth={2.5} />
-                        </div>
-                        
+                        {!styles.useCustomImage && (
+                            <div className="flex-shrink-0 flex items-center justify-center h-32 w-32 rounded-full bg-white bg-opacity-30 shadow-lg overflow-hidden">
+                                <IconComponent className={`h-16 w-16 ${styles.iconColor} stroke-[2.5]`} aria-hidden="true" strokeWidth={2.5} />
+                            </div>
+                        )}
                         {/* Title */}
                         <h3 className="text-5xl font-bold text-white drop-shadow-lg">
                             {state.currentHostAlert.title || "Game Host Alert!"}
@@ -154,9 +162,16 @@ const AlertModal: React.FC = () => {
                         {/* Message Section */}
                         <div className={`bg-white rounded-lg p-8 shadow-md border-2 ${styles.borderColor}`}>
                             <p className="text-2xl text-gray-800 leading-relaxed">
-                                {state.currentHostAlert.message}
+                                {typeof state.currentHostAlert.message === 'string' ? state.currentHostAlert.message : state.currentHostAlert.message.map(line => (<span>{line}<br/></span>))}
                             </p>
 
+                            {styles.useCustomImage && (                               
+                                <img 
+                                src={styles.customImagePath} 
+                                alt={state.currentHostAlert.title}
+                                className="h-full w-full object-cover"
+                                />
+                            )}
                             {/* Team Status Indicator - Only show for DECISIONS */}
                             {isDecisionAlert && totalCount > 0 && (
                                 <div className="mt-8">

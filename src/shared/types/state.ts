@@ -15,7 +15,7 @@ export interface AppState {
     error: string | null;
     currentHostAlert: { 
         title: string;
-        message: string;
+        message: string | string[];
         category?: HostAlertCategory;
     } | null;
 }

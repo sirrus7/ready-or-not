@@ -93,7 +93,7 @@ export interface Slide {
     host_alert?: {
         category: HostAlertCategory;
         title: string;
-        message: string;
+        message: string | string[];
     };
     details?: string[];
     immunity_bonus?: boolean;
