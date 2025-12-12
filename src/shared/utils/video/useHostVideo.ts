@@ -332,11 +332,10 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
             onErrorRef.current?.();
         };
 
+        let handlerHasBecomeOudated: boolean = false;
+
         if (isEnabled && sourceUrl) {
             const isNewVideo = video.currentSrc !== sourceUrl && previousSourceUrl.current !== sourceUrl;
-            if (!video.paused) { // Pause before changing to avoid two audio streams playing at once
-                video.pause();
-            }
 
             if (video.currentSrc !== sourceUrl) {
                 // Only reset presentation video ready state if it's a completely new video
@@ -396,8 +395,11 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
 
                         // Play the host video
                         videoDebug.videoLog('useHostVideo', 'Auto-playing host video');
-                        await video.play();
 
+                        if (handlerHasBecomeOudated) return;
+
+                        await video.play();
+                        
                         // Manually dispatch play event to update UI
                         video.dispatchEvent(new Event('play'));
 
@@ -431,6 +433,7 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
         video.addEventListener('ended', handleEnded);
         video.addEventListener('error', handleError);
         return () => {
+            handlerHasBecomeOudated = true;
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('error', handleError);
         };
