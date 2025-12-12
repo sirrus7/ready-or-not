@@ -420,10 +420,6 @@ export const usePresentationVideo = ({ sessionId, sourceUrl, isEnabled }: UsePre
 
         if (sourceUrl) {
             if (video.currentSrc !== sourceUrl) {
-                if (!video.paused) { // Pause before changing to avoid two audio streams playing at once
-                    video.pause();
-                }
-
                 video.src = sourceUrl;
                 video.load();
                 
