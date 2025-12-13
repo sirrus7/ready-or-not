@@ -206,19 +206,6 @@ const GameResultsPage: React.FC = () => {
                 {/* Game Statistics */}
                 {gameStats && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="bg-green-100 p-2 rounded-lg">
-                                    <DollarSign size={24} className="text-green-600"/>
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-gray-900">Average Consolidated Revenue</h3>
-                                    <p className="text-2xl font-bold text-green-600">
-                                        ${gameStats.totalRevenue.toLocaleString()}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
 
                         <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
                             <div className="flex items-center gap-3 mb-3">
@@ -233,21 +220,6 @@ const GameResultsPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-
-                        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="bg-yellow-100 p-2 rounded-lg">
-                                    <Award size={24} className="text-yellow-600"/>
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-gray-900">Highest Score</h3>
-                                    <p className="text-2xl font-bold text-yellow-600">
-                                        ${gameStats.highestConsolidatedNetIncome.toLocaleString()}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
                         <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="bg-game-orange-100 p-2 rounded-lg">
@@ -276,14 +248,15 @@ const GameResultsPage: React.FC = () => {
                         <table className="w-full">
                             <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Rank</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Team</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Consolidated Net Income</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Revenue</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Net Margin</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Capacity</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Orders</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Average Selling Price</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Rank</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Team</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Consolidated Net Income</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Revenue</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Net Margin</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Capacity</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Orders</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Costs</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Average Selling Price</th>
                             </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -304,26 +277,29 @@ const GameResultsPage: React.FC = () => {
                                                 {team.team.name}
                                             </span>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-sm">
+                                    <td className="px-6 py-4 text-center font-mono text-sm">
                                         <span
                                             className={index === 0 ? 'text-yellow-600 font-bold' : 'text-gray-900'}>
                                             ${team.consolidatedNetIncome.toLocaleString()}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
+                                    <td className="px-6 py-4 text-center font-mono text-sm text-gray-600">
                                         ${team.revenue.toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
+                                    <td className="px-6 py-4 text-center font-mono text-sm text-gray-600">
                                         {(team.netMargin * 100).toFixed(1)}%
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
+                                    <td className="px-6 py-4 text-center font-mono text-sm text-gray-600">
                                         {team.capacity.toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
+                                    <td className="px-6 py-4 text-center font-mono text-sm text-gray-600">
                                         {team.orders.toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-sm text-gray-600">
-                                        {team.asp.toLocaleString()}
+                                    <td className="px-6 py-4 text-center font-mono text-sm text-gray-600">
+                                        ${team.costs.toLocaleString()}
+                                    </td>
+                                    <td className="px-6 py-4 text-center font-mono text-sm text-gray-600">
+                                        ${team.asp.toLocaleString()}
                                     </td>
                                 </tr>
                             ))}
@@ -351,6 +327,7 @@ const GameResultsPage: React.FC = () => {
                     <KPITrendCharts
                         teams={teams}
                         teamRoundData={teamRoundData}
+                        teamDecisions={allTeamDecisions}
                     />
                 </div>
 

@@ -2,13 +2,14 @@
 // Line charts showing KPI progression across all 3 rounds
 import React, {useMemo} from 'react';
 import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from 'recharts';
-import {Team, TeamRoundData} from '@shared/types';
+import {Team, TeamRoundData, TeamDecision} from '@shared/types';
 import {calculateKpiValue} from '@shared/components/UI/Leaderboard/utils';
 import {TrendingUp, DollarSign, BarChart2, Zap} from 'lucide-react';
 
 interface KPITrendChartsProps {
     teams: Team[];
     teamRoundData: Record<string, Record<number, TeamRoundData>>;
+    teamDecisions?: TeamDecision[];
 }
 
 // Color palette for team lines (supports up to 8 teams)
@@ -29,7 +30,7 @@ interface TrendDataPoint {
     [teamName: string]: string | number;
 }
 
-const KPITrendCharts: React.FC<KPITrendChartsProps> = ({teams, teamRoundData}) => {
+const KPITrendCharts: React.FC<KPITrendChartsProps> = ({teams, teamRoundData, teamDecisions}) => {
     // Transform data for trend analysis
     const trendData = useMemo(() => {
         if (!teams.length || !Object.keys(teamRoundData).length) return null;
@@ -51,10 +52,10 @@ const KPITrendCharts: React.FC<KPITrendChartsProps> = ({teams, teamRoundData}) =
             teams.forEach(team => {
                 const roundData = teamRoundData[team.id]?.[roundNum];
                 if (roundData) {
-                    netIncomePoint[team.name] = calculateKpiValue(roundData, 'net_income');
-                    revenuePoint[team.name] = calculateKpiValue(roundData, 'revenue');
-                    netMarginPoint[team.name] = calculateKpiValue(roundData, 'net_margin');
-                    capacityPoint[team.name] = calculateKpiValue(roundData, 'capacity');
+                    netIncomePoint[team.name] = calculateKpiValue(roundData, 'net_income', teamDecisions, team.id);
+                    revenuePoint[team.name] = calculateKpiValue(roundData, 'revenue', teamDecisions, team.id);
+                    netMarginPoint[team.name] = calculateKpiValue(roundData, 'net_margin', teamDecisions, team.id);
+                    capacityPoint[team.name] = calculateKpiValue(roundData, 'capacity', teamDecisions, team.id);
                 } else {
                     // Handle missing data gracefully
                     netIncomePoint[team.name] = 0;
@@ -76,8 +77,7 @@ const KPITrendCharts: React.FC<KPITrendChartsProps> = ({teams, teamRoundData}) =
             netMargin: netMarginData,
             capacity: capacityData
         };
-    }, [teams, teamRoundData]);
-
+    }, [teams, teamRoundData, teamDecisions]);
     // Custom tooltip formatter
     const formatTooltipValue = (value: number, name: string, dataKey: string) => {
         if (dataKey === 'netMargin') {
@@ -122,7 +122,7 @@ const KPITrendCharts: React.FC<KPITrendChartsProps> = ({teams, teamRoundData}) =
                         />
                         <Tooltip
                             formatter={(value: number, name: string) => formatTooltipValue(value, name, dataKey)}
-                            labelClassName="font-medium"
+                            wrapperStyle={{zIndex: 1}}
                             contentStyle={{
                                 backgroundColor: 'white',
                                 border: '1px solid #e5e7eb',
@@ -201,16 +201,6 @@ const KPITrendCharts: React.FC<KPITrendChartsProps> = ({teams, teamRoundData}) =
                     color="bg-gradient-to-r from-purple-500 to-purple-600"
                     dataKey="netMargin"
                     yAxisFormatter={(value) => `${(value * 100).toFixed(1)}%`}
-                />
-
-                {/* Capacity Trend */}
-                <TrendChart
-                    title="Production Capacity"
-                    data={trendData.capacity}
-                    icon={<Zap size={24}/>}
-                    color="bg-gradient-to-r from-blue-500 to-blue-600"
-                    dataKey="capacity"
-                    yAxisFormatter={(value) => `${(value / 1000).toFixed(1)}K`}
                 />
             </div>
 
