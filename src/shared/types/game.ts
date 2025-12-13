@@ -91,8 +91,9 @@ export interface Slide {
     timer_duration_seconds?: number;
     auto_advance_after_video?: boolean;
     host_alert?: {
+        category: HostAlertCategory;
         title: string;
-        message: string;
+        message: string | string[];
     };
     details?: string[];
     immunity_bonus?: boolean;
@@ -133,6 +134,13 @@ export interface StrategyInvestmentDetails {
     hasStrategy: boolean;
     purchaseRound: number | null;
     purchasePhaseId: string | null;
+}
+
+export enum HostAlertCategory {
+    HAND_OUT_MATERIALS = 'hand_out_materials',
+    DECISIONS = 'decisions',
+    KPI_UPDATE = 'kpi_update',
+    GENERIC = 'generic'
 }
 
 export enum GameVersion {

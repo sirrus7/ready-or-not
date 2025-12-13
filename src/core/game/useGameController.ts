@@ -18,7 +18,7 @@ export const useGameController = (
     // STATE MANAGEMENT
     const [dbSession, setDbSession] = useState<GameSession | null>(initialDbSession);
     const [hostNotesState, setHostNotesState] = useState<Record<number, string>>({});
-    const [currentHostAlertState, setCurrentHostAlertState] = useState<{ title: string; message: string } | null>(null);
+    const [currentHostAlertState, setCurrentHostAlertState] = useState<{ title: string; message: string | string[] } | null>(null);
     const [allTeamsSubmittedState, setAllTeamsSubmittedCurrentInteractivePhase] = useState<boolean>(false);
 
     // CRITICAL FIX: Track the last processed slide to prevent re-processing on data refresh
@@ -302,7 +302,7 @@ export const useGameController = (
         setAllTeamsSubmittedCurrentInteractivePhase(submitted);
     }, []);
 
-    const updateCurrentHostAlertState = useCallback((alert: { title: string; message: string } | null) => {
+    const updateCurrentHostAlertState = useCallback((alert: { title: string; message: string | string[] } | null) => {
         console.log('[useGameController] setCurrentHostAlertState called with:', alert);
         setCurrentHostAlertState(alert);
     }, []);

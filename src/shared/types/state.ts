@@ -1,5 +1,5 @@
 // src/shared/types/state.ts
-import type {GameStructure} from './game';
+import type {GameStructure, HostAlertCategory} from './game';
 import type {Team, TeamDecision, TeamRoundData} from './database';
 
 export interface AppState {
@@ -13,6 +13,10 @@ export interface AppState {
     teamRoundData: Record<string, Record<number, TeamRoundData>>;
     isLoading: boolean;
     error: string | null;
-    currentHostAlert: { title: string, message: string } | null;
+    currentHostAlert: { 
+        title: string;
+        message: string | string[];
+        category?: HostAlertCategory;
+    } | null;
 }
 

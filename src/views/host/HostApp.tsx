@@ -98,17 +98,8 @@ const HostApp: React.FC = () => {
     const handleVideoEnd = useCallback(() => {
         if (!currentSlideData) return;
 
-        // For interactive slides, check if we should wait for submissions
-        if (currentSlideData.interactive_data_key && !allTeamsSubmittedCurrentInteractivePhase) {
-            setCurrentHostAlertState({
-                title: "Timer Complete",
-                message: "The timer has ended, but not all teams have submitted. You may wait or proceed to the next slide."
-            });
-        } else if (currentSlideData.host_alert || currentSlideData.timer_duration_seconds) {
-            setCurrentHostAlertState(currentSlideData.host_alert || {
-                title: "Timer Complete",
-                message: "Click OK to continue to the next slide."
-            });
+        if (currentSlideData.host_alert) {
+            setCurrentHostAlertState(currentSlideData.host_alert);
         } else if (shouldAutoAdvance(gameVersion, currentSlideData.auto_advance_after_video)) {
             nextSlide('video');
         }

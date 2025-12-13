@@ -1,5 +1,14 @@
 // src/core/content/SlideContent.ts
-import {Slide} from '@shared/types/game';
+import {HostAlertCategory, Slide} from '@shared/types/game';
+
+const decision_alert =  { 
+    category: HostAlertCategory.DECISIONS,
+    title: "Time's up!",
+    message: [
+        'Check the Control Panel & Ensure all Teams have submitted.',
+        '- Click "Close" to close this window & give them more time.',
+        '- Click "Next" to end this decision session & proceed to next slide.']
+};
 
 export const allGameSlides: Slide[] = [
     // --- Welcome & Setup (Round 0) ---
@@ -51,7 +60,8 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_006.mp4',
         auto_advance_after_video: true,
         host_alert: {
-            title: "Game Host Action",
+            category: HostAlertCategory.GENERIC,
+            title: "Timer Ended",
             message: "Time’s Up! Click Next to proceed"
         }
     },
@@ -63,8 +73,9 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_007.mp4',
         auto_advance_after_video: true,
         host_alert: {
-            title: "Game Host Action",
-            message: "Please hand out one set of RD-1 Investment Cards and one RD-1 Team Summary Sheet to each team."
+            category: HostAlertCategory.HAND_OUT_MATERIALS,
+            title: "Hand Out RD-1 Materials",
+            message: "Distribute RD-1 Investment Cards and Team Summary Sheets to all teams."
         }
     },
 
@@ -80,10 +91,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "Make all investment decisions on your team device before the video ends.",
         auto_advance_after_video: false,
         background_css: 'bg-slate-800',
-        host_alert: {
-            title: "Investment Period Complete",
-            message: "Before proceeding, please confirm that all teams have finalized and submitted their investment decisions. Once verified, click 'Next' to continue to the next phase."
-        }
+        host_alert: decision_alert
     },
     {
         id: 8,
@@ -168,10 +176,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you respond to the equipment failure?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            title: "Challenge Period Complete",
-            message: "Before proceeding, please confirm that all teams have finalized and submitted their decisions. Once verified, click 'Next' to continue to the next phase."
-        }
+        host_alert: decision_alert
     },
     {
         id: 18,
@@ -308,10 +313,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you respond to the new tax?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            title: "CH2 Closed",
-            message: "Challenge 2 decisions are in. Click OK for results."
-        }
+        host_alert: decision_alert
     },
     {
         id: 33,
@@ -452,10 +454,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you handle the economic downturn?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            title: "CH3 Closed",
-            message: "Challenge 3 decisions are in. Click OK for results."
-        }
+        host_alert: decision_alert
     },
     {
         id: 48,
@@ -593,6 +592,7 @@ export const allGameSlides: Slide[] = [
         details: ["+500 Orders", "+$20 ASP"],
         source_path: 'Slide_062.mp4',
         host_alert: {
+            category: HostAlertCategory.KPI_UPDATE,
             title: "RD-1 Payoffs Complete",
             message: "Make sure all teams have updated the KPI's on their boards, then click Next."
         }
@@ -605,6 +605,7 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_063.mp4',
         auto_advance_after_video: false,
         host_alert: {
+            category: HostAlertCategory.KPI_UPDATE,
             title: "End of Round 1",
             message: "Ensure CFOs have written KPIs from their boards on their Team Summary Sheets, then click Next"
         }
@@ -707,6 +708,7 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_068.mp4',
         auto_advance_after_video: false,
         host_alert: {
+            category: HostAlertCategory.KPI_UPDATE,
             title: "Reset KPIs",
             message: "Ensure all teams have reset their KPIs to starting values and adjusted to all Permanent KPI Impact cards before proceeding."
         }
@@ -727,6 +729,7 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_070.mp4',
         auto_advance_after_video: false,
         host_alert: {
+            category: HostAlertCategory.HAND_OUT_MATERIALS,
             title: "Hand Out RD-2 Materials",
             message: "Distribute RD-2 Investment Cards, Team Summary Sheets and Position Sheets to all teams."
         }
@@ -742,10 +745,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "You have $500K to invest. Submit decisions before time expires.",
         auto_advance_after_video: false,
         background_css: 'bg-slate-800',
-        host_alert: {
-            title: "Investment Period Complete",
-            message: "Confirm all teams have submitted their RD-2 investments."
-        }
+        host_alert: decision_alert
     },
     {
         id: 71,
@@ -814,10 +814,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you handle the supply chain disruption?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            title: "CH4 Closed",
-            message: "Challenge 4 decisions are in. Click OK for results."
-        }
+        host_alert: decision_alert
     },
     {
         id: 79,
@@ -935,10 +932,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you meet the increased demand?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            title: "CH5 Closed",
-            message: "Challenge 5 decisions are in. Click OK for results."
-        }
+        host_alert: decision_alert
     },
     {
         id: 92,
@@ -1067,10 +1061,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you handle the defective products?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            title: "CH6 Closed",
-            message: "Challenge 6 decisions are in. Click OK for results."
-        }
+        host_alert: decision_alert
     },
     {
         id: 106,
@@ -1196,10 +1187,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you respond to the new competitor?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            title: "CH7 Closed",
-            message: "Challenge 7 decisions are in. Click OK for results."
-        }
+        host_alert: decision_alert
     },
     {
         id: 119,
@@ -1407,6 +1395,7 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_140.mp4',
         auto_advance_after_video: true,
         host_alert: {
+            category: HostAlertCategory.KPI_UPDATE,
             title: "End of Round 2",
             message: "CFOs should write KPIs from board on team summary sheets."
         }
@@ -1419,6 +1408,7 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_141.mp4',
         auto_advance_after_video: true,
         host_alert: {
+            category: HostAlertCategory.GENERIC,
             title: "Show Leaderboard",
             message: "Display the Round 2 leaderboard to teams."
         }
@@ -1497,6 +1487,7 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_143.mp4',
         auto_advance_after_video: false,
         host_alert: {
+            category: HostAlertCategory.KPI_UPDATE,
             title: "Reset KPIs for Round 3",
             message: "Ensure all teams reset to: Cap: 5000, Orders: 7250, Costs: $1.35M, ASP: $1000"
         }
@@ -1513,6 +1504,7 @@ export const allGameSlides: Slide[] = [
         auto_advance_after_video: false,
         background_css: 'bg-slate-800',
         host_alert: {
+            category: HostAlertCategory.HAND_OUT_MATERIALS,
             title: "Hand Out RD-3 Materials",
             message: "Distribute RD-3 Investment Cards. Note: No position updates this round."
         }
@@ -1529,10 +1521,7 @@ export const allGameSlides: Slide[] = [
         timer_duration_seconds: 300,
         auto_advance_after_video: false,
         background_css: 'bg-slate-800',
-        host_alert: {
-            title: "Double Down Decision",
-            message: "Teams have 5 minutes to decide on their Double Down strategy. This is their only chance."
-        }
+        host_alert: decision_alert
     },
     {
         id: 145,
@@ -1593,10 +1582,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you respond to the ransomware attack?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            title: "CH8 Closed",
-            message: "Challenge 8 decisions are in. Click OK for results."
-        }
+        host_alert: decision_alert
     },
     {
         id: 152,
@@ -1718,10 +1704,7 @@ export const allGameSlides: Slide[] = [
         sub_text: "How will you handle the system failures?",
         timer_duration_seconds: 180,
         background_css: 'bg-game-orange-900',
-        host_alert: {
-            title: "CH9 Closed",
-            message: "Challenge 9 decisions are in. Click OK for results."
-        }
+        host_alert: decision_alert
     },
     {
         id: 165,
@@ -2032,6 +2015,7 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_196.mp4',
         auto_advance_after_video: true,
         host_alert: {
+            category: HostAlertCategory.KPI_UPDATE,
             title: "Final KPIs",
             message: "CFOs write final KPIs on team summary sheets. This is the end of the simulation!"
         }
@@ -2044,6 +2028,7 @@ export const allGameSlides: Slide[] = [
         source_path: 'Slide_197.mp4',
         auto_advance_after_video: false,
         host_alert: {
+            category: HostAlertCategory.GENERIC,
             title: "Show Final Results",
             message: "Display the final leaderboard and declare the winners!"
         }
