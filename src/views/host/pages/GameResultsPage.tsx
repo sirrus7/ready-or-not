@@ -271,7 +271,7 @@ const GameResultsPage: React.FC = () => {
                                                 </span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 text-center">
                                             <span
                                                 className={`font-medium ${index === 0 ? 'text-yellow-600' : 'text-gray-900'}`}>
                                                 {team.team.name}

@@ -1,4 +1,4 @@
-import {useState, useCallback} from 'react';
+import {useState, useCallback } from 'react';
 import {mediaManager} from '@shared/services/MediaManager';
 import {GameVersion, Slide} from '@shared/types/game';
 import {UserType} from '@shared/constants/formOptions';
@@ -15,6 +15,7 @@ interface UseBulkMediaDownloadReturn {
     isDownloading: boolean;
     progress: BulkDownloadProgress | null;
     startDownload: (slides: Slide[], userType: UserType, gameVersion: GameVersion) => Promise<void>;
+    cancelDownload: () => void;
     isDownloadComplete: (gameVersion?: GameVersion, userType?: UserType) => boolean;
     clearCache: () => void;
     error: string | null;
@@ -31,6 +32,8 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
         userType: UserType,
         gameVersion?: GameVersion
     ): Promise<void> => {
+        
+        if (mediaManager.isBulkDownloadInProgress()) return;
         setIsDownloading(true);
         setError(null);
         setProgress(null);
@@ -58,6 +61,8 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
         return mediaManager.isBulkDownloadComplete(gameVersion, userType);
     }, [cacheCleared]); // ADD cacheCleared as dependency
 
+    const cancelDownload = useCallback((): void => mediaManager.cancelBulkDownload(), []);
+
     const clearCache = useCallback((): void => {
         mediaManager.clearBulkDownloadCache();
         setProgress(null);
@@ -69,6 +74,7 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
         isDownloading,
         progress,
         startDownload,
+        cancelDownload,
         isDownloadComplete,
         clearCache,
         error

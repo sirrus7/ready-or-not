@@ -33,14 +33,20 @@ export const useSignedMediaUrl = (sourcePath: string | undefined, gameVersion?: 
             return;
         }
 
-        let isMounted: boolean = true;
+        let isMounted = true;
 
         const fetchUrl = async () => {
             setState({url: null, isLoading: true, error: null});
             try {
-                const signedUrl: string = await mediaManager.getSignedUrlWithFallback(sourcePath, userType, gameVersion);
+                // Use the new unified API
+                const blobUrl = await mediaManager.getMediaUrlWithFallback(
+                    sourcePath,
+                    userType,
+                    gameVersion
+                );
+                
                 if (isMounted) {
-                    setState({url: signedUrl, isLoading: false, error: null});
+                    setState({url: blobUrl, isLoading: false, error: null});
                 }
             } catch (err) {
                 if (isMounted) {
@@ -56,7 +62,7 @@ export const useSignedMediaUrl = (sourcePath: string | undefined, gameVersion?: 
         return () => {
             isMounted = false;
         };
-    }, [sourcePath, userType, gameVersion]); // Re-run when sourcePath OR userType changes.
+    }, [sourcePath, userType, gameVersion]);
 
     return state;
 };

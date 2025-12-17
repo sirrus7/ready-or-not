@@ -21,6 +21,7 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
         isDownloading,
         progress,
         startDownload,
+        cancelDownload,
         isDownloadComplete,
         clearCache,
         error
@@ -42,11 +43,10 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
         <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 max-w-md mx-auto">
             <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">Preload Media</h3>
-                {onClose && (
+                {onClose &&(
                     <button
-                        onClick={onClose}
+                        onClick={() => {cancelDownload(); onClose();}}
                         className="text-gray-500 hover:text-gray-700"
-                        disabled={isDownloading}
                     >
                         <X size={20}/>
                     </button>

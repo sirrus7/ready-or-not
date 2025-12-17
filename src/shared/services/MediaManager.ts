@@ -9,8 +9,8 @@ import {hasVersion15} from "@shared/constants/version15Slides";
 import {indexedDBCache} from "@shared/services/IndexedDBCache";
 import { hasVersion15Academic } from '@shared/constants/version15AcademicSlides';
 
-interface CachedUrl {
-    url: string;
+interface CachedBlobUrl {
+    blobUrl: string;
     expiresAt: number;
 }
 
@@ -30,37 +30,36 @@ interface BulkDownloadOptions {
 }
 
 /**
- * MediaManager is a singleton class responsible for fetching, caching,
- * and refreshing signed URLs for private media from a Supabase bucket ON DEMAND.
- * Now includes slide precaching functionality.
+ * MediaManager - Singleton class responsible for fetching and caching
+ * images and videos from Supabase storage.
  */
 class MediaManager {
     private static instance: MediaManager;
-    private urlCache: Map<string, CachedUrl> = new Map<string, CachedUrl>();
-    private static blobCache = new Map<string, {
-        blobUrl: string;
-        expiresAt: number;
-    }>();
+    
+    // Single in-memory cache for speed (read-through cache on top of IndexedDB)
+    private blobCache = new Map<string, CachedBlobUrl>();
+    
     private readonly BUCKET_NAME = 'slide-content';
-    private readonly SIGNED_URL_EXPIRY_SECONDS: number = 3600; // 1 hour
-    private readonly REFRESH_BUFFER_MS: number = 60 * 1000; // 1 minute buffer
-    private readonly DEFAULT_PRECACHE_COUNT: number = 3; // Default number of slides to precache ahead
+    private readonly CACHE_EXPIRY_HOURS = 24; // 24 hours for IndexedDB cache
+    private readonly CACHE_EXPIRY_MS = this.CACHE_EXPIRY_HOURS * 60 * 60 * 1000;
+    private readonly DEFAULT_PRECACHE_COUNT = 3;
 
     // Track precaching operations to avoid duplicates
-    private precachingInProgress: Set<string> = new Set<string>();
+    private precachingInProgress = new Set<string>();
     private lastPrecacheSlideIndex: number | null = null;
 
+    // Bulk download tracking
     private bulkDownloadProgress: BulkDownloadProgress | null = null;
     private readonly BULK_DOWNLOAD_STORAGE_KEY = 'media-bulk-download-complete';
     private readonly BULK_DOWNLOAD_VERSION_KEY = 'media-bulk-download-version';
     private readonly BULK_DOWNLOAD_TIMESTAMP_KEY = 'media-bulk-download-timestamp';
     private readonly BULK_DOWNLOAD_CONTENT_VERSION_KEY = 'media-bulk-download-content-version';
-    private readonly BULK_DOWNLOAD_CACHE_EXPIRY_DAYS = 7; // Cache expires after 7 days
-    private readonly BULK_DOWNLOAD_CURRENT_CONTENT_VERSION = '1.2'; // Increment when you update slides
-    private isBulkDownloading: boolean = false;
+    private readonly BULK_DOWNLOAD_CACHE_EXPIRY_DAYS = 7;
+    private readonly BULK_DOWNLOAD_CURRENT_CONTENT_VERSION = '1.3';
+    private isBulkDownloading = false;
+    private bulkDownloadAbortController: AbortController | null = null;
 
-    private constructor() {
-    }
+    private constructor() {}
 
     public static getInstance(): MediaManager {
         if (!MediaManager.instance) {
@@ -70,64 +69,59 @@ class MediaManager {
     }
 
     /**
-     * Asynchronously gets a valid signed URL for a given media file.
-     * For video files, returns a cached blob URL to reduce bandwidth.
-     * For other files, returns the regular signed URL.
-     * @param fileName The file name
-     * @param skipBlobCache Skip blob caching (useful for precaching to avoid JWT timing issues)
-     * @param forceBlobCache Force blob caching even for non-video files (for bulk download)
+     * Gets a blob URL for media file with unified caching strategy:
+     * 1. Check in-memory cache (instant)
+     * 2. Check IndexedDB (persistent, cross-tab)
+     * 3. Fetch from Supabase and cache in both layers
      */
-    public async getSignedUrl(fileName: string, skipBlobCache: boolean = false, forceBlobCache: boolean = false): Promise<string> {
-        // STEP 1: Check IndexedDB first (works across tabs)
-        if (!skipBlobCache) {
-            try {
-                const indexedDBEntry = await indexedDBCache.get(fileName);
-                if (indexedDBEntry && indexedDBEntry.expiresAt > Date.now()) {
-                    console.log(`[MediaManager] Using IndexedDB cache for ${fileName}`);
-                    // Also update in-memory cache for faster subsequent access
-                    MediaManager.blobCache.set(fileName, {
-                        blobUrl: indexedDBEntry.blobUrl,
-                        expiresAt: indexedDBEntry.expiresAt
-                    });
-                    return indexedDBEntry.blobUrl;
-                }
-            } catch (error) {
-                console.warn(`[MediaManager] IndexedDB lookup failed for ${fileName}, continuing with fallback:`, error);
-            }
+    public async getMediaUrl(fileName: string, signal?: AbortSignal): Promise<string> {
+        // STEP 1: Check in-memory cache first (fastest)
+        const memCached = this.blobCache.get(fileName);
+        if (memCached && memCached.expiresAt > Date.now()) {
+            console.log(`[MediaManager] Using in-memory cache for ${fileName}`);
+            return memCached.blobUrl;
         }
 
-        // STEP 2: Check in-memory blob cache (fast but tab-specific)
-        if (!skipBlobCache) {
-            const blobCached = MediaManager.blobCache.get(fileName);
-            if (blobCached && blobCached.expiresAt > Date.now()) {
-                console.log(`[MediaManager] Using in-memory blob cache for ${fileName}`);
-                return blobCached.blobUrl;
+        // STEP 2: Check IndexedDB (persistent, cross-tab)
+        try {
+            const idbEntry = await indexedDBCache.get(fileName);
+            if (idbEntry && idbEntry.expiresAt > Date.now()) {
+                console.log(`[MediaManager] Using IndexedDB cache for ${fileName}`);
+                
+                // Warm up in-memory cache for future access
+                this.blobCache.set(fileName, {
+                    blobUrl: idbEntry.blobUrl,
+                    expiresAt: idbEntry.expiresAt
+                });
+                
+                return idbEntry.blobUrl;
             }
+        } catch (error) {
+            console.warn(`[MediaManager] IndexedDB lookup failed for ${fileName}:`, error);
         }
 
-        // Check if this is a video file
-        const isVideoFile: boolean = /\.(mp4|webm|mov|avi|mkv)$/i.test(fileName);
+        // STEP 3: Fetch from Supabase and cache in both layers
+        return await this.fetchAndCacheMedia(fileName, signal);
+    }
 
-        // Determine if we should create a NEW blob cache entry
-        const shouldCreateBlobCache = !skipBlobCache && (isVideoFile || forceBlobCache);
+    /**
+     * Fetches media from Supabase and stores in both cache layers
+     */
+    private async fetchAndCacheMedia(fileName: string, signal?: AbortSignal): Promise<string> {
+        console.log(`[MediaManager] Fetching ${fileName} from Supabase`);
 
-        // If not using blob cache, check URL cache
-        if (!shouldCreateBlobCache) {
-            const cached: CachedUrl | undefined = this.urlCache.get(fileName);
-            if (cached && cached.expiresAt > Date.now()) {
-                return cached.url;
-            }
-        }
-
-        // Fetch new signed URL
+        // Get signed URL from Supabase
         const {data, error} = await supabase.storage
             .from(this.BUCKET_NAME)
-            .createSignedUrl(fileName, this.SIGNED_URL_EXPIRY_SECONDS);
+            .createSignedUrl(fileName, 3600); // 1 hour signed URL validity
 
         if (error) {
             console.error(`[MediaManager] Error creating signed URL for ${fileName}:`, error);
             if (error.message.includes("Object not found")) {
-                throw new Error(`Could not get media URL for ${fileName}. The file may not exist at the root of the '${this.BUCKET_NAME}' bucket or you may be missing the required Storage Policy.`);
+                throw new Error(
+                    `Could not get media URL for ${fileName}. ` +
+                    `The file may not exist in the '${this.BUCKET_NAME}' bucket.`
+                );
             }
             throw new Error(`Could not get media URL for ${fileName}: ${error.message}`);
         }
@@ -136,96 +130,85 @@ class MediaManager {
             throw new Error(`No signed URL returned for ${fileName}`);
         }
 
-        const expiresAt: number = Date.now() + (this.SIGNED_URL_EXPIRY_SECONDS * 1000) - this.REFRESH_BUFFER_MS;
-
-        if (shouldCreateBlobCache) {
-            // Try to cache as blob
-            try {
-                const response: Response = await fetch(data.signedUrl);
-                if (!response.ok) {
-                    let errorBody = '';
-                    try {
-                        errorBody = await response.text();
-                    } catch (error) {
-                        errorBody = 'Could not read error response' + error;
-                    }
-
-                    console.error(`[MediaManager] Fetch failed with status ${response.status} for ${fileName}:`, {
-                        statusText: response.statusText,
-                        headers: Object.fromEntries(response.headers.entries()),
-                        url: data.signedUrl,
-                        errorBody: errorBody
-                    });
-                    throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
-                }
-
-                const blob: Blob = await response.blob();
-                const blobUrl: string = URL.createObjectURL(blob);
-
-                // Store in in-memory cache
-                MediaManager.blobCache.set(fileName, {blobUrl, expiresAt});
-
-                // Store in IndexedDB for cross-tab access
-                try {
-                    await indexedDBCache.set(fileName, blobUrl, blob, expiresAt);
-                } catch (idbError) {
-                    console.warn(`[MediaManager] Failed to store in IndexedDB for ${fileName}:`, idbError);
-                    // Continue anyway, in-memory cache still works
-                }
-
-                console.log(`[MediaManager] Cached ${fileName} as blob URL (memory + IndexedDB)`);
-                return blobUrl;
-            } catch (error) {
-                console.error('[MediaManager] Failed to cache as blob:', error);
-                // Fallback to signed URL
-                this.urlCache.set(fileName, {url: data.signedUrl, expiresAt});
-                return data.signedUrl;
-            }
-        } else {
-            // For non-video files or when skipping blob cache, cache the signed URL
-            this.urlCache.set(fileName, {url: data.signedUrl, expiresAt});
-            return data.signedUrl;
+        // Fetch the actual file as a blob
+        const response = await fetch(data.signedUrl, { signal });
+        if (!response.ok) {
+            throw new Error(
+                `Failed to fetch ${fileName}: ${response.status} ${response.statusText}`
+            );
         }
+
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const expiresAt = Date.now() + this.CACHE_EXPIRY_MS;
+
+        // Store in both caches
+        const cacheEntry = {blobUrl, expiresAt};
+        this.blobCache.set(fileName, cacheEntry);
+
+        try {
+            await indexedDBCache.set(fileName, blobUrl, blob, expiresAt);
+            console.log(`[MediaManager] Cached ${fileName} in memory + IndexedDB`);
+        } catch (idbError) {
+            console.warn(`[MediaManager] Failed to store in IndexedDB for ${fileName}:`, idbError);
+            // Continue anyway - in-memory cache still works
+        }
+
+        return blobUrl;
     }
 
     /**
-     * Gets signed URL with version hierarchy fallback logic
+     * Gets media URL with version hierarchy fallback logic
      * Version 1.5: version15 slides → business slides → standard slides
      * Business users: business slides → standard slides
      * Academic users: standard slides only
      */
-    public async getSignedUrlWithFallback(fileName: string, userType: UserType, gameVersion?: string, skipBlobCache: boolean = false, forceBlobCache: boolean = false): Promise<string> {
-        // For version 1.5, try version15 folder first
-        if (gameVersion?.includes('1.5')) {
-            if (hasVersion15Academic(fileName)) {
-                const version15AcademicPath = `business/version15/academic/${fileName}`;
-                return await this.getSignedUrl(version15AcademicPath, skipBlobCache, forceBlobCache)
-            }
-
-            if (hasVersion15(fileName)) {
-                const version15Path = `business/version15/${fileName}`;
-                return await this.getSignedUrl(version15Path, skipBlobCache, forceBlobCache);
-            }
-        }
-
-        // If we are a business user or omep override the default content (exclude 1.5 academic, for which we don't want business slides)
-        if ((userType === 'business' || userType === 'omep') && hasBusinessVersion(fileName) && gameVersion !== GameVersion.V1_5_ACADEMIC) {
-            const businessPath = `business/${fileName}`;
-            return await this.getSignedUrl(businessPath, skipBlobCache, forceBlobCache);
-        }
-
-        // Get standard content
-        return await this.getSignedUrl(fileName, skipBlobCache, forceBlobCache);
+    public async getMediaUrlWithFallback(
+        fileName: string,
+        userType: UserType,
+        gameVersion?: GameVersion
+    ): Promise<string> {
+        const resolvedPath = this.resolveMediaPath(fileName, userType, gameVersion);
+        return await this.getMediaUrl(resolvedPath);
     }
 
     /**
-     * Precaches signed URLs for current and upcoming slides to improve loading performance.
-     * @param slides Array of all slides in the presentation
-     * @param currentSlideIndex The current slide index
-     * @param userType Business or Academic
-     * @param gameVersion The version to use
-     * @param precacheCount Number of slides ahead to precache (default: 3)
-     * @param includeCurrent Whether to precache the current slide (default: true)
+     * Resolves the actual media path based on version hierarchy logic
+     */
+    private resolveMediaPath(
+        fileName: string,
+        userType: UserType,
+        gameVersion?: GameVersion
+    ): string {
+        // For version 1.5, try version15 folder first
+        if (gameVersion?.includes('1.5')) {
+            if (gameVersion === GameVersion.V1_5_ACADEMIC && hasVersion15Academic(fileName)) {
+                return `business/version15/academic/${fileName}`;
+            }
+
+            if (hasVersion15(fileName)) {
+                return `business/version15/${fileName}`;
+            }
+        }
+
+        // If business user or omep, try business folder (exclude 1.5 academic)
+        if (
+            (userType === 'business' || userType === 'omep') &&
+            hasBusinessVersion(fileName) &&
+            gameVersion !== GameVersion.V1_5_ACADEMIC
+        ) {
+            return `business/${fileName}`;
+        }
+
+        // Standard content
+        return fileName;
+    }
+
+    /**
+     * Precaches upcoming slides into memory from IndexedDB or Supabase
+     * - Loads current slide + next N slides
+     * - Checks memory first, then IndexedDB, then Supabase
+     * - Non-blocking background operation
      */
     public precacheUpcomingSlides(
         slides: Slide[],
@@ -233,33 +216,20 @@ class MediaManager {
         userType: UserType,
         gameVersion?: GameVersion,
         precacheCount: number = this.DEFAULT_PRECACHE_COUNT,
-        includeCurrent: boolean = true
+        includeCurrent = true
     ): void {
         // Skip if we already precached for this slide index
         if (this.lastPrecacheSlideIndex === currentSlideIndex) {
             return;
         }
 
-        // Update the last precached slide index
         this.lastPrecacheSlideIndex = currentSlideIndex;
 
         // Precache current slide first if requested
         if (includeCurrent && currentSlideIndex >= 0 && currentSlideIndex < slides.length) {
             const currentSlide = slides[currentSlideIndex];
             if (currentSlide?.source_path) {
-                const sourcePath = currentSlide.source_path;
-                // Skip if already precaching this file
-                if (!this.precachingInProgress.has(sourcePath)) {
-                    // Skip if already cached and not expired
-                    const cached = this.urlCache.get(sourcePath);
-                    if (!cached || cached.expiresAt <= Date.now()) {
-                        this.precachingInProgress.add(sourcePath);
-                        this.precacheSingleSlide(sourcePath, userType, gameVersion)
-                            .finally(() => {
-                                this.precachingInProgress.delete(sourcePath);
-                            });
-                    }
-                }
+                this.precacheSingleSlide(currentSlide.source_path, userType, gameVersion);
             }
         }
 
@@ -269,104 +239,206 @@ class MediaManager {
 
         if (startIndex >= slides.length) return;
 
-        // Precache upcoming slides asynchronously without blocking
+        // Precache upcoming slides asynchronously
         for (let i = startIndex; i < endIndex; i++) {
             const slide = slides[i];
             if (!slide?.source_path) continue;
 
-            const sourcePath = slide.source_path;
-            // Skip if already precaching this file
-            if (this.precachingInProgress.has(sourcePath)) continue;
-
-            // Skip if already cached and not expired
-            const cached = this.urlCache.get(sourcePath);
-            if (cached && cached.expiresAt > Date.now()) continue;
-
-            // Start precaching this slide
-            this.precachingInProgress.add(sourcePath);
-
-            this.precacheSingleSlide(sourcePath, userType, gameVersion)
-                .finally(() => {
-                    this.precachingInProgress.delete(sourcePath);
-                });
+            this.precacheSingleSlide(slide.source_path, userType, gameVersion);
         }
     }
 
     /**
-     * Precaches a single slide's media file immediately.
-     * This is useful for precaching the current slide when navigating.
-     * @param fileName The source path of the slide media
-     * @param userType The user type for business/academic path resolution
-     * @param gameVersion the version to load
+     * Precaches a single slide's media into memory
+     * Checks: memory → IndexedDB → Supabase
      */
-    public async precacheSingleSlide(fileName: string, userType: UserType, gameVersion?: GameVersion): Promise<void> {
+    public async precacheSingleSlide(
+        fileName: string,
+        userType: UserType,
+        gameVersion?: GameVersion
+    ): Promise<void> {
+        const resolvedPath = this.resolveMediaPath(fileName, userType, gameVersion);
+
+        // Skip if already precaching this file
+        if (this.precachingInProgress.has(resolvedPath)) {
+            return;
+        }
+
+        // Skip if already in memory cache and not expired
+        const memCached = this.blobCache.get(resolvedPath);
+        if (memCached && memCached.expiresAt > Date.now()) {
+            return;
+        }
+
+        this.precachingInProgress.add(resolvedPath);
+
         try {
-            // Skip blob caching for precaching to avoid JWT timing issues
-            await this.getSignedUrlWithFallback(fileName, userType, gameVersion, true);
+            await this.getMediaUrl(resolvedPath);
         } catch (error) {
-            console.warn(`[MediaManager] Failed to precache ${fileName}:`,
-                error instanceof Error ? error.message : 'Unknown error');
+            console.warn(
+                `[MediaManager] Failed to precache ${resolvedPath}:`,
+                error instanceof Error ? error.message : 'Unknown error'
+            );
+        } finally {
+            this.precachingInProgress.delete(resolvedPath);
         }
     }
 
     /**
-     * Clears expired URLs from the cache to free up memory.
-     * This can be called periodically to maintain cache health.
+     * Bulk download all slides to IndexedDB for offline use
+     * This is the "Preload All Media" feature
      */
-    public cleanupExpiredCache(): void {
-        const now = Date.now();
-        for (const [fileName, cached] of this.urlCache.entries()) {
-            if (cached.expiresAt <= now) {
-                this.urlCache.delete(fileName);
+    public async bulkDownloadAllMedia(
+        slides: Slide[],
+        options: BulkDownloadOptions
+    ): Promise<void> {
+        const {gameVersion, userType, onProgress, concurrent = 5} = options;
+        const cacheKey = `${gameVersion || 'default'}-${userType}`;
+
+        // Prevent concurrent downloads
+        if (this.isBulkDownloading) {
+            console.warn('[MediaManager] Download already in progress');
+            return;
+        }
+
+        // Check if already downloaded and cache is still valid
+        if (this.isCacheValid(gameVersion, userType)) {
+            console.log(`[MediaManager] Cache already valid for ${cacheKey}`);
+            if (onProgress) {
+                const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
+                onProgress({
+                    downloaded: mediaFiles.length,
+                    total: mediaFiles.length,
+                    currentFile: '',
+                    isComplete: true,
+                    errors: []
+                });
             }
+            return;
         }
 
-        // Also cleanup IndexedDB
-        indexedDBCache.cleanupExpired().catch(error => {
-            console.error('[MediaManager] Failed to cleanup IndexedDB:', error);
-        });
-    }
+        this.isBulkDownloading = true;
+        this.bulkDownloadAbortController = new AbortController();
 
-    /**
-     * Returns cache statistics for debugging/monitoring.
-     */
-    public getCacheStats(): {
-        totalCached: number;
-        expiredCount: number;
-        precachingInProgress: number;
-    } {
-        const now = Date.now();
-        let expiredCount = 0;
+        try {
+            const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
 
-        for (const cached of this.urlCache.values()) {
-            if (cached.expiresAt <= now) {
-                expiredCount++;
+            this.bulkDownloadProgress = {
+                downloaded: 0,
+                total: mediaFiles.length,
+                currentFile: '',
+                isComplete: false,
+                errors: []
+            };
+
+            console.log(`[MediaManager] Bulk downloading ${mediaFiles.length} files for ${cacheKey}`);
+
+            // Download in batches to avoid overwhelming the browser
+            const batches = this.chunkArray(mediaFiles, concurrent);
+
+            for (const batch of batches) {
+                if (this.bulkDownloadAbortController.signal.aborted) {
+                    break;
+                }
+
+                const promises = batch.map(async (filePath) => {
+                    try {
+                        this.bulkDownloadProgress!.currentFile = filePath;
+                        onProgress?.(this.bulkDownloadProgress!);
+
+                        await this.getMediaUrl(filePath, this.bulkDownloadAbortController!.signal);
+
+                        this.bulkDownloadProgress!.downloaded++;
+                        onProgress?.(this.bulkDownloadProgress!);
+                    } catch (error) {
+                        if (error instanceof DOMException && error.name === 'AbortError') {
+                            console.log(`[MediaManager] Download of ${filePath} cancelled`);
+                            return;
+                        }
+
+                        const errorMsg = `Failed to download ${filePath}: ${
+                            error instanceof Error ? error.message : 'Unknown error'
+                        }`;
+                        this.bulkDownloadProgress!.errors.push(errorMsg);
+                        console.warn('[MediaManager] Bulk download error:', errorMsg);
+                        
+                        this.bulkDownloadProgress!.downloaded++;
+                        onProgress?.(this.bulkDownloadProgress!);
+                    }
+                });
+
+                await Promise.all(promises);
             }
+
+            this.bulkDownloadProgress.isComplete = true;
+
+            if (this.bulkDownloadAbortController.signal.aborted) {
+                console.log('[MediaManager] Bulk download canceled');
+                this.bulkDownloadProgress.currentFile = 'cancelled';
+                onProgress?.(this.bulkDownloadProgress);
+                return;
+            }
+
+            this.bulkDownloadProgress.currentFile = '';
+            onProgress?.(this.bulkDownloadProgress);
+
+            // Mark bulk download as complete
+            localStorage.setItem(this.BULK_DOWNLOAD_STORAGE_KEY, 'true');
+            localStorage.setItem(this.BULK_DOWNLOAD_VERSION_KEY, cacheKey);
+            localStorage.setItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY, Date.now().toString());
+            localStorage.setItem(
+                this.BULK_DOWNLOAD_CONTENT_VERSION_KEY,
+                this.BULK_DOWNLOAD_CURRENT_CONTENT_VERSION
+            );
+
+            console.log(
+                `[MediaManager] Bulk download complete. ` +
+                `Downloaded: ${this.bulkDownloadProgress.downloaded}, ` +
+                `Errors: ${this.bulkDownloadProgress.errors.length}`
+            );
+        } finally {
+            this.isBulkDownloading = false;
+            this.bulkDownloadAbortController = null;
         }
-
-        return {
-            totalCached: this.urlCache.size,
-            expiredCount,
-            precachingInProgress: this.precachingInProgress.size,
-        };
     }
 
     /**
-     * Manually clears all cache (useful for testing or troubleshooting).
+     * Extracts all unique media file paths from slides
      */
-    public clearCache(): void {
-        this.urlCache.clear();
-        this.precachingInProgress.clear();
-        this.lastPrecacheSlideIndex = null;
+    private extractUniqueMediaPaths(
+        slides: Slide[],
+        userType: UserType,
+        gameVersion?: GameVersion
+    ): string[] {
+        const mediaPaths = new Set<string>();
 
-        // Also clear IndexedDB
-        indexedDBCache.clear().catch(error => {
-            console.error('[MediaManager] Failed to clear IndexedDB:', error);
+        slides.forEach(slide => {
+            if (slide.source_path) {
+                const resolvedPath = this.resolveMediaPath(
+                    slide.source_path,
+                    userType,
+                    gameVersion
+                );
+                mediaPaths.add(resolvedPath);
+            }
         });
+
+        return Array.from(mediaPaths);
     }
 
     /**
-     * Check if cache is valid (not expired and correct version)
+     * Helper to chunk array into smaller arrays
+     */
+    private chunkArray<T>(array: T[], size: number): T[][] {
+        const chunks: T[][] = [];
+        for (let i = 0; i < array.length; i += size) {
+            chunks.push(array.slice(i, i + size));
+        }
+        return chunks;
+    }
+
+    /**
+     * Check if bulk download cache is valid
      */
     private isCacheValid(gameVersion?: GameVersion, userType?: UserType): boolean {
         const isComplete = localStorage.getItem(this.BULK_DOWNLOAD_STORAGE_KEY) === 'true';
@@ -378,7 +450,9 @@ class MediaManager {
         }
 
         // Check content version
-        const cachedContentVersion = localStorage.getItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY);
+        const cachedContentVersion = localStorage.getItem(
+            this.BULK_DOWNLOAD_CONTENT_VERSION_KEY
+        );
         if (cachedContentVersion !== this.BULK_DOWNLOAD_CURRENT_CONTENT_VERSION) {
             console.log('[MediaManager] Content version mismatch, cache invalid');
             return false;
@@ -400,7 +474,25 @@ class MediaManager {
     }
 
     /**
-     * Get cache info for display purposes
+     * Check if bulk download is complete
+     */
+    public isBulkDownloadComplete(gameVersion?: GameVersion, userType?: UserType): boolean {
+        return this.isCacheValid(gameVersion, userType);
+    }
+
+    public isBulkDownloadInProgress(){
+        return this.isBulkDownloading;
+    }
+
+    /**
+     * Get current bulk download progress
+     */
+    public getBulkDownloadProgress(): BulkDownloadProgress | null {
+        return this.bulkDownloadProgress;
+    }
+
+    /**
+     * Get cache info for display
      */
     public getCacheInfo(gameVersion?: GameVersion, userType?: UserType): {
         isComplete: boolean;
@@ -435,163 +527,29 @@ class MediaManager {
     }
 
     /**
-     * Downloads and caches all media files for a game structure locally
+     * Returns cache statistics for debugging
      */
-    public async bulkDownloadAllMedia(
-        slides: Slide[],
-        options: BulkDownloadOptions
-    ): Promise<void> {
-        const {gameVersion, userType, onProgress, concurrent = 5} = options;
-        const cacheKey = `${gameVersion || 'default'}-${userType}`;
-
-        // GUARD: Prevent concurrent downloads
-        if (this.isBulkDownloading) {
-            console.warn('[MediaManager] Download already in progress, ignoring duplicate call');
-            return;
-        }
-
-        // Check if already downloaded and cache is still valid
-        if (this.isCacheValid(gameVersion, userType)) {
-            console.log(`[MediaManager] Cache already valid for ${cacheKey}, skipping download`);
-            if (onProgress) {
-                const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
-                onProgress({
-                    downloaded: mediaFiles.length,
-                    total: mediaFiles.length,
-                    currentFile: '',
-                    isComplete: true,
-                    errors: []
-                });
-            }
-            return;
-        }
-
-        // SET FLAG
-        this.isBulkDownloading = true;
-
-        try {
-            // Get all unique media files (already resolved paths)
-            const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
-
-            this.bulkDownloadProgress = {
-                downloaded: 0,
-                total: mediaFiles.length,
-                currentFile: '',
-                isComplete: false,
-                errors: []
-            };
-
-            console.log(`[MediaManager] Starting bulk download of ${mediaFiles.length} files for ${cacheKey}`);
-
-            // Download files in batches to avoid overwhelming the browser
-            const batches = this.chunkArray(mediaFiles, concurrent);
-
-            for (const batch of batches) {
-                const promises = batch.map(async (filePath) => {
-                    try {
-                        this.bulkDownloadProgress!.currentFile = filePath;
-                        onProgress?.(this.bulkDownloadProgress!);
-
-                        // filePath is already resolved, so call getSignedUrl directly with forceBlobCache
-                        await this.getSignedUrl(filePath, false, true);
-
-                        this.bulkDownloadProgress!.downloaded++;
-                        onProgress?.(this.bulkDownloadProgress!);
-
-                    } catch (error) {
-                        const errorMsg = `Failed to download ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-                        this.bulkDownloadProgress!.errors.push(errorMsg);
-                        console.warn('[MediaManager] Bulk download error:', errorMsg);
-                        // Still increment the counter even on error to maintain accurate progress
-                        this.bulkDownloadProgress!.downloaded++;
-                        onProgress?.(this.bulkDownloadProgress!);
-                    }
-                });
-
-                await Promise.all(promises);
-            }
-
-            this.bulkDownloadProgress.isComplete = true;
-            this.bulkDownloadProgress.currentFile = '';
-            onProgress?.(this.bulkDownloadProgress);
-
-            // Mark bulk download as complete with timestamp and version
-            localStorage.setItem(this.BULK_DOWNLOAD_STORAGE_KEY, 'true');
-            localStorage.setItem(this.BULK_DOWNLOAD_VERSION_KEY, cacheKey);
-            localStorage.setItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY, Date.now().toString());
-            localStorage.setItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY, this.BULK_DOWNLOAD_CURRENT_CONTENT_VERSION);
-
-            console.log(`[MediaManager] Bulk download complete. Downloaded: ${this.bulkDownloadProgress.downloaded}, Errors: ${this.bulkDownloadProgress.errors.length}`);
-        } finally {
-            // ALWAYS CLEAR FLAG
-            this.isBulkDownloading = false;
-        }
+    public getCacheStats(): {
+        memoryCached: number;
+        precachingInProgress: number;
+    } {
+        return {
+            memoryCached: this.blobCache.size,
+            precachingInProgress: this.precachingInProgress.size,
+        };
     }
 
     /**
-     * Extracts all unique media file paths from slides considering version hierarchy
+     * Clears all caches (memory + IndexedDB)
      */
-    private extractUniqueMediaPaths(slides: Slide[], userType: UserType, gameVersion?: GameVersion): string[] {
-        const mediaPaths = new Set<string>();
+    public clearCache(): void {
+        this.blobCache.clear();
+        this.precachingInProgress.clear();
+        this.lastPrecacheSlideIndex = null;
 
-        slides.forEach(slide => {
-            if (slide.source_path) {
-                // Get the actual file path that would be used based on version hierarchy
-                const resolvedPath = this.resolveMediaPath(slide.source_path, userType, gameVersion);
-                mediaPaths.add(resolvedPath);
-            }
+        indexedDBCache.clear().catch(error => {
+            console.error('[MediaManager] Failed to clear IndexedDB:', error);
         });
-
-        return Array.from(mediaPaths);
-    }
-
-    /**
-     * Resolves the actual media path based on version hierarchy logic
-     */
-    private resolveMediaPath(fileName: string, userType: UserType, gameVersion?: GameVersion): string {
-        // For version 1.5, try version15 folder first
-        if (gameVersion?.includes('1.5')) {
-            if (hasVersion15Academic(fileName)) {
-                return `business/version15/academic/${fileName}`;
-            }
-
-            if (hasVersion15(fileName)) {
-                return `business/version15/${fileName}`;
-            }
-        }
-
-        // If we are a business user or omep override the default content
-        if ((userType === 'business' || userType === 'omep') && hasBusinessVersion(fileName) && gameVersion !== GameVersion.V1_5_ACADEMIC) {
-            return `business/${fileName}`;
-        }
-
-        // Get standard content
-        return fileName;
-    }
-
-    /**
-     * Helper to chunk array into smaller arrays
-     */
-    private chunkArray<T>(array: T[], size: number): T[][] {
-        const chunks: T[][] = [];
-        for (let i = 0; i < array.length; i += size) {
-            chunks.push(array.slice(i, i + size));
-        }
-        return chunks;
-    }
-
-    /**
-     * Check if bulk download is complete for current version/user type
-     */
-    public isBulkDownloadComplete(gameVersion?: GameVersion, userType?: UserType): boolean {
-        return this.isCacheValid(gameVersion, userType);
-    }
-
-    /**
-     * Get current bulk download progress
-     */
-    public getBulkDownloadProgress(): BulkDownloadProgress | null {
-        return this.bulkDownloadProgress;
     }
 
     /**
@@ -602,10 +560,26 @@ class MediaManager {
         localStorage.removeItem(this.BULK_DOWNLOAD_VERSION_KEY);
         localStorage.removeItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY);
         localStorage.removeItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY);
-        this.clearCache(); // Clear existing media cache
+        this.clearCache();
         this.bulkDownloadProgress = null;
-        this.isBulkDownloading = false; // ADD THIS
+        this.isBulkDownloading = false;
+    }
+
+    /**
+     * Cleans up expired entries from IndexedDB
+     */
+    public cleanupExpiredCache(): void {
+        // Cleanup IndexedDB
+        indexedDBCache.cleanupExpired().catch(error => {
+            console.error('[MediaManager] Failed to cleanup IndexedDB:', error);
+        });
+    }
+
+    public cancelBulkDownload(): void {
+        if (this.bulkDownloadAbortController) {
+            this.bulkDownloadAbortController.abort();
+        }
     }
 }
 
-export const mediaManager: MediaManager = MediaManager.getInstance();
+export const mediaManager = MediaManager.getInstance();
