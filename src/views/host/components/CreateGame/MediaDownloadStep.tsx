@@ -25,23 +25,21 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
         progress,
         startDownload,
         cancelDownload,
-        isDownloadComplete,
         clearCache,
         error
     } = useBulkMediaDownload();
 
-    const downloadComplete = isDownloadComplete(gameData.game_version, userType);
     const progressPercent = progress ?
         Math.round((progress.downloaded / progress.total) * 100) : 0;
     const [userOptedOut, setUserOptedOut] = React.useState(false);
 
     // Auto-start download on mount if not already complete and user hasn't opted out
     useEffect(() => {
-        if (!downloadComplete && !isDownloading && !error && !userOptedOut) {
+        if (!progress?.isComplete && !isDownloading && !error && !userOptedOut) {
             console.log('[MediaDownloadStep] Auto-starting download...');
-            startDownload(gameStructure.slides, userType, gameData.game_version);
+            startDownload(gameData.game_version, userType, );
         }
-    }, [downloadComplete, isDownloading, error, userOptedOut, gameStructure.slides, userType, gameData.game_version, startDownload]);
+    }, [isDownloading, error, userOptedOut, gameStructure.slides, userType, gameData.game_version, startDownload]);
 
     const handleSkipAndContinue = (): void => {
         cancelDownload();
@@ -51,16 +49,16 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
 
     const handleStartDownloadAgain = async (): Promise<void> => {
         setUserOptedOut(false);
-        await startDownload(gameStructure.slides, userType, gameData.game_version);
+        await startDownload(gameData.game_version, userType);
     };
 
     const handleClearAndRedownload = async (): Promise<void> => {
         clearCache();
         setUserOptedOut(false);
-        await startDownload(gameStructure.slides, userType, gameData.game_version);
+        await startDownload(gameData.game_version, userType);
     };
 
-    const canProceed = downloadComplete || userOptedOut || error;
+    const canProceed = progress?.isComplete || userOptedOut || error;
 
     return (
         <div className="space-y-6">
@@ -92,7 +90,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
             </div>
 
             {/* Already Downloaded Status */}
-            {downloadComplete && !isDownloading && (
+            {progress?.isComplete && !isDownloading && (
                 <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-start">
                         <CheckCircle size={24} className="text-green-600 mr-3 flex-shrink-0 mt-0.5"/>
@@ -186,7 +184,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
             )}
 
             {/* Skipped Status */}
-            {userOptedOut && !downloadComplete && !isDownloading && (
+            {userOptedOut && !isDownloading && (
                 <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                     <div className="flex items-start">
                         <AlertCircle size={24} className="text-yellow-600 mr-3 flex-shrink-0 mt-0.5"/>
@@ -221,7 +219,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                 </button>
 
                 <div className="flex gap-3">
-                    {!downloadComplete && !userOptedOut && !error && (
+                    {!progress?.isComplete && !userOptedOut && !error && (
                         <button
                             type="button"
                             onClick={handleSkipAndContinue}

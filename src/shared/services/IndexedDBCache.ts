@@ -168,6 +168,32 @@ class IndexedDBCache {
     }
 
     /**
+     * Get all keys (file names) stored in IndexedDB
+     * Useful for validation and cache management
+     */
+    public async getAllKeys(): Promise<string[]> {
+        await this.init();
+        if (!this.db) return [];
+
+        return new Promise((resolve, reject) => {
+            const transaction = this.db!.transaction([this.STORE_NAME], 'readonly');
+            const store = transaction.objectStore(this.STORE_NAME);
+            const request = store.getAllKeys();
+
+            request.onsuccess = () => {
+                const keys = request.result as string[];
+                console.log(`[IndexedDBCache] Retrieved ${keys.length} keys from IndexedDB`);
+                resolve(keys);
+            };
+
+            request.onerror = () => {
+                console.error('[IndexedDBCache] Failed to get all keys:', request.error);
+                reject(request.error);
+            };
+        });
+    }
+
+    /**
      * Clear all expired entries from IndexedDB
      */
     public async cleanupExpired(): Promise<void> {

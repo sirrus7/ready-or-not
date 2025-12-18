@@ -8,25 +8,19 @@ import {hasBusinessVersion} from '@shared/constants/businessSlides';
 import {hasVersion15} from "@shared/constants/version15Slides";
 import {indexedDBCache} from "@shared/services/IndexedDBCache";
 import { hasVersion15Academic } from '@shared/constants/version15AcademicSlides';
+import { readyOrNotGame_1_5_ACADEMIC, readyOrNotGame_1_5_DD, readyOrNotGame_1_5_NO_DD, readyOrNotGame_2_0_DD, readyOrNotGame_2_0_NO_DD } from '@core/content/GameStructure';
 
 interface CachedBlobUrl {
     blobUrl: string;
     expiresAt: number;
 }
 
-interface BulkDownloadProgress {
+export interface BulkDownloadProgress {
     downloaded: number;
     total: number;
     currentFile: string;
     isComplete: boolean;
     errors: string[];
-}
-
-interface BulkDownloadOptions {
-    gameVersion?: GameVersion;
-    userType: UserType;
-    onProgress?: (progress: BulkDownloadProgress) => void;
-    concurrent?: number; // Number of simultaneous downloads
 }
 
 /**
@@ -50,14 +44,10 @@ class MediaManager {
 
     // Bulk download tracking
     private bulkDownloadProgress: BulkDownloadProgress | null = null;
-    private readonly BULK_DOWNLOAD_STORAGE_KEY = 'media-bulk-download-complete';
-    private readonly BULK_DOWNLOAD_VERSION_KEY = 'media-bulk-download-version';
-    private readonly BULK_DOWNLOAD_TIMESTAMP_KEY = 'media-bulk-download-timestamp';
-    private readonly BULK_DOWNLOAD_CONTENT_VERSION_KEY = 'media-bulk-download-content-version';
-    private readonly BULK_DOWNLOAD_CACHE_EXPIRY_DAYS = 7;
-    private readonly BULK_DOWNLOAD_CURRENT_CONTENT_VERSION = '1.3';
     private isBulkDownloading = false;
     private bulkDownloadAbortController: AbortController | null = null;
+    private readonly BULK_DOWNLOAD_CONTENT_VERSION_KEY = 'media-bulk-download-content-version';
+    private readonly BULK_DOWNLOAD_CURRENT_CONTENT_VERSION = '1.3';
 
     private constructor() {}
 
@@ -285,56 +275,61 @@ class MediaManager {
     }
 
     /**
-     * Bulk download all slides to IndexedDB for offline use
-     * This is the "Preload All Media" feature
+     * Bulk downloads all slides to IndexedDB for offline use
+     * Validates existing content
      */
-    public async bulkDownloadAllMedia(
-        slides: Slide[],
-        options: BulkDownloadOptions
+    public async ensureAllMediaIsCached(
+        gameVersion: GameVersion,
+        userType: UserType,
+        onProgress: (progress: BulkDownloadProgress) => void,
+        concurrent: number = 5
     ): Promise<void> {
-        const {gameVersion, userType, onProgress, concurrent = 5} = options;
-        const cacheKey = `${gameVersion || 'default'}-${userType}`;
-
         // Prevent concurrent downloads
         if (this.isBulkDownloading) {
             console.warn('[MediaManager] Download already in progress');
             return;
         }
-
-        // Check if already downloaded and cache is still valid
-        if (this.isCacheValid(gameVersion, userType)) {
-            console.log(`[MediaManager] Cache already valid for ${cacheKey}`);
-            if (onProgress) {
-                const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
-                onProgress({
-                    downloaded: mediaFiles.length,
-                    total: mediaFiles.length,
-                    currentFile: '',
-                    isComplete: true,
-                    errors: []
-                });
-            }
-            return;
-        }
-
         this.isBulkDownloading = true;
         this.bulkDownloadAbortController = new AbortController();
 
         try {
-            const mediaFiles = this.extractUniqueMediaPaths(slides, userType, gameVersion);
+            // Check our content version, if we are expired, lets clear everything and reupdate
+            const cachedContentVersion = localStorage.getItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY);
+            if (cachedContentVersion !== this.BULK_DOWNLOAD_CURRENT_CONTENT_VERSION) {
+                console.log('[MediaManager] Content version outdated, clearing cache');
+                await this.clearCache();
+            }
+
+            // Check if already downloaded and cache is still valid
+            const filePaths = this.getSlidePathsFromVersion(gameVersion, userType);
+            const missingPaths = await this.checkCacheForPaths(filePaths);
+            if (missingPaths.length === 0) {
+                console.log(`[MediaManager] Cache already has content`);
+                if (onProgress) {
+                    onProgress({
+                        downloaded: filePaths.length,
+                        total: filePaths.length,
+                        currentFile: '',
+                        isComplete: true,
+                        errors: []
+                    });
+                }
+                this.isBulkDownloading = false;
+                return;
+            }
 
             this.bulkDownloadProgress = {
-                downloaded: 0,
-                total: mediaFiles.length,
+                downloaded: filePaths.length - missingPaths.length,
+                total: filePaths.length,
                 currentFile: '',
                 isComplete: false,
                 errors: []
             };
 
-            console.log(`[MediaManager] Bulk downloading ${mediaFiles.length} files for ${cacheKey}`);
+            console.log(`[MediaManager] Bulk downloading ${filePaths.length} files`);
 
             // Download in batches to avoid overwhelming the browser
-            const batches = this.chunkArray(mediaFiles, concurrent);
+            const batches = this.chunkArray(missingPaths, concurrent);
 
             for (const batch of batches) {
                 if (this.bulkDownloadAbortController.signal.aborted) {
@@ -370,26 +365,20 @@ class MediaManager {
                 await Promise.all(promises);
             }
 
-            this.bulkDownloadProgress.isComplete = true;
-
+            
             if (this.bulkDownloadAbortController.signal.aborted) {
                 console.log('[MediaManager] Bulk download canceled');
                 this.bulkDownloadProgress.currentFile = 'cancelled';
                 onProgress?.(this.bulkDownloadProgress);
                 return;
             }
-
+            
+            this.bulkDownloadProgress.isComplete = true;
             this.bulkDownloadProgress.currentFile = '';
             onProgress?.(this.bulkDownloadProgress);
 
             // Mark bulk download as complete
-            localStorage.setItem(this.BULK_DOWNLOAD_STORAGE_KEY, 'true');
-            localStorage.setItem(this.BULK_DOWNLOAD_VERSION_KEY, cacheKey);
-            localStorage.setItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY, Date.now().toString());
-            localStorage.setItem(
-                this.BULK_DOWNLOAD_CONTENT_VERSION_KEY,
-                this.BULK_DOWNLOAD_CURRENT_CONTENT_VERSION
-            );
+            localStorage.setItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY, this.BULK_DOWNLOAD_CURRENT_CONTENT_VERSION);
 
             console.log(
                 `[MediaManager] Bulk download complete. ` +
@@ -403,15 +392,30 @@ class MediaManager {
     }
 
     /**
-     * Extracts all unique media file paths from slides
+     * Get slides array for a specific game version
      */
-    private extractUniqueMediaPaths(
-        slides: Slide[],
-        userType: UserType,
-        gameVersion?: GameVersion
-    ): string[] {
-        const mediaPaths = new Set<string>();
+    private getSlidePathsFromVersion(gameVersion: GameVersion, userType: UserType): string[] {
+        let slides: Slide[];
+        switch (gameVersion) {
+            case GameVersion.V1_5_DD:
+                 slides = readyOrNotGame_1_5_DD.slides;
+                 break;
+            case GameVersion.V1_5_NO_DD:
+                slides = readyOrNotGame_1_5_NO_DD.slides;
+                 break;
+            case GameVersion.V1_5_ACADEMIC:
+                slides = readyOrNotGame_1_5_ACADEMIC.slides;
+                 break;
+            case GameVersion.V2_0_NO_DD:
+                slides = readyOrNotGame_2_0_NO_DD.slides;
+                 break;
+            case GameVersion.V2_0_DD:
+            default:
+                slides = readyOrNotGame_2_0_DD.slides;
+                 break;
+        }
 
+        const mediaPaths = new Set<string>();
         slides.forEach(slide => {
             if (slide.source_path) {
                 const resolvedPath = this.resolveMediaPath(
@@ -423,8 +427,7 @@ class MediaManager {
             }
         });
 
-        return Array.from(mediaPaths);
-    }
+        return Array.from(mediaPaths);    }
 
     /**
      * Helper to chunk array into smaller arrays
@@ -438,46 +441,31 @@ class MediaManager {
     }
 
     /**
-     * Check if bulk download cache is valid
+     * Check if bulk download cache contains given slidepaths.
      */
-    private isCacheValid(gameVersion?: GameVersion, userType?: UserType): boolean {
-        const isComplete = localStorage.getItem(this.BULK_DOWNLOAD_STORAGE_KEY) === 'true';
-        const storedVersion = localStorage.getItem(this.BULK_DOWNLOAD_VERSION_KEY);
-        const currentVersion = `${gameVersion || 'default'}-${userType || 'academic'}`;
+    private async checkCacheForPaths(slidePaths: string[]): Promise<string[]> {
+        // Run cleanup first to avoid validating expired content
+        this.cleanupExpiredCache();
 
-        if (!isComplete || storedVersion !== currentVersion) {
-            return false;
-        }
-
-        // Check content version
-        const cachedContentVersion = localStorage.getItem(
-            this.BULK_DOWNLOAD_CONTENT_VERSION_KEY
-        );
+        // Check our content version, if we are expired, everything needs to be redownloaded
+        const cachedContentVersion = localStorage.getItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY);
         if (cachedContentVersion !== this.BULK_DOWNLOAD_CURRENT_CONTENT_VERSION) {
-            console.log('[MediaManager] Content version mismatch, cache invalid');
-            return false;
+            return slidePaths;
         }
 
-        // Check timestamp expiry
-        const timestamp = localStorage.getItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY);
-        if (timestamp) {
-            const cacheAge = Date.now() - parseInt(timestamp);
-            const maxAge = this.BULK_DOWNLOAD_CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-
-            if (cacheAge > maxAge) {
-                console.log('[MediaManager] Cache expired, needs refresh');
-                return false;
+        // Get all keys currently in IndexedDB
+        const cachedKeys = await indexedDBCache.getAllKeys();
+        const cachedKeysSet = new Set(cachedKeys);
+        
+        // Find missing files
+        const missingFiles: string[] = [];
+        for (const filePath of slidePaths) {
+            if (!cachedKeysSet.has(filePath)) {
+                missingFiles.push(filePath);
             }
         }
 
-        return true;
-    }
-
-    /**
-     * Check if bulk download is complete
-     */
-    public isBulkDownloadComplete(gameVersion?: GameVersion, userType?: UserType): boolean {
-        return this.isCacheValid(gameVersion, userType);
+        return missingFiles;
     }
 
     public isBulkDownloadInProgress(){
@@ -489,41 +477,6 @@ class MediaManager {
      */
     public getBulkDownloadProgress(): BulkDownloadProgress | null {
         return this.bulkDownloadProgress;
-    }
-
-    /**
-     * Get cache info for display
-     */
-    public getCacheInfo(gameVersion?: GameVersion, userType?: UserType): {
-        isComplete: boolean;
-        isValid: boolean;
-        cachedVersion: string | null;
-        timestamp: Date | null;
-        daysOld: number | null;
-        contentVersion: string | null;
-    } {
-        const storedVersion = localStorage.getItem(this.BULK_DOWNLOAD_VERSION_KEY);
-        const timestamp = localStorage.getItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY);
-        const contentVersion = localStorage.getItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY);
-        const isComplete = localStorage.getItem(this.BULK_DOWNLOAD_STORAGE_KEY) === 'true';
-
-        let daysOld = null;
-        let timestampDate = null;
-
-        if (timestamp) {
-            const ts = parseInt(timestamp);
-            timestampDate = new Date(ts);
-            daysOld = Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000));
-        }
-
-        return {
-            isComplete,
-            isValid: this.isCacheValid(gameVersion, userType),
-            cachedVersion: storedVersion,
-            timestamp: timestampDate,
-            daysOld,
-            contentVersion
-        };
     }
 
     /**
@@ -556,10 +509,6 @@ class MediaManager {
      * Clear bulk download cache and reset completion status
      */
     public clearBulkDownloadCache(): void {
-        localStorage.removeItem(this.BULK_DOWNLOAD_STORAGE_KEY);
-        localStorage.removeItem(this.BULK_DOWNLOAD_VERSION_KEY);
-        localStorage.removeItem(this.BULK_DOWNLOAD_TIMESTAMP_KEY);
-        localStorage.removeItem(this.BULK_DOWNLOAD_CONTENT_VERSION_KEY);
         this.clearCache();
         this.bulkDownloadProgress = null;
         this.isBulkDownloading = false;

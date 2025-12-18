@@ -1,22 +1,13 @@
 import {useState, useCallback } from 'react';
-import {mediaManager} from '@shared/services/MediaManager';
-import {GameVersion, Slide} from '@shared/types/game';
+import {BulkDownloadProgress, mediaManager} from '@shared/services/MediaManager';
+import {GameVersion} from '@shared/types/game';
 import {UserType} from '@shared/constants/formOptions';
-
-interface BulkDownloadProgress {
-    downloaded: number;
-    total: number;
-    currentFile: string;
-    isComplete: boolean;
-    errors: string[];
-}
 
 interface UseBulkMediaDownloadReturn {
     isDownloading: boolean;
     progress: BulkDownloadProgress | null;
-    startDownload: (slides: Slide[], userType: UserType, gameVersion: GameVersion) => Promise<void>;
+    startDownload: (gameVersion: GameVersion, userType: UserType) => Promise<void>;
     cancelDownload: () => void;
-    isDownloadComplete: (gameVersion?: GameVersion, userType?: UserType) => boolean;
     clearCache: () => void;
     error: string | null;
 }
@@ -28,9 +19,8 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
     const [cacheCleared, setCacheCleared] = useState<number>(0); // ADD THIS - forces re-render
 
     const startDownload = useCallback(async (
-        slides: Slide[],
-        userType: UserType,
-        gameVersion?: GameVersion
+        gameVersion: GameVersion,
+        userType: UserType
     ): Promise<void> => {
         
         if (mediaManager.isBulkDownloadInProgress()) return;
@@ -39,14 +29,11 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
         setProgress(null);
 
         try {
-            await mediaManager.bulkDownloadAllMedia(slides, {
+            await mediaManager.ensureAllMediaIsCached(
                 gameVersion,
                 userType,
-                concurrent: 3,
-                onProgress: (progressData) => {
-                    setProgress({...progressData});
-                }
-            });
+                (progressData: BulkDownloadProgress) => { setProgress({ ...progressData }); },
+                3);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error during bulk download';
             setError(errorMessage);
@@ -55,11 +42,6 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
             setIsDownloading(false);
         }
     }, []);
-
-    const isDownloadComplete = useCallback((gameVersion?: GameVersion, userType?: UserType): boolean => {
-        // The cacheCleared dependency forces this to re-evaluate when cache is cleared
-        return mediaManager.isBulkDownloadComplete(gameVersion, userType);
-    }, [cacheCleared]); // ADD cacheCleared as dependency
 
     const cancelDownload = useCallback((): void => mediaManager.cancelBulkDownload(), []);
 
@@ -75,7 +57,6 @@ export const useBulkMediaDownload = (): UseBulkMediaDownloadReturn => {
         progress,
         startDownload,
         cancelDownload,
-        isDownloadComplete,
         clearCache,
         error
     };
