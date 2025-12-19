@@ -357,12 +357,6 @@ export const useHostVideo = ({sessionId, sourceUrl, isEnabled}: UseHostVideoProp
                         return;
                     }
 
-                    // Don't auto-play if video is not ready
-                    if (video.readyState < 2) {
-                        videoDebug.videoLog('useHostVideo', 'Video not ready, skipping auto-play');
-                        return;
-                    }
-
                     try {
                         // Auto-play logic using current state from ref
                         video.currentTime = 0; // Start from beginning

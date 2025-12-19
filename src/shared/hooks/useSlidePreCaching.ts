@@ -18,7 +18,7 @@ interface UseSlidePreCachingOptions {
  *
  * @param slides Array of all slides in the presentation
  * @param currentSlideIndex The current slide index
- * @param gameVersion Game version for 1.5 slide logic
+ * @param gameVersion Game version for version-specific slide logic
  * @param options Precaching configuration options
  */
 export const useSlidePreCaching = (

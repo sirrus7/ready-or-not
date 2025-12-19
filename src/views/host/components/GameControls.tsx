@@ -128,9 +128,8 @@ const GameControls: React.FC<GameControlsProps> = ({joinInfo, setJoinInfo, isJoi
             {showBulkDownload && state.gameStructure && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <BulkMediaDownload
-                        slides={state.gameStructure.slides}
-                        userType={getUserType(user)}
                         gameVersion={gameVersion}
+                        userType={getUserType(user)}
                         onClose={() => setShowBulkDownload(false)}
                     />
                 </div>

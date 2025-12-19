@@ -1,36 +1,37 @@
-import React from 'react';
-import {Download, CheckCircle, AlertCircle, X} from 'lucide-react';
+import React, { useEffect } from 'react';
+import { CheckCircle, AlertCircle, X} from 'lucide-react';
 import {useBulkMediaDownload} from '@shared/hooks/useBulkMediaDownload';
-import {GameVersion, Slide} from '@shared/types/game';
+import {GameVersion} from '@shared/types/game';
 import {UserType} from '@shared/constants/formOptions';
 
 interface BulkMediaDownloadProps {
-    slides: Slide[],
-    userType: UserType,
     gameVersion: GameVersion,
+    userType: UserType,
     onClose?: () => void,
 }
 
 export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
-                                                                        slides,
-                                                                        userType,
                                                                         gameVersion,
+                                                                        userType,
                                                                         onClose,
                                                                     }) => {
     const {
         isDownloading,
         progress,
         startDownload,
-        isDownloadComplete,
+        cancelDownload,
         clearCache,
         error
-    } = useBulkMediaDownload();
+    } = useBulkMediaDownload();    
 
-    const downloadComplete = isDownloadComplete(gameVersion, userType);
+    useEffect(() => {
+        startDownload(gameVersion, userType);
+    }, [])
+
     const progressPercent = progress ? Math.round((progress.downloaded / progress.total) * 100) : 0;
 
     const handleStartDownload = async (): Promise<void> => {
-        await startDownload(slides, userType, gameVersion);
+        await startDownload(gameVersion, userType);
     };
 
     const handleClearCache = async (): Promise<void> => {
@@ -42,18 +43,17 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
         <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 max-w-md mx-auto">
             <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">Preload Media</h3>
-                {onClose && (
+                {onClose &&(
                     <button
-                        onClick={onClose}
+                        onClick={() => {cancelDownload(); onClose();}}
                         className="text-gray-500 hover:text-gray-700"
-                        disabled={isDownloading}
                     >
                         <X size={20}/>
                     </button>
                 )}
             </div>
 
-            {downloadComplete && !isDownloading && (
+            {progress?.isComplete && !isDownloading && (
                 <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-center text-green-800">
                         <CheckCircle size={20} className="mr-2"/>
@@ -101,18 +101,7 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
             )}
 
             <div className="space-y-3">
-                {!downloadComplete && !isDownloading && (
-                    <button
-                        onClick={handleStartDownload}
-                        className="w-full flex items-center justify-center px-4 py-2 bg-game-orange-500 hover:bg-game-orange-600 text-white rounded-lg font-medium transition-colors"
-                        disabled={isDownloading}
-                    >
-                        <Download size={18} className="mr-2"/>
-                        Preload All Media ({slides.filter(s => s.source_path).length} files)
-                    </button>
-                )}
-
-                {(downloadComplete || error) && (
+                {(error) || progress?.isComplete && (
                     <button
                         onClick={handleClearCache}
                         className="w-full px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
@@ -125,7 +114,7 @@ export const BulkMediaDownload: React.FC<BulkMediaDownloadProps> = ({
 
             <div className="mt-4 text-xs text-gray-500">
                 <p>This will preload all presentation media to your device for faster loading.</p>
-                {downloadComplete && (
+                {progress?.isComplete && (
                     <p className="mt-1 text-green-600">✓ Files cached locally - Playback is not dependent on internet speed</p>
                 )}
             </div>

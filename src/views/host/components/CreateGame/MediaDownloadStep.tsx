@@ -24,47 +24,41 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
         isDownloading,
         progress,
         startDownload,
-        isDownloadComplete,
+        cancelDownload,
         clearCache,
         error
     } = useBulkMediaDownload();
 
-    const downloadComplete = isDownloadComplete(gameData.game_version, userType);
-    const progressPercent = progress ? Math.round((progress.downloaded / progress.total) * 100) : 0;
+    const progressPercent = progress ?
+        Math.round((progress.downloaded / progress.total) * 100) : 0;
     const [userOptedOut, setUserOptedOut] = React.useState(false);
-    const hasAttemptedAutoStart = React.useRef(false);
 
     // Auto-start download on mount if not already complete and user hasn't opted out
     useEffect(() => {
-        // Only attempt once
-        if (hasAttemptedAutoStart.current) {
-            return;
-        }
-
-        if (!downloadComplete && !isDownloading && !error && !userOptedOut) {
+        if (!progress?.isComplete && !isDownloading && !error && !userOptedOut) {
             console.log('[MediaDownloadStep] Auto-starting download...');
-            hasAttemptedAutoStart.current = true;
-            startDownload(gameStructure.slides, userType, gameData.game_version);
+            startDownload(gameData.game_version, userType, );
         }
-    }, [downloadComplete, isDownloading, error, userOptedOut, gameStructure.slides, userType, gameData.game_version, startDownload]);
+    }, [isDownloading, error, userOptedOut, gameStructure.slides, userType, gameData.game_version, startDownload]);
 
     const handleSkipAndContinue = (): void => {
+        cancelDownload();
         setUserOptedOut(true);
         console.log('[MediaDownloadStep] User skipped download');
     };
 
-    const handleRetry = async (): Promise<void> => {
+    const handleStartDownloadAgain = async (): Promise<void> => {
         setUserOptedOut(false);
-        await startDownload(gameStructure.slides, userType, gameData.game_version);
+        await startDownload(gameData.game_version, userType);
     };
 
     const handleClearAndRedownload = async (): Promise<void> => {
         clearCache();
         setUserOptedOut(false);
-        await startDownload(gameStructure.slides, userType, gameData.game_version);
+        await startDownload(gameData.game_version, userType);
     };
 
-    const canProceed = downloadComplete || userOptedOut || error;
+    const canProceed = progress?.isComplete || userOptedOut || error;
 
     return (
         <div className="space-y-6">
@@ -96,7 +90,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
             </div>
 
             {/* Already Downloaded Status */}
-            {downloadComplete && !isDownloading && (
+            {progress?.isComplete && !isDownloading && (
                 <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-start">
                         <CheckCircle size={24} className="text-green-600 mr-3 flex-shrink-0 mt-0.5"/>
@@ -129,7 +123,8 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                                 Loading Media Files
                             </h3>
                             <p className="text-sm text-blue-700 mb-3">
-                                Please wait while we preload all presentation content. This may take a minute...
+                                Please wait while we preload all presentation content.
+                                This may take a minute...
                             </p>
 
                             <div className="space-y-2">
@@ -160,17 +155,6 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                                     </p>
                                 )}
                             </div>
-
-                            {/* ADD: Continue Anyway button during download */}
-                            <div className="mt-4 pt-4 border-t border-blue-200">
-                                <button
-                                    onClick={handleSkipAndContinue}
-                                    className="text-sm text-blue-700 hover:text-blue-900 underline flex items-center gap-1"
-                                >
-                                    <ArrowRight size={14}/>
-                                    Continue anyway without waiting (not recommended)
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -189,7 +173,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                                 {error}
                             </p>
                             <button
-                                onClick={handleRetry}
+                                onClick={handleStartDownloadAgain}
                                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg font-medium transition-colors"
                             >
                                 Try Again
@@ -200,7 +184,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
             )}
 
             {/* Skipped Status */}
-            {userOptedOut && !downloadComplete && !isDownloading && (
+            {userOptedOut && !isDownloading && (
                 <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                     <div className="flex items-start">
                         <AlertCircle size={24} className="text-yellow-600 mr-3 flex-shrink-0 mt-0.5"/>
@@ -213,36 +197,16 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                                 delays during your presentation.
                             </p>
                             <button
-                                onClick={handleRetry}
+                                onClick={handleStartDownloadAgain}
                                 className="text-sm text-yellow-700 underline hover:text-yellow-800 flex items-center gap-1"
                             >
                                 <Download size={14}/>
-                                Preload anyway
+                                Start preloading now
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-
-            {/* Info Box - Only show if not downloaded and not downloading */}
-            {!downloadComplete && !isDownloading && !userOptedOut && !error && (
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <h4 className="font-semibold text-gray-800 mb-2 text-sm flex items-center">
-                        <Info size={16} className="mr-2"/>
-                        Why preload content?
-                    </h4>
-                    <ul className="text-xs text-gray-700 space-y-1.5 list-disc list-inside">
-                        <li>Instant slide loading with no delays</li>
-                        <li>Smooth video playback without buffering</li>
-                        <li>Works even with poor internet connection</li>
-                        <li>Better presentation experience overall</li>
-                    </ul>
-                    <p className="text-xs text-blue-600 mt-3 font-medium">
-                        💡 Content is shared across all games using <strong>{gameVersionDisplayName}</strong>
-                    </p>
-                </div>
-            )}
-
             {/* Navigation Buttons */}
             <div className="flex justify-between items-center pt-4">
                 <button
@@ -255,7 +219,7 @@ const MediaDownloadStep: React.FC<MediaDownloadStepProps> = ({
                 </button>
 
                 <div className="flex gap-3">
-                    {!downloadComplete && !userOptedOut && !isDownloading && !error && (
+                    {!progress?.isComplete && !userOptedOut && !error && (
                         <button
                             type="button"
                             onClick={handleSkipAndContinue}
