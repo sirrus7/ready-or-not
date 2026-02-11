@@ -40,7 +40,7 @@ const RoomSetupStep: React.FC<RoomSetupStepProps> = ({
     useEffect(() => {
         const loadSetupImage = async () => {
             try {
-                const url = await mediaManager.getSignedUrl('Slide_003.jpg');
+                const url = await mediaManager.getMediaUrl('Slide_003.jpg');
                 setSetupImageUrl(url);
             } catch (error) {
                 console.error('Failed to load setup image:', error);

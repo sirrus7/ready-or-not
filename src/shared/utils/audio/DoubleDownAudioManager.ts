@@ -103,7 +103,7 @@ class DoubleDownAudioManager {
                     }
 
                     // Get signed URL
-                    const introUrl: string = await mediaManager.getSignedUrl(introPath);
+                    const introUrl: string = await mediaManager.getMediaUrl(introPath);
 
                     // Fetch the audio file as a blob immediately
                     const response: Response = await fetch(introUrl);
@@ -184,7 +184,7 @@ class DoubleDownAudioManager {
                 return false;
             }
 
-            const resultUrl: string = await mediaManager.getSignedUrl(resultPath);
+            const resultUrl: string = await mediaManager.getMediaUrl(resultPath);
 
             const response: Response = await fetch(resultUrl);
             if (!response.ok) {
