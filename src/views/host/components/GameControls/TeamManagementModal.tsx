@@ -30,9 +30,9 @@ const TeamManagementModal: React.FC<TeamManagementModalProps> = ({isOpen, onClos
     const [isRemoving, setIsRemoving] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Update suggested name when teams change
+    // Update suggested name when teams change (only if current name conflicts with an existing team)
     React.useEffect(() => {
-        if (!newTeamName || teams.some((t: Team) => t.name.toUpperCase() === newTeamName.toUpperCase())) {
+        if (newTeamName && teams.some((t: Team) => t.name.toUpperCase() === newTeamName.toUpperCase())) {
             setNewTeamName(getNextAvailableName);
         }
     }, [teams, getNextAvailableName, newTeamName]);
