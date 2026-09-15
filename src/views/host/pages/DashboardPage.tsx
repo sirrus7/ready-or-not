@@ -3,21 +3,18 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
 import {
     PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, LogOut,
-    Download, BookOpen, Users, TrendingUp, Bot, GraduationCap,
-    LifeBuoy, Mail, Phone, Star, Printer
+    TrendingUp, Printer
 } from 'lucide-react';
 import {useAuth} from '@app/providers/AuthProvider';
 import {useDashboardData} from '@views/host/hooks/useDashboardData';
 import {useDashboardActions} from '@views/host/hooks/useDashboardActions';
 import NotificationBanner from '@views/host/components/Dashboard/NotificationBanner';
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
-import HowToHostVideos from '@views/host/components/Dashboard/HowToHostVideos';
+import TrainingSupportSection from '@views/host/components/Dashboard/TrainingSupportSection';
 import {GameSession} from '@shared/types';
 import RonBotWidget from '@shared/components/RonBotWidget';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
-import {RONBOT_GPT_URL} from "@views/host/components/GameControls/RonBotHelpModal";
 import { GameVersionManager } from '@core/game/GameVersionManager';
-import { CheckCircle2 } from 'lucide-react';
 import PrintHandoutsModal from '../components/Dashboard/PrintHandoutsModel';
 
 const DashboardPage: React.FC = () => {
@@ -509,152 +506,8 @@ const DashboardPage: React.FC = () => {
 
                     {/* Sidebar */}
                     <div className="space-y-6">
-                        {/* Training & Support - Prominent Section */}
-                        <div
-                            className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-xl border-2 border-blue-200">
-                            <div className="p-6 border-b border-blue-200 bg-white bg-opacity-80 rounded-t-2xl">
-                                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3 mb-3">
-                                    <div className="bg-blue-100 p-3 rounded-xl">
-                                        <LifeBuoy size={28} className="text-blue-600"/>
-                                    </div>
-                                    Training & Support
-                                </h2>
-                                <p className="text-blue-800 text-base leading-relaxed">
-                                    Below is the fastest
-                                    path to answering questions, resolving issues and hosting a game.
-                                </p>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                {/* How to Host Guide - Very Prominent */}
-                                <a
-                                    href="/game-materials/core/how-to-host-guide.pdf"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-4 p-4 rounded-xl bg-white shadow-lg border-2 border-green-200 hover:border-green-300 hover:shadow-xl transition-all group"
-                                >
-                                    <div
-                                        className="bg-green-100 p-3 rounded-xl group-hover:bg-green-200 transition-colors">
-                                        <GraduationCap size={24} className="text-green-600"/>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                            How to Host Guide
-                                            <Star size={16} className="text-yellow-500"/>
-                                        </div>
-                                        <div className="text-sm text-green-700 font-medium">
-                                            The guide for hosting RON 2.0
-                                        </div>
-                                    </div>
-                                    <Download size={20}
-                                              className="text-gray-400 group-hover:text-green-600 transition-colors"/>
-                                </a>
-                                {/* Application Validation */}
-                                <Link
-                                    to="/validation"
-                                    className="flex items-center gap-4 p-4 rounded-xl bg-white shadow-lg border-2 border-blue-200 hover:border-blue-300 hover:shadow-xl transition-all group"
-                                >
-                                    <div
-                                        className="bg-blue-100 p-3 rounded-xl group-hover:bg-blue-200 transition-colors">
-                                        <CheckCircle2 size={24} className="text-blue-600"/>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-lg font-bold text-gray-900">Application Validation</div>
-                                        <div className="text-sm text-blue-700 font-medium">
-                                            Validate Connectivity, Functionality, and Performance
-                                        </div>
-                                    </div>
-                                    <TrendingUp size={20}
-                                                className="text-gray-400 group-hover:text-blue-600 transition-colors"/>
-                                </Link>
-                                {/* RONBOT - Very Prominent */}
-                                <a
-                                    href={RONBOT_GPT_URL}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-4 p-4 rounded-xl bg-white shadow-lg border-2 border-purple-200 hover:border-purple-300 hover:shadow-xl transition-all group"
-                                >
-                                    <div
-                                        className="bg-purple-100 p-3 rounded-xl group-hover:bg-purple-200 transition-colors">
-                                        <Bot size={24} className="text-purple-600"/>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-lg font-bold text-gray-900">RONBOT</div>
-                                        <div className="text-sm text-purple-700 font-medium">
-                                            Your first stop for answers to questions & troubleshooting
-                                        </div>
-                                    </div>
-                                    <TrendingUp size={20}
-                                                className="text-gray-400 group-hover:text-purple-600 transition-colors"/>
-                                </a>
-
-                                {/* How to Host Videos */}
-                                <HowToHostVideos/>
-
-                                {/* Vocabulary & Quiz */}
-                                <a
-                                    href="/game-materials/core/vocabulary-definitions.pdf"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group"
-                                >
-                                    <div
-                                        className="bg-blue-100 p-2 rounded-lg group-hover:bg-blue-200 transition-colors">
-                                        <BookOpen size={18} className="text-blue-600"/>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-medium text-gray-900">Vocabulary & Definitions</div>
-                                        <div className="text-sm text-gray-500">Business terms reference</div>
-                                    </div>
-                                    <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
-                                </a>
-
-                                <a
-                                    href="/game-materials/core/vocabulary-quiz.pdf"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group"
-                                >
-                                    <div
-                                        className="bg-orange-100 p-2 rounded-lg group-hover:bg-orange-200 transition-colors">
-                                        <Users size={18} className="text-orange-600"/>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-medium text-gray-900">Vocabulary Quiz</div>
-                                        <div className="text-sm text-gray-500">Assessment tool for students</div>
-                                    </div>
-                                    <Download size={16} className="text-gray-400 group-hover:text-gray-600"/>
-                                </a>
-
-                                {/* Contact Section */}
-                                <div className="border-t border-blue-200 pt-4 mt-6">
-                                    <h4 className="font-semibold text-gray-900 mb-3 text-center">Need Personal
-                                        Support?</h4>
-                                    <div className="space-y-2">
-                                        <a
-                                            href="mailto:ehedaa.igd@shiftadvantage.com"
-                                            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group text-center justify-center"
-                                        >
-                                            <div
-                                                className="bg-blue-100 p-2 rounded-lg group-hover:bg-blue-200 transition-colors">
-                                                <Mail size={16} className="text-blue-600"/>
-                                            </div>
-                                            <div className="font-medium text-gray-900">Email Support</div>
-                                        </a>
-
-                                        <a
-                                            href="tel:+1-503-333-8687"
-                                            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group text-center justify-center"
-                                        >
-                                            <div
-                                                className="bg-green-100 p-2 rounded-lg group-hover:bg-green-200 transition-colors">
-                                                <Phone size={16} className="text-green-600"/>
-                                            </div>
-                                            <div className="font-medium text-gray-900">Call (503) 333-8687</div>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        {/* Training & Support */}
+                        <TrainingSupportSection/>
 
                         {/* Quick Stats */}
                         <div
