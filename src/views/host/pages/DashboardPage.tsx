@@ -4,13 +4,14 @@ import {Link, useLocation, useNavigate} from 'react-router-dom';
 import {
     PlusCircle, Play, Edit, Clock, CheckCircle, Trash2, BarChart3, LogOut,
     Download, BookOpen, Users, TrendingUp, Bot, GraduationCap,
-    LifeBuoy, Mail, Phone, PlayCircle, Star, Printer
+    LifeBuoy, Mail, Phone, Star, Printer
 } from 'lucide-react';
 import {useAuth} from '@app/providers/AuthProvider';
 import {useDashboardData} from '@views/host/hooks/useDashboardData';
 import {useDashboardActions} from '@views/host/hooks/useDashboardActions';
 import NotificationBanner from '@views/host/components/Dashboard/NotificationBanner';
 import DeleteConfirmModal from '@views/host/components/Dashboard/DeleteConfirmModal';
+import HowToHostVideos from '@views/host/components/Dashboard/HowToHostVideos';
 import {GameSession} from '@shared/types';
 import RonBotWidget from '@shared/components/RonBotWidget';
 import {readyOrNotGame_2_0_DD} from '@core/content/GameStructure';
@@ -586,19 +587,8 @@ const DashboardPage: React.FC = () => {
                                                 className="text-gray-400 group-hover:text-purple-600 transition-colors"/>
                                 </a>
 
-                                {/* How to Host Video - Placeholder */}
-                                <div
-                                    className="flex items-center gap-3 p-4 rounded-lg bg-gray-100 border-2 border-gray-200">
-                                    <div className="bg-gray-200 p-2 rounded-lg">
-                                        <PlayCircle size={20} className="text-gray-500"/>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-semibold text-gray-600">How to Host Video</div>
-                                        <div className="text-sm text-gray-500">Coming Soon - Video tutorial for
-                                            hosting
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* How to Host Videos */}
+                                <HowToHostVideos/>
 
                                 {/* Vocabulary & Quiz */}
                                 <a
