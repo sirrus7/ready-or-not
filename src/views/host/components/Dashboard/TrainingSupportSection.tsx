@@ -63,7 +63,10 @@ const rowClass =
     'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/80 transition-colors group text-left';
 
 const GroupHeading: React.FC<{children: React.ReactNode}> = ({children}) => (
-    <h3 className="text-sm font-semibold text-gray-700 px-3 pb-1">{children}</h3>
+    <div className="flex items-center gap-3 px-3 pb-2.5">
+        <h3 className="text-base font-semibold text-gray-900 whitespace-nowrap">{children}</h3>
+        <div className="flex-1 h-px bg-blue-200" aria-hidden="true"/>
+    </div>
 );
 
 const TrainingSupportSection: React.FC = () => {
@@ -110,28 +113,29 @@ const TrainingSupportSection: React.FC = () => {
                 </h2>
             </div>
 
-            <div className="p-4 space-y-5">
-                {/* Learn to host */}
+            <div className="p-4 space-y-7">
+                {/* Start here */}
                 <div>
-                    <GroupHeading>Learn to host</GroupHeading>
+                    <GroupHeading>Start here</GroupHeading>
                     <a
                         href="/game-materials/core/how-to-host-guide.pdf"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-4 rounded-xl bg-white shadow-sm border border-blue-200 hover:border-blue-400 hover:shadow transition-all group"
+                        className={rowClass}
                     >
-                        <div className="shrink-0 bg-blue-600 p-2.5 rounded-lg">
-                            <GraduationCap size={22} className="text-white"/>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="font-bold text-gray-900">How to Host Guide</div>
-                            <div className="text-sm text-gray-500">
-                                Start here — the complete guide to hosting RON 2.0
-                            </div>
-                        </div>
-                        <Download size={18} className="text-gray-400 group-hover:text-blue-600 transition-colors"/>
+                        <RowBody
+                            chip={<GraduationCap size={18}/>}
+                            title="How to Host Guide"
+                            description="The complete guide to hosting RON 2.0"
+                            trailing={<Download size={16}/>}
+                        />
                     </a>
-                    <div className="mt-1">
+                </div>
+
+                {/* How to Host videos */}
+                <div>
+                    <GroupHeading>How to Host videos</GroupHeading>
+                    <div>
                         {HOST_VIDEOS.map((video) => (
                             <button
                                 key={video.part}
